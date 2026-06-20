@@ -4,14 +4,13 @@ import logoImg from '../assets/tradediary_logo.png';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
 
 export function AuthScreen() {
-  const { signInUser, signUpUser, signInUserWithGoogle } = useTradeStore();
+  const { signInUser, signUpUser } = useTradeStore();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,16 +47,6 @@ export function AuthScreen() {
       if (signInErr) {
         setError(signInErr.message || 'Invalid email or password.');
       }
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setError(null);
-    setGoogleLoading(true);
-    const { error: oAuthErr } = await signInUserWithGoogle();
-    if (oAuthErr) {
-      setError(oAuthErr.message || 'Failed to authenticate with Google.');
-      setGoogleLoading(false);
     }
   };
 
@@ -155,7 +144,7 @@ export function AuthScreen() {
               placeholder="name@domain.com"
               className="form-input"
               required
-              disabled={loading || googleLoading}
+              disabled={loading}
               autoFocus
             />
           </div>
@@ -171,7 +160,7 @@ export function AuthScreen() {
               placeholder="••••••••"
               className="form-input"
               required
-              disabled={loading || googleLoading}
+              disabled={loading}
             />
           </div>
 
@@ -187,7 +176,7 @@ export function AuthScreen() {
                 placeholder="••••••••"
                 className="form-input"
                 required
-                disabled={loading || googleLoading}
+                disabled={loading}
               />
             </div>
           )}
@@ -205,10 +194,10 @@ export function AuthScreen() {
               gap: '8px',
               fontSize: '0.88rem',
               fontWeight: 600,
-              cursor: loading || googleLoading ? 'not-allowed' : 'pointer',
-              opacity: loading || googleLoading ? 0.7 : 1
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1
             }}
-            disabled={loading || googleLoading}
+            disabled={loading}
           >
             {loading ? (
               <Loader2 size={16} className="animate-spin" />
@@ -220,61 +209,6 @@ export function AuthScreen() {
             <span>{isSignUp ? 'Create SaaS Account' : 'Sign In to Journal'}</span>
           </button>
         </form>
-
-        {/* Divider */}
-        <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0', gap: '10px' }}>
-          <div style={{ flexGrow: 1, height: '1px', background: 'var(--border-color)' }}></div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Or continue with</span>
-          <div style={{ flexGrow: 1, height: '1px', background: 'var(--border-color)' }}></div>
-        </div>
-
-        {/* Google OAuth Button */}
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          style={{
-            width: '100%',
-            height: '42px',
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            color: 'var(--text-main)',
-            fontSize: '0.85rem',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            cursor: loading || googleLoading ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            opacity: loading || googleLoading ? 0.7 : 1
-          }}
-          disabled={loading || googleLoading}
-        >
-          {googleLoading ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 18 18">
-              <path
-                fill="#4285F4"
-                d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.79 2.7v2.24h2.9c1.69-1.55 2.69-3.84 2.69-6.57z"
-              />
-              <path
-                fill="#34A853"
-                d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.24c-.8.54-1.84.87-3.06.87-2.35 0-4.34-1.59-5.05-3.73H.95v2.3C2.43 15.98 5.51 18 9 18z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M3.95 10.72A5.4 5.4 0 0 1 3.6 9c0-.6.1-1.18.25-1.72V4.98H.95A8.99 8.99 0 0 0 0 9c0 1.45.35 2.82.95 4.02l3-2.3z"
-              />
-              <path
-                fill="#EA4335"
-                d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.8 11.43 0 9 0 5.51 0 2.43 2.02.95 4.98l3 2.3c.71-2.14 2.7-3.72 5.05-3.72z"
-              />
-            </svg>
-          )}
-          <span>Continue with Google</span>
-        </button>
 
         {/* Switch Modes */}
         <div style={{ marginTop: '28px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>

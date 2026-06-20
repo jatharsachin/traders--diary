@@ -33,7 +33,6 @@ interface TradeStore {
   setSessionUser: (user: any) => void;
   signUpUser: (email: string, pass: string) => Promise<{ error: any }>;
   signInUser: (email: string, pass: string) => Promise<{ error: any }>;
-  signInUserWithGoogle: () => Promise<{ error: any }>;
   signOutUser: () => Promise<{ error: any }>;
   loadUserData: (userId: string) => void;
 
@@ -494,23 +493,6 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       if (!client) return { error: new Error('Supabase client not configured') };
       try {
         const { error } = await client.auth.signInWithPassword({ email, password: pass });
-        if (error) return { error };
-        return { error: null };
-      } catch (e: any) {
-        return { error: e };
-      }
-    },
-
-    signInUserWithGoogle: async () => {
-      const client = getSupabaseClient();
-      if (!client) return { error: new Error('Supabase client not configured') };
-      try {
-        const { error } = await client.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin
-          }
-        });
         if (error) return { error };
         return { error: null };
       } catch (e: any) {
