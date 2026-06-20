@@ -17,7 +17,6 @@ export function AuthScreen() {
     e.preventDefault();
     setError(null);
 
-    // Basic Validation
     if (!email || !password) {
       setError('Please fill in all fields.');
       return;
@@ -39,8 +38,6 @@ export function AuthScreen() {
       if (signUpErr) {
         setError(signUpErr.message || 'An error occurred during Sign Up.');
       } else {
-        // Supabase will automatically send verification email or auto-login depending on config.
-        // Alert the user or let them know.
         alert('Registration request submitted! If email confirmation is enabled, please verify your email before logging in.');
         setIsSignUp(false);
       }
@@ -71,11 +68,12 @@ export function AuthScreen() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--bg-color, #0f172a)',
+        background: 'var(--bg-color)',
         padding: '24px',
-        backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(0, 122, 255, 0.12) 0%, transparent 60%)',
-        fontFamily: 'var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
-        color: 'var(--text-main, #f8fafc)'
+        backgroundImage: 'radial-gradient(circle at 50% 50%, var(--primary-glow) 0%, transparent 60%)',
+        fontFamily: 'var(--font-sans)',
+        color: 'var(--text-main)',
+        transition: 'background-color 0.3s ease'
       }}
     >
       <div
@@ -84,14 +82,8 @@ export function AuthScreen() {
           width: '100%',
           maxWidth: '420px',
           padding: '40px 32px',
-          borderRadius: '16px',
-          boxShadow: 'var(--shadow-glow, 0 8px 32px 0 rgba(0, 0, 0, 0.37))',
-          border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
-          background: 'rgba(30, 41, 59, 0.45)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
           textAlign: 'center',
-          transition: 'all 0.3s ease'
+          boxShadow: 'var(--shadow-glow)'
         }}
       >
         {/* Logo and Brand */}
@@ -104,8 +96,8 @@ export function AuthScreen() {
               height: '84px',
               borderRadius: '22px',
               marginBottom: '16px',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              border: '2px solid var(--border-color)',
+              boxShadow: 'var(--shadow-card)',
               objectFit: 'cover'
             }}
           />
@@ -122,7 +114,7 @@ export function AuthScreen() {
           >
             TradeDiary Pro
           </h2>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 400 }}>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 400 }}>
             Enterprise multi-user trading diary & cognitive journal
           </p>
         </div>
@@ -131,9 +123,9 @@ export function AuthScreen() {
         {error && (
           <div
             style={{
-              color: '#f87171',
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
+              color: 'var(--color-loss)',
+              backgroundColor: 'var(--color-loss-bg)',
+              border: '1px solid var(--color-loss-border)',
               padding: '12px',
               borderRadius: '10px',
               fontSize: '0.78rem',
@@ -153,7 +145,7 @@ export function AuthScreen() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px', textAlign: 'left' }}>
           
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Mail size={12} /> Email Address
             </label>
             <input
@@ -162,15 +154,6 @@ export function AuthScreen() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@domain.com"
               className="form-input"
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
-                color: '#fff',
-                fontSize: '0.85rem'
-              }}
               required
               disabled={loading || googleLoading}
               autoFocus
@@ -178,7 +161,7 @@ export function AuthScreen() {
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Lock size={12} /> Password
             </label>
             <input
@@ -187,15 +170,6 @@ export function AuthScreen() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               className="form-input"
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
-                color: '#fff',
-                fontSize: '0.85rem'
-              }}
               required
               disabled={loading || googleLoading}
             />
@@ -203,7 +177,7 @@ export function AuthScreen() {
 
           {isSignUp && (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Lock size={12} /> Confirm Password
               </label>
               <input
@@ -212,15 +186,6 @@ export function AuthScreen() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 className="form-input"
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                  border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
-                  color: '#fff',
-                  fontSize: '0.85rem'
-                }}
                 required
                 disabled={loading || googleLoading}
               />
@@ -238,7 +203,6 @@ export function AuthScreen() {
               justifyContent: 'center',
               alignItems: 'center',
               gap: '8px',
-              borderRadius: '8px',
               fontSize: '0.88rem',
               fontWeight: 600,
               cursor: loading || googleLoading ? 'not-allowed' : 'pointer',
@@ -259,9 +223,9 @@ export function AuthScreen() {
 
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0', gap: '10px' }}>
-          <div style={{ flexGrow: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }}></div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Or continue with</span>
-          <div style={{ flexGrow: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }}></div>
+          <div style={{ flexGrow: 1, height: '1px', background: 'var(--border-color)' }}></div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Or continue with</span>
+          <div style={{ flexGrow: 1, height: '1px', background: 'var(--border-color)' }}></div>
         </div>
 
         {/* Google OAuth Button */}
@@ -271,10 +235,10 @@ export function AuthScreen() {
           style={{
             width: '100%',
             height: '42px',
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
             borderRadius: '8px',
-            color: '#fff',
+            color: 'var(--text-main)',
             fontSize: '0.85rem',
             fontWeight: 600,
             display: 'flex',
@@ -313,7 +277,7 @@ export function AuthScreen() {
         </button>
 
         {/* Switch Modes */}
-        <div style={{ marginTop: '28px', fontSize: '0.82rem', color: 'var(--text-muted, #94a3b8)' }}>
+        <div style={{ marginTop: '28px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
           {isSignUp ? (
             <span>
               Already have an account?{' '}
@@ -323,7 +287,7 @@ export function AuthScreen() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#f59e0b',
+                  color: 'var(--primary)',
                   fontWeight: 600,
                   cursor: 'pointer',
                   padding: 0,
@@ -342,7 +306,7 @@ export function AuthScreen() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#f59e0b',
+                  color: 'var(--primary)',
                   fontWeight: 600,
                   cursor: 'pointer',
                   padding: 0,
