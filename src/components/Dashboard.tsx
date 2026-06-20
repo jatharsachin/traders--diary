@@ -915,7 +915,7 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div style={{ width: '100%', height: 320 }}>
+          <div className="chart-container-large">
             <ResponsiveContainer>
               <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                 <defs>
@@ -1006,7 +1006,7 @@ export function Dashboard() {
             </div>
 
             {mistakeData.length > 0 ? (
-              <div style={{ width: '100%', height: 230 }}>
+              <div className="chart-container-medium">
                 <ResponsiveContainer>
                   <BarChart data={mistakeData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
@@ -1105,7 +1105,7 @@ export function Dashboard() {
             <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
               Realized net P&L accumulated under different execution mindsets.
             </p>
-            <div style={{ width: '100%', height: 220 }}>
+            <div className="chart-container-medium">
               <ResponsiveContainer>
                 <BarChart 
                   data={emotionStatsData} 
@@ -1145,7 +1145,7 @@ export function Dashboard() {
                 : 'P&L contribution weight across execution segments (Equity, F&O, etc.).'
               }
             </p>
-            <div style={{ width: '100%', height: 220, position: 'relative' }}>
+            <div className="chart-container-medium" style={{ position: 'relative' }}>
               {(showCombined ? assetAllocationData : segmentAllocationData).length > 0 ? (
                 <ResponsiveContainer>
                   <PieChart>

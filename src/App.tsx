@@ -192,7 +192,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px' }}>
+    <div className="app-container">
       
       {/* Header Bar */}
       <header className="app-header">

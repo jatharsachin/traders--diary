@@ -35,6 +35,17 @@ const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   '2026-12-25': 'Christmas'
 };
 
+const formatCompactPnLMobile = (val: number) => {
+  const absVal = Math.abs(val);
+  if (absVal >= 100000) {
+    return `${val > 0 ? '+' : '-'}${(absVal / 100000).toFixed(1)}L`;
+  }
+  if (absVal >= 1000) {
+    return `${val > 0 ? '+' : '-'}${(absVal / 1000).toFixed(1)}k`;
+  }
+  return `${val > 0 ? '+' : '-'}${Math.round(absVal)}`;
+};
+
 export function TradingCalendar() {
   const { trades, isPnlVisible, togglePnlVisibility } = useTradeStore();
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026
@@ -230,8 +241,13 @@ export function TradingCalendar() {
           <div className="day-pnl">
             {isPnlVisible ? (
               <>
-                {summary.netPnL > 0 ? '+' : ''}
-                {summary.netPnL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="pnl-desktop">
+                  {summary.netPnL > 0 ? '+' : ''}
+                  {Math.round(summary.netPnL).toLocaleString('en-IN')}
+                </span>
+                <span className="pnl-mobile">
+                  {formatCompactPnLMobile(summary.netPnL)}
+                </span>
               </>
             ) : (
               '••••'
@@ -701,8 +717,19 @@ export function TradingCalendar() {
         <div className="day-pnl">
           {hasTrades ? (
             <>
-              {w.netPnL > 0 ? '+' : ''}
-              {isPnlVisible ? w.netPnL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '••••'}
+              {isPnlVisible ? (
+                <>
+                  <span className="pnl-desktop">
+                    {w.netPnL > 0 ? '+' : ''}
+                    {Math.round(w.netPnL).toLocaleString('en-IN')}
+                  </span>
+                  <span className="pnl-mobile">
+                    {formatCompactPnLMobile(w.netPnL)}
+                  </span>
+                </>
+              ) : (
+                '••••'
+              )}
             </>
           ) : (
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>-</span>
@@ -785,8 +812,19 @@ export function TradingCalendar() {
         <div className="day-pnl">
           {hasTrades ? (
             <>
-              {m.netPnL > 0 ? '+' : ''}
-              {isPnlVisible ? m.netPnL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '••••'}
+              {isPnlVisible ? (
+                <>
+                  <span className="pnl-desktop">
+                    {m.netPnL > 0 ? '+' : ''}
+                    {Math.round(m.netPnL).toLocaleString('en-IN')}
+                  </span>
+                  <span className="pnl-mobile">
+                    {formatCompactPnLMobile(m.netPnL)}
+                  </span>
+                </>
+              ) : (
+                '••••'
+              )}
             </>
           ) : (
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>-</span>
@@ -1391,6 +1429,54 @@ export function TradingCalendar() {
           opacity: 1;
           transform: translateX(-50%) translateY(0) scale(1);
           filter: blur(0px);
+        }
+
+        /* Desktop vs Mobile P&L tags */
+        .pnl-desktop {
+          display: inline;
+        }
+        .pnl-mobile {
+          display: none;
+        }
+
+        @media (max-width: 768px) {
+          .calendar-weekdays {
+            grid-template-columns: repeat(7, 1fr) !important;
+            gap: 4px !important;
+          }
+          .calendar-grid {
+            grid-template-columns: repeat(7, 1fr) !important;
+            gap: 4px !important;
+          }
+          .calendar-day {
+            min-height: 55px !important;
+            padding: 4px !important;
+            border-radius: 8px !important;
+          }
+          .day-number {
+            top: 4px !important;
+            left: 6px !important;
+            font-size: 0.68rem !important;
+          }
+          .day-pnl {
+            font-size: 0.65rem !important;
+            font-weight: 700 !important;
+            padding-bottom: 0px !important;
+          }
+          .weekday-header {
+            font-size: 0.6rem !important;
+            padding: 2px !important;
+          }
+          .pnl-desktop {
+            display: none !important;
+          }
+          .pnl-mobile {
+            display: inline !important;
+          }
+          .day-holiday-label {
+            font-size: 0.5rem !important;
+            margin-top: 14px !important;
+          }
         }
       `}</style>
     </div>
