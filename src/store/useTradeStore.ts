@@ -31,7 +31,7 @@ interface TradeStore {
   // Supabase SaaS Auth Settings
   sessionUser: any;
   setSessionUser: (user: any) => void;
-  signUpUser: (email: string, pass: string) => Promise<{ error: any }>;
+  signUpUser: (email: string, pass: string, metadata?: { first_name?: string; last_name?: string; mobile?: string }) => Promise<{ error: any }>;
   signInUser: (email: string, pass: string) => Promise<{ error: any }>;
   signOutUser: () => Promise<{ error: any }>;
   loadUserData: (userId: string) => void;
@@ -476,11 +476,17 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
     setSessionUser: (user) => set({ sessionUser: user }),
 
-    signUpUser: async (email, pass) => {
+    signUpUser: async (email, pass, metadata) => {
       const client = getSupabaseClient();
       if (!client) return { error: new Error('Supabase client not configured') };
       try {
-        const { error } = await client.auth.signUp({ email, password: pass });
+        const { error } = await client.auth.signUp({ 
+          email, 
+          password: pass,
+          options: {
+            data: metadata || {}
+          }
+        });
         if (error) return { error };
         return { error: null };
       } catch (e: any) {

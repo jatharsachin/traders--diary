@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import logoImg from '../assets/tradediary_logo.png';
-import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, User, Phone } from 'lucide-react';
 
 export function AuthScreen() {
   const { signInUser, signUpUser } = useTradeStore();
@@ -9,6 +9,9 @@ export function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [mobile, setMobile] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,12 +30,20 @@ export function AuthScreen() {
     }
 
     if (isSignUp) {
+      if (!firstName || !lastName || !mobile) {
+        setError('Please fill in all details (First Name, Last Name, and Mobile).');
+        return;
+      }
       if (password !== confirmPassword) {
         setError('Passwords do not match.');
         return;
       }
       setLoading(true);
-      const { error: signUpErr } = await signUpUser(email, password);
+      const { error: signUpErr } = await signUpUser(email, password, {
+        first_name: firstName,
+        last_name: lastName,
+        mobile: mobile
+      });
       setLoading(false);
       if (signUpErr) {
         setError(signUpErr.message || 'An error occurred during Sign Up.');
@@ -133,6 +144,57 @@ export function AuthScreen() {
         {/* Auth Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px', textAlign: 'left' }}>
           
+          {isSignUp && (
+            <>
+              <div className="grid-2col-equal-small" style={{ gap: '12px', marginBottom: 0 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={12} /> First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="First Name"
+                    className="form-input"
+                    required
+                    disabled={loading}
+                    autoFocus={isSignUp}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={12} /> Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last Name"
+                    className="form-input"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Phone size={12} /> Mobile Number
+                </label>
+                <input
+                  type="tel"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  placeholder="Mobile Number"
+                  className="form-input"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </>
+          )}
+
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Mail size={12} /> Email Address
@@ -145,7 +207,7 @@ export function AuthScreen() {
               className="form-input"
               required
               disabled={loading}
-              autoFocus
+              autoFocus={!isSignUp}
             />
           </div>
 

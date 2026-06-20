@@ -8,7 +8,7 @@ import { AccountManager } from './components/AccountManager';
 import { TradeLogger } from './components/TradeLogger';
 import { AuthScreen } from './components/AuthScreen';
 import { useTradeStore } from './store/useTradeStore';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, User, ShieldCheck, Bell, LogOut } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, User, ShieldCheck, Bell, LogOut, Sun, Moon } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 
@@ -24,6 +24,7 @@ export default function App() {
     trades, 
     baseCapital, 
     theme, 
+    toggleTheme,
     capitalAdjustments,
     sessionUser,
     setSessionUser,
@@ -194,18 +195,7 @@ export default function App() {
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px' }}>
       
       {/* Header Bar */}
-      <header 
-        style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          borderBottom: '1px solid var(--border-color)',
-          paddingBottom: '16px',
-          marginBottom: '28px',
-          flexWrap: 'wrap',
-          gap: '16px'
-        }}
-      >
+      <header className="app-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           
           {/* macOS Traffic Lights */}
@@ -244,7 +234,7 @@ export default function App() {
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           
           {/* Current Capital Balance (Dynamically adapts to P&L) */}
           <div 
@@ -272,6 +262,26 @@ export default function App() {
               ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
             </span>
           </div>
+
+          {/* Theme Toggle Button */}
+          <button 
+            onClick={toggleTheme}
+            className="btn btn-secondary"
+            style={{ 
+              width: '35px', 
+              height: '35px', 
+              padding: 0, 
+              borderRadius: '8px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)'
+            }}
+            title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+          >
+            {theme === 'dark' ? <Sun size={16} color="var(--primary)" /> : <Moon size={16} color="var(--primary)" />}
+          </button>
 
           {/* Bell Icon & Notification Center */}
           <div style={{ position: 'relative' }}>

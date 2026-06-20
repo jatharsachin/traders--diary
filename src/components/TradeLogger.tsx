@@ -203,7 +203,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
             )}
 
             {/* Grid 1: Basic Metadata */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 0.8fr', gap: '16px', marginBottom: '16px' }}>
+            <div className="grid-logger-inputs" style={{ marginBottom: '16px' }}>
               <div className="form-group">
                 <label className="form-label">Date</label>
                 <input
@@ -256,11 +256,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
             {/* Conditionally Render F&O Options Fields */}
             {formData.segment === 'F&O' && (
               <div 
+                className="grid-logger-fo"
                 style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 1.2fr 0.8fr', 
-                  gap: '16px', 
-                  marginBottom: '16px',
                   background: 'rgba(59, 130, 246, 0.04)',
                   border: '1px solid rgba(59, 130, 246, 0.1)',
                   padding: '12px',
@@ -317,7 +314,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
             )}
 
             {/* Grid 2: Symbol & Product & Action */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div className="grid-logger-3col" style={{ marginBottom: '16px' }}>
               <div className="form-group">
                 <label className="form-label">Symbol / Ticker</label>
                 <input
@@ -362,7 +359,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
             </div>
 
             {/* Grid 3: Trade Execution Numbers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div className="grid-4col-equal" style={{ marginBottom: '16px' }}>
               <div className="form-group">
                 <label className="form-label">Qty</label>
                 <input
@@ -415,7 +412,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
             </div>
 
             {/* Grid 4: Risk Parameters & Setup */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '16px' }}>
+            <div className="grid-4col-equal" style={{ marginBottom: '16px' }}>
               <div className="form-group">
                 <label className="form-label">Stop Loss (SL)</label>
                 <input
@@ -530,7 +527,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
             {/* Checklist Rules */}
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '0.95rem', marginBottom: '12px' }}>Rule Checklist Compliance</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="grid-2col-equal-small" style={{ gap: '10px' }}>
                 {TRADING_RULES.map((rule) => {
                   const isChecked = formData.rulesFollowed.includes(rule);
                   return (

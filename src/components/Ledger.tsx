@@ -517,7 +517,7 @@ export function Ledger() {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="grid-2col-equal-small">
                   <div className="form-group">
                     <label className="form-label">Date</label>
                     <input

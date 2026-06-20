@@ -667,7 +667,7 @@ export function Dashboard() {
       </div>
 
       {/* Grid 2: Return Periods & Consistency Streaks */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', flexWrap: 'wrap' }}>
+      <div className="grid-2col-12-1">
         
         {/* Card 1: Performance Returns Duration */}
         <div className="glass-card" style={{ padding: '24px' }}>
@@ -675,7 +675,7 @@ export function Dashboard() {
             <CalendarRange size={16} color="var(--primary)" />
             Returns Breakdown
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="grid-2col-equal-small" style={{ gap: '16px' }}>
             <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>1 Month Return</div>
               <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: m1.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
@@ -711,7 +711,7 @@ export function Dashboard() {
               Consistency Audit
             </h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div className="grid-2col-equal-small" style={{ gap: '16px', marginBottom: '16px' }}>
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Trading Days Win %</div>
                 <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-win)', marginTop: '4px' }}>
@@ -788,7 +788,7 @@ export function Dashboard() {
         </div>
 
         {activeRetroWeek ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 2fr', gap: '24px', flexWrap: 'wrap' }}>
+          <div className="grid-2col-13-2">
             {/* Left Column: Weekly Stats Summary */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
@@ -813,7 +813,7 @@ export function Dashboard() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="grid-2col-equal-small" style={{ gap: '10px' }}>
                 <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Win Rate</div>
                   <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '2px', color: 'var(--text-main)' }}>
@@ -991,7 +991,7 @@ export function Dashboard() {
         </div>
 
         {/* Behavioral Audit Grid (Mistake Cost & Discipline Scorecard) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', flexWrap: 'wrap' }}>
+        <div className="grid-2col-equal">
           
           {/* Chart: Mistake Cost Analysis */}
           <div className="glass-card" style={{ padding: '24px' }}>
@@ -1095,7 +1095,7 @@ export function Dashboard() {
         </div>
 
         {/* Dynamic Behavioral & Allocation Insights */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', flexWrap: 'wrap' }}>
+        <div className="grid-2col-12-1">
           {/* Emotions P&L Impact */}
           <div className="glass-card" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>

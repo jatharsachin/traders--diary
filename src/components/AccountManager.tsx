@@ -362,7 +362,7 @@ export function AccountManager() {
   };
 
   return (
-    <div className="animate-tab-panel" style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '24px', alignItems: 'start' }}>
+    <div className="animate-tab-panel grid-2col-12-2" style={{ alignItems: 'start' }}>
       
       {/* Left Column: Rebranded Profile Card */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -522,7 +522,7 @@ export function AccountManager() {
                   {editInvId ? 'Edit Asset Purchase Log' : 'Record New Investment Purchase'}
                 </h4>
                 <form onSubmit={handleAddOrEditInvestment} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="grid-2col-equal-small">
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Asset Class Type</label>
                       <select 
@@ -550,7 +550,7 @@ export function AccountManager() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div className="grid-3col-equal-small">
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Quantity</label>
                       <input 
@@ -590,7 +590,7 @@ export function AccountManager() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
+                  <div className="grid-2col-1-2-small">
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Purchase Date</label>
                       <input 
@@ -680,7 +680,7 @@ export function AccountManager() {
               {ledgerSubTab === 'active' ? (
                 <>
                   {/* Stats Bar (Active Portfolio) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', marginBottom: '20px' }}>
+                  <div className="grid-3col-1-1-12" style={{ marginBottom: '20px' }}>
                     <div style={{ background: 'rgba(255, 255, 255, 0.015)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 14px' }}>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Total Active Invested</div>
                       <div style={{ fontSize: '1.05rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', marginTop: '2px' }}>
@@ -796,7 +796,7 @@ export function AccountManager() {
               ) : (
                 <>
                   {/* Stats Bar (Exited Portfolio) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '12px', marginBottom: '20px' }}>
+                  <div className="grid-2col-1-12" style={{ marginBottom: '20px' }}>
                     <div style={{ background: 'rgba(255, 255, 255, 0.015)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 14px' }}>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Total Closed Investment Volume</div>
                       <div style={{ fontSize: '1.05rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', marginTop: '2px' }}>
@@ -936,7 +936,7 @@ export function AccountManager() {
                   <IndianRupee size={16} color="var(--color-win)" />
                   Average Buy Price & SIP Calculator
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div className="grid-2col-equal-small" style={{ marginBottom: '12px' }}>
                   <div>
                     <label className="form-label" style={{ fontSize: '0.68rem', marginBottom: '2px' }}>Current Avg. Price</label>
                     <input 
@@ -961,7 +961,7 @@ export function AccountManager() {
                   </div>
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div className="grid-2col-equal-small" style={{ marginBottom: '12px' }}>
                   <div>
                     <label className="form-label" style={{ fontSize: '0.68rem', marginBottom: '2px' }}>New Purchase Price</label>
                     <input 
@@ -1018,7 +1018,7 @@ export function AccountManager() {
                   </h3>
                   
                   {/* Current Drawdown Metrics */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
+                  <div className="grid-2col-equal-small" style={{ gap: '10px', marginBottom: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
                     <div>
                       <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Peak Capital</div>
                       <strong style={{ fontSize: '0.82rem', color: '#fff' }}>
@@ -1041,7 +1041,7 @@ export function AccountManager() {
                   </div>
 
                   {/* Simulator Inputs */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                  <div className="grid-3col-equal-small" style={{ gap: '8px', marginBottom: '12px' }}>
                     <div>
                       <label className="form-label" style={{ fontSize: '0.65rem', marginBottom: '2px' }}>Risk/Trade</label>
                       <input 

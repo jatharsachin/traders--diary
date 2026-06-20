@@ -88,7 +88,7 @@ export function StrategyManager() {
   const bestStrategy = getBestStrategy();
 
   return (
-    <div className="animate-tab-panel" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+    <div className="animate-tab-panel grid-2col-2-1">
       
       {/* List & Stats */}
       <div className="glass-card" style={{ padding: '24px' }}>
