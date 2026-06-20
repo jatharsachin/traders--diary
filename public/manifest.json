@@ -1,0 +1,17 @@
+{
+  "name": "TradeDiary Pro",
+  "short_name": "TradeDiary",
+  "description": "Stock & Options Cognitive Audit Journal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1d1d1f",
+  "theme_color": "#1d1d1f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,1186 @@
+import { useState, useEffect } from 'react';
+import { useTradeStore } from '../store/useTradeStore';
+import { 
+  IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
+  ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
+  Eye, EyeOff, Save
+} from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
+
+export function Dashboard() {
+  const { trades, baseCapital, investments, isPnlVisible, togglePnlVisibility, weeklyRetrospectives, saveWeeklyRetrospective } = useTradeStore();
+  const [showCombined, setShowCombined] = useState(false);
+
+  const totalTrades = trades.length;
+  const winningTrades = trades.filter((t) => t.netPnL > 0);
+  const losingTrades = trades.filter((t) => t.netPnL < 0);
+  
+  const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0;
+  
+  const totalGrossPnL = trades.reduce((acc, t) => acc + t.grossPnL, 0);
+  const totalCharges = trades.reduce((acc, t) => acc + t.brokerage + t.taxes, 0);
+  const totalNetPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
+
+  // Investment stats (filtering by status to support exits)
+  const activeInvestments = investments.filter(inv => inv.status !== 'EXITED');
+  const exitedInvestments = investments.filter(inv => inv.status === 'EXITED');
+
+  const totalInvInvested = activeInvestments.reduce((acc, inv) => acc + (inv.buyPrice * inv.qty), 0);
+  const totalInvCurrent = activeInvestments.reduce((acc, inv) => acc + (inv.currentPrice * inv.qty), 0);
+  const activeReturns = totalInvCurrent - totalInvInvested;
+  
+  const realizedInvReturns = exitedInvestments.reduce((acc, inv) => acc + (((inv.exitPrice || 0) - inv.buyPrice) * inv.qty), 0);
+  const totalInvReturns = activeReturns + realizedInvReturns;
+
+  // Combined calculations
+  const displayNetPnL = showCombined ? (totalNetPnL + totalInvReturns) : totalNetPnL;
+  const displayBaseCapital = showCombined ? (baseCapital + totalInvInvested) : baseCapital;
+
+  const tradingReturnPct = baseCapital > 0 ? (totalNetPnL / baseCapital) * 100 : 0;
+  const combinedReturnPct = (baseCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (baseCapital + totalInvInvested)) * 100 : 0;
+
+  const grossProfit = trades.reduce((acc, t) => (t.netPnL > 0 ? acc + t.netPnL : acc), 0);
+  
+  // Sort trades oldest to newest
+  const sortedTrades = [...trades].sort((a, b) => {
+    const dateA = new Date(`${a.date}T${a.entryTime}`);
+    const dateB = new Date(`${b.date}T${b.entryTime}`);
+    return dateA.getTime() - dateB.getTime();
+  });
+
+  // Calculate CAGR & Returns by period
+  const getAnchorDate = () => {
+    if (sortedTrades.length === 0) return new Date();
+    const dates = sortedTrades.map((t) => new Date(t.date).getTime());
+    return new Date(Math.max(...dates));
+  };
+  const anchorDate = getAnchorDate();
+
+  const getReturnsForPeriod = (days: number) => {
+    const cutoffDate = new Date(anchorDate);
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const periodTrades = sortedTrades.filter((t) => new Date(t.date) >= cutoffDate);
+    const pnl = periodTrades.reduce((acc, t) => acc + t.netPnL, 0);
+    const pct = (pnl / displayBaseCapital) * 100;
+    return { pnl, pct };
+  };
+
+  const m1 = getReturnsForPeriod(30);
+  const m3 = getReturnsForPeriod(90);
+
+  const allTimePct = (displayNetPnL / displayBaseCapital) * 100;
+
+  const firstTradeDate = new Date(sortedTrades[0]?.date || new Date());
+  const timeDiffMs = anchorDate.getTime() - firstTradeDate.getTime();
+  const yearsDiff = timeDiffMs / (1000 * 60 * 60 * 24 * 365.25);
+  const cagr = yearsDiff > 0.02
+    ? (Math.pow(Math.max(0.1, (displayBaseCapital + displayNetPnL) / displayBaseCapital), 1 / yearsDiff) - 1) * 100
+    : allTimePct;
+
+  // Options Holding Details
+  const optionTrades = trades.filter((t) => t.segment === 'F&O' && t.optionType && t.optionType !== 'None');
+  const avgOptionDuration = optionTrades.length > 0
+    ? optionTrades.reduce((acc, t) => acc + t.durationMinutes, 0) / optionTrades.length
+    : 0;
+
+  // Brokerage Leakage
+  const brokerageLeakage = grossProfit > 0 ? (totalCharges / grossProfit) * 100 : 0;
+
+  // Max Drawdown & Consistency stats
+  const calculateMaxDrawdown = () => {
+    let peak = 0;
+    let currentCumulative = 0;
+    let maxDrawdown = 0;
+
+    for (const t of sortedTrades) {
+      currentCumulative += t.netPnL;
+      if (currentCumulative > peak) peak = currentCumulative;
+      const drawdown = peak - currentCumulative;
+      if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    }
+    return maxDrawdown;
+  };
+
+  const maxDDRupees = calculateMaxDrawdown();
+  const maxDDPct = (maxDDRupees / baseCapital) * 100;
+
+  // Win Days calculation
+  const dailyPnL: Record<string, number> = {};
+  sortedTrades.forEach((t) => {
+    dailyPnL[t.date] = (dailyPnL[t.date] || 0) + t.netPnL;
+  });
+  const daysList = Object.values(dailyPnL);
+  const winDaysCount = daysList.filter((d) => d > 0).length;
+  const winDaysPct = daysList.length > 0 ? (winDaysCount / daysList.length) * 100 : 0;
+
+  // Streaks
+  let maxConsecWins = 0;
+  let maxConsecLosses = 0;
+  let currentWins = 0;
+  let currentLosses = 0;
+
+  sortedTrades.forEach((t) => {
+    if (t.netPnL > 0) {
+      currentWins++;
+      currentLosses = 0;
+      if (currentWins > maxConsecWins) maxConsecWins = currentWins;
+    } else if (t.netPnL < 0) {
+      currentLosses++;
+      currentWins = 0;
+      if (currentLosses > maxConsecLosses) maxConsecLosses = currentLosses;
+    }
+  });
+
+  // Sharpe Ratio
+  const calculateSharpeRatio = () => {
+    const dailyReturns = daysList.map((d) => d / baseCapital);
+    if (dailyReturns.length === 0) return 0;
+
+    const dailyRf = 0.06 / 252;
+    const excessReturns = dailyReturns.map((r) => r - dailyRf);
+    const meanExcess = excessReturns.reduce((acc, r) => acc + r, 0) / excessReturns.length;
+
+    const meanReturn = dailyReturns.reduce((acc, r) => acc + r, 0) / dailyReturns.length;
+    const variance = dailyReturns.reduce((acc, r) => acc + Math.pow(r - meanReturn, 2), 0) / dailyReturns.length;
+    const stdDev = Math.sqrt(variance);
+
+    return stdDev > 0 ? (meanExcess / stdDev) * Math.sqrt(252) : 0;
+  };
+
+  const sharpe = calculateSharpeRatio();
+
+  const formatCurrency = (val: number) => {
+    const isNegative = val < 0;
+    const absVal = Math.abs(val);
+    const formatter = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    });
+    return (isNegative ? '-' : '') + formatter.format(absVal);
+  };
+
+  // 1. Equity Curve Data Preparation
+  const getEquityCurveData = () => {
+    let cumulativeTrading = 0;
+    let peakTradingCapital = baseCapital;
+    let peakCombinedCapital = baseCapital + totalInvReturns;
+
+    const curve = sortedTrades.map((t, index) => {
+      cumulativeTrading += t.netPnL;
+      const cumulativeCombined = cumulativeTrading + totalInvReturns;
+
+      const currentTradingCapital = baseCapital + cumulativeTrading;
+      const currentCombinedCapital = baseCapital + cumulativeCombined;
+
+      if (currentTradingCapital > peakTradingCapital) {
+        peakTradingCapital = currentTradingCapital;
+      }
+      if (currentCombinedCapital > peakCombinedCapital) {
+        peakCombinedCapital = currentCombinedCapital;
+      }
+
+      const tradingDrawdownRupees = peakTradingCapital - currentTradingCapital;
+      const tradingDrawdownPct = peakTradingCapital > 0 ? (tradingDrawdownRupees / peakTradingCapital) * 100 : 0;
+
+      const combinedDrawdownRupees = peakCombinedCapital - currentCombinedCapital;
+      const combinedDrawdownPct = peakCombinedCapital > 0 ? (combinedDrawdownRupees / peakCombinedCapital) * 100 : 0;
+
+      const peakTradingPnLVal = peakTradingCapital - baseCapital;
+      const peakCombinedPnLVal = peakCombinedCapital - baseCapital;
+
+      return {
+        tradeIndex: index + 1,
+        date: t.date,
+        symbol: t.symbol,
+        netPnL: t.netPnL,
+        tradingPnL: Math.round(cumulativeTrading * 100) / 100,
+        combinedPnL: Math.round(cumulativeCombined * 100) / 100,
+        tradingDrawdown: Math.round(tradingDrawdownPct * 100) / 100,
+        combinedDrawdown: Math.round(combinedDrawdownPct * 100) / 100,
+        tradingDrawdownRange: [Math.round(cumulativeTrading * 100) / 100, Math.round(peakTradingPnLVal * 100) / 100],
+        combinedDrawdownRange: [Math.round(cumulativeCombined * 100) / 100, Math.round(peakCombinedPnLVal * 100) / 100],
+      };
+    });
+
+    const initialCombined = Math.round(totalInvReturns * 100) / 100;
+
+    return [
+      { 
+        tradeIndex: 0, 
+        date: 'Start', 
+        symbol: 'Start', 
+        netPnL: 0, 
+        tradingPnL: 0, 
+        combinedPnL: initialCombined,
+        tradingDrawdown: 0,
+        combinedDrawdown: 0,
+        tradingDrawdownRange: [0, 0],
+        combinedDrawdownRange: [initialCombined, initialCombined],
+      }, 
+      ...curve
+    ];
+  };
+
+  // 2. Mistake Audit Data Preparation
+  const getMistakeData = () => {
+    const mistakeMap: Record<string, { count: number; loss: number }> = {};
+
+    trades.forEach((t) => {
+      if (t.mistake && t.mistake !== 'None') {
+        if (!mistakeMap[t.mistake]) {
+          mistakeMap[t.mistake] = { count: 0, loss: 0 };
+        }
+        mistakeMap[t.mistake].count += 1;
+        if (t.netPnL < 0) {
+          mistakeMap[t.mistake].loss += Math.abs(t.netPnL);
+        }
+      }
+    });
+
+    return Object.entries(mistakeMap).map(([name, data]) => ({
+      name,
+      count: data.count,
+      loss: Math.round(data.loss),
+    })).sort((a, b) => b.loss - a.loss);
+  };
+
+  const getEmotionStatsData = () => {
+    const emotionMap: Record<string, { count: number; netPnL: number }> = {
+      Calm: { count: 0, netPnL: 0 },
+      Greedy: { count: 0, netPnL: 0 },
+      Fearful: { count: 0, netPnL: 0 },
+      Impatient: { count: 0, netPnL: 0 },
+      Revengeful: { count: 0, netPnL: 0 }
+    };
+
+    trades.forEach((t) => {
+      const e = t.emotion || 'Calm';
+      if (emotionMap[e]) {
+        emotionMap[e].count += 1;
+        emotionMap[e].netPnL += t.netPnL;
+      }
+    });
+
+    return Object.entries(emotionMap).map(([name, data]) => ({
+      name,
+      count: data.count,
+      netPnL: Math.round(data.netPnL)
+    }));
+  };
+
+  const getAssetAllocationData = () => {
+    const allocationMap: Record<string, number> = {
+      ETF: 0,
+      BOND: 0,
+      EQUITY: 0
+    };
+    
+    activeInvestments.forEach((inv) => {
+      allocationMap[inv.type] = (allocationMap[inv.type] || 0) + (inv.currentPrice * inv.qty);
+    });
+
+    return Object.entries(allocationMap).map(([name, value]) => ({
+      name: name === 'EQUITY' ? 'Stocks' : name,
+      value: Math.round(value)
+    })).filter(item => item.value > 0);
+  };
+
+  const getSegmentAllocationData = () => {
+    const segmentMap: Record<string, number> = {
+      Equity: 0,
+      'F&O': 0,
+      Commodity: 0,
+      Currency: 0
+    };
+    trades.forEach((t) => {
+      segmentMap[t.segment] = (segmentMap[t.segment] || 0) + Math.abs(t.netPnL);
+    });
+    return Object.entries(segmentMap).map(([name, value]) => ({
+      name,
+      value: Math.round(value)
+    })).filter(item => item.value > 0);
+  };
+
+  const getWeeklySummaryList = () => {
+    const anchor = getAnchorDate();
+    let currentYear = anchor.getFullYear();
+    if (anchor.getMonth() < 3) {
+      currentYear -= 1;
+    }
+    const fyStart = new Date(currentYear, 3, 1); // April 1st
+    
+    const weeksMap: Record<string, { weekId: string; weekNum: number; startDate: Date; endDate: Date; trades: any[] }> = {};
+    
+    // Generate all 52 weeks
+    let ptr = new Date(fyStart);
+    for (let w = 1; w <= 52; w++) {
+      const start = new Date(ptr);
+      const end = new Date(ptr);
+      end.setDate(ptr.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      
+      const weekId = `${currentYear}-W${w.toString().padStart(2, '0')}`;
+      weeksMap[weekId] = {
+        weekId,
+        weekNum: w,
+        startDate: start,
+        endDate: end,
+        trades: []
+      };
+      ptr.setDate(ptr.getDate() + 7);
+    }
+    
+    // Populate trades
+    trades.forEach((t) => {
+      const tDate = new Date(t.date);
+      for (const w of Object.values(weeksMap)) {
+        if (tDate >= w.startDate && tDate <= w.endDate) {
+          w.trades.push(t);
+          break;
+        }
+      }
+    });
+    
+    return Object.values(weeksMap).map((w) => {
+      const netPnL = w.trades.reduce((acc, t) => acc + t.netPnL, 0);
+      const wins = w.trades.filter((t) => t.netPnL > 0).length;
+      const winRate = w.trades.length > 0 ? (wins / w.trades.length) * 100 : 0;
+      
+      // Mistake cost
+      const mistakeCost = w.trades.reduce((acc, t) => (t.netPnL < 0 && t.mistake !== 'None' ? acc + Math.abs(t.netPnL) : acc), 0);
+      
+      // Dominant emotion
+      const emap: Record<string, number> = {};
+      w.trades.forEach(t => emap[t.emotion] = (emap[t.emotion] || 0) + 1);
+      const dominantEmotion = Object.entries(emap).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
+
+      const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const formattedRange = `${w.startDate.getDate()} ${monthsShort[w.startDate.getMonth()]} - ${w.endDate.getDate()} ${monthsShort[w.endDate.getMonth()]}`;
+
+      return {
+        ...w,
+        netPnL,
+        winRate,
+        mistakeCost,
+        dominantEmotion,
+        formattedRange
+      };
+    }).filter(w => w.trades.length > 0 || w.weekNum <= getCurrentFYWeekNum(fyStart));
+  };
+
+  const getCurrentFYWeekNum = (fyStart: Date) => {
+    const today = new Date();
+    if (today < fyStart) return 1;
+    const diffTime = Math.abs(today.getTime() - fyStart.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const week = Math.ceil(diffDays / 7);
+    return Math.min(52, week);
+  };
+
+  const equityData = getEquityCurveData();
+  const mistakeData = getMistakeData();
+  const emotionStatsData = getEmotionStatsData();
+  const assetAllocationData = getAssetAllocationData();
+  const segmentAllocationData = getSegmentAllocationData();
+
+  // Weekly retrospective panel state
+  const [selectedRetroWeekId, setSelectedRetroWeekId] = useState<string>('');
+  const [retroNotes, setRetroNotes] = useState<string>('');
+  
+  const weeklySummaries = getWeeklySummaryList();
+  const activeRetroWeek = weeklySummaries.find(w => w.weekId === selectedRetroWeekId);
+
+  // Sync retro notes state with store when selected week changes or when store updates
+  useEffect(() => {
+    if (selectedRetroWeekId) {
+      setRetroNotes((weeklyRetrospectives && weeklyRetrospectives[selectedRetroWeekId]) || '');
+    }
+  }, [selectedRetroWeekId, weeklyRetrospectives]);
+
+  // Set default retro week
+  useEffect(() => {
+    if (weeklySummaries.length > 0 && !selectedRetroWeekId) {
+      const today = new Date();
+      const currentWeek = weeklySummaries.find(w => today >= w.startDate && today <= w.endDate) || weeklySummaries[weeklySummaries.length - 1];
+      if (currentWeek) {
+        setSelectedRetroWeekId(currentWeek.weekId);
+      }
+    }
+  }, [trades, weeklySummaries, selectedRetroWeekId]);
+
+  const handleSaveRetro = () => {
+    if (!selectedRetroWeekId) return;
+    saveWeeklyRetrospective(selectedRetroWeekId, retroNotes);
+    alert('Weekly Retrospective saved successfully!');
+  };
+
+  const getCoachTip = (mistakeCost: number, dominantEmotion: string) => {
+    if (mistakeCost === 0) {
+      return "Excellent execution discipline this week! Keep executing your setups without hesitation. You followed your rules perfectly.";
+    }
+    if (dominantEmotion === 'Greedy' || dominantEmotion === 'Impatient') {
+      return `Impatient/Greedy execution cost you ₹${mistakeCost.toLocaleString('en-IN')} in mistake penalties. Focus on wait-triggers. Do not chase moving candles.`;
+    }
+    if (dominantEmotion === 'Fearful') {
+      return "Fear-based exits are locking in sub-optimal risk-to-reward ratios. Practice setting your SL/Target on terminal and letting the trade run to its mathematical limit.";
+    }
+    return `Execution leaks cost you ₹${mistakeCost.toLocaleString('en-IN')} in mistake penalties. Next week, review your setups checklist before taking any entry.`;
+  };
+
+  // Discipline Rating Calculation
+  const totalTradesWithMistakes = trades.filter((t) => t.mistake && t.mistake !== 'None').length;
+  const disciplineScore = totalTrades > 0 
+    ? ((totalTrades - totalTradesWithMistakes) / totalTrades) * 100 
+    : 100;
+
+  const getDisciplineGrade = (score: number) => {
+    if (score >= 95) return { grade: 'A+', color: 'var(--color-win)', desc: 'Flawless Execution!' };
+    if (score >= 90) return { grade: 'A', color: '#34d399', desc: 'Highly Disciplined.' };
+    if (score >= 80) return { grade: 'B', color: '#60a5fa', desc: 'Good focus. Avoid minor slips.' };
+    if (score >= 70) return { grade: 'C', color: '#fb923c', desc: 'Average. Emotional entries detected.' };
+    return { grade: 'D', color: 'var(--color-loss)', desc: 'Discipline leak! Review trading plan.' };
+  };
+  const disciplineInfo = getDisciplineGrade(disciplineScore);
+
+  // Tooltips
+  const CustomEquityTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      if (data.tradeIndex === 0) return null;
+      return (
+        <div className="glass-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '10px', boxShadow: 'var(--shadow-glow)' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Trade #{data.tradeIndex} - {data.date}</p>
+          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{data.symbol}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '0.8rem' }}>
+            <span style={{ color: data.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+              P&L: {data.netPnL >= 0 ? '+' : ''}{isPnlVisible ? formatCurrency(data.netPnL) : '••••'}
+            </span>
+            <span style={{ color: '#0a84ff' }}>
+              Trading Cum. P&L: {isPnlVisible ? formatCurrency(data.tradingPnL) : '••••'}
+            </span>
+            <span style={{ color: 'var(--color-loss)' }}>
+              Trading Drawdown: -{Math.abs(data.tradingDrawdown).toFixed(1)}%
+            </span>
+            {showCombined && (
+              <>
+                <span style={{ color: '#e5c158' }}>
+                  Combined Cum. P&L: {isPnlVisible ? formatCurrency(data.combinedPnL) : '••••'}
+                </span>
+                <span style={{ color: 'var(--color-loss)' }}>
+                  Combined Drawdown: -{Math.abs(data.combinedDrawdown).toFixed(1)}%
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomMistakeTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="glass-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '10px', boxShadow: 'var(--shadow-glow)' }}>
+          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-loss)' }}>{data.name}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px', fontSize: '0.8rem', color: 'var(--text-main)' }}>
+            <span>Total Occurrences: {data.count}</span>
+            <span style={{ color: 'var(--color-loss)' }}>Total Losses: {isPnlVisible ? formatCurrency(data.loss) : '••••'}</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* Portfolio Selector Control Bar */}
+      <div 
+        className="glass-card" 
+        style={{ 
+          padding: '12px 20px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Briefcase size={16} color="var(--primary)" />
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+            {showCombined ? 'Combined Wealth View (Trading + Delivery Investments)' : 'Active Trading Account View'}
+          </span>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {/* Eyeball Toggle Button */}
+          <button 
+            onClick={togglePnlVisibility}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              border: '1px solid var(--border-color)',
+              background: 'transparent',
+              color: 'var(--text-main)'
+            }}
+            title={isPnlVisible ? "Hide P&L Numbers" : "Show P&L Numbers"}
+          >
+            {isPnlVisible ? <EyeOff size={16} /> : <Eye size={16} color="var(--primary)" />}
+            <span>{isPnlVisible ? 'Hide P&L' : 'Show P&L'}</span>
+          </button>
+
+          <button 
+            onClick={() => setShowCombined(!showCombined)}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              border: showCombined ? '1px solid var(--border-color-active)' : '1px solid var(--border-color)',
+              background: showCombined ? 'var(--primary-glow)' : 'transparent',
+              color: showCombined ? 'var(--primary)' : 'var(--text-main)'
+            }}
+          >
+            {showCombined ? <ToggleRight size={18} color="var(--primary)" /> : <ToggleLeft size={18} />}
+            <span>Combined View</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Nifty option trader quick warning */}
+      {optionTrades.length > 0 && (
+        <div 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '10px', 
+            background: 'var(--primary-glow)', 
+            border: '1px solid var(--border-color-active)',
+            padding: '14px 20px',
+            borderRadius: '12px',
+            fontSize: '0.85rem',
+            color: 'var(--text-main)'
+          }}
+        >
+          <Clock size={18} color="var(--primary)" />
+          <span>
+            <strong>Options Pulse Audit:</strong> Tracked <strong>{optionTrades.length} index options trades</strong>. Avg holding time is <strong>{avgOptionDuration.toFixed(1)} mins</strong>. Less than 15 minutes is healthy to prevent Theta decay.
+          </span>
+        </div>
+      )}
+
+      {/* Grid 1: Key Performance Indicators */}
+      <div className="metrics-grid">
+        {/* KPI 1: Realized Net P&L */}
+        <div className={`glass-card metric-card ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`}>
+          <div className="metric-title">
+            <IndianRupee size={16} style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }} />
+            <span>{showCombined ? 'Combined Wealth P&L' : 'Net Realized P&L'}</span>
+            {showCombined && (
+              <span className="badge badge-win" style={{ fontSize: '0.58rem', padding: '2px 6px', textTransform: 'none', marginLeft: 'auto' }}>
+                Combined
+              </span>
+            )}
+          </div>
+          <div>
+            <div 
+              className="metric-value" 
+              style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}
+            >
+              {isPnlVisible ? formatCurrency(displayNetPnL) : '••••'}
+              <span style={{ fontSize: '0.9rem', fontWeight: 550, marginLeft: '8px', color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                ({displayNetPnL >= 0 ? '+' : ''}{showCombined ? combinedReturnPct.toFixed(1) : tradingReturnPct.toFixed(1)}%)
+              </span>
+            </div>
+            <div className="metric-subtext">
+              {showCombined 
+                ? `Trading Net: ${isPnlVisible ? formatCurrency(totalNetPnL) : '••••'} | Inv. Returns: ${isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}`
+                : `Gross P&L: ${isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'} | Charges: ${isPnlVisible ? formatCurrency(totalCharges) : '••••'}`
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 2: Success Rate */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Percent size={16} color="var(--primary)" />
+            <span>Success Rate</span>
+          </div>
+          <div>
+            <div className="metric-value text-white">
+              {winRate.toFixed(1)}%
+            </div>
+            <div className="metric-subtext">
+              {winningTrades.length} Green / {losingTrades.length} Red (Total: {totalTrades})
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 3: Options Scalping Stats */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Clock size={16} color="#fb7185" />
+            <span>Avg hold time / Leakage</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span>{avgOptionDuration.toFixed(1)}m</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: brokerageLeakage > 20 ? 'var(--color-loss)' : 'var(--color-win)' }}>{brokerageLeakage.toFixed(0)}%</span>
+            </div>
+            <div className="metric-subtext">
+              Avg. scalp hold / Profit leaked to charges
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Sharpe & Risk Ratio */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Scale size={16} color="#fb923c" />
+            <span>Sharpe & Drawdown</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span>{sharpe.toFixed(2)}</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: 'var(--color-loss)' }}>-{maxDDPct.toFixed(1)}%</span>
+            </div>
+            <div className="metric-subtext">
+              Sharpe ratio / Max portfolio drawdown %
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid 2: Return Periods & Consistency Streaks */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', flexWrap: 'wrap' }}>
+        
+        {/* Card 1: Performance Returns Duration */}
+        <div className="glass-card" style={{ padding: '24px' }}>
+          <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <CalendarRange size={16} color="var(--primary)" />
+            Returns Breakdown
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>1 Month Return</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: m1.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(m1.pnl) : '••••'} ({m1.pct.toFixed(1)}%)
+              </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>3 Months Return</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: m3.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(m3.pnl) : '••••'} ({m3.pct.toFixed(1)}%)
+              </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>All Time P&L</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'} ({allTimePct.toFixed(1)}%)
+              </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Annualized CAGR</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: cagr >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {cagr.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Consistency & Streaks */}
+        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ShieldCheck size={16} color="var(--color-win)" />
+              Consistency Audit
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Trading Days Win %</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-win)', marginTop: '4px' }}>
+                  {winDaysPct.toFixed(1)}%
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Total Trades</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '4px' }}>
+                  {totalTrades}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Flame size={12} color="var(--color-win)" /> Max Win Streak: <strong>{maxConsecWins}</strong>
+              </span>
+              <span>Max Loss Streak: <strong>{maxConsecLosses}</strong></span>
+            </div>
+            
+            {/* Visual Streaks Split Progress Bar */}
+            <div style={{ display: 'flex', height: '10px', borderRadius: '5px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+              <div 
+                style={{ 
+                  flex: maxConsecWins || 1, 
+                  background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)', 
+                  transition: 'all 0.3s ease' 
+                }} 
+              />
+              <div 
+                style={{ 
+                  flex: maxConsecLosses || 1, 
+                  background: 'linear-gradient(90deg, #f87171 0%, #ef4444 100%)', 
+                  transition: 'all 0.3s ease' 
+                }} 
+              />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Weekly Trade Review & Retrospective Panel */}
+      <div className="glass-card" style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CalendarRange size={20} color="var(--primary)" />
+              Weekly Performance Retrospective & Coach
+            </h3>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+              Select a week to review performance stats, get AI discipline coach tips, and save retro remarks
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Select Week:</span>
+            <select
+              value={selectedRetroWeekId}
+              onChange={(e) => setSelectedRetroWeekId(e.target.value)}
+              className="form-select"
+              style={{ width: '220px', height: '32px', padding: '0 8px', fontSize: '0.78rem' }}
+            >
+              {weeklySummaries.map((w) => (
+                <option key={w.weekId} value={w.weekId}>
+                  Week {w.weekNum} ({w.formattedRange})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {activeRetroWeek ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 2fr', gap: '24px', flexWrap: 'wrap' }}>
+            {/* Left Column: Weekly Stats Summary */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Weekly Net P&L</div>
+                <div 
+                  style={{ 
+                    fontSize: '1.25rem', 
+                    fontWeight: 800, 
+                    fontFamily: 'var(--font-mono)',
+                    color: activeRetroWeek.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)',
+                    marginTop: '4px'
+                  }}
+                >
+                  {activeRetroWeek.trades.length > 0 ? (
+                    <>
+                      {activeRetroWeek.netPnL >= 0 ? '+' : ''}
+                      {isPnlVisible ? formatCurrency(activeRetroWeek.netPnL) : '••••'}
+                    </>
+                  ) : (
+                    'No trades'
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Win Rate</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '2px', color: 'var(--text-main)' }}>
+                    {activeRetroWeek.trades.length > 0 ? `${activeRetroWeek.winRate.toFixed(0)}%` : '-'}
+                  </div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                    {activeRetroWeek.trades.length} trades
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Emotion</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '2px', color: 'var(--text-main)' }}>
+                    {activeRetroWeek.trades.length > 0 ? activeRetroWeek.dominantEmotion : '-'}
+                  </div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                    Dominant mood
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Mistake Penalties</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-loss)', marginTop: '2px' }}>
+                  {activeRetroWeek.mistakeCost > 0 ? (
+                    isPnlVisible ? `-${formatCurrency(activeRetroWeek.mistakeCost)}` : '-••••'
+                  ) : (
+                    '₹0 (Perfect Discipline)'
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Retrospective Notes & Coach */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Discipline Coach Alert */}
+              <div 
+                style={{ 
+                  background: 'var(--primary-glow)', 
+                  border: '1px solid var(--border-color-active)', 
+                  padding: '12px 16px', 
+                  borderRadius: '10px',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-main)',
+                  display: 'flex',
+                  alignItems: 'start',
+                  gap: '8px'
+                }}
+              >
+                <Sparkles size={16} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '3px', color: 'var(--primary)' }}>Discipline Coach Tip:</strong>
+                  {getCoachTip(activeRetroWeek.mistakeCost, activeRetroWeek.dominantEmotion)}
+                </div>
+              </div>
+
+              {/* Remarks textarea */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px' }}>My Retrospective Notes & Lessons</label>
+                <textarea
+                  placeholder="Write notes about what went well, mistakes to avoid next week, mental states, and performance goals..."
+                  value={retroNotes}
+                  onChange={(e) => setRetroNotes(e.target.value)}
+                  className="form-input"
+                  style={{ minHeight: '90px', padding: '10px', fontSize: '0.82rem', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-primary" onClick={handleSaveRetro} style={{ height: '32px', fontSize: '0.78rem' }}>
+                  <Save size={13} />
+                  <span>Save Retrospective</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.82rem', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+            No trade activity recorded yet in this week range.
+          </div>
+        )}
+      </div>
+
+      {/* Grid 3: Advanced Analytics Charts */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        
+        {/* Equity Curve Chart */}
+        <div className="glass-card" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <TrendingUp size={20} color="var(--primary)" />
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Cumulative Net P&L Growth Curve</h3>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                {showCombined 
+                  ? 'Real-time equity growth tracking Trading P&L overlayed with long-term investment performance' 
+                  : 'Growth of net trading capital over completed trade executions'
+                }
+              </p>
+            </div>
+          </div>
+
+          <div style={{ width: '100%', height: 320 }}>
+            <ResponsiveContainer>
+              <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorTrading" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0a84ff" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#0a84ff" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorCombined" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#e5c158" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#e5c158" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorDrawdown" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-loss)" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="var(--color-loss)" stopOpacity={0.02}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                <XAxis dataKey="tradeIndex" stroke="var(--text-dim)" fontSize={11} tickLine={false} />
+                <YAxis 
+                  stroke="var(--text-dim)" 
+                  fontSize={11} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  tickFormatter={(value) => isPnlVisible ? `${value >= 0 ? '+' : ''}₹${Math.round(value).toLocaleString('en-IN')}` : '••••'} 
+                />
+                <Tooltip content={<CustomEquityTooltip />} />
+                <Legend verticalAlign="top" height={36} />
+                <Area 
+                  type="monotone" 
+                  dataKey="tradingPnL" 
+                  name="Trading Account Curve" 
+                  stroke="#0a84ff" 
+                  strokeWidth={2.5} 
+                  fillOpacity={1} 
+                  fill="url(#colorTrading)" 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="tradingDrawdownRange" 
+                  name="Trading Drawdown Exposure (Red)" 
+                  stroke="var(--color-loss)" 
+                  strokeWidth={1.5} 
+                  strokeDasharray="3 3"
+                  fillOpacity={1} 
+                  fill="url(#colorDrawdown)" 
+                />
+                {showCombined && (
+                  <>
+                    <Area 
+                      type="monotone" 
+                      dataKey="combinedPnL" 
+                      name="Combined Wealth Curve" 
+                      stroke="#e5c158" 
+                      strokeWidth={2.5} 
+                      fillOpacity={1} 
+                      fill="url(#colorCombined)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="combinedDrawdownRange" 
+                      name="Combined Drawdown Exposure (Red)" 
+                      stroke="var(--color-loss)" 
+                      strokeWidth={1.5} 
+                      strokeDasharray="3 3"
+                      fillOpacity={1} 
+                      fill="url(#colorDrawdown)" 
+                    />
+                  </>
+                )}
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Behavioral Audit Grid (Mistake Cost & Discipline Scorecard) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', flexWrap: 'wrap' }}>
+          
+          {/* Chart: Mistake Cost Analysis */}
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <AlertTriangle size={20} color="var(--color-loss)" />
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Mistake Financial Leakage Analysis</h3>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                  Total realized losses categorized by identified execution mistakes
+                </p>
+              </div>
+            </div>
+
+            {mistakeData.length > 0 ? (
+              <div style={{ width: '100%', height: 230 }}>
+                <ResponsiveContainer>
+                  <BarChart data={mistakeData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                    <XAxis dataKey="name" stroke="var(--text-dim)" fontSize={11} tickLine={false} />
+                    <YAxis stroke="var(--text-dim)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => isPnlVisible ? `₹${value}` : '••••'} />
+                    <Tooltip content={<CustomMistakeTooltip />} />
+                    <Bar dataKey="loss" radius={[6, 6, 0, 0]}>
+                      {mistakeData.map((_entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill="var(--color-loss)" 
+                          fillOpacity={0.6 + (0.4 * (mistakeData.length - index) / (mistakeData.length || 1))} 
+                          stroke="var(--color-loss)"
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.85rem', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px dashed var(--border-color)', height: '230px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                ✓ Outstanding Discipline! No mistakes logged on loss-making trades yet.
+              </div>
+            )}
+          </div>
+
+          {/* Discipline Scorecard */}
+          <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <Sparkles size={20} color="var(--primary)" />
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Cognitive Discipline Audit</h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                    Behavioral evaluation rating based on execution mistakes
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '10px' }}>
+                <div 
+                  style={{ 
+                    width: '76px', 
+                    height: '76px', 
+                    borderRadius: '50%', 
+                    border: `3px solid ${disciplineInfo.color}`, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(255,255,255,0.02)',
+                    boxShadow: 'var(--shadow-glow)'
+                  }}
+                >
+                  <span style={{ fontSize: '1.8rem', fontWeight: 900, color: disciplineInfo.color, lineHeight: 1 }}>
+                    {disciplineInfo.grade}
+                  </span>
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    {disciplineScore.toFixed(0)}% Rule Compliance
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: disciplineInfo.color, fontWeight: 550, marginTop: '2px' }}>
+                    {disciplineInfo.desc}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.75rem', marginTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Total Trades Audited:</span>
+                <strong style={{ color: 'var(--text-main)' }}>{totalTrades}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Trades with Mistakes:</span>
+                <strong style={{ color: totalTradesWithMistakes > 0 ? 'var(--color-loss)' : 'var(--color-win)' }}>{totalTradesWithMistakes}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Discipline Grade Standard:</span>
+                <strong style={{ color: 'var(--primary)' }}>macOS Cognitive Metric v1.2</strong>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Dynamic Behavioral & Allocation Insights */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', flexWrap: 'wrap' }}>
+          {/* Emotions P&L Impact */}
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={20} color="var(--primary)" />
+              Psychological Mood P&L Impact
+            </h3>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
+              Realized net P&L accumulated under different execution mindsets.
+            </p>
+            <div style={{ width: '100%', height: 220 }}>
+              <ResponsiveContainer>
+                <BarChart 
+                  data={emotionStatsData} 
+                  layout="vertical"
+                  margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                  <XAxis type="number" stroke="var(--text-dim)" fontSize={10} tickLine={false} tickFormatter={(v) => isPnlVisible ? `₹${Math.round(v)}` : '••••'} />
+                  <YAxis dataKey="name" type="category" stroke="var(--text-dim)" fontSize={11} tickLine={false} />
+                  <Tooltip 
+                    formatter={(value: any) => [isPnlVisible ? `₹${value.toLocaleString('en-IN')}` : '••••', 'Net P&L']}
+                    contentStyle={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }}
+                  />
+                  <Bar dataKey="netPnL" radius={[0, 4, 4, 0]}>
+                    {emotionStatsData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'} 
+                        fillOpacity={0.8}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Asset Allocation or Segment Allocation */}
+          <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Briefcase size={20} color="var(--primary)" />
+              {showCombined ? 'Asset Allocation' : 'Trading Volume Allocation'}
+            </h3>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
+              {showCombined 
+                ? 'Portfolio distribution of ETFs, Government Bonds, and Stocks.' 
+                : 'P&L contribution weight across execution segments (Equity, F&O, etc.).'
+              }
+            </p>
+            <div style={{ width: '100%', height: 220, position: 'relative' }}>
+              {(showCombined ? assetAllocationData : segmentAllocationData).length > 0 ? (
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={showCombined ? assetAllocationData : segmentAllocationData}
+                      cx="50%"
+                      cy="45%"
+                      innerRadius={45}
+                      outerRadius={65}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {(showCombined ? assetAllocationData : segmentAllocationData).map((_entry, index) => {
+                        const COLORS = ['#007aff', '#34c759', '#ff9500', '#af52de'];
+                        return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />;
+                      })}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: any) => isPnlVisible ? `₹${value.toLocaleString('en-IN')}` : '••••'}
+                      contentStyle={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }}
+                    />
+                    <Legend verticalAlign="bottom" height={36} iconSize={8} iconType="circle" wrapperStyle={{ fontSize: '0.72rem' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.82rem', border: '1px dashed var(--border-color)', borderRadius: '8px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  No allocation data available. Log trades or buy assets to view chart.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
