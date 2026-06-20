@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { isSupabaseConfigured, getSupabaseConfig, clearSupabaseClientInstance } from '../utils/supabaseClient';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { 
-  User, ShieldAlert, Key, Save, Download, Upload, 
+  User, ShieldAlert, Save, Download, Upload, 
   RefreshCw, Database, Trash2, Sun, Moon, IndianRupee, ShieldCheck,
-  Plus, Edit2, Trash, Briefcase, Settings, Lock, BarChart2, ArrowUpRight
+  Plus, Edit2, Trash, Briefcase, Settings, BarChart2, ArrowUpRight
 } from 'lucide-react';
 import logoImg from '../assets/tradediary_logo.png';
 
@@ -27,12 +26,9 @@ export function AccountManager() {
     deleteInvestment,
     exitInvestment,
 
-    // Login settings
-    loginEnabled,
-    userId,
-    passwordHash,
-    setLoginEnabled,
-    setLoginCredentials,
+    // Supabase Auth Settings
+    sessionUser,
+    signOutUser,
     isPnlVisible
   } = useTradeStore();
 
@@ -50,30 +46,6 @@ export function AccountManager() {
   useEffect(() => {
     setTempCapital(baseCapital.toString());
   }, [baseCapital]);
-
-  // Settings form states
-  const [sbUrl, setSbUrl] = useState('');
-  const [sbKey, setSbKey] = useState('');
-
-  // Load Supabase credentials
-  useEffect(() => {
-    const { url, key } = getSupabaseConfig();
-    setSbUrl(url);
-    setSbKey(key);
-  }, []);
-
-  // Security Credentials form states
-  const [secUserId, setSecUserId] = useState('');
-  const [secPassword, setSecPassword] = useState('');
-  const [secPasswordConfirm, setSecPasswordConfirm] = useState('');
-  const [securitySuccess, setSecuritySuccess] = useState('');
-
-  // Initialize security settings values
-  useEffect(() => {
-    setSecUserId(userId);
-    setSecPassword(passwordHash);
-    setSecPasswordConfirm(passwordHash);
-  }, [userId, passwordHash]);
 
   // Investment Form States
   const [isInvFormOpen, setIsInvFormOpen] = useState(false);
@@ -201,36 +173,7 @@ export function AccountManager() {
   };
 
   // Handlers: Cloud database
-  const handleSaveDbSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!window.confirm('Are you sure you want to save these database settings and synchronize your trades?')) {
-      return;
-    }
-
-    localStorage.setItem('traders_diary_sb_url', sbUrl.trim());
-    localStorage.setItem('traders_diary_sb_key', sbKey.trim());
-    clearSupabaseClientInstance(); // Reset Supabase client instance
-
-    if (sbUrl.trim() !== '' && sbKey.trim() !== '') {
-      pullTradesFromCloud().then((success) => {
-        if (success) {
-          alert('Successfully linked to Supabase cloud and synchronized trades!');
-        } else {
-          alert('Connected to client, but failed to synchronize table logs. Verify your trades table schema.');
-        }
-      });
-    } else {
-      alert('Supabase credentials cleared.');
-    }
-  };
-
   const handleCloudPullSync = async () => {
-    if (!isSupabaseConfigured()) {
-      alert('Please configure Supabase database credentials first.');
-      return;
-    }
     const success = await pullTradesFromCloud();
     if (success) {
       alert('Data successfully pulled and synchronized from Supabase cloud database!');
@@ -276,21 +219,23 @@ export function AccountManager() {
           const parsed = JSON.parse(event.target?.result as string);
           
           if (parsed && parsed.trades && Array.isArray(parsed.trades)) {
-            localStorage.setItem('traders_diary_trades', JSON.stringify(parsed.trades));
+            const userId = sessionUser?.id || '';
+            localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(parsed.trades));
             if (typeof parsed.capital === 'number') {
-              localStorage.setItem('traders_diary_capital', parsed.capital.toString());
+              localStorage.setItem(`traders_diary_capital_${userId}`, parsed.capital.toString());
             }
             if (Array.isArray(parsed.adjustments)) {
-              localStorage.setItem('traders_diary_adjustments', JSON.stringify(parsed.adjustments));
+              localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(parsed.adjustments));
             }
             if (Array.isArray(parsed.investments)) {
-              localStorage.setItem('traders_diary_investments', JSON.stringify(parsed.investments));
+              localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(parsed.investments));
             }
             alert("Backup restored successfully!");
             window.location.reload();
           } else if (Array.isArray(parsed)) {
             if (parsed.length === 0 || (parsed[0].hasOwnProperty('symbol') && parsed[0].hasOwnProperty('netPnL'))) {
-              localStorage.setItem('traders_diary_trades', JSON.stringify(parsed));
+              const userId = sessionUser?.id || '';
+              localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(parsed));
               alert("Legacy trades backup restored successfully!");
               window.location.reload();
             } else {
@@ -303,48 +248,6 @@ export function AccountManager() {
           alert("Failed to parse the file. Verify it is a valid backup JSON.");
         }
       };
-    }
-  };
-
-  // Handlers: Security Credentials
-  const handleSecuritySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSecuritySuccess('');
-    setError('');
-
-    if (secPassword !== secPasswordConfirm) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    if (secUserId.trim().length < 3) {
-      setError('User ID must be at least 3 characters.');
-      return;
-    }
-
-    if (secPassword.trim().length < 3) {
-      setError('Password must be at least 3 characters.');
-      return;
-    }
-
-    if (!window.confirm('Are you sure you want to update your security credentials?')) {
-      return;
-    }
-
-    setLoginCredentials(secUserId.trim(), secPassword);
-    setSecuritySuccess('Security credentials successfully updated!');
-  };
-
-  const handleToggleLoginLock = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const isChecked = e.target.checked;
-    if (isChecked) {
-      if (window.confirm('Enable login password protection? You will be prompted to log in next time you refresh or reopen the software.')) {
-        setLoginEnabled(true);
-      }
-    } else {
-      if (window.confirm('Disable login password protection? Anyone opening the browser will be able to access your financial journals without a password.')) {
-        setLoginEnabled(false);
-      }
     }
   };
 
@@ -1309,86 +1212,45 @@ export function AccountManager() {
         {activeSubTab === 'settings' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
-            {/* 1. Security Settings (Login ID & Password) */}
+            {/* 1. Supabase SaaS Account Info */}
             <div className="glass-card" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h3 style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Lock size={16} color="var(--primary)" />
-                  Journal Login Security Settings
-                </h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Password Lock:</span>
-                  <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={loginEnabled} 
-                      onChange={handleToggleLoginLock}
-                      style={{ opacity: 0, width: 0, height: 0 }}
-                    />
-                    <span className="slider round" style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: loginEnabled ? 'var(--primary)' : 'var(--border-color)', transition: '.3s', borderRadius: '20px' }}></span>
-                  </label>
+              <h3 style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <User size={16} color="var(--primary)" />
+                Active Journal SaaS Account
+              </h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.8rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Account Email:</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{sessionUser?.email}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>SaaS User ID:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-main)', fontSize: '0.75rem' }}>{sessionUser?.id}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Login Provider:</span>
+                  <span style={{ textTransform: 'capitalize', color: 'var(--text-main)' }}>{sessionUser?.app_metadata?.provider || 'Email'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Last Sign-in:</span>
+                  <span style={{ color: 'var(--text-main)' }}>{sessionUser?.last_sign_in_at ? new Date(sessionUser.last_sign_in_at).toLocaleString('en-IN') : 'N/A'}</span>
+                </div>
+
+                <div style={{ marginTop: '6px' }}>
+                  <button 
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to log out of your account?')) {
+                        signOutUser();
+                      }
+                    }} 
+                    className="btn btn-danger" 
+                    style={{ width: '100%', justifyContent: 'center', height: '36px' }}
+                  >
+                    <span>Sign Out of TradeDiary Pro</span>
+                  </button>
                 </div>
               </div>
-
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.4' }}>
-                Require an authorized Username and Password to unlock the journal logs on loading.
-              </p>
-
-              {securitySuccess && (
-                <div style={{ color: 'var(--color-win)', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)', padding: '10px', borderRadius: '8px', fontSize: '0.78rem', marginBottom: '12px' }}>
-                  {securitySuccess}
-                </div>
-              )}
-
-              <form onSubmit={handleSecuritySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <User size={12} /> Change User ID
-                    </label>
-                    <input 
-                      type="text" 
-                      value={secUserId} 
-                      onChange={(e) => setSecUserId(e.target.value)} 
-                      className="form-input" 
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Key size={12} /> Change Password
-                    </label>
-                    <input 
-                      type="password" 
-                      value={secPassword} 
-                      onChange={(e) => setSecPassword(e.target.value)} 
-                      className="form-input" 
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Confirm Password</label>
-                    <input 
-                      type="password" 
-                      value={secPasswordConfirm} 
-                      onChange={(e) => setSecPasswordConfirm(e.target.value)} 
-                      className="form-input" 
-                      required
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}>
-                    <button type="submit" className="btn btn-primary" style={{ height: '38px', width: '100%', justifyContent: 'center' }}>
-                      <Save size={14} />
-                      <span>Update Credentials</span>
-                    </button>
-                  </div>
-                </div>
-              </form>
             </div>
 
             {/* 2. Starting Capital Configuration */}
@@ -1415,62 +1277,45 @@ export function AccountManager() {
               </form>
             </div>
 
-            {/* 3. Cloud Sync Settings */}
+            {/* 3. Centralized Database Sync Status */}
             <div className="glass-card" style={{ padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <h3 style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Database size={16} color={isSupabaseConfigured() ? 'var(--color-win)' : 'var(--primary)'} />
-                  Universal Cloud Database Sync
+                  <Database size={16} color="var(--color-win)" />
+                  Enterprise Cloud Sync Status
                 </h3>
-                {isSupabaseConfigured() ? (
-                  <span className="badge badge-win" style={{ fontSize: '0.62rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <ShieldCheck size={10} /> Active
-                  </span>
-                ) : (
-                  <span className="badge badge-neutral" style={{ fontSize: '0.62rem' }}>Offline Mode</span>
-                )}
+                <span className="badge badge-win" style={{ fontSize: '0.62rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <ShieldCheck size={10} /> Online
+                </span>
               </div>
               
-              <form onSubmit={handleSaveDbSettings} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <User size={12} /> Supabase Project URL
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://your-project-id.supabase.co"
-                    value={sbUrl}
-                    onChange={(e) => setSbUrl(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.4' }}>
+                All your trades, weekly retrospectives, setups, and adjustments are automatically encrypted and synchronized in real-time to the secure centralized database.
+              </p>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Key size={12} /> Supabase Anon API Key
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                    value={sbKey}
-                    onChange={(e) => setSbKey(e.target.value)}
-                    className="form-input"
-                  />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Connection Mode:</span>
+                  <strong style={{ color: 'var(--color-win)' }}>Secure SaaS Client</strong>
                 </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Server Location:</span>
+                  <strong style={{ color: '#fff' }}>Centralized Supabase Cloud</strong>
+                </div>
+              </div>
 
-                <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
-                  <button type="submit" className="btn btn-primary" style={{ flexGrow: 1 }}>
-                    <Save size={14} />
-                    <span>Save credentials & Sync</span>
-                  </button>
-                  {isSupabaseConfigured() && (
-                    <button type="button" className="btn btn-secondary" onClick={handleCloudPullSync} title="Fetch logs from cloud DB">
-                      <RefreshCw size={14} />
-                      <span>Sync Cloud DB</span>
-                    </button>
-                  )}
-                </div>
-              </form>
+              <div>
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  style={{ width: '100%', justifyContent: 'center', height: '36px', gap: '8px' }} 
+                  onClick={handleCloudPullSync} 
+                  title="Pull and synchronize logs from cloud DB"
+                >
+                  <RefreshCw size={14} />
+                  <span>Sync Cloud Database Now</span>
+                </button>
+              </div>
             </div>
 
             {/* 4. System Utilities & Backup */}

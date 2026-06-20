@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Trade, Setup, Segment, Product, TradeAction, Emotion, Mistake, CapitalAdjustment, Investment } from '../types';
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
-import { syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, fetchMetaFromCloud } from '../utils/supabaseClient';
+import { syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, fetchMetaFromCloud, getSupabaseClient } from '../utils/supabaseClient';
 
 interface TradeStore {
   trades: Trade[];
@@ -28,14 +28,14 @@ interface TradeStore {
   deleteInvestment: (id: string) => void;
   exitInvestment: (id: string, exitPrice: number, exitDate: string, exitNotes: string, exitQty?: number) => void;
 
-  // Security Login Settings
-  loginEnabled: boolean;
-  userId: string;
-  passwordHash: string;
-  isLoggedIn: boolean;
-  setLoginEnabled: (enabled: boolean) => void;
-  setLoginCredentials: (userId: string, pass: string) => void;
-  setIsLoggedIn: (loggedIn: boolean) => void;
+  // Supabase SaaS Auth Settings
+  sessionUser: any;
+  setSessionUser: (user: any) => void;
+  signUpUser: (email: string, pass: string) => Promise<{ error: any }>;
+  signInUser: (email: string, pass: string) => Promise<{ error: any }>;
+  signInUserWithGoogle: () => Promise<{ error: any }>;
+  signOutUser: () => Promise<{ error: any }>;
+  loadUserData: (userId: string) => void;
 
   // Privacy Settings
   isPnlVisible: boolean;
@@ -342,7 +342,7 @@ const getMockTrades = (): Trade[] => {
   });
 };
 
-export const useTradeStore = create<TradeStore>((set) => {
+export const useTradeStore = create<TradeStore>((set, get) => {
   const getMockInvestments = (): Investment[] => {
     return [
       {
@@ -370,7 +370,13 @@ export const useTradeStore = create<TradeStore>((set) => {
     ];
   };
 
-  // Load initial data from LocalStorage
+  // Helper to get user-scoped key
+  const getScopedKey = (baseKey: string) => {
+    const userId = get().sessionUser?.id;
+    return userId ? `${baseKey}_${userId}` : baseKey;
+  };
+
+  // Load initial data from LocalStorage (guest/fallback defaults)
   const loadTrades = (): Trade[] => {
     const saved = localStorage.getItem('traders_diary_trades');
     if (saved) {
@@ -438,22 +444,6 @@ export const useTradeStore = create<TradeStore>((set) => {
     return mock;
   };
 
-  const loadLoginEnabled = (): boolean => {
-    const saved = localStorage.getItem('traders_diary_login_enabled');
-    // Default to true to secure the app right away
-    return saved !== null ? JSON.parse(saved) : true;
-  };
-
-  const loadUserId = (): string => {
-    const saved = localStorage.getItem('traders_diary_userid');
-    return saved || 'admin';
-  };
-
-  const loadPasswordHash = (): string => {
-    const saved = localStorage.getItem('traders_diary_password');
-    return saved || 'admin';
-  };
-
   const loadPnlVisibility = (): boolean => {
     const saved = localStorage.getItem('traders_diary_pnl_visibility');
     return saved !== null ? JSON.parse(saved) : true;
@@ -474,8 +464,6 @@ export const useTradeStore = create<TradeStore>((set) => {
     return {};
   };
 
-  const initialLoginEnabled = loadLoginEnabled();
-
   return {
     trades: loadTrades(),
     setups: loadSetups(),
@@ -483,35 +471,159 @@ export const useTradeStore = create<TradeStore>((set) => {
     capitalAdjustments: loadAdjustments(),
     theme: loadTheme(),
     investments: loadInvestments(),
-    loginEnabled: initialLoginEnabled,
-    userId: loadUserId(),
-    passwordHash: loadPasswordHash(),
-    isLoggedIn: !initialLoginEnabled, // initially logged in if login protection is disabled
+    sessionUser: null,
     isPnlVisible: loadPnlVisibility(),
     weeklyRetrospectives: loadWeeklyRetrospectives(),
 
+    setSessionUser: (user) => set({ sessionUser: user }),
+
+    signUpUser: async (email, pass) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signUp({ email, password: pass });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    signInUser: async (email, pass) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signInWithPassword({ email, password: pass });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    signInUserWithGoogle: async () => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin
+          }
+        });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    signOutUser: async () => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signOut();
+        if (error) return { error };
+        set({
+          sessionUser: null,
+          trades: [],
+          setups: DEFAULT_SETUPS,
+          baseCapital: 500000,
+          capitalAdjustments: [],
+          investments: [],
+          weeklyRetrospectives: {},
+        });
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    loadUserData: (userId) => {
+      const getOrMigrate = (baseKey: string, defaultVal: any) => {
+        const scopedKey = `${baseKey}_${userId}`;
+        const savedScoped = localStorage.getItem(scopedKey);
+        if (savedScoped) {
+          try {
+            return JSON.parse(savedScoped);
+          } catch (e) {
+            console.error(`Failed to parse ${scopedKey}`, e);
+          }
+        }
+        
+        // Migrate guest/default data if scoped key is empty
+        const savedGuest = localStorage.getItem(baseKey);
+        if (savedGuest) {
+          try {
+            const parsed = JSON.parse(savedGuest);
+            localStorage.setItem(scopedKey, savedGuest);
+            return parsed;
+          } catch (e) {
+            console.error(`Failed to parse guest key ${baseKey}`, e);
+          }
+        }
+        
+        localStorage.setItem(scopedKey, JSON.stringify(defaultVal));
+        return defaultVal;
+      };
+
+      const trades = getOrMigrate('traders_diary_trades', []);
+      const setups = getOrMigrate('traders_diary_setups', DEFAULT_SETUPS);
+      const baseCapital = (() => {
+        const scopedKey = `traders_diary_capital_${userId}`;
+        const savedScoped = localStorage.getItem(scopedKey);
+        if (savedScoped) {
+          const parsed = parseFloat(savedScoped);
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+        const savedGuest = localStorage.getItem('traders_diary_capital');
+        if (savedGuest) {
+          const parsed = parseFloat(savedGuest);
+          if (!isNaN(parsed) && parsed > 0) {
+            localStorage.setItem(scopedKey, savedGuest);
+            return parsed;
+          }
+        }
+        return 500000;
+      })();
+      const capitalAdjustments = getOrMigrate('traders_diary_adjustments', []);
+      const investments = getOrMigrate('traders_diary_investments', getMockInvestments());
+      const weeklyRetrospectives = getOrMigrate('traders_diary_weekly_retrospectives', {});
+
+      set({
+        trades,
+        setups,
+        baseCapital,
+        capitalAdjustments,
+        investments,
+        weeklyRetrospectives,
+      });
+
+      get().pullTradesFromCloud();
+    },
+
     saveWeeklyRetrospective: (weekId, notes) => set((state) => {
       const updated = { ...state.weeklyRetrospectives, [weekId]: notes };
-      localStorage.setItem('traders_diary_weekly_retrospectives', JSON.stringify(updated));
+      localStorage.setItem(getScopedKey('traders_diary_weekly_retrospectives'), JSON.stringify(updated));
       syncMetaToCloud('weekly_retrospectives', updated);
       return { weeklyRetrospectives: updated };
     }),
 
     togglePnlVisibility: () => set((state) => {
       const next = !state.isPnlVisible;
-      localStorage.setItem('traders_diary_pnl_visibility', JSON.stringify(next));
+      localStorage.setItem(getScopedKey('traders_diary_pnl_visibility'), JSON.stringify(next));
       return { isPnlVisible: next };
     }),
 
     setBaseCapital: (capital) => set(() => {
-      localStorage.setItem('traders_diary_capital', capital.toString());
+      localStorage.setItem(getScopedKey('traders_diary_capital'), capital.toString());
       syncMetaToCloud('base_capital', capital.toString());
       return { baseCapital: capital };
     }),
 
     toggleTheme: () => set((state) => {
       const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('traders_diary_theme', nextTheme);
+      localStorage.setItem(getScopedKey('traders_diary_theme'), nextTheme);
       return { theme: nextTheme };
     }),
 
@@ -523,7 +635,7 @@ export const useTradeStore = create<TradeStore>((set) => {
         ...calculated
       };
       const updatedTrades = [newTrade, ...state.trades];
-      localStorage.setItem('traders_diary_trades', JSON.stringify(updatedTrades));
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
       
       // Async Cloud Sync
       syncTradeToCloud('insert', newTrade);
@@ -568,13 +680,13 @@ export const useTradeStore = create<TradeStore>((set) => {
         }
         return t;
       });
-      localStorage.setItem('traders_diary_trades', JSON.stringify(updatedTrades));
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
       return { trades: updatedTrades };
     }),
 
     deleteTrade: (id) => set((state) => {
       const updatedTrades = state.trades.filter((t) => t.id !== id);
-      localStorage.setItem('traders_diary_trades', JSON.stringify(updatedTrades));
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
       
       // Async Cloud Sync
       syncTradeToCloud('delete', { id });
@@ -584,14 +696,14 @@ export const useTradeStore = create<TradeStore>((set) => {
 
     addSetup: (setup) => set((state) => {
       const updatedSetups = [...state.setups, setup];
-      localStorage.setItem('traders_diary_setups', JSON.stringify(updatedSetups));
+      localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(updatedSetups));
       syncMetaToCloud('setups', updatedSetups);
       return { setups: updatedSetups };
     }),
 
     deleteSetup: (name) => set((state) => {
       const updatedSetups = state.setups.filter((s) => s.name !== name);
-      localStorage.setItem('traders_diary_setups', JSON.stringify(updatedSetups));
+      localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(updatedSetups));
       syncMetaToCloud('setups', updatedSetups);
       return { setups: updatedSetups };
     }),
@@ -599,11 +711,21 @@ export const useTradeStore = create<TradeStore>((set) => {
     resetToMockData: () => set(() => {
       const mock = getMockTrades();
       const mockInv = getMockInvestments();
-      localStorage.setItem('traders_diary_trades', JSON.stringify(mock));
-      localStorage.setItem('traders_diary_setups', JSON.stringify(DEFAULT_SETUPS));
-      localStorage.setItem('traders_diary_adjustments', JSON.stringify([]));
-      localStorage.setItem('traders_diary_investments', JSON.stringify(mockInv));
-      localStorage.setItem('traders_diary_weekly_retrospectives', JSON.stringify({}));
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(mock));
+      localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(DEFAULT_SETUPS));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify([]));
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(mockInv));
+      localStorage.setItem(getScopedKey('traders_diary_weekly_retrospectives'), JSON.stringify({}));
+      
+      // Sync mock adjustments and setups to cloud
+      syncMetaToCloud('setups', DEFAULT_SETUPS);
+      syncMetaToCloud('capital_adjustments', []);
+      syncMetaToCloud('investments', mockInv);
+      syncMetaToCloud('weekly_retrospectives', {});
+      for (const t of mock) {
+        syncTradeToCloud('insert', t);
+      }
+
       return { trades: mock, setups: DEFAULT_SETUPS, capitalAdjustments: [], investments: mockInv, weeklyRetrospectives: {} };
     }),
 
@@ -613,59 +735,84 @@ export const useTradeStore = create<TradeStore>((set) => {
         id: `adj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       };
       const updated = [newAdj, ...state.capitalAdjustments];
-      localStorage.setItem('traders_diary_adjustments', JSON.stringify(updated));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
       syncMetaToCloud('capital_adjustments', updated);
       return { capitalAdjustments: updated };
     }),
 
     deleteCapitalAdjustment: (id) => set((state) => {
       const updated = state.capitalAdjustments.filter((a) => a.id !== id);
-      localStorage.setItem('traders_diary_adjustments', JSON.stringify(updated));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
       syncMetaToCloud('capital_adjustments', updated);
       return { capitalAdjustments: updated };
     }),
 
     pullTradesFromCloud: async () => {
+      const userId = get().sessionUser?.id;
+      if (!userId) return false;
+
+      // 1. Trades
       const cloudTrades = await fetchTradesFromCloud();
-      if (cloudTrades) {
-        set({ trades: cloudTrades });
-        localStorage.setItem('traders_diary_trades', JSON.stringify(cloudTrades));
+      if (cloudTrades !== null) {
+        if (cloudTrades.length > 0) {
+          set({ trades: cloudTrades });
+          localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
+        } else if (get().trades.length > 0) {
+          for (const trade of get().trades) {
+            await syncTradeToCloud('insert', trade);
+          }
+        }
       }
 
+      // 2. Base Capital
       const baseCapitalCloud = await fetchMetaFromCloud('base_capital');
       if (baseCapitalCloud !== null) {
         const capitalNum = parseFloat(baseCapitalCloud);
         if (!isNaN(capitalNum)) {
           set({ baseCapital: capitalNum });
-          localStorage.setItem('traders_diary_capital', capitalNum.toString());
+          localStorage.setItem(`traders_diary_capital_${userId}`, capitalNum.toString());
         }
+      } else {
+        await syncMetaToCloud('base_capital', get().baseCapital.toString());
       }
 
+      // 3. Investments
       const investmentsCloud = await fetchMetaFromCloud('investments');
       if (investmentsCloud !== null) {
         set({ investments: investmentsCloud });
-        localStorage.setItem('traders_diary_investments', JSON.stringify(investmentsCloud));
+        localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(investmentsCloud));
+      } else if (get().investments.length > 0) {
+        await syncMetaToCloud('investments', get().investments);
       }
 
+      // 4. Capital Adjustments
       const adjustmentsCloud = await fetchMetaFromCloud('capital_adjustments');
       if (adjustmentsCloud !== null) {
         set({ capitalAdjustments: adjustmentsCloud });
-        localStorage.setItem('traders_diary_adjustments', JSON.stringify(adjustmentsCloud));
+        localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(adjustmentsCloud));
+      } else if (get().capitalAdjustments.length > 0) {
+        await syncMetaToCloud('capital_adjustments', get().capitalAdjustments);
       }
 
+      // 5. Setups
       const setupsCloud = await fetchMetaFromCloud('setups');
       if (setupsCloud !== null) {
         set({ setups: setupsCloud });
-        localStorage.setItem('traders_diary_setups', JSON.stringify(setupsCloud));
+        localStorage.setItem(`traders_diary_setups_${userId}`, JSON.stringify(setupsCloud));
+      } else if (get().setups.length > 0) {
+        await syncMetaToCloud('setups', get().setups);
       }
 
+      // 6. Weekly Retrospectives
       const retrosCloud = await fetchMetaFromCloud('weekly_retrospectives');
       if (retrosCloud !== null) {
         set({ weeklyRetrospectives: retrosCloud });
-        localStorage.setItem('traders_diary_weekly_retrospectives', JSON.stringify(retrosCloud));
+        localStorage.setItem(`traders_diary_weekly_retrospectives_${userId}`, JSON.stringify(retrosCloud));
+      } else if (Object.keys(get().weeklyRetrospectives).length > 0) {
+        await syncMetaToCloud('weekly_retrospectives', get().weeklyRetrospectives);
       }
 
-      return (cloudTrades !== null);
+      return true;
     },
 
     // Investments Action implementations
@@ -676,21 +823,21 @@ export const useTradeStore = create<TradeStore>((set) => {
         id: `inv-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
       };
       const updated = [...state.investments, newInv];
-      localStorage.setItem('traders_diary_investments', JSON.stringify(updated));
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updated));
       syncMetaToCloud('investments', updated);
       return { investments: updated };
     }),
 
     editInvestment: (id, invData) => set((state) => {
       const updated = state.investments.map((i) => i.id === id ? { ...i, ...invData } : i);
-      localStorage.setItem('traders_diary_investments', JSON.stringify(updated));
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updated));
       syncMetaToCloud('investments', updated);
       return { investments: updated };
     }),
 
     deleteInvestment: (id) => set((state) => {
       const updated = state.investments.filter((i) => i.id !== id);
-      localStorage.setItem('traders_diary_investments', JSON.stringify(updated));
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updated));
       syncMetaToCloud('investments', updated);
       return { investments: updated };
     }),
@@ -701,8 +848,6 @@ export const useTradeStore = create<TradeStore>((set) => {
         if (i.id === id) {
           const qtyToExit = exitQty !== undefined ? exitQty : i.qty;
           if (qtyToExit < i.qty && qtyToExit > 0) {
-            // Partial exit: decrease active quantity
-            // and create a new EXITED investment record.
             const partialExitRecord: Investment = {
               ...i,
               id: `inv-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -719,7 +864,6 @@ export const useTradeStore = create<TradeStore>((set) => {
               notes: `${i.notes}\n[Partial exit of ${qtyToExit} units on ${exitDate} @ ₹${exitPrice}]`.trim()
             };
           } else {
-            // Full exit
             return {
               ...i,
               status: 'EXITED' as const,
@@ -733,23 +877,9 @@ export const useTradeStore = create<TradeStore>((set) => {
       });
 
       const finalInvestments = [...updated, ...newExits];
-      localStorage.setItem('traders_diary_investments', JSON.stringify(finalInvestments));
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(finalInvestments));
       syncMetaToCloud('investments', finalInvestments);
       return { investments: finalInvestments };
     }),
-
-    // Security Settings implementations
-    setLoginEnabled: (enabled) => set(() => {
-      localStorage.setItem('traders_diary_login_enabled', JSON.stringify(enabled));
-      return { loginEnabled: enabled, isLoggedIn: !enabled ? true : false };
-    }),
-
-    setLoginCredentials: (uid, pwd) => set(() => {
-      localStorage.setItem('traders_diary_userid', uid);
-      localStorage.setItem('traders_diary_password', pwd);
-      return { userId: uid, passwordHash: pwd };
-    }),
-
-    setIsLoggedIn: (loggedIn) => set({ isLoggedIn: loggedIn })
   };
 });

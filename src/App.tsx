@@ -6,9 +6,10 @@ import { StrategyManager } from './components/StrategyManager';
 import { Ledger } from './components/Ledger';
 import { AccountManager } from './components/AccountManager';
 import { TradeLogger } from './components/TradeLogger';
+import { AuthScreen } from './components/AuthScreen';
 import { useTradeStore } from './store/useTradeStore';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, User, ShieldCheck, Bell } from 'lucide-react';
-import { isSupabaseConfigured } from './utils/supabaseClient';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, User, ShieldCheck, Bell, LogOut } from 'lucide-react';
+import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 
 type Tab = 'dashboard' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account';
@@ -19,21 +20,15 @@ export default function App() {
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  // Login form states
-  const [inputUserId, setInputUserId] = useState('');
-  const [inputPassword, setInputPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-
   const { 
     trades, 
     baseCapital, 
     theme, 
     capitalAdjustments,
-    loginEnabled,
-    userId,
-    passwordHash,
-    isLoggedIn,
-    setIsLoggedIn,
+    sessionUser,
+    setSessionUser,
+    signOutUser,
+    loadUserData,
     isPnlVisible
   } = useTradeStore();
 
@@ -135,6 +130,37 @@ export default function App() {
 
   const notifications = getDynamicNotifications();
 
+  // Setup Supabase Auth Session Listener
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    // Check active session
+    client.auth.getSession().then(({ data }: any) => {
+      const session = data?.session;
+      if (session?.user) {
+        setSessionUser(session.user);
+        loadUserData(session.user.id);
+      } else {
+        setSessionUser(null);
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event: any, session: any) => {
+      if (session?.user) {
+        setSessionUser(session.user);
+        loadUserData(session.user.id);
+      } else {
+        setSessionUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setSessionUser, loadUserData]);
+
   // Handle HTML Class toggling for themes
   useEffect(() => {
     if (theme === 'light') {
@@ -159,116 +185,9 @@ export default function App() {
     setEditTradeId(null);
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputUserId === userId && inputPassword === passwordHash) {
-      setIsLoggedIn(true);
-      setLoginError('');
-    } else {
-      setLoginError('Invalid Username or Password. Please try again.');
-    }
-  };
-
-  // Glassmorphic Login Screen
-  if (loginEnabled && !isLoggedIn) {
-    return (
-      <div 
-        style={{ 
-          minHeight: '100vh', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          background: 'var(--bg-color)',
-          padding: '20px',
-          backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(10, 132, 255, 0.1) 0%, transparent 50%)',
-          fontFamily: 'var(--font-sans)'
-        }}
-      >
-        <div 
-          className="glass-card" 
-          style={{ 
-            width: '100%', 
-            maxWidth: '400px', 
-            padding: '32px', 
-            textAlign: 'center',
-            boxShadow: 'var(--shadow-glow)',
-            border: '1px solid var(--border-color)'
-          }}
-        >
-          <img 
-            src={logoImg} 
-            alt="TradeDiary Pro Logo" 
-            style={{ 
-              width: '80px', 
-              height: '80px', 
-              borderRadius: '20px', 
-              marginBottom: '16px',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-              objectFit: 'cover'
-            }} 
-          />
-          <h2 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #e5c158 0%, #b38938 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '4px' }}>
-            TradeDiary Pro
-          </h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
-            Secure Stock & Options Cognition Journal
-          </p>
-
-          <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
-            {loginError && (
-              <div 
-                style={{ 
-                  color: 'var(--color-loss)', 
-                  backgroundColor: 'rgba(239, 68, 68, 0.1)', 
-                  border: '1px solid rgba(239, 68, 68, 0.2)', 
-                  padding: '10px', 
-                  borderRadius: '8px', 
-                  fontSize: '0.78rem',
-                  textAlign: 'center'
-                }}
-              >
-                {loginError}
-              </div>
-            )}
-            
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600 }}>User ID (Username)</label>
-              <input
-                type="text"
-                value={inputUserId}
-                onChange={(e) => setInputUserId(e.target.value)}
-                placeholder="Enter Username"
-                className="form-input"
-                required
-                autoFocus
-              />
-            </div>
-
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600 }}>Password</label>
-              <input
-                type="password"
-                value={inputPassword}
-                onChange={(e) => setInputPassword(e.target.value)}
-                placeholder="Enter Password"
-                className="form-input"
-                required
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '8px', height: '40px', justifyContent: 'center' }}>
-              <span>Unlock Journal</span>
-            </button>
-          </form>
-
-          <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-            <p><strong>Note:</strong> Default credentials are username <code>admin</code> and password <code>admin</code>.</p>
-            <p style={{ marginTop: '4px' }}>You can customize these credentials inside the Account settings menu once logged in.</p>
-          </div>
-        </div>
-      </div>
-    );
+  // Auth gate blocking access if not authenticated
+  if (!sessionUser) {
+    return <AuthScreen />;
   }
 
   return (
@@ -456,6 +375,45 @@ export default function App() {
             )}
           </div>
           
+          {/* User account info & logout action */}
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              background: 'rgba(255, 255, 255, 0.02)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '8px', 
+              padding: '6px 12px',
+              height: '35px',
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)'
+            }}
+          >
+            <span>User:</span>
+            <strong style={{ color: 'var(--text-main)' }}>{sessionUser?.email}</strong>
+            <button 
+              onClick={() => {
+                if (window.confirm('Are you sure you want to log out of your trading journal?')) {
+                  signOutUser();
+                }
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--color-loss)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '2px',
+                marginLeft: '4px'
+              }}
+              title="Log Out"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+
           <button className="btn btn-primary" style={{ height: '35px', padding: '6px 12px' }} onClick={handleNewTrade}>
             <Plus size={14} />
             <span>Log Trade</span>

@@ -2,14 +2,17 @@ import { createClient } from '@supabase/supabase-js';
 import type { Trade } from '../types';
 
 export function getSupabaseConfig() {
-  const url = localStorage.getItem('traders_diary_sb_url') || '';
-  const key = localStorage.getItem('traders_diary_sb_key') || '';
+  const url = import.meta.env.VITE_SUPABASE_URL || '';
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
   return { url, key };
 }
 
 export function isSupabaseConfigured() {
   const { url, key } = getSupabaseConfig();
-  return url.trim() !== '' && key.trim() !== '';
+  return url.trim() !== '' && 
+         key.trim() !== '' && 
+         !url.includes('your-supabase') && 
+         !key.includes('your-supabase');
 }
 
 let supabaseClientInstance: any = null;
@@ -37,14 +40,17 @@ export async function syncTradeToCloud(action: 'insert' | 'update' | 'delete', t
 
   const table = 'trades';
   try {
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return;
+
     if (action === 'insert') {
-      const { error } = await client.from(table).insert([trade]);
+      const { error } = await client.from(table).insert([{ ...trade, user_id: user.id }]);
       if (error) console.error('Supabase Cloud Sync Insert Error:', error);
     } else if (action === 'update') {
-      const { error } = await client.from(table).update(trade).eq('id', trade.id);
+      const { error } = await client.from(table).update(trade).eq('id', trade.id).eq('user_id', user.id);
       if (error) console.error('Supabase Cloud Sync Update Error:', error);
     } else if (action === 'delete') {
-      const { error } = await client.from(table).delete().eq('id', trade.id);
+      const { error } = await client.from(table).delete().eq('id', trade.id).eq('user_id', user.id);
       if (error) console.error('Supabase Cloud Sync Delete Error:', error);
     }
   } catch (e) {
@@ -57,9 +63,13 @@ export async function fetchTradesFromCloud(): Promise<Trade[] | null> {
   if (!client) return null;
 
   try {
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return null;
+
     const { data, error } = await client
       .from('trades')
-      .select('*');
+      .select('*')
+      .eq('user_id', user.id);
       
     if (error) {
       console.error('Supabase Cloud Fetch Error:', error);
@@ -78,7 +88,10 @@ export async function syncMetaToCloud(key: string, value: any) {
 
   const table = 'traders_diary_meta';
   try {
-    const { error } = await client.from(table).upsert({ key, value });
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return;
+
+    const { error } = await client.from(table).upsert({ user_id: user.id, key, value });
     if (error) console.error(`Supabase Sync Meta Error (${key}):`, error);
   } catch (e) {
     console.error(`Network error during Supabase sync of ${key}:`, e);
@@ -90,16 +103,18 @@ export async function fetchMetaFromCloud(key: string): Promise<any | null> {
   if (!client) return null;
 
   try {
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return null;
+
     const { data, error } = await client
       .from('traders_diary_meta')
       .select('value')
+      .eq('user_id', user.id)
       .eq('key', key)
-      .single();
+      .maybeSingle();
       
     if (error) {
-      if (error.code !== 'PGRST116') {
-        console.error(`Supabase Fetch Meta Error (${key}):`, error);
-      }
+      console.error(`Supabase Fetch Meta Error (${key}):`, error);
       return null;
     }
     return data?.value || null;
