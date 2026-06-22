@@ -34,6 +34,8 @@ interface TradeStore {
   signUpUser: (email: string, pass: string, metadata?: { first_name?: string; last_name?: string; mobile?: string }) => Promise<{ error: any }>;
   signInUser: (email: string, pass: string) => Promise<{ error: any }>;
   signOutUser: () => Promise<{ error: any }>;
+  sendPasswordResetEmail: (email: string) => Promise<{ error: any }>;
+  updatePassword: (password: string) => Promise<{ error: any }>;
   loadUserData: (userId: string) => void;
 
   // Privacy Settings
@@ -499,6 +501,32 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       if (!client) return { error: new Error('Supabase client not configured') };
       try {
         const { error } = await client.auth.signInWithPassword({ email, password: pass });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    sendPasswordResetEmail: async (email) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin
+        });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    updatePassword: async (password) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.updateUser({ password });
         if (error) return { error };
         return { error: null };
       } catch (e: any) {

@@ -4,9 +4,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recha
 import { 
   User, ShieldAlert, Save, Download, Upload, 
   RefreshCw, Database, Trash2, Sun, Moon, IndianRupee, ShieldCheck,
-  Plus, Edit2, Trash, Briefcase, Settings, BarChart2, ArrowUpRight
+  Plus, Edit2, Trash, Briefcase, Settings, BarChart2, ArrowUpRight,
+  HelpCircle, MessageSquare, Mail, KeyRound
 } from 'lucide-react';
 import logoImg from '../assets/tradediary_logo.png';
+import { submitContactQuery } from '../utils/supabaseClient';
 
 export function AccountManager() {
   const { 
@@ -29,11 +31,42 @@ export function AccountManager() {
     // Supabase Auth Settings
     sessionUser,
     signOutUser,
+    updatePassword,
     isPnlVisible
   } = useTradeStore();
 
   // Sub-section navigation state
-  const [activeSubTab, setActiveSubTab] = useState<'investments' | 'settings'>('investments');
+  const [activeSubTab, setActiveSubTab] = useState<'investments' | 'settings' | 'support'>('investments');
+
+  // Support Portal states
+  const [supportCategory, setSupportCategory] = useState<'Query' | 'Solution' | 'Things'>('Query');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportSuccess, setSupportSuccess] = useState<string | null>(null);
+  const [supportError, setSupportError] = useState<string | null>(null);
+  const [supportHistory, setSupportHistory] = useState<any[]>([]);
+
+  // Password change states
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // Load support history
+  useEffect(() => {
+    if (sessionUser?.id) {
+      const historyKey = `traders_diary_support_history_${sessionUser.id}`;
+      const savedHistory = localStorage.getItem(historyKey);
+      if (savedHistory) {
+        try {
+          setSupportHistory(JSON.parse(savedHistory));
+        } catch (e) {
+          console.error('Failed to parse support history:', e);
+        }
+      }
+    }
+  }, [sessionUser]);
 
   // Collapsible combined portfolio state
   const [isCombinedExpanded, setIsCombinedExpanded] = useState(false);
@@ -179,6 +212,81 @@ export function AccountManager() {
       alert('Data successfully pulled and synchronized from Supabase cloud database!');
     } else {
       alert('Sync failed. Please verify your internet connection and table permissions.');
+    }
+  };
+
+  // Handlers: User Support / Contact Us
+  const handleSupportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportMessage || supportMessage.trim().length < 10) {
+      setSupportError('Please enter a message containing at least 10 characters.');
+      return;
+    }
+    setSupportLoading(true);
+    setSupportError(null);
+    setSupportSuccess(null);
+
+    const { error: submitErr } = await submitContactQuery(supportCategory, supportMessage);
+    
+    // Create new query log item
+    const newQuery = {
+      id: Math.random().toString(36).substring(2, 9),
+      category: supportCategory,
+      message: supportMessage,
+      created_at: new Date().toISOString(),
+      synced: !submitErr
+    };
+
+    // Update history locally
+    const updatedHistory = [newQuery, ...supportHistory];
+    setSupportHistory(updatedHistory);
+    
+    if (sessionUser?.id) {
+      localStorage.setItem(`traders_diary_support_history_${sessionUser.id}`, JSON.stringify(updatedHistory));
+    }
+
+    setSupportLoading(false);
+
+    if (submitErr) {
+      setSupportSuccess('Query saved locally! (Note: Could not sync to cloud database table contact_submissions).');
+      console.warn('Supabase Support Sync failed, query saved locally:', submitErr);
+    } else {
+      setSupportSuccess('Your support query has been successfully submitted and synced to the cloud!');
+    }
+    
+    setSupportMessage('');
+  };
+
+  // Handlers: Account Security (Change Password)
+  const handlePasswordChangeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    const { error: updateErr } = await updatePassword(newPassword);
+    setPasswordLoading(false);
+
+    if (updateErr) {
+      setPasswordError(updateErr.message || 'Failed to update password.');
+    } else {
+      setPasswordSuccess('Password updated successfully! Logging you out...');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      
+      setTimeout(async () => {
+        await signOutUser();
+      }, 2000);
     }
   };
 
@@ -501,6 +609,14 @@ export function AccountManager() {
           >
             <Settings size={14} />
             Settings Menu
+          </button>
+          <button 
+            onClick={() => setActiveSubTab('support')}
+            className={`btn ${activeSubTab === 'support' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ border: 'none', borderRadius: '8px', padding: '6px 16px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <HelpCircle size={14} />
+            Contact Support
           </button>
         </div>
 
@@ -1277,6 +1393,62 @@ export function AccountManager() {
               </form>
             </div>
 
+            {/* 2.5. Change Account Password */}
+            <div className="glass-card" style={{ padding: '20px' }}>
+              <h3 style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <KeyRound size={16} color="var(--primary)" />
+                Change Account Password
+              </h3>
+              
+              {passwordError && (
+                <div style={{ color: 'var(--color-loss)', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '14px' }}>
+                  {passwordError}
+                </div>
+              )}
+              {passwordSuccess && (
+                <div style={{ color: 'var(--color-win)', backgroundColor: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.15)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '14px' }}>
+                  {passwordSuccess}
+                </div>
+              )}
+
+              <form onSubmit={handlePasswordChangeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className="grid-2col-equal-small" style={{ gap: '12px', marginBottom: 0 }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600 }}>New Password</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Min 6 characters"
+                      className="form-input"
+                      required
+                      disabled={passwordLoading}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600 }}>Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="form-input"
+                      required
+                      disabled={passwordLoading}
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '6px' }} disabled={passwordLoading}>
+                  {passwordLoading ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <Save size={14} />
+                  )}
+                  <span>Update Password</span>
+                </button>
+              </form>
+            </div>
+
             {/* 3. Centralized Database Sync Status */}
             <div className="glass-card" style={{ padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -1377,6 +1549,141 @@ export function AccountManager() {
                   Toggle Theme
                 </button>
               </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* SUBTAB 3: Support / Contact Us Menu */}
+        {activeSubTab === 'support' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Contact Us Form */}
+            <div className="glass-card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                <MessageSquare size={16} color="var(--primary)" />
+                <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Contact Support / Feedback</h3>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.4' }}>
+                Have a query, bug report, or want to suggest new features? Fill out the details below. We will receive it and get back to you if required.
+              </p>
+
+              {supportError && (
+                <div style={{ color: 'var(--color-loss)', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '14px' }}>
+                  {supportError}
+                </div>
+              )}
+              {supportSuccess && (
+                <div style={{ color: 'var(--color-win)', backgroundColor: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.15)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '14px' }}>
+                  {supportSuccess}
+                </div>
+              )}
+
+              <form onSubmit={handleSupportSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                
+                <div className="grid-2col-equal-small" style={{ gap: '12px', marginBottom: 0 }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600 }}>Your Email</label>
+                    <input
+                      type="text"
+                      value={sessionUser?.email || ''}
+                      disabled
+                      className="form-input"
+                      style={{ opacity: 0.6 }}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600 }}>Query Category</label>
+                    <select
+                      value={supportCategory}
+                      onChange={(e: any) => setSupportCategory(e.target.value)}
+                      className="form-input"
+                      disabled={supportLoading}
+                    >
+                      <option value="Query">Query / Question</option>
+                      <option value="Solution">Solution / Bug Report</option>
+                      <option value="Things">Things / Suggestions</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600 }}>Message</label>
+                  <textarea
+                    placeholder="Please write down your query or suggestion here (minimum 10 characters)..."
+                    value={supportMessage}
+                    onChange={(e) => setSupportMessage(e.target.value)}
+                    className="form-input"
+                    style={{ minHeight: '120px', padding: '12px', resize: 'vertical' }}
+                    required
+                    disabled={supportLoading}
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '6px' }} disabled={supportLoading}>
+                  {supportLoading ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <Save size={14} />
+                  )}
+                  <span>Submit Support Request</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Submission History Feed */}
+            <div className="glass-card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px' }}>
+                <Mail size={16} color="var(--primary)" />
+                <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Submission History ({supportHistory.length})</h3>
+              </div>
+
+              {supportHistory.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '400px', overflowY: 'auto' }}>
+                  {supportHistory.map((query) => (
+                    <div 
+                      key={query.id} 
+                      style={{ 
+                        padding: '12px', 
+                        borderRadius: '8px', 
+                        border: '1px solid var(--border-color)', 
+                        background: 'rgba(255,255,255,0.01)', 
+                        fontSize: '0.78rem' 
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span 
+                          className={`badge ${
+                            query.category === 'Solution' ? 'badge-loss' : 
+                            query.category === 'Things' ? 'badge-win' : 'badge-neutral'
+                          }`}
+                          style={{ fontSize: '0.62rem', textTransform: 'none' }}
+                        >
+                          {query.category === 'Query' && 'Query / Help'}
+                          {query.category === 'Solution' && 'Bug / Solution'}
+                          {query.category === 'Things' && 'Suggestion'}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {query.synced ? (
+                            <span className="badge badge-win" style={{ fontSize: '0.58rem', textTransform: 'none', padding: '1px 4px' }}>Synced</span>
+                          ) : (
+                            <span className="badge badge-neutral" style={{ fontSize: '0.58rem', textTransform: 'none', padding: '1px 4px', opacity: 0.7 }}>Local</span>
+                          )}
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                            {new Date(query.created_at).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+                      <p style={{ color: 'var(--text-muted)', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>{query.message}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.8rem', padding: '30px 0' }}>
+                  No support submissions yet. Need help? Fill in the form above!
+                </div>
+              )}
             </div>
 
           </div>

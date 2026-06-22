@@ -123,3 +123,32 @@ export async function fetchMetaFromCloud(key: string): Promise<any | null> {
     return null;
   }
 }
+
+export async function submitContactQuery(category: string, message: string) {
+  const client = getSupabaseClient();
+  if (!client) return { error: new Error('Supabase client not configured') };
+
+  try {
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return { error: new Error('User session not found') };
+
+    const { error } = await client.from('contact_submissions').insert([
+      {
+        user_id: user.id,
+        email: user.email || '',
+        category,
+        message
+      }
+    ]);
+
+    if (error) {
+      console.error('Supabase support submission error:', error);
+      return { error };
+    }
+    return { error: null };
+  } catch (e: any) {
+    console.error('Network error during support query submission:', e);
+    return { error: e };
+  }
+}
+

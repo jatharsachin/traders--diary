@@ -19,6 +19,7 @@ export default function App() {
   const [isLoggerOpen, setIsLoggerOpen] = useState(false);
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isRecoveryActive, setIsRecoveryActive] = useState(false);
 
   const { 
     trades, 
@@ -148,8 +149,10 @@ export default function App() {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event: any, session: any) => {
-      if (session?.user) {
+    const { data: { subscription } } = client.auth.onAuthStateChange((event: any, session: any) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveryActive(true);
+      } else if (session?.user) {
         setSessionUser(session.user);
         loadUserData(session.user.id);
       } else {
@@ -186,7 +189,11 @@ export default function App() {
     setEditTradeId(null);
   };
 
-  // Auth gate blocking access if not authenticated
+  // Auth gate blocking access if not authenticated OR if recovery is active
+  if (isRecoveryActive) {
+    return <AuthScreen recoveryMode={true} onRecoveryComplete={() => setIsRecoveryActive(false)} />;
+  }
+
   if (!sessionUser) {
     return <AuthScreen />;
   }
