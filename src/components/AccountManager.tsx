@@ -27,6 +27,7 @@ export function AccountManager() {
     editInvestment,
     deleteInvestment,
     exitInvestment,
+    updateInvestmentsList,
 
     // Supabase Auth Settings
     sessionUser,
@@ -290,6 +291,98 @@ export function AccountManager() {
     }
   };
 
+  // Yahoo Finance live price sync states
+  const [syncPricesLoading, setSyncPricesLoading] = useState(false);
+
+  const fetchLatestPriceFromYahoo = async (symbol: string): Promise<number | null> => {
+    const cleanSymbol = symbol.trim().toUpperCase();
+    const ticker = cleanSymbol.includes('.') ? cleanSymbol : `${cleanSymbol}.NS`;
+    
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
+      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+      if (!response.ok) return null;
+      const json = await response.json();
+      const data = JSON.parse(json.contents);
+      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (price && typeof price === 'number') {
+        return price;
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch price for ${ticker} from NSE, trying US/global ticker...`, e);
+    }
+
+    // Fallback for US/global stocks (without .NS)
+    if (!symbol.includes('.')) {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSymbol}`;
+        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        if (!response.ok) return null;
+        const json = await response.json();
+        const data = JSON.parse(json.contents);
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (price && typeof price === 'number') {
+          return price;
+        }
+      } catch (e) {
+        console.error(`Failed to fetch fallback price for ${cleanSymbol}:`, e);
+      }
+    }
+    
+    return null;
+  };
+
+  const handleSyncAllPrices = async () => {
+    const activeInvs = investments.filter((i) => i.status === 'ACTIVE');
+    if (activeInvs.length === 0) return;
+    
+    setSyncPricesLoading(true);
+    let updatedCount = 0;
+    
+    const updatedList = await Promise.all(
+      investments.map(async (inv) => {
+        if (inv.status === 'ACTIVE') {
+          const livePrice = await fetchLatestPriceFromYahoo(inv.symbol);
+          if (livePrice !== null) {
+            updatedCount++;
+            return { ...inv, currentPrice: livePrice };
+          }
+        }
+        return inv;
+      })
+    );
+    
+    if (updatedCount > 0) {
+      updateInvestmentsList(updatedList);
+      alert(`Successfully synchronized latest day-end market prices for ${updatedCount} assets!`);
+    } else {
+      alert("Could not update prices. Please check internet connection or symbols format.");
+    }
+    
+    setSyncPricesLoading(false);
+  };
+
+  // Auto-sync prices once on tab switch to investments
+  useEffect(() => {
+    if (activeSubTab === 'investments' && investments.filter((i) => i.status === 'ACTIVE').length > 0) {
+      const autoSyncPrices = async () => {
+        const updatedList = await Promise.all(
+          investments.map(async (inv) => {
+            if (inv.status === 'ACTIVE') {
+              const livePrice = await fetchLatestPriceFromYahoo(inv.symbol);
+              if (livePrice !== null) {
+                return { ...inv, currentPrice: livePrice };
+              }
+            }
+            return inv;
+          })
+        );
+        updateInvestmentsList(updatedList);
+      };
+      autoSyncPrices();
+    }
+  }, [activeSubTab]);
+
   // Handlers: Backups
   const handleExportBackup = () => {
     try {
@@ -365,10 +458,10 @@ export function AccountManager() {
     
     const qty = parseInt(invQty);
     const buyPrice = parseFloat(invBuyPrice);
-    const currentPrice = parseFloat(invCurrentPrice);
+    const currentPrice = invCurrentPrice ? parseFloat(invCurrentPrice) : buyPrice;
 
     if (isNaN(qty) || qty <= 0 || isNaN(buyPrice) || buyPrice <= 0 || isNaN(currentPrice) || currentPrice <= 0) {
-      alert('Please enter valid numeric values for Quantity, Buy Price, and Current Price.');
+      alert('Please enter valid numeric values for Quantity and Buy Price.');
       return;
     }
 
@@ -693,15 +786,14 @@ export function AccountManager() {
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Current Market Price (₹)</label>
+                      <label className="form-label">Current Market Price (₹) <span style={{ opacity: 0.5, fontSize: '0.72rem', fontWeight: 'normal' }}>(Optional - defaults to Buy Price)</span></label>
                       <input 
                         type="number" 
                         step="0.01"
-                        placeholder="e.g. 235.00" 
+                        placeholder="e.g. 235.00 (optional)" 
                         value={invCurrentPrice}
                         onChange={(e) => setInvCurrentPrice(e.target.value)}
                         className="form-input"
-                        required
                       />
                     </div>
                   </div>
@@ -750,10 +842,24 @@ export function AccountManager() {
                   Delivery Investments Assets Ledger
                 </h3>
                 {!isInvFormOpen && (
-                  <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.78rem' }} onClick={() => setIsInvFormOpen(true)}>
-                    <Plus size={12} />
-                    <span>Log Asset Purchase</span>
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {investments.filter(i => i.status === 'ACTIVE').length > 0 && (
+                      <button 
+                        type="button"
+                        className="btn btn-secondary" 
+                        style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }} 
+                        onClick={handleSyncAllPrices}
+                        disabled={syncPricesLoading}
+                      >
+                        <RefreshCw size={12} className={syncPricesLoading ? 'animate-spin' : ''} />
+                        <span>{syncPricesLoading ? 'Updating...' : 'Sync Live Prices'}</span>
+                      </button>
+                    )}
+                    <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.78rem' }} onClick={() => setIsInvFormOpen(true)}>
+                      <Plus size={12} />
+                      <span>Log Asset Purchase</span>
+                    </button>
+                  </div>
                 )}
               </div>
 

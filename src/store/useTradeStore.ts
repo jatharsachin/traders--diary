@@ -27,6 +27,7 @@ interface TradeStore {
   editInvestment: (id: string, invData: Partial<Investment>) => void;
   deleteInvestment: (id: string) => void;
   exitInvestment: (id: string, exitPrice: number, exitDate: string, exitNotes: string, exitQty?: number) => void;
+  updateInvestmentsList: (updatedList: Investment[]) => void;
 
   // Supabase SaaS Auth Settings
   sessionUser: any;
@@ -896,6 +897,12 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(finalInvestments));
       syncMetaToCloud('investments', finalInvestments);
       return { investments: finalInvestments };
+    }),
+
+    updateInvestmentsList: (updatedList) => set(() => {
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updatedList));
+      syncMetaToCloud('investments', updatedList);
+      return { investments: updatedList };
     }),
   };
 });
