@@ -33,6 +33,17 @@ const DEFAULT_FORM_STATE = {
   setupType: 'None' as 'Breakout' | 'Pullback' | 'Reversal' | 'Range Bound' | 'None',
 };
 
+const guessLotSize = (symbol: string): number => {
+  const sym = symbol.toUpperCase();
+  if (sym.includes('BANKNIFTY')) return 15;
+  if (sym.includes('FINNIFTY')) return 25;
+  if (sym.includes('MIDCPNIFTY')) return 50;
+  if (sym.includes('NIFTY')) return 75;
+  if (sym.includes('SENSEX')) return 10;
+  if (sym.includes('BANKEX')) return 15;
+  return 1;
+};
+
 const TRADING_RULES = [
   'Trend Alignment',
   'Position Sizing OK',
@@ -57,6 +68,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
   const [formData, setFormData] = useState(DEFAULT_FORM_STATE);
   const [tagsInput, setTagsInput] = useState('');
   const [error, setError] = useState('');
+
+  const [lotsInput, setLotsInput] = useState<string>('');
+  const [lotSizeInput, setLotSizeInput] = useState<string>('75');
 
   // Load existing data if editing
   useEffect(() => {
@@ -87,6 +101,11 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
           setupType: existing.setupType || 'None',
         });
         setTagsInput(existing.tags ? existing.tags.join(', ') : '');
+
+        // Set lots and lot size on edit load
+        const guessedSz = guessLotSize(existing.symbol);
+        setLotSizeInput(guessedSz.toString());
+        setLotsInput((existing.qty / guessedSz).toString());
       }
     } else {
       setFormData({
@@ -97,19 +116,65 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
         exitTime: new Date(Date.now() + 15 * 60 * 1000).toTimeString().slice(0, 5),
       });
       setTagsInput('');
+      setLotsInput('');
+      setLotSizeInput('75');
     }
   }, [editTradeId, trades, setups, isOpen]);
+
+  // Sync lots and quantity when lots or lot size changes
+  const handleLotsChange = (val: string) => {
+    setLotsInput(val);
+    const l = parseFloat(val);
+    const sz = parseFloat(lotSizeInput) || 1;
+    if (!isNaN(l) && l >= 0) {
+      setFormData((prev) => ({ ...prev, qty: Math.round(l * sz) }));
+    }
+  };
+
+  const handleLotSizeChange = (val: string) => {
+    setLotSizeInput(val);
+    const sz = parseFloat(val) || 1;
+    const l = parseFloat(lotsInput);
+    if (!isNaN(l) && l >= 0) {
+      setFormData((prev) => ({ ...prev, qty: Math.round(l * sz) }));
+    } else if (formData.qty > 0) {
+      setLotsInput((formData.qty / sz).toString());
+    }
+  };
+
+  // Watch symbol to auto-detect lot sizes
+  useEffect(() => {
+    if (formData.segment === 'F&O' && formData.symbol && isOpen) {
+      const guessed = guessLotSize(formData.symbol);
+      setLotSizeInput(guessed.toString());
+      
+      const l = parseFloat(lotsInput);
+      if (!isNaN(l) && l >= 0) {
+        setFormData((prev) => ({ ...prev, qty: Math.round(l * guessed) }));
+      } else if (formData.qty > 0) {
+        setLotsInput((formData.qty / guessed).toString());
+      }
+    }
+  }, [formData.symbol, formData.segment, isOpen]);
 
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    const parsedVal = ['qty', 'entryPrice', 'exitPrice', 'slippagePoints', 'stopLoss', 'target', 'strikePrice'].includes(name)
+      ? parseFloat(value) || 0
+      : value;
+
     setFormData((prev) => ({
       ...prev,
-      [name]: ['qty', 'entryPrice', 'exitPrice', 'slippagePoints', 'stopLoss', 'target', 'strikePrice'].includes(name)
-        ? parseFloat(value) || 0
-        : value,
+      [name]: parsedVal,
     }));
+
+    if (name === 'qty') {
+      const q = parseFloat(value) || 0;
+      const sz = parseFloat(lotSizeInput) || 1;
+      setLotsInput((q / sz).toString());
+    }
   };
 
   const handleRuleToggle = (rule: string) => {
@@ -358,20 +423,82 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
               </div>
             </div>
 
-            {/* Grid 3: Trade Execution Numbers */}
-            <div className="grid-4col-equal" style={{ marginBottom: '16px' }}>
-              <div className="form-group">
-                <label className="form-label">Qty</label>
-                <input
-                  type="number"
-                  name="qty"
-                  value={formData.qty}
-                  onChange={handleChange}
-                  min="1"
-                  className="form-input"
-                  required
-                />
+            {/* Conditionally Render F&O Lot Calculator */}
+            {formData.segment === 'F&O' && (
+              <div 
+                className="grid-logger-fo" 
+                style={{ 
+                  marginBottom: '16px',
+                  background: 'rgba(191, 87, 242, 0.03)',
+                  border: '1px solid rgba(191, 87, 242, 0.08)',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '16px'
+                }}
+              >
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#bf5af2', fontWeight: 600 }}>Lots</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={lotsInput}
+                    onChange={(e) => handleLotsChange(e.target.value)}
+                    placeholder="e.g. 2"
+                    className="form-input"
+                    style={{ borderColor: 'rgba(191, 87, 242, 0.2)' }}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#bf5af2', fontWeight: 600 }}>Lot Size</label>
+                  <input
+                    type="number"
+                    value={lotSizeInput}
+                    onChange={(e) => handleLotSizeChange(e.target.value)}
+                    placeholder="e.g. 75"
+                    className="form-input"
+                    style={{ borderColor: 'rgba(191, 87, 242, 0.2)' }}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#bf5af2', fontWeight: 600 }}>Total Quantity</label>
+                  <input
+                    type="number"
+                    name="qty"
+                    value={formData.qty}
+                    onChange={handleChange}
+                    className="form-input"
+                    style={{ borderColor: 'rgba(191, 87, 242, 0.2)' }}
+                    required
+                  />
+                </div>
               </div>
+            )}
+
+            {/* Grid 3: Trade Execution Numbers */}
+            <div 
+              style={{ 
+                display: 'grid', 
+                gridTemplateColumns: formData.segment === 'F&O' ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)', 
+                gap: '16px', 
+                marginBottom: '16px' 
+              }}
+            >
+              {formData.segment !== 'F&O' && (
+                <div className="form-group">
+                  <label className="form-label">Qty</label>
+                  <input
+                    type="number"
+                    name="qty"
+                    value={formData.qty}
+                    onChange={handleChange}
+                    min="1"
+                    className="form-input"
+                    required
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label className="form-label">Entry Price</label>
                 <input
