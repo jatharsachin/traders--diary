@@ -1,14 +1,22 @@
 import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Trade } from '../types';
-import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download } from 'lucide-react';
+import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings } from 'lucide-react';
+import { filterTradesByFY, FINANCIAL_YEARS } from '../utils/fyHelper';
+import { BrokerBadge } from './BrokerBadge';
 
 interface TradeTableProps {
   onEditTrade: (id: string) => void;
+  activeAccountId?: string;
 }
 
-export function TradeTable({ onEditTrade }: TradeTableProps) {
-  const { trades, deleteTrade, setups, isPnlVisible } = useTradeStore();
+export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
+  const { trades: allTrades, deleteTrade, setups, isPnlVisible, selectedFY, setSelectedFY, activeBrokers } = useTradeStore();
+  const fyTrades = filterTradesByFY(allTrades, selectedFY);
+  const trades = activeAccountId === 'Combined' 
+    ? fyTrades 
+    : fyTrades.filter(t => t.brokerAccountId === activeAccountId);
+  
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
   // Search & Filter state
@@ -19,6 +27,7 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
   const [selectedStrategy, setSelectedStrategy] = useState<string>('All');
   const [selectedMistake, setSelectedMistake] = useState<string>('All');
   const [selectedSetupType, setSelectedSetupType] = useState<string>('All');
+  const [selectedBroker, setSelectedBroker] = useState<string>('All');
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof Trade>('date');
@@ -57,8 +66,9 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
     const matchesMistake = selectedMistake === 'All' || trade.mistake === selectedMistake;
     const matchesSetupType = selectedSetupType === 'All' || trade.setupType === selectedSetupType;
     const matchesTag = !selectedTag.trim() || (trade.tags && trade.tags.some(tag => tag.toLowerCase().includes(selectedTag.trim().toLowerCase())));
+    const matchesBroker = selectedBroker === 'All' || trade.broker === selectedBroker;
 
-    return matchesSearch && matchesSegment && matchesAction && matchesStrategy && matchesMistake && matchesSetupType && matchesTag;
+    return matchesSearch && matchesSegment && matchesAction && matchesStrategy && matchesMistake && matchesSetupType && matchesTag && matchesBroker;
   });
 
   // Sort trades
@@ -105,6 +115,7 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
     setSelectedStrategy('All');
     setSelectedMistake('All');
     setSelectedSetupType('All');
+    setSelectedBroker('All');
     setCurrentPage(1);
   };
 
@@ -241,7 +252,31 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
             Review, filter, and modify your logged trading executions
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Financial Year Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>FY:</span>
+            <select
+              value={selectedFY}
+              onChange={(e) => setSelectedFY(e.target.value)}
+              className="form-select"
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.78rem',
+                height: '32px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+            >
+              {FINANCIAL_YEARS.map((fy) => (
+                <option key={fy} value={fy}>{fy}</option>
+              ))}
+            </select>
+          </div>
+
           <button 
             className="btn btn-secondary" 
             style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -260,6 +295,105 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
             <Download size={14} color="var(--primary)" />
             <span>Export PDF</span>
           </button>
+        </div>
+      </div>
+
+      {/* Selectable Row Actions Toolbar */}
+      <div 
+        className="glass-card" 
+        style={{ 
+          padding: '12px 16px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '20px',
+          background: selectedRowId ? 'var(--primary-glow)' : 'rgba(255,255,255,0.01)',
+          border: selectedRowId ? '1px solid var(--border-color-active)' : '1px solid var(--border-color)',
+          borderRadius: '8px',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Settings size={15} color={selectedRowId ? 'var(--primary)' : 'var(--text-muted)'} />
+          <span style={{ fontSize: '0.78rem', color: selectedRowId ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: selectedRowId ? 600 : 500 }}>
+            {selectedRowId ? (
+              (() => {
+                const tr = trades.find(t => t.id === selectedRowId);
+                return tr 
+                  ? `Selected: ${tr.date} - ${tr.symbol} (${tr.action}) | P&L: ${isPnlVisible ? formatCurrency(tr.netPnL) : '••••'}`
+                  : 'Selected Row'
+              })()
+            ) : (
+              '💡 Click on any trade row in the list below to select it, then use this toolbar to Edit or Delete.'
+            )}
+          </span>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!selectedRowId}
+            onClick={() => {
+              if (selectedRowId) {
+                onEditTrade(selectedRowId);
+              }
+            }}
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.75rem',
+              height: '30px', 
+              opacity: selectedRowId ? 1 : 0.4, 
+              cursor: selectedRowId ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <Edit2 size={12} />
+            <span>Edit Log</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={!selectedRowId}
+            onClick={() => {
+              if (selectedRowId) {
+                if (window.confirm('Are you sure you want to delete this selected trade log?')) {
+                  deleteTrade(selectedRowId);
+                  setSelectedRowId(null);
+                }
+              }
+            }}
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.75rem',
+              height: '30px', 
+              opacity: selectedRowId ? 1 : 0.4, 
+              cursor: selectedRowId ? 'pointer' : 'not-allowed',
+              color: '#fff',
+              background: 'var(--color-loss)',
+              border: 'none',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <Trash2 size={12} />
+            <span>Delete Log</span>
+          </button>
+          {selectedRowId && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setSelectedRowId(null)}
+              style={{ padding: '6px 10px', fontSize: '0.75rem', height: '30px', border: 'none' }}
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </div>
 
@@ -382,10 +516,22 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
           <option value="Reversal">Reversal</option>
           <option value="Range Bound">Range Bound</option>
         </select>
+
+        {/* Broker Filter */}
+        <select
+          value={selectedBroker}
+          onChange={(e) => { setSelectedBroker(e.target.value); setCurrentPage(1); }}
+          className="form-select"
+        >
+          <option value="All">All Brokers</option>
+          {activeBrokers.map((b) => (
+            <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
       </div>
 
       {/* Clear Filters Button */}
-      {(searchTerm || selectedSegment !== 'All' || selectedAction !== 'All' || selectedStrategy !== 'All' || selectedMistake !== 'All' || selectedSetupType !== 'All') && (
+      {(searchTerm || selectedSegment !== 'All' || selectedAction !== 'All' || selectedStrategy !== 'All' || selectedMistake !== 'All' || selectedSetupType !== 'All' || selectedBroker !== 'All') && (
         <button 
           onClick={clearFilters} 
           className="btn btn-secondary" 
@@ -408,10 +554,12 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('symbol')}>
                   Symbol <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('broker')}>
+                  Broker <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
+                </th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('segment')}>
                   Type <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
-                <th>Action</th>
                 <th>Qty</th>
                 <th>Entry Price</th>
                 <th>Exit Price</th>
@@ -419,7 +567,6 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
                   Net P&L <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
                 <th>Psychology</th>
-                <th style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -428,8 +575,13 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
                 return (
                   <tr 
                     key={trade.id}
-                    className={selectedRowId === trade.id ? 'selected-row' : ''}
                     onClick={() => setSelectedRowId(selectedRowId === trade.id ? null : trade.id)}
+                    style={{
+                      cursor: 'pointer',
+                      background: selectedRowId === trade.id ? 'var(--primary-glow)' : 'transparent',
+                      border: selectedRowId === trade.id ? '1px solid var(--primary)' : 'inherit',
+                      transition: 'all 0.15s ease'
+                    }}
                   >
                     <td>
                       <div style={{ fontWeight: 500 }}>{trade.date}</div>
@@ -514,6 +666,9 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
                       )}
                     </td>
                     <td>
+                      <BrokerBadge broker={trade.broker} />
+                    </td>
+                    <td>
                       <div style={{ fontSize: '0.8rem', fontWeight: 500 }}>{trade.segment}</div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{trade.product}</div>
                     </td>
@@ -569,36 +724,6 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
                         )}
                       </div>
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '6px' }} 
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            if (window.confirm('Are you sure you want to edit this trade log?')) {
-                              onEditTrade(trade.id); 
-                            }
-                          }}
-                          title="Edit Log"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button 
-                          className="btn btn-danger" 
-                          style={{ padding: '6px' }} 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm('Are you sure you want to delete this trade?')) {
-                              deleteTrade(trade.id);
-                            }
-                          }}
-                          title="Delete Log"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 );
               })}
@@ -640,8 +765,8 @@ export function TradeTable({ onEditTrade }: TradeTableProps) {
                 className="btn"
                 style={{
                   padding: '6px 12px',
-                  background: currentPage === i + 1 ? 'var(--primary)' : 'rgba(255, 255, 255, 0.03)',
-                  color: '#fff',
+                  background: currentPage === i + 1 ? 'var(--primary)' : 'var(--bg-card)',
+                  color: currentPage === i + 1 ? '#fff' : 'var(--text-main)',
                   border: `1px solid ${currentPage === i + 1 ? 'var(--primary)' : 'var(--border-color)'}`
                 }}
                 onClick={() => paginate(i + 1)}

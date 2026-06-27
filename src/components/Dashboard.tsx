@@ -6,10 +6,70 @@ import {
   Eye, EyeOff, Save
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
+import { filterTradesByFY, FINANCIAL_YEARS } from '../utils/fyHelper';
 
-export function Dashboard() {
-  const { trades, baseCapital, investments, isPnlVisible, togglePnlVisibility, weeklyRetrospectives, saveWeeklyRetrospective } = useTradeStore();
+export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
+  const { 
+    trades: allTrades, 
+    investments, 
+    isPnlVisible, 
+    togglePnlVisibility, 
+    weeklyRetrospectives, 
+    saveWeeklyRetrospective,
+    selectedFY,
+    setSelectedFY,
+    activeBrokers,
+    userName,
+    userAvatar,
+    brokerAccounts,
+    capitalAdjustments
+  } = useTradeStore();
+  
+  const [selectedBroker, setSelectedBroker] = useState<string>('All');
   const [showCombined, setShowCombined] = useState(false);
+
+
+
+  const getStartingCapitalForActiveFY = () => {
+    let startCap = 0;
+    if (activeAccountId !== 'Combined') {
+      const acc = brokerAccounts.find(a => a.id === activeAccountId);
+      startCap = acc ? acc.startingCapital : 0;
+    } else {
+      startCap = brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0);
+    }
+
+    if (selectedFY === 'All') return startCap;
+
+    const match = selectedFY.match(/FY (\d{4})/);
+    if (!match) return startCap;
+    const startYear = parseInt(match[1], 10);
+    const startStr = `${startYear}-04-01`;
+
+    const priorTradesPnL = allTrades
+      .filter((t) => t.date < startStr && (activeAccountId === 'Combined' ? true : t.brokerAccountId === activeAccountId))
+      .reduce((acc, t) => acc + t.netPnL, 0);
+
+    const priorAdjustments = capitalAdjustments
+      .filter((a) => a.date < startStr && (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId))
+      .reduce((acc, a) => {
+        if (a.type === 'DEPOSIT') return acc + a.amount;
+        return acc - a.amount;
+      }, 0);
+
+    return startCap + priorTradesPnL + priorAdjustments;
+  };
+
+  const activeBaseCapital = getStartingCapitalForActiveFY();
+
+  const rawTradesByFY = filterTradesByFY(allTrades, selectedFY);
+  const rawTrades = activeAccountId === 'Combined'
+    ? rawTradesByFY
+    : rawTradesByFY.filter((t) => t.brokerAccountId === activeAccountId);
+
+  const trades = selectedBroker === 'All' 
+    ? rawTrades 
+    : rawTrades.filter((t) => (t.broker || 'Other') === selectedBroker);
 
   const totalTrades = trades.length;
   const winningTrades = trades.filter((t) => t.netPnL > 0);
@@ -32,12 +92,12 @@ export function Dashboard() {
   const realizedInvReturns = exitedInvestments.reduce((acc, inv) => acc + (((inv.exitPrice || 0) - inv.buyPrice) * inv.qty), 0);
   const totalInvReturns = activeReturns + realizedInvReturns;
 
-  // Combined calculations
+  // Combined calculations using activeBaseCapital
   const displayNetPnL = showCombined ? (totalNetPnL + totalInvReturns) : totalNetPnL;
-  const displayBaseCapital = showCombined ? (baseCapital + totalInvInvested) : baseCapital;
+  const displayBaseCapital = showCombined ? (activeBaseCapital + totalInvInvested) : activeBaseCapital;
 
-  const tradingReturnPct = baseCapital > 0 ? (totalNetPnL / baseCapital) * 100 : 0;
-  const combinedReturnPct = (baseCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (baseCapital + totalInvInvested)) * 100 : 0;
+  const tradingReturnPct = activeBaseCapital > 0 ? (totalNetPnL / activeBaseCapital) * 100 : 0;
+  const combinedReturnPct = (activeBaseCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (activeBaseCapital + totalInvInvested)) * 100 : 0;
 
   const grossProfit = trades.reduce((acc, t) => (t.netPnL > 0 ? acc + t.netPnL : acc), 0);
   
@@ -87,6 +147,37 @@ export function Dashboard() {
   // Brokerage Leakage
   const brokerageLeakage = grossProfit > 0 ? (totalCharges / grossProfit) * 100 : 0;
 
+  // Broker-wise Performance statistics calculations
+  const getBrokerwiseStats = () => {
+    const brokerMap: Record<string, { netPnL: number; totalTrades: number; wins: number; losses: number; charges: number }> = {};
+    
+    rawTrades.forEach((t) => {
+      const b = t.broker || 'Other';
+      if (!brokerMap[b]) {
+        brokerMap[b] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0 };
+      }
+      brokerMap[b].netPnL += t.netPnL;
+      brokerMap[b].totalTrades += 1;
+      brokerMap[b].charges += (t.brokerage + t.taxes);
+      if (t.netPnL > 0) {
+        brokerMap[b].wins += 1;
+      } else if (t.netPnL < 0) {
+        brokerMap[b].losses += 1;
+      }
+    });
+
+    return Object.entries(brokerMap).map(([name, data]) => {
+      const wr = data.totalTrades > 0 ? (data.wins / data.totalTrades) * 100 : 0;
+      return {
+        name,
+        ...data,
+        winRate: wr
+      };
+    }).sort((a, b) => b.netPnL - a.netPnL);
+  };
+
+  const brokerStats = getBrokerwiseStats();
+
   // Max Drawdown & Consistency stats
   const calculateMaxDrawdown = () => {
     let peak = 0;
@@ -103,7 +194,7 @@ export function Dashboard() {
   };
 
   const maxDDRupees = calculateMaxDrawdown();
-  const maxDDPct = (maxDDRupees / baseCapital) * 100;
+  const maxDDPct = (maxDDRupees / activeBaseCapital) * 100;
 
   // Win Days calculation
   const dailyPnL: Record<string, number> = {};
@@ -134,7 +225,7 @@ export function Dashboard() {
 
   // Sharpe Ratio
   const calculateSharpeRatio = () => {
-    const dailyReturns = daysList.map((d) => d / baseCapital);
+    const dailyReturns = daysList.map((d) => d / activeBaseCapital);
     if (dailyReturns.length === 0) return 0;
 
     const dailyRf = 0.06 / 252;
@@ -164,15 +255,15 @@ export function Dashboard() {
   // 1. Equity Curve Data Preparation
   const getEquityCurveData = () => {
     let cumulativeTrading = 0;
-    let peakTradingCapital = baseCapital;
-    let peakCombinedCapital = baseCapital + totalInvReturns;
+    let peakTradingCapital = activeBaseCapital;
+    let peakCombinedCapital = activeBaseCapital + totalInvReturns;
 
     const curve = sortedTrades.map((t, index) => {
       cumulativeTrading += t.netPnL;
       const cumulativeCombined = cumulativeTrading + totalInvReturns;
 
-      const currentTradingCapital = baseCapital + cumulativeTrading;
-      const currentCombinedCapital = baseCapital + cumulativeCombined;
+      const currentTradingCapital = activeBaseCapital + cumulativeTrading;
+      const currentCombinedCapital = activeBaseCapital + cumulativeCombined;
 
       if (currentTradingCapital > peakTradingCapital) {
         peakTradingCapital = currentTradingCapital;
@@ -187,8 +278,8 @@ export function Dashboard() {
       const combinedDrawdownRupees = peakCombinedCapital - currentCombinedCapital;
       const combinedDrawdownPct = peakCombinedCapital > 0 ? (combinedDrawdownRupees / peakCombinedCapital) * 100 : 0;
 
-      const peakTradingPnLVal = peakTradingCapital - baseCapital;
-      const peakCombinedPnLVal = peakCombinedCapital - baseCapital;
+      const peakTradingPnLVal = peakTradingCapital - activeBaseCapital;
+      const peakCombinedPnLVal = peakCombinedCapital - activeBaseCapital;
 
       return {
         tradeIndex: index + 1,
@@ -499,6 +590,112 @@ export function Dashboard() {
   return (
     <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
+      {/* Personalized Welcome Banner */}
+      <div 
+        className="glass-card" 
+        style={{ 
+          padding: '20px 24px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          background: 'var(--primary-glow)',
+          border: '1px solid var(--border-color-active)',
+          borderRadius: '12px',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}
+      >
+        <div>
+          <h2 style={{ fontSize: '1.38rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+            Welcome back, {userName || 'Sachin'}!
+            <span style={{ fontSize: '1.6rem' }}>
+              {userAvatar === 'bull' ? '🐂' :
+               userAvatar === 'bear' ? '🐻' :
+               userAvatar === 'trader' ? '👨‍💻' :
+               userAvatar === 'gold' ? '🏆' :
+               userAvatar === 'coin' ? '🪙' :
+               userAvatar === 'clock' ? '⏱️' :
+               userAvatar === 'rocket' ? '🚀' :
+               userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
+            </span>
+          </h2>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '4px', marginBottom: 0 }}>
+            Ready for your cognitive trading audit? Track setups, emotions, and broker statements all in one place.
+          </p>
+        </div>
+        
+        {/* Large FY display and rollover button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255, 255, 255, 0.05)', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statement Period</span>
+            <strong style={{ fontSize: '1.4rem', color: 'var(--text-main)', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
+              {selectedFY === 'All' ? 'ALL YEARS' : selectedFY}
+            </strong>
+          </div>
+          {selectedFY !== 'All' && (
+            <button
+              onClick={() => {
+                const match = selectedFY.match(/FY (\d{4})/);
+                if (!match) return;
+                const startYear = parseInt(match[1], 10);
+                const nextYear = startYear + 1;
+                
+                // Calculate ending balance
+                const activeAdjustments = capitalAdjustments
+                  .filter(a => {
+                    const matchFY = selectedFY === 'All' || filterTradesByFY([a as any], selectedFY).length > 0;
+                    const matchAcc = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
+                    return matchFY && matchAcc;
+                  })
+                  .reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
+
+                const endingBalance = activeBaseCapital + totalNetPnL + activeAdjustments;
+
+                if (window.confirm(`Are you sure you want to rollover the carry-forward closing balance of ${selectedFY} (₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}) to the opening balance of FY ${nextYear}? This will log a corresponding deposit adjustment on April 1st, ${nextYear}.`)) {
+                  const nextFYDate = `${nextYear}-04-01`;
+                  // Remove any duplicate rollover
+                  const existing = capitalAdjustments.find(a => 
+                    a.date === nextFYDate && 
+                    a.notes?.startsWith("Rollover Carry-Forward") &&
+                    (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId)
+                  );
+                  if (existing) {
+                    useTradeStore.getState().deleteCapitalAdjustment(existing.id);
+                  }
+
+                  const targetAccId = activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || '');
+                  const targetBroker = brokerAccounts.find(a => a.id === targetAccId)?.broker || 'Other';
+
+                  useTradeStore.getState().addCapitalAdjustment({
+                    date: nextFYDate,
+                    time: "09:00",
+                    type: 'DEPOSIT',
+                    amount: Math.round(endingBalance * 100) / 100,
+                    notes: `Rollover Carry-Forward from ${selectedFY}`,
+                    broker: targetBroker,
+                    brokerAccountId: targetAccId
+                  });
+                  alert(`Successfully carried forward ₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} to FY ${nextYear}!`);
+                }
+              }}
+              className="btn btn-secondary"
+              style={{
+                fontSize: '0.72rem',
+                padding: '6px 10px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.08)',
+                color: '#fff',
+                cursor: 'pointer',
+                borderRadius: '6px',
+                fontWeight: 600
+              }}
+            >
+              Rollover FY Balance
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Portfolio Selector Control Bar */}
       <div 
         className="glass-card" 
@@ -518,7 +715,62 @@ export function Dashboard() {
           </span>
         </div>
         
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Broker Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Broker:</span>
+            <select
+              value={selectedBroker}
+              onChange={(e) => setSelectedBroker(e.target.value)}
+              className="form-select"
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.78rem',
+                height: '32px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                minWidth: '120px'
+              }}
+            >
+              <option value="All">All Brokers</option>
+              {activeBrokers.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Financial Year Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>FY:</span>
+            <select
+              value={selectedFY}
+              onChange={(e) => {
+                const nextFY = e.target.value;
+                if (window.confirm(`Are you sure you want to switch the statement logs view to ${nextFY === 'All' ? 'all financial years' : nextFY}?`)) {
+                  setSelectedFY(nextFY);
+                }
+              }}
+              className="form-select"
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.78rem',
+                height: '32px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+            >
+              {FINANCIAL_YEARS.map((fy) => (
+                <option key={fy} value={fy}>{fy}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Eyeball Toggle Button */}
           <button 
             onClick={togglePnlVisibility}
@@ -755,6 +1007,75 @@ export function Dashboard() {
           </div>
         </div>
 
+      </div>
+
+      {/* Card: Broker-wise performance stats */}
+      <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+          <Briefcase size={20} color="var(--primary)" />
+          Broker-Wise Performance Summary ({selectedFY})
+        </h3>
+        <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
+          Breakdown of trading activity, success rates, and charge leakage across your active brokers for the active financial year.
+        </p>
+
+        {brokerStats.length === 0 ? (
+          <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.8rem' }}>
+            No trades logged in the selected financial year yet to compile broker stats.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+            {brokerStats.map((stat) => (
+              <div 
+                key={stat.name}
+                style={{
+                  background: 'rgba(255,255,255,0.01)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '4px' }}>
+                  <strong style={{ fontSize: '0.9rem', color: '#fff' }}>{stat.name}</strong>
+                  <span 
+                    className="badge" 
+                    style={{ 
+                      fontSize: '0.62rem', 
+                      padding: '2px 6px',
+                      background: stat.netPnL >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                      color: stat.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)',
+                      textTransform: 'none'
+                    }}
+                  >
+                    {stat.totalTrades} Trades
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Net P&L:</span>
+                  <strong style={{ color: stat.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                    {stat.netPnL >= 0 ? '+' : ''}₹{isPnlVisible ? Math.round(stat.netPnL).toLocaleString('en-IN') : '••••'}
+                  </strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Win Rate:</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{stat.winRate.toFixed(1)}%</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Charges:</span>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    ₹{isPnlVisible ? Math.round(stat.charges).toLocaleString('en-IN') : '••••'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Weekly Trade Review & Retrospective Panel */}

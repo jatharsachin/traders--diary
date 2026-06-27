@@ -5,14 +5,16 @@ import { TradeTable } from './components/TradeTable';
 import { StrategyManager } from './components/StrategyManager';
 import { Ledger } from './components/Ledger';
 import { AccountManager } from './components/AccountManager';
+import { ProfileSettingsModal } from './components/ProfileSettingsModal';
 import { TradeLogger } from './components/TradeLogger';
 import { AuthScreen } from './components/AuthScreen';
+import { Taxation } from './components/Taxation';
 import { useTradeStore } from './store/useTradeStore';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, User, ShieldCheck, Bell, LogOut, Sun, Moon } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 
-type Tab = 'dashboard' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account';
+type Tab = 'dashboard' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -20,6 +22,47 @@ export default function App() {
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isRecoveryActive, setIsRecoveryActive] = useState(false);
+  const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+  const [activeAccountId, setActiveAccountId] = useState<string>('Combined');
+
+  // Live clock and Nifty simulated ticker
+  const [liveTime, setLiveTime] = useState<string>('');
+  const [niftyPrice, setNiftyPrice] = useState<number>(23512.40);
+  const [niftyChange, setNiftyChange] = useState<number>(124.50);
+  const [niftyFlash, setNiftyFlash] = useState<'up' | 'down' | null>(null);
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setLiveTime(now.toLocaleString('en-IN', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric', 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: true 
+      }));
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+
+    const marketTicker = setInterval(() => {
+      const tick = (Math.random() - 0.47) * 3.5; 
+      setNiftyPrice(prev => {
+        const nextPrice = prev + tick;
+        setNiftyChange(chg => chg + tick);
+        setNiftyFlash(tick >= 0 ? 'up' : 'down');
+        setTimeout(() => setNiftyFlash(null), 800);
+        return Math.round(nextPrice * 100) / 100;
+      });
+    }, 3000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(marketTicker);
+    };
+  }, []);
 
   const { 
     trades, 
@@ -31,13 +74,28 @@ export default function App() {
     setSessionUser,
     signOutUser,
     loadUserData,
-    isPnlVisible
+    isPnlVisible,
+    userName,
+    userAvatar,
+    brokerAccounts
   } = useTradeStore();
 
-  const totalNetPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
-  const totalDeposits = capitalAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
-  const totalWithdrawals = capitalAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
-  const currentCapital = baseCapital + totalNetPnL + totalDeposits - totalWithdrawals;
+  const filteredTrades = activeAccountId === 'Combined'
+    ? trades
+    : trades.filter((t) => t.brokerAccountId === activeAccountId);
+
+  const filteredAdjustments = activeAccountId === 'Combined'
+    ? capitalAdjustments
+    : capitalAdjustments.filter((a) => a.brokerAccountId === activeAccountId);
+
+  const filteredBaseCapital = activeAccountId === 'Combined'
+    ? baseCapital
+    : (brokerAccounts.find((a) => a.id === activeAccountId)?.startingCapital || 0);
+
+  const totalNetPnL = filteredTrades.reduce((acc, t) => acc + t.netPnL, 0);
+  const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
+  const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
+  const currentCapital = filteredBaseCapital + totalNetPnL + totalDeposits - totalWithdrawals;
 
   // Dynamic Alert / Notification Center calculations
   const getDynamicNotifications = () => {
@@ -200,7 +258,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      
+      <div className="sticky-header-container">
       {/* Header Bar */}
       <header className="app-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -227,7 +285,7 @@ export default function App() {
 
           <div>
             <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              TradeDiary Pro
+              {userName || 'Sachin'}'s Traders Diary
               {isSupabaseConfigured() && (
                 <span className="badge badge-win" style={{ fontSize: '0.58rem', padding: '2px 6px', textTransform: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
                   <ShieldCheck size={9} /> Sync Linked
@@ -242,6 +300,36 @@ export default function App() {
 
         {/* Action Controls */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          
+          {/* Global Account Selector Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active Account:</span>
+            <select
+              value={activeAccountId}
+              onChange={(e) => setActiveAccountId(e.target.value)}
+              className="form-select"
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.88rem',
+                height: '42px',
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '8px',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                minWidth: '180px',
+                outline: 'none',
+                fontWeight: 600
+              }}
+            >
+              <option value="Combined">Combined Accounts</option>
+              {brokerAccounts.filter(a => a.active).map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.accountName} ({acc.broker})
+                </option>
+              ))}
+            </select>
+          </div>
           
           {/* Current Capital Balance (Dynamically adapts to P&L) */}
           <div 
@@ -391,26 +479,94 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* Live clock and Nifty simulated ticker next to profile avatar */}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Nifty */}
+            <div 
+              style={{ 
+                padding: '4px 10px', 
+                background: niftyFlash === 'up' ? 'rgba(16, 185, 129, 0.12)' : niftyFlash === 'down' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.03)', 
+                border: niftyFlash === 'up' ? '1px solid var(--color-win)' : niftyFlash === 'down' ? '1px solid var(--color-loss)' : '1px solid var(--border-color)', 
+                borderRadius: '6px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px',
+                height: '35px',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>NIFTY:</span>
+              <strong style={{ fontSize: '0.72rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                {niftyPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </strong>
+              <span 
+                style={{ 
+                  fontSize: '0.65rem', 
+                  color: niftyChange >= 0 ? 'var(--color-win)' : 'var(--color-loss)', 
+                  fontWeight: 700, 
+                  fontFamily: 'var(--font-mono)' 
+                }}
+              >
+                {niftyChange >= 0 ? '+' : ''}{niftyChange.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Clock */}
+            <div style={{ padding: '4px 10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', height: '35px' }}>
+              <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: 'var(--primary)' }}></span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                {liveTime || 'Loading...'}
+              </span>
+            </div>
+          </div>
           
           {/* User account info & logout action */}
           <div 
+            onClick={() => setIsProfileSettingsOpen(true)}
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '8px', 
-              background: 'rgba(255, 255, 255, 0.02)', 
-              border: '1px solid var(--border-color)', 
-              borderRadius: '8px', 
-              padding: '6px 12px',
-              height: '35px',
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)'
+              gap: '16px', 
+              background: 'var(--bg-card)', 
+              border: '1.5px solid var(--border-color)', 
+              borderRadius: '12px', 
+              padding: '6px 20px',
+              height: '50px',
+              fontSize: '0.92rem',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
+            title="Open Account & Master Settings"
           >
-            <span>User:</span>
-            <strong style={{ color: 'var(--text-main)' }}>{sessionUser?.email}</strong>
+            <span style={{ display: 'flex', alignItems: 'center', width: '38px', height: '38px', justifyContent: 'center' }}>
+              {userAvatar && userAvatar.startsWith('data:image/') ? (
+                <img 
+                  src={userAvatar} 
+                  alt="Avatar" 
+                  style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} 
+                />
+              ) : (
+                <span style={{ fontSize: '1.9rem' }}>
+                  {userAvatar === 'bull' ? '🐂' :
+                   userAvatar === 'bear' ? '🐻' :
+                   userAvatar === 'trader' ? '👨‍💻' :
+                   userAvatar === 'gold' ? '🏆' :
+                   userAvatar === 'coin' ? '🪙' :
+                   userAvatar === 'clock' ? '⏱️' :
+                   userAvatar === 'rocket' ? '🚀' :
+                   userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
+                </span>
+              )}
+            </span>
+            <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
+              {userName || 'Sachin'}
+            </strong>
+            <span style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }}></span>
             <button 
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (window.confirm('Are you sure you want to log out of your trading journal?')) {
                   signOutUser();
                 }
@@ -422,31 +578,30 @@ export default function App() {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '2px',
-                marginLeft: '4px'
+                padding: '2px'
               }}
               title="Log Out"
             >
-              <LogOut size={14} />
+              <LogOut size={15} />
             </button>
           </div>
 
-          <button className="btn btn-primary" style={{ height: '35px', padding: '6px 12px' }} onClick={handleNewTrade}>
-            <Plus size={14} />
+          <button className="btn btn-primary" style={{ height: '38px', padding: '6px 16px', borderRadius: '10px' }} onClick={handleNewTrade}>
+            <Plus size={15} />
             <span>Log Trade</span>
           </button>
         </div>
       </header>
 
       {/* Tabs Navigation (macOS Segmented control) */}
-      <nav style={{ marginBottom: '24px' }}>
+      <nav style={{ marginBottom: '10px' }}>
         <div className="nav-tab-container">
           <button 
             onClick={() => setActiveTab('dashboard')} 
             className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <LayoutDashboard size={14} />
+            <LayoutDashboard size={14} color="#38bdf8" />
             Dashboard
           </button>
 
@@ -455,7 +610,7 @@ export default function App() {
             className={`nav-tab ${activeTab === 'calendar' ? 'active' : ''}`}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <Calendar size={14} />
+            <Calendar size={14} color="#a855f7" />
             Calendar
           </button>
 
@@ -464,7 +619,7 @@ export default function App() {
             className={`nav-tab ${activeTab === 'logs' ? 'active' : ''}`}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <History size={14} />
+            <History size={14} color="#34d399" />
             Logs ({trades.length})
           </button>
 
@@ -473,8 +628,17 @@ export default function App() {
             className={`nav-tab ${activeTab === 'ledger' ? 'active' : ''}`}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <Receipt size={14} />
+            <Receipt size={14} color="#f59e0b" />
             Ledger
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('taxation')} 
+            className={`nav-tab ${activeTab === 'taxation' ? 'active' : ''}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Percent size={14} color="#f97316" />
+            Taxation
           </button>
 
           <button 
@@ -482,7 +646,7 @@ export default function App() {
             className={`nav-tab ${activeTab === 'strategies' ? 'active' : ''}`}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <Compass size={14} />
+            <Compass size={14} color="#ec4899" />
             Setups
           </button>
 
@@ -491,18 +655,20 @@ export default function App() {
             className={`nav-tab ${activeTab === 'account' ? 'active' : ''}`}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <User size={14} />
-            Account
+            <Briefcase size={14} color="#3b82f6" />
+            Investments
           </button>
         </div>
       </nav>
+    </div>
 
       {/* Main Tab Render Panels */}
       <main style={{ minHeight: '60vh' }}>
-        {activeTab === 'dashboard' && <Dashboard />}
-        {activeTab === 'calendar' && <TradingCalendar />}
-        {activeTab === 'logs' && <TradeTable onEditTrade={handleEditTrade} />}
-        {activeTab === 'ledger' && <Ledger />}
+        {activeTab === 'dashboard' && <Dashboard activeAccountId={activeAccountId} />}
+        {activeTab === 'calendar' && <TradingCalendar activeAccountId={activeAccountId} />}
+        {activeTab === 'logs' && <TradeTable onEditTrade={handleEditTrade} activeAccountId={activeAccountId} />}
+        {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
+        {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
         {activeTab === 'strategies' && <StrategyManager />}
         {activeTab === 'account' && <AccountManager />}
       </main>
@@ -512,6 +678,13 @@ export default function App() {
         isOpen={isLoggerOpen} 
         onClose={handleCloseLogger} 
         editTradeId={editTradeId} 
+        activeAccountId={activeAccountId}
+      />
+
+      {/* Profile & Settings Modal Overlay */}
+      <ProfileSettingsModal 
+        isOpen={isProfileSettingsOpen}
+        onClose={() => setIsProfileSettingsOpen(false)}
       />
 
       {/* Modern Terminal Footer */}
@@ -525,7 +698,7 @@ export default function App() {
           color: 'var(--text-dim)' 
         }}
       >
-        <p>© 2026 TradeDiary Pro. Designed for professional stock market audits. All logs are stored locally client-side.</p>
+        <p>© 2026 {userName || 'Sachin'}'s Traders Diary. Designed for professional stock market audits. All logs are stored locally client-side.</p>
       </footer>
     </div>
   );

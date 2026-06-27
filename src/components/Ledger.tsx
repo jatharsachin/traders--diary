@@ -1,31 +1,96 @@
 import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { ArrowDownRight, ArrowUpRight, Receipt, Info, FileSpreadsheet, Plus, Trash2, X, Save } from 'lucide-react';
+import { 
+  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, ArrowLeft, ArrowRight
+} from 'lucide-react';
+import { filterTradesByFY } from '../utils/fyHelper';
+import type { CapitalAdjustment } from '../types';
 
-export function Ledger() {
-  const { trades, baseCapital, capitalAdjustments, addCapitalAdjustment, deleteCapitalAdjustment, isPnlVisible } = useTradeStore();
+interface LedgerProps {
+  activeAccountId?: string;
+}
+
+export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
+  const { 
+    trades: allTrades, 
+    capitalAdjustments: allCapitalAdjustments, 
+    addCapitalAdjustment, 
+    deleteCapitalAdjustment, 
+    isPnlVisible,
+    selectedFY,
+    activeBrokers,
+    
+    // NEW STATES & ACTIONS
+    brokerAccounts,
+    bankAccounts,
+    subscriptionExpenses,
+    bankTransactions,
+    addSubscriptionExpense,
+    deleteSubscriptionExpense,
+    addDirectBankTransaction,
+    deleteDirectBankTransaction
+  } = useTradeStore();
+
+  const [activeLedgerTab, setActiveLedgerTab] = useState<'broker' | 'bank' | 'subscriptions'>('broker');
+  const [selectedBrokerFilter, setSelectedBrokerFilter] = useState<string>('All');
   const [viewType, setViewType] = useState<'daily' | 'detailed'>('daily');
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [isAdjOpen, setIsAdjOpen] = useState(false);
 
-  // Form states for deposit/withdrawal
+  // Modals visibility
+  const [isAdjOpen, setIsAdjOpen] = useState(false);
+  const [isBankTxOpen, setIsBankTxOpen] = useState(false);
+  const [isSubOpen, setIsSubOpen] = useState(false);
+
+  // --- BROKER LEDGER FORM STATES ---
   const [adjType, setAdjType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
   const [adjAmount, setAdjAmount] = useState<number>(0);
   const [adjNotes, setAdjNotes] = useState<string>('');
+  const [adjBrokerAccId, setAdjBrokerAccId] = useState<string>('');
+  const [adjBankAccId, setAdjBankAccId] = useState<string>('');
   const [adjDate, setAdjDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [adjTime, setAdjTime] = useState<string>(new Date().toTimeString().slice(0, 5));
-  const [error, setError] = useState<string>('');
+  const [brokerError, setBrokerError] = useState<string>('');
 
-  // Sort trades oldest to newest for chronological balance tracking
+  // --- BANK TRANSACTION FORM STATES ---
+  const [bankTxType, setBankTxType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
+  const [bankTxAmount, setBankTxAmount] = useState<number>(0);
+  const [bankTxNotes, setBankTxNotes] = useState<string>('');
+  const [bankTxAccId, setBankTxAccId] = useState<string>('');
+  const [bankTxCategory, setBankTxCategory] = useState<'Direct Deposit' | 'Direct Withdrawal'>('Direct Deposit');
+  const [bankTxDate, setBankTxDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [bankTxTime, setBankTxTime] = useState<string>(new Date().toTimeString().slice(0, 5));
+
+  // --- SUBSCRIPTION FORM STATES ---
+  const [subName, setSubName] = useState('');
+  const [subAmount, setSubAmount] = useState<number>(0);
+  const [subDate, setSubDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [subFreq, setSubFreq] = useState<'One-Time' | 'Monthly' | 'Yearly'>('Monthly');
+  const [subSource, setSubSource] = useState<'Broker' | 'Bank'>('Bank');
+  const [subBrokerAccId, setSubBrokerAccId] = useState('');
+  const [subBankAccId, setSubBankAccId] = useState('');
+  const [subNotes, setSubNotes] = useState('');
+
+  // Filter Broker Ledger Trades & Adjustments
+  let trades = filterTradesByFY(allTrades, selectedFY);
+  let capitalAdjustments = filterTradesByFY(allCapitalAdjustments as any, selectedFY) as any as CapitalAdjustment[];
+
+  // Apply active account scopes
+  if (activeAccountId !== 'Combined') {
+    trades = trades.filter((t) => t.brokerAccountId === activeAccountId);
+    capitalAdjustments = capitalAdjustments.filter((a) => a.brokerAccountId === activeAccountId);
+  } else if (selectedBrokerFilter !== 'All') {
+    trades = trades.filter((t) => t.broker === selectedBrokerFilter);
+    capitalAdjustments = capitalAdjustments.filter((a) => a.broker === selectedBrokerFilter);
+  }
+
+  // Group detailed ledger month-by-month pagination
   const sortedTrades = [...trades].sort((a, b) => {
     const dateA = new Date(`${a.date}T${a.entryTime}`);
     const dateB = new Date(`${b.date}T${b.entryTime}`);
     return dateA.getTime() - dateB.getTime();
   });
 
-  // Calculate detailed trade-by-trade ledger items
   const getDetailedLedger = () => {
-    // Combine trades and manual adjustments
     const combined = [
       ...sortedTrades.map((t) => ({
         id: t.id,
@@ -34,6 +99,8 @@ export function Ledger() {
         particulars: `${t.action} ${t.qty} qty of ${t.symbol} (${t.segment})`,
         type: t.netPnL >= 0 ? ('CREDIT' as const) : ('DEBIT' as const),
         grossPnL: t.grossPnL,
+        brokerage: t.brokerage,
+        taxes: t.taxes,
         charges: t.brokerage + t.taxes,
         netPnL: t.netPnL,
         isAdjustment: false,
@@ -43,167 +110,91 @@ export function Ledger() {
         date: a.date,
         time: a.time,
         particulars: a.type === 'DEPOSIT' 
-          ? `Capital Deposit (Pay-in): ${a.notes || 'Bank Transfer'}`
-          : `Capital Withdrawal (Pay-out): ${a.notes || 'Bank Transfer'}`,
+          ? `Capital Deposit (Pay-in) [${a.broker || 'Other'}]: ${a.notes || 'Bank Transfer'}`
+          : `Capital Withdrawal (Pay-out) [${a.broker || 'Other'}]: ${a.notes || 'Bank Transfer'}`,
         type: a.type === 'DEPOSIT' ? ('CREDIT' as const) : ('DEBIT' as const),
         grossPnL: a.type === 'DEPOSIT' ? a.amount : -a.amount,
+        brokerage: 0,
+        taxes: 0,
         charges: 0,
         netPnL: a.type === 'DEPOSIT' ? a.amount : -a.amount,
         isAdjustment: true,
       })),
-    ].sort((a, b) => {
+    ];
+
+    return combined.sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.time}`);
       const dateB = new Date(`${b.date}T${b.time}`);
       return dateA.getTime() - dateB.getTime();
     });
-
-    let runningBalance = baseCapital;
-    return combined.map((item) => {
-      runningBalance += item.netPnL;
-      return {
-        ...item,
-        balance: runningBalance,
-      };
-    });
   };
 
-  // Calculate daily summary ledger items
-  const getDailyLedger = () => {
-    // Get all unique dates
-    const allDates = Array.from(
-      new Set([
-        ...trades.map((t) => t.date),
-        ...capitalAdjustments.map((a) => a.date),
-      ])
-    ).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  const detailedLedger = getDetailedLedger();
 
-    let runningBalance = baseCapital;
-    return allDates.map((date) => {
-      const dayTrades = trades.filter((t) => t.date === date);
-      const dayAdjustments = capitalAdjustments.filter((a) => a.date === date);
+  // Find unique months in records for pagination
+  const monthsWithData = Array.from(new Set(detailedLedger.map(item => item.date.substring(0, 7)))).sort();
+  const currentMonthStr = new Date().toISOString().substring(0, 7);
+  const activeMonthList = monthsWithData.length > 0 ? monthsWithData : [currentMonthStr];
+  const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(activeMonthList.length - 1);
 
-      const tradeGross = dayTrades.reduce((acc, t) => acc + t.grossPnL, 0);
-      const tradeCharges = dayTrades.reduce((acc, t) => acc + t.brokerage + t.taxes, 0);
-      const tradeNet = dayTrades.reduce((acc, t) => acc + t.netPnL, 0);
+  // Paginated monthly items
+  const selectedMonthStr = activeMonthList[selectedMonthIdx] || currentMonthStr;
+  const filteredLedgerItems = detailedLedger.filter(item => item.date.substring(0, 7) === selectedMonthStr);
 
-      const deposits = dayAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
-      const withdrawals = dayAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
-
-      const netPnL = tradeNet + deposits - withdrawals;
-      runningBalance += netPnL;
-
-      // Compile particulars
-      const parts: string[] = [];
-      if (dayTrades.length > 0) {
-        const symbols = Array.from(new Set(dayTrades.map((t) => t.symbol.split(' ')[0])));
-        parts.push(`Trading: ${dayTrades.length} trade${dayTrades.length > 1 ? 's' : ''} (${symbols.join(', ')})`);
-      }
-      if (deposits > 0) {
-        const notes = dayAdjustments.filter((a) => a.type === 'DEPOSIT').map(a => a.notes).filter(Boolean).join(', ');
-        parts.push(`Deposit: +₹${deposits.toLocaleString('en-IN')}${notes ? ` (${notes})` : ''}`);
-      }
-      if (withdrawals > 0) {
-        const notes = dayAdjustments.filter((a) => a.type === 'WITHDRAWAL').map(a => a.notes).filter(Boolean).join(', ');
-        parts.push(`Withdrawal: -₹${withdrawals.toLocaleString('en-IN')}${notes ? ` (${notes})` : ''}`);
-      }
-
-      return {
-        id: `day-${date}`,
-        date,
-        particulars: parts.join(' | '),
-        type: netPnL >= 0 ? ('CREDIT' as const) : ('DEBIT' as const),
-        grossPnL: tradeGross + deposits - withdrawals,
-        charges: tradeCharges,
-        netPnL: netPnL,
-        balance: runningBalance,
-      };
-    });
-  };
-
-  const detailedItems = getDetailedLedger();
-  const dailyItems = getDailyLedger();
-  const activeItems = viewType === 'daily' ? dailyItems : detailedItems;
-
-  // Sort by date & time descending so that the latest entry is always at the top (newest first)
-  const sortedItems = [...activeItems].sort((a, b) => {
-    const dateTimeA = new Date(`${a.date}T${'time' in a ? (a as any).time : '00:00'}`).getTime();
-    const dateTimeB = new Date(`${b.date}T${'time' in b ? (b as any).time : '00:00'}`).getTime();
-    return dateTimeB - dateTimeA;
-  });
-
-  // Calculate summary metrics
-  const totalNetPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
-  const totalDeposits = capitalAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
-  const totalWithdrawals = capitalAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
-  const currentBalance = baseCapital + totalNetPnL + totalDeposits - totalWithdrawals;
-
-  // Sum credits (profitable P&Ls + Deposits)
-  const tradeCredits = trades.reduce((acc, t) => (t.netPnL > 0 ? acc + t.netPnL : acc), 0);
-  const totalCredits = tradeCredits + totalDeposits;
-
-  // Sum debits (loss P&Ls + total brokerage/taxes + Withdrawals)
-  const tradeLosses = trades.reduce((acc, t) => (t.netPnL < 0 ? acc + Math.abs(t.netPnL) : acc), 0);
-  const totalCharges = trades.reduce((acc, t) => acc + t.brokerage + t.taxes, 0);
-  const totalDebits = tradeLosses + totalCharges + totalWithdrawals;
-
-  const formatCurrency = (val: number) => {
-    const formatter = new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    });
-    return formatter.format(val);
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  // CSV Export utility
-  const handleExportCSV = () => {
-    try {
-      const headers = ['Date', 'Particulars', 'Transaction Type', 'Gross Amount (INR)', 'Charges (INR)', 'Net Amount (INR)', 'Running Balance (INR)'];
-      const rows = activeItems.map((item) => [
-        item.date,
-        `"${item.particulars}"`,
-        item.type,
-        item.grossPnL.toFixed(2),
-        item.charges.toFixed(2),
-        item.netPnL.toFixed(2),
-        item.balance.toFixed(2),
-      ]);
-
-      const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `traders_diary_ledger_${viewType}_statement_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (e) {
-      alert('Failed to export ledger statement to CSV.');
+  // Calculate Starting balance carry forward for selected month
+  const getCarryForwardCapitalForMonth = () => {
+    let startingCap = 0;
+    if (activeAccountId !== 'Combined') {
+      startingCap = brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0;
+    } else if (selectedBrokerFilter !== 'All') {
+      startingCap = brokerAccounts.filter(a => a.broker === selectedBrokerFilter).reduce((sum, a) => sum + a.startingCapital, 0);
+    } else {
+      startingCap = brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0);
     }
+
+    const priorRecords = detailedLedger.filter(item => item.date.substring(0, 7) < selectedMonthStr);
+    const priorPnL = priorRecords.reduce((sum, item) => sum + item.netPnL, 0);
+    return startingCap + priorPnL;
   };
 
-  // Capital Adjustment form submit handler
-  const handleAdjSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const startingBalanceOfMonth = getCarryForwardCapitalForMonth();
 
+  // Bank ledger selector & calculations
+  const [selectedBankFilter, setSelectedBankFilter] = useState<string>('All');
+  
+  const getBankSummary = (bankId: string) => {
+    const bank = bankAccounts.find(b => b.id === bankId);
+    const startBal = bank ? bank.startingBalance : bankAccounts.reduce((sum, b) => sum + b.startingBalance, 0);
+    
+    const txList = bankTransactions.filter(tx => bankId === 'All' ? true : tx.bankAccountId === bankId);
+    const totalInflows = txList.filter(tx => tx.type === 'DEPOSIT').reduce((sum, tx) => sum + tx.amount, 0);
+    const totalOutflows = txList.filter(tx => tx.type === 'WITHDRAWAL').reduce((sum, tx) => sum + tx.amount, 0);
+    
+    return {
+      startingBalance: startBal,
+      totalInflows,
+      totalOutflows,
+      currentBalance: startBal + totalInflows - totalOutflows
+    };
+  };
+
+  const bankSummary = getBankSummary(selectedBankFilter);
+  const activeBankTxList = bankTransactions
+    .filter(tx => selectedBankFilter === 'All' ? true : tx.bankAccountId === selectedBankFilter)
+    .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
+
+  // Form submit handlers
+  const handleAddAdjustmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setBrokerError('');
     if (adjAmount <= 0) {
-      setError('Amount must be greater than zero.');
+      setBrokerError('Please enter a valid amount.');
       return;
     }
-
-    if (!window.confirm(`Are you sure you want to log this capital ${adjType === 'DEPOSIT' ? 'deposit (Pay-in)' : 'withdrawal (Pay-out)'}?`)) {
+    const accId = adjBrokerAccId || (brokerAccounts[0]?.id || '');
+    const matchedAcc = brokerAccounts.find(a => a.id === accId);
+    if (!matchedAcc) {
+      setBrokerError('Please select a valid broker account.');
       return;
     }
 
@@ -213,355 +204,790 @@ export function Ledger() {
       type: adjType,
       amount: adjAmount,
       notes: adjNotes.trim(),
+      broker: matchedAcc.broker,
+      brokerAccountId: accId,
+      bankAccountId: adjBankAccId || undefined
     });
 
-    // Reset fields
+    setIsAdjOpen(false);
     setAdjAmount(0);
     setAdjNotes('');
-    setIsAdjOpen(false);
+    alert('Capital adjustment saved successfully!');
+  };
+
+  const handleAddBankTxSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (bankTxAmount <= 0 || !bankTxAccId) {
+      alert('Please select bank and enter a valid amount.');
+      return;
+    }
+    addDirectBankTransaction({
+      date: bankTxDate,
+      time: bankTxTime,
+      bankAccountId: bankTxAccId,
+      type: bankTxType,
+      amount: bankTxAmount,
+      category: bankTxCategory,
+      notes: bankTxNotes.trim()
+    });
+    setIsBankTxOpen(false);
+    setBankTxAmount(0);
+    setBankTxNotes('');
+    alert('Bank transaction logged successfully!');
+  };
+
+  const handleAddSubSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subName.trim() || subAmount <= 0) {
+      alert('Please enter subscription details.');
+      return;
+    }
+    if (subSource === 'Bank' && !subBankAccId) {
+      alert('Please select a payment bank account.');
+      return;
+    }
+    if (subSource === 'Broker' && !subBrokerAccId) {
+      alert('Please select a payment broker account.');
+      return;
+    }
+
+    addSubscriptionExpense({
+      name: subName.trim(),
+      amount: subAmount,
+      date: subDate,
+      paymentSource: subSource,
+      frequency: subFreq,
+      brokerAccountId: subSource === 'Broker' ? subBrokerAccId : undefined,
+      bankAccountId: subSource === 'Bank' ? subBankAccId : undefined,
+      notes: subNotes.trim()
+    });
+
+    setIsSubOpen(false);
+    setSubName('');
+    setSubAmount(0);
+    setSubNotes('');
+    alert('Subscription expense logged successfully!');
+  };
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2,
+    }).format(val);
   };
 
   return (
     <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
-      {/* Ledger KPI Summary Row */}
-      <div 
-        style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
-          gap: '20px' 
-        }}
-      >
-        <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px' }}>
-          <div style={{ background: 'rgba(120, 120, 120, 0.08)', padding: '10px', borderRadius: '50%' }}>
-            <Receipt size={22} color="var(--text-muted)" />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 550 }}>Starting Balance</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-              {isPnlVisible ? formatCurrency(baseCapital) : '••••'}
-            </div>
-          </div>
+      {/* Tab Segment Controls */}
+      <div className="glass-card" style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={() => setActiveLedgerTab('broker')} 
+            className={`btn ${activeLedgerTab === 'broker' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '6px', border: 'none' }}
+          >
+            <Layers size={13} color="var(--primary)" />
+            <span>Broker Ledger</span>
+          </button>
+          
+          <button 
+            onClick={() => setActiveLedgerTab('bank')} 
+            className={`btn ${activeLedgerTab === 'bank' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '6px', border: 'none' }}
+          >
+            <CreditCard size={13} color="var(--color-win)" />
+            <span>Bank Ledger</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveLedgerTab('subscriptions')} 
+            className={`btn ${activeLedgerTab === 'subscriptions' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '6px', border: 'none' }}
+          >
+            <Receipt size={13} color="#f59e0b" />
+            <span>Subscriptions & Expenses</span>
+          </button>
         </div>
 
-        <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px' }}>
-          <div style={{ background: 'var(--color-win-bg)', padding: '10px', borderRadius: '50%' }}>
-            <ArrowUpRight size={22} color="var(--color-win)" />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 550 }}>Total Credits (Wins + Pay-in)</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-win)', marginTop: '2px' }}>
-              {isPnlVisible ? `+${formatCurrency(totalCredits)}` : '••••'}
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px' }}>
-          <div style={{ background: 'var(--color-loss-bg)', padding: '10px', borderRadius: '50%' }}>
-            <ArrowDownRight size={22} color="var(--color-loss)" />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 550 }}>Total Debits (Losses + Pay-out)</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-loss)', marginTop: '2px' }}>
-              {isPnlVisible ? `-${formatCurrency(totalDebits)}` : '••••'}
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px' }}>
-          <div style={{ background: currentBalance >= baseCapital ? 'var(--color-win-bg)' : 'var(--color-loss-bg)', padding: '10px', borderRadius: '50%' }}>
-            <Receipt size={22} color={currentBalance >= baseCapital ? 'var(--color-win)' : 'var(--color-loss)'} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 550 }}>Current Account Equity</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: currentBalance >= baseCapital ? 'var(--color-win)' : 'var(--color-loss)', marginTop: '2px' }}>
-              {isPnlVisible ? formatCurrency(currentBalance) : '••••'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Statement Card */}
-      <div className="glass-card" style={{ padding: '24px' }}>
-        <div 
-          style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            marginBottom: '20px',
-            flexWrap: 'wrap',
-            gap: '16px'
-          }}
-        >
-          <div>
-            <h2 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              Account Ledger Statement
-            </h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Chronological ledger records detailing account deposits, withdrawals, and trading transaction logs
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Log Deposit/Withdrawal button */}
-            <button 
-              className="btn btn-primary"
-              style={{ height: '32px', padding: '6px 12px', fontSize: '0.78rem' }}
-              onClick={() => setIsAdjOpen(true)}
-            >
+        {activeLedgerTab === 'broker' && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {activeAccountId === 'Combined' && (
+              <select
+                value={selectedBrokerFilter}
+                onChange={(e) => setSelectedBrokerFilter(e.target.value)}
+                className="form-select"
+                style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px' }}
+              >
+                <option value="All">All Brokers</option>
+                {activeBrokers.map(b => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            )}
+            
+            <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
+              setAdjBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
+              setAdjBankAccId(bankAccounts[0]?.id || '');
+              setIsAdjOpen(true);
+            }}>
               <Plus size={13} />
               <span>Log Pay-in/Out</span>
             </button>
 
-            {/* 3D Segmented View Switcher */}
             <div className="nav-tab-container">
-              <button 
-                onClick={() => setViewType('daily')}
-                className={`nav-tab ${viewType === 'daily' ? 'active' : ''}`}
-                style={{ padding: '4px 12px', fontSize: '0.78rem' }}
-              >
-                Daily Summary
-              </button>
-              <button 
-                onClick={() => setViewType('detailed')}
-                className={`nav-tab ${viewType === 'detailed' ? 'active' : ''}`}
-                style={{ padding: '4px 12px', fontSize: '0.78rem' }}
-              >
-                Detailed Ledger
-              </button>
+              <button onClick={() => setViewType('daily')} className={`nav-tab ${viewType === 'daily' ? 'active' : ''}`} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Daily</button>
+              <button onClick={() => setViewType('detailed')} className={`nav-tab ${viewType === 'detailed' ? 'active' : ''}`} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Detailed</button>
             </div>
-
-            {/* Export CSV Button */}
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '6px 12px', height: '32px' }}
-              onClick={handleExportCSV}
-              title="Download Excel CSV statement"
-            >
-              <FileSpreadsheet size={13} />
-              <span>Export CSV</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Ledger table statement */}
-        {activeItems.length > 0 ? (
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Transaction Particulars</th>
-                  <th style={{ textAlign: 'center' }}>Type</th>
-                  <th style={{ textAlign: 'right' }}>Gross Amount</th>
-                  <th style={{ textAlign: 'right' }}>Charges</th>
-                  <th style={{ textAlign: 'right' }}>Net Transaction</th>
-                  <th style={{ textAlign: 'right' }}>Running Balance</th>
-                  {viewType === 'detailed' && <th style={{ textAlign: 'center', width: '60px' }}>Action</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {/* Ledger items */}
-                {sortedItems.map((item) => (
-                  <tr 
-                    key={item.id}
-                    className={selectedRowId === item.id ? 'selected-row' : ''}
-                    onClick={() => setSelectedRowId(selectedRowId === item.id ? null : item.id)}
-                  >
-                    <td>
-                      <div style={{ fontWeight: 550 }}>{formatDate(item.date)}</div>
-                      {'time' in item && <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px' }}>{(item as any).time}</div>}
-                    </td>
-                    <td style={{ fontSize: '0.85rem', maxWidth: '300px', wordBreak: 'break-word' }}>
-                      {item.particulars}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={`badge ${item.type === 'CREDIT' ? 'badge-win' : 'badge-loss'}`}>
-                        {item.type}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: item.grossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                      {isPnlVisible ? `${item.grossPnL >= 0 ? '+' : '-'}${formatCurrency(Math.abs(item.grossPnL))}` : '••••'}
-                    </td>
-                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                      {item.charges > 0 ? (isPnlVisible ? `-${formatCurrency(item.charges)}` : '-••••') : '₹0'}
-                    </td>
-                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: item.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                      {isPnlVisible ? `${item.netPnL >= 0 ? '+' : ''}${formatCurrency(item.netPnL)}` : '••••'}
-                    </td>
-                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                      {isPnlVisible ? formatCurrency(item.balance) : '••••'}
-                    </td>
-                    {viewType === 'detailed' && (
-                      <td style={{ textAlign: 'center' }}>
-                        {'isAdjustment' in item && (item as any).isAdjustment ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm('Delete this manual capital transaction entry?')) {
-                                deleteCapitalAdjustment(item.id);
-                              }
-                            }}
-                            className="btn-secondary"
-                            style={{ 
-                              padding: '4px 6px', 
-                              borderRadius: '4px',
-                              color: 'var(--color-loss)',
-                              borderColor: 'var(--color-loss-border)',
-                              background: 'var(--color-loss-bg)',
-                              cursor: 'pointer'
-                            }}
-                            title="Delete Transaction"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        ) : (
-                          <span style={{ color: 'var(--text-dim)', fontSize: '0.7rem' }}>Trade</span>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-
-                {/* Starting entry row - Rendered at the bottom (oldest entry) */}
-                <tr>
-                  <td style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>-</td>
-                  <td style={{ fontWeight: 550 }}>Account Opening Capital Balance</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span className="badge badge-neutral" style={{ fontSize: '0.62rem' }}>OPENING</span>
-                  </td>
-                  <td style={{ textAlign: 'right', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>-</td>
-                  <td style={{ textAlign: 'right', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>-</td>
-                  <td style={{ textAlign: 'right', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>-</td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                    {isPnlVisible ? formatCurrency(baseCapital) : '••••'}
-                  </td>
-                  {viewType === 'detailed' && <td></td>}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div 
-            style={{ 
-              padding: '60px 20px', 
-              textAlign: 'center', 
-              color: 'var(--text-muted)', 
-              fontSize: '0.85rem',
-              border: '1px dashed var(--border-color)',
-              borderRadius: '8px'
-            }}
-          >
-            No ledger transactions recorded. Please log options or equity trades to view statement details.
           </div>
         )}
 
-        <div 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            fontSize: '0.72rem', 
-            color: 'var(--text-dim)', 
-            marginTop: '16px' 
-          }}
-        >
-          <Info size={12} />
-          <span>The Ledger statement operates chronologically. Pay-in represents deposits to capital. Pay-out represents bank withdrawals. Trading losses and taxes are debits; profits are credits.</span>
-        </div>
+        {activeLedgerTab === 'bank' && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <select
+              value={selectedBankFilter}
+              onChange={(e) => setSelectedBankFilter(e.target.value)}
+              className="form-select"
+              style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px', minWidth: '130px' }}
+            >
+              <option value="All">All Bank Accounts</option>
+              {bankAccounts.filter(b => b.active).map(b => (
+                <option key={b.id} value={b.id}>{b.bankName} ({b.accountHolderName})</option>
+              ))}
+            </select>
+            <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
+              setBankTxAccId(bankAccounts[0]?.id || '');
+              setIsBankTxOpen(true);
+            }}>
+              <Plus size={13} />
+              <span>Log Bank Transaction</span>
+            </button>
+          </div>
+        )}
+
+        {activeLedgerTab === 'subscriptions' && (
+          <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
+            setSubBankAccId(bankAccounts[0]?.id || '');
+            setSubBrokerAccId(brokerAccounts[0]?.id || '');
+            setIsSubOpen(true);
+          }}>
+            <Plus size={13} />
+            <span>Log Subscription</span>
+          </button>
+        )}
       </div>
 
-      {/* Manual Capital Adjustment Modal */}
-      {isAdjOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-card animate-fade-in" style={{ maxWidth: '440px' }}>
-            <div className="modal-header">
-              <h2>Log Capital Pay-in / Pay-out</h2>
-              <button 
-                className="btn-secondary" 
-                style={{ padding: '6px', borderRadius: '50%' }} 
-                onClick={() => setIsAdjOpen(false)}
-              >
-                <X size={16} />
-              </button>
+      {/* --- TAB CONTENT 1: BROKER LEDGER --- */}
+      {activeLedgerTab === 'broker' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* Header Month Carry Forward */}
+          <div className="glass-card" style={{ padding: '12px 16px', background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Carry Forward Balance</span>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>
+                {isPnlVisible ? formatCurrency(startingBalanceOfMonth) : '••••'}
+              </h3>
             </div>
-            <form onSubmit={handleAdjSubmit}>
-              <div className="modal-body">
-                {error && (
-                  <div style={{ color: 'var(--color-loss)', backgroundColor: 'var(--color-loss-bg)', border: '1px solid var(--color-loss-border)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.8rem', marginBottom: '14px' }}>
-                    {error}
-                  </div>
-                )}
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Audit Month</span>
+              <strong style={{ display: 'block', fontSize: '0.85rem', color: 'var(--primary)' }}>
+                {(() => {
+                  const parts = selectedMonthStr.split('-');
+                  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+                  return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                })()}
+              </strong>
+            </div>
+          </div>
 
-                <div className="form-group">
-                  <label className="form-label">Transaction Type</label>
-                  <select 
-                    value={adjType} 
-                    onChange={(e) => setAdjType(e.target.value as any)}
-                    className="form-select"
+          {/* Table list */}
+          <div className="glass-card" style={{ padding: '20px', overflowX: 'auto' }}>
+            {viewType === 'detailed' ? (
+              <>
+                <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '8px' }}>Date & Time</th>
+                      <th style={{ padding: '8px' }}>Particulars / Narration</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Debit (₹)</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Credit (₹)</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Balance (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Month Carry Forward line */}
+                    <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{selectedMonthStr}-01</td>
+                      <td style={{ padding: '8px', fontWeight: 650, color: 'var(--text-dim)' }}>Opening Balance Carry-Forward</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
+                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                        {isPnlVisible ? formatCurrency(startingBalanceOfMonth) : '••••'}
+                      </td>
+                    </tr>
+                    {(() => {
+                      let runningBal = startingBalanceOfMonth;
+                      return filteredLedgerItems.map((item) => {
+                        runningBal += item.netPnL;
+                        const isAdjustment = item.isAdjustment;
+                        return (
+                          <tr 
+                            key={item.id} 
+                            onClick={() => setSelectedRowId(selectedRowId === item.id ? null : item.id)}
+                            style={{ 
+                              borderBottom: '1px solid var(--border-color)', 
+                              background: selectedRowId === item.id ? 'var(--primary-glow)' : 'transparent',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <td style={{ padding: '8px' }}>{item.date} <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{item.time}</span></td>
+                            <td style={{ padding: '8px', color: isAdjustment ? 'var(--primary)' : 'var(--text-main)' }}>
+                              {item.particulars}
+                              {isAdjustment && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm('Delete this adjustment entry? This will reverse double-entry bank balances!')) {
+                                      deleteCapitalAdjustment(item.id);
+                                    }
+                                  }}
+                                  style={{ border: 'none', background: 'transparent', color: 'var(--color-loss)', cursor: 'pointer', paddingLeft: '8px', fontSize: '0.68rem' }}
+                                >
+                                  (Delete)
+                                </button>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                              {item.netPnL < 0 ? (isPnlVisible ? formatCurrency(Math.abs(item.netPnL)) : '••••') : '-'}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+                              {item.netPnL >= 0 ? (isPnlVisible ? formatCurrency(item.netPnL) : '••••') : '-'}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: runningBal >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                              {isPnlVisible ? formatCurrency(runningBal) : '••••'}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+                
+                {/* Month pagination controls */}
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '20px' }}>
+                  <button 
+                    disabled={selectedMonthIdx === 0} 
+                    onClick={() => setSelectedMonthIdx(0)}
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', border: 'none' }}
                   >
-                    <option value="DEPOSIT">Capital Deposit (Pay-in)</option>
-                    <option value="WITHDRAWAL">Capital Withdrawal (Pay-out)</option>
+                    &lt;&lt; First
+                  </button>
+                  <button 
+                    disabled={selectedMonthIdx === 0} 
+                    onClick={() => setSelectedMonthIdx(selectedMonthIdx - 1)}
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '2px', border: 'none' }}
+                  >
+                    <ArrowLeft size={10} />
+                    <span>Prev</span>
+                  </button>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    {(() => {
+                      const parts = selectedMonthStr.split('-');
+                      const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+                      return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                    })()}
+                  </span>
+                  <button 
+                    disabled={selectedMonthIdx === activeMonthList.length - 1} 
+                    onClick={() => setSelectedMonthIdx(selectedMonthIdx + 1)}
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '2px', border: 'none' }}
+                  >
+                    <span>Next</span>
+                    <ArrowRight size={10} />
+                  </button>
+                  <button 
+                    disabled={selectedMonthIdx === activeMonthList.length - 1} 
+                    onClick={() => setSelectedMonthIdx(activeMonthList.length - 1)}
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', border: 'none' }}
+                  >
+                    Last &gt;&gt;
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Daily Summaries */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Daily Realized profit/loss summary grid:</span>
+                <table className="custom-table" style={{ width: '100%', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '8px' }}>Date</th>
+                      <th style={{ padding: '8px' }}>Trades Count</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Charges Leakage</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Net Profit/Loss</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const daysMap: Record<string, { count: number; charges: number; net: number }> = {};
+                      trades.forEach(t => {
+                        if (!daysMap[t.date]) daysMap[t.date] = { count: 0, charges: 0, net: 0 };
+                        daysMap[t.date].count += 1;
+                        daysMap[t.date].charges += (t.brokerage + t.taxes);
+                        daysMap[t.date].net += t.netPnL;
+                      });
+                      
+                      return Object.entries(daysMap)
+                        .sort((a, b) => b[0].localeCompare(a[0]))
+                        .map(([day, stats]) => (
+                          <tr key={day} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px', fontWeight: 600 }}>{day}</td>
+                            <td style={{ padding: '8px' }}>{stats.count}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-muted)' }}>{isPnlVisible ? formatCurrency(stats.charges) : '••••'}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: stats.net >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                              {stats.net >= 0 ? '+' : ''}{isPnlVisible ? formatCurrency(stats.net) : '••••'}
+                            </td>
+                          </tr>
+                        ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB CONTENT 2: BANK LEDGER --- */}
+      {activeLedgerTab === 'bank' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          {/* Bank balances cards grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            <div className="glass-card" style={{ padding: '16px', background: 'rgba(52, 211, 153, 0.03)', border: '1px solid rgba(52, 211, 153, 0.15)' }}>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Combined Bank Balance</span>
+              <h2 style={{ margin: '4px 0', fontSize: '1.4rem', fontFamily: 'var(--font-mono)', color: 'var(--color-win)' }}>
+                {isPnlVisible ? formatCurrency(bankAccounts.filter(b => b.active).reduce((sum, b) => sum + getBankSummary(b.id).currentBalance, 0)) : '••••'}
+              </h2>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
+                Sum of {bankAccounts.filter(b=>b.active).length} active bank ledgers
+              </span>
+            </div>
+
+            <div className="glass-card" style={{ padding: '16px' }}>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filtered Starting Balance</span>
+              <h4 style={{ margin: '4px 0', fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>
+                {isPnlVisible ? formatCurrency(bankSummary.startingBalance) : '••••'}
+              </h4>
+            </div>
+
+            <div className="glass-card" style={{ padding: '16px' }}>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filtered Current Balance</span>
+              <h4 style={{ margin: '4px 0', fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>
+                {isPnlVisible ? formatCurrency(bankSummary.currentBalance) : '••••'}
+              </h4>
+            </div>
+          </div>
+
+          {/* Transactions list */}
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px' }}>Bank Transaction History</h3>
+            <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)' }}>
+                  <th style={{ padding: '8px' }}>Date</th>
+                  <th style={{ padding: '8px' }}>Bank Account</th>
+                  <th style={{ padding: '8px' }}>Category</th>
+                  <th style={{ padding: '8px' }}>Inflow / Outflow</th>
+                  <th style={{ padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
+                  <th style={{ padding: '8px' }}>Notes</th>
+                  <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeBankTxList.map((tx) => {
+                  const bank = bankAccounts.find(b => b.id === tx.bankAccountId);
+                  const isInflow = tx.type === 'DEPOSIT';
+                  return (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '8px' }}>{tx.date} <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{tx.time}</span></td>
+                      <td style={{ padding: '8px', fontWeight: 600 }}>{bank ? bank.bankName : 'Unknown Bank'}</td>
+                      <td style={{ padding: '8px', color: 'var(--primary)' }}>{tx.category}</td>
+                      <td style={{ padding: '8px' }}>
+                        <span 
+                          className="badge" 
+                          style={{ 
+                            fontSize: '0.65rem',
+                            backgroundColor: isInflow ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)', 
+                            color: isInflow ? 'var(--color-win)' : 'var(--color-loss)' 
+                          }}
+                        >
+                          {isInflow ? 'Inflow (+)' : 'Outflow (-)'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                        {isPnlVisible ? formatCurrency(tx.amount) : '••••'}
+                      </td>
+                      <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{tx.notes}</td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => {
+                            if (confirm('Delete this bank transaction?')) {
+                              deleteDirectBankTransaction(tx.id);
+                            }
+                          }}
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 6px', color: 'var(--color-loss)', border: 'none' }}
+                          disabled={tx.category.startsWith('Broker') || tx.category === 'Subscription/Expense'} // linked transactions must be deleted from original places
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {activeBankTxList.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
+                      No transactions recorded for this bank account.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      )}
+
+      {/* --- TAB CONTENT 3: SUBSCRIPTIONS & EXPENSES --- */}
+      {activeLedgerTab === 'subscriptions' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px' }}>Subscriptions & Expenses Log</h3>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Track algo software licenses, newsletter services, charting platform fees, and other cognitive trading overheads paid from broker ledger or bank account.
+            </p>
+
+            <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)' }}>
+                  <th style={{ padding: '8px' }}>Date</th>
+                  <th style={{ padding: '8px' }}>Subscription Name</th>
+                  <th style={{ padding: '8px' }}>Frequency</th>
+                  <th style={{ padding: '8px' }}>Paid Source</th>
+                  <th style={{ padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
+                  <th style={{ padding: '8px' }}>Notes</th>
+                  <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subscriptionExpenses.map((sub) => {
+                  let sourceLabel = '';
+                  if (sub.paymentSource === 'Bank') {
+                    const bank = bankAccounts.find(b => b.id === sub.bankAccountId);
+                    sourceLabel = `Bank: ${bank ? bank.bankName : 'N/A'}`;
+                  } else {
+                    const acc = brokerAccounts.find(a => a.id === sub.brokerAccountId);
+                    sourceLabel = `Broker: ${acc ? `${acc.broker} (${acc.accountName})` : 'N/A'}`;
+                  }
+                  return (
+                    <tr key={sub.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '8px' }}>{sub.date}</td>
+                      <td style={{ padding: '8px', fontWeight: 650 }}>{sub.name}</td>
+                      <td style={{ padding: '8px' }}>
+                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>{sub.frequency}</span>
+                      </td>
+                      <td style={{ padding: '8px', color: 'var(--primary)' }}>{sourceLabel}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                        {isPnlVisible ? formatCurrency(sub.amount) : '••••'}
+                      </td>
+                      <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{sub.notes}</td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => {
+                            if (confirm('Delete this subscription? Linked double-entry ledger impacts will be reverted.')) {
+                              deleteSubscriptionExpense(sub.id);
+                            }
+                          }}
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 6px', color: 'var(--color-loss)', border: 'none' }}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {subscriptionExpenses.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
+                      No subscriptions logged. Keep track of licenses here.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      )}
+
+      {/* --- MODAL 1: ADD CAPITAL ADJUSTMENT --- */}
+      {isAdjOpen && (
+        <div className="modal-overlay" style={{ zIndex: 3100 }}>
+          <div className="modal-content glass-card" style={{ width: '420px', padding: 0, overflow: 'hidden' }}>
+            <div className="modal-header">
+              <h3>Log Broker Pay-in/Out</h3>
+              <button onClick={() => setIsAdjOpen(false)} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
+            </div>
+            <form onSubmit={handleAddAdjustmentSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px' }}>
+                {brokerError && <div style={{ color: 'var(--color-loss)', fontSize: '0.75rem' }}>{brokerError}</div>}
+                
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                    <input type="radio" checked={adjType === 'DEPOSIT'} onChange={() => setAdjType('DEPOSIT')} style={{ accentColor: 'var(--primary)' }} />
+                    <span>Deposit (Pay-in)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                    <input type="radio" checked={adjType === 'WITHDRAWAL'} onChange={() => setAdjType('WITHDRAWAL')} style={{ accentColor: 'var(--color-loss)' }} />
+                    <span>Withdrawal (Pay-out)</span>
+                  </label>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Amount (₹)</label>
+                  <input type="number" value={adjAmount || ''} onChange={(e) => setAdjAmount(parseFloat(e.target.value) || 0)} className="form-input" required />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Broker Account / User</label>
+                  <select value={adjBrokerAccId} onChange={(e) => setAdjBrokerAccId(e.target.value)} className="form-select" required>
+                    <option value="">Select Account</option>
+                    {brokerAccounts.filter(a => a.active).map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
+                    ))}
                   </select>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Transaction Amount (₹)</label>
-                  <input
-                    type="number"
-                    value={adjAmount || ''}
-                    onChange={(e) => setAdjAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                    placeholder="e.g. 50000"
-                    className="form-input"
-                    required
-                  />
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Withdraw from/Deposit into Bank Account</label>
+                  <select value={adjBankAccId} onChange={(e) => setAdjBankAccId(e.target.value)} className="form-select">
+                    <option value="">No Bank Impact (Cash/Direct)</option>
+                    {bankAccounts.filter(b => b.active).map(b => (
+                      <option key={b.id} value={b.id}>{b.bankName} ({b.accountHolderName})</option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                    Double-entry: If selected, it logs opposing flow in Bank statement automatically.
+                  </span>
                 </div>
 
-                <div className="grid-2col-equal-small">
-                  <div className="form-group">
-                    <label className="form-label">Date</label>
-                    <input
-                      type="date"
-                      value={adjDate}
-                      onChange={(e) => setAdjDate(e.target.value)}
-                      className="form-input"
-                      required
-                    />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Date</label>
+                    <input type="date" value={adjDate} onChange={(e) => setAdjDate(e.target.value)} className="form-input" required />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Time</label>
-                    <input
-                      type="time"
-                      value={adjTime}
-                      onChange={(e) => setAdjTime(e.target.value)}
-                      className="form-input"
-                      required
-                    />
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Time</label>
+                    <input type="time" value={adjTime} onChange={(e) => setAdjTime(e.target.value)} className="form-input" required />
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Transaction Notes / Particulars</label>
-                  <input
-                    type="text"
-                    value={adjNotes}
-                    onChange={(e) => setAdjNotes(e.target.value)}
-                    placeholder="e.g. Added backup funds, Withdrew June profit"
-                    className="form-input"
-                  />
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Notes</label>
+                  <input type="text" value={adjNotes} onChange={(e) => setAdjNotes(e.target.value)} placeholder="e.g. Added capital for options trading" className="form-input" />
                 </div>
               </div>
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => setIsAdjOpen(false)}
-                >
-                  Cancel
+
+              <div className="modal-footer" style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
+                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.75rem' }}>
+                  <Save size={12} />
+                  <span>Log Capital Adjustment</span>
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  <Save size={16} />
-                  <span>Save Transaction</span>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 2: ADD BANK TRANSACTION --- */}
+      {isBankTxOpen && (
+        <div className="modal-overlay" style={{ zIndex: 3100 }}>
+          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'hidden' }}>
+            <div className="modal-header">
+              <h3>Log Bank Transaction</h3>
+              <button onClick={() => setIsBankTxOpen(false)} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
+            </div>
+            <form onSubmit={handleAddBankTxSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px' }}>
+                
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Select Bank Account</label>
+                  <select value={bankTxAccId} onChange={(e) => setBankTxAccId(e.target.value)} className="form-select" required>
+                    <option value="">Select Bank</option>
+                    {bankAccounts.filter(b => b.active).map(b => (
+                      <option key={b.id} value={b.id}>{b.bankName} ({b.accountHolderName})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                    <input type="radio" checked={bankTxType === 'DEPOSIT'} onChange={() => { setBankTxType('DEPOSIT'); setBankTxCategory('Direct Deposit'); }} style={{ accentColor: 'var(--primary)' }} />
+                    <span>Inflow / Deposit (+)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                    <input type="radio" checked={bankTxType === 'WITHDRAWAL'} onChange={() => { setBankTxType('WITHDRAWAL'); setBankTxCategory('Direct Withdrawal'); }} style={{ accentColor: 'var(--color-loss)' }} />
+                    <span>Outflow / Withdrawal (-)</span>
+                  </label>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Transaction Category</label>
+                  <select 
+                    value={bankTxCategory} 
+                    onChange={(e) => setBankTxCategory(e.target.value as any)} 
+                    className="form-select"
+                  >
+                    {bankTxType === 'DEPOSIT' ? (
+                      <>
+                        <option value="Direct Deposit">Direct Deposit (Capital)</option>
+                        <option value="Salary">Salary Inflow</option>
+                        <option value="Interest">Interest Credit</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Direct Withdrawal">Direct Withdrawal (Personal)</option>
+                        <option value="Expense">Bank Charge</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Amount (₹)</label>
+                  <input type="number" value={bankTxAmount || ''} onChange={(e) => setBankTxAmount(parseFloat(e.target.value) || 0)} className="form-input" required />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Date</label>
+                    <input type="date" value={bankTxDate} onChange={(e) => setBankTxDate(e.target.value)} className="form-input" required />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Time</label>
+                    <input type="time" value={bankTxTime} onChange={(e) => setBankTxTime(e.target.value)} className="form-input" required />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Notes / Description</label>
+                  <input type="text" value={bankTxNotes} onChange={(e) => setBankTxNotes(e.target.value)} placeholder="e.g. Salary credited" className="form-input" />
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
+                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.75rem' }}>
+                  <Save size={12} />
+                  <span>Log Bank Transaction</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 3: LOG SUBSCRIPTION EXPENSE --- */}
+      {isSubOpen && (
+        <div className="modal-overlay" style={{ zIndex: 3100 }}>
+          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'hidden' }}>
+            <div className="modal-header">
+              <h3>Log Subscription Expense</h3>
+              <button onClick={() => setIsSubOpen(false)} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
+            </div>
+            <form onSubmit={handleAddSubSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px' }}>
+                
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Subscription Name</label>
+                  <input type="text" value={subName} onChange={(e) => setSubName(e.target.value)} placeholder="e.g. TradingView Pro / Tradetron" className="form-input" required />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Amount (₹)</label>
+                  <input type="number" value={subAmount || ''} onChange={(e) => setSubAmount(parseFloat(e.target.value) || 0)} className="form-input" required />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Payment Date</label>
+                    <input type="date" value={subDate} onChange={(e) => setSubDate(e.target.value)} className="form-input" required />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Frequency</label>
+                    <select value={subFreq} onChange={(e) => setSubFreq(e.target.value as any)} className="form-select">
+                      <option value="Monthly">Monthly</option>
+                      <option value="Yearly">Yearly</option>
+                      <option value="One-Time">One-Time</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Payment Source</label>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                      <input type="radio" checked={subSource === 'Bank'} onChange={() => setSubSource('Bank')} style={{ accentColor: 'var(--primary)' }} />
+                      <span>Bank Account</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                      <input type="radio" checked={subSource === 'Broker'} onChange={() => setSubSource('Broker')} style={{ accentColor: 'var(--color-loss)' }} />
+                      <span>Broker Ledger</span>
+                    </label>
+                  </div>
+                </div>
+
+                {subSource === 'Bank' ? (
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Deduct from Bank Account</label>
+                    <select value={subBankAccId} onChange={(e) => setSubBankAccId(e.target.value)} className="form-select" required>
+                      <option value="">Select Bank</option>
+                      {bankAccounts.filter(b => b.active).map(b => (
+                        <option key={b.id} value={b.id}>{b.bankName} ({b.accountHolderName})</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Deduct from Broker Ledger</label>
+                    <select value={subBrokerAccId} onChange={(e) => setSubBrokerAccId(e.target.value)} className="form-select" required>
+                      <option value="">Select Account</option>
+                      {brokerAccounts.filter(a => a.active).map(acc => (
+                        <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Notes</label>
+                  <input type="text" value={subNotes} onChange={(e) => setSubNotes(e.target.value)} placeholder="e.g. Charting subscription fee" className="form-input" />
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
+                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.75rem' }}>
+                  <Save size={12} />
+                  <span>Log Subscription Expense</span>
                 </button>
               </div>
             </form>

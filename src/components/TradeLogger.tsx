@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import type { Segment, Product, TradeAction, Emotion, Mistake } from '../types';
+import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
 import { X, Save, ShieldAlert, Sparkles } from 'lucide-react';
+import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
+import { getFinancialYear } from '../utils/fyHelper';
 
 interface TradeLoggerProps {
   isOpen: boolean;
   onClose: () => void;
   editTradeId?: string | null;
+  activeAccountId?: string;
 }
 
 const DEFAULT_FORM_STATE = {
+  brokerAccountId: '',
   date: new Date().toISOString().split('T')[0],
   entryTime: new Date().toTimeString().slice(0, 5),
   exitTime: new Date(Date.now() + 15 * 60 * 1000).toTimeString().slice(0, 5), // Default 15 mins hold
   segment: 'F&O' as Segment,
-  product: 'MIS' as Product,
+  product: 'Intraday' as Product,
   action: 'BUY' as TradeAction,
   symbol: '',
   qty: 1,
@@ -31,6 +35,11 @@ const DEFAULT_FORM_STATE = {
   strikePrice: 0,
   optionType: 'None' as 'CE' | 'PE' | 'None',
   setupType: 'None' as 'Breakout' | 'Pullback' | 'Reversal' | 'Range Bound' | 'None',
+  useManualCharges: false,
+  manualBrokerage: 0,
+  manualTaxes: 0,
+  holdingType: 'Short Term' as 'Short Term' | 'Long Term',
+  broker: 'Zerodha' as Broker,
 };
 
 const guessLotSize = (symbol: string): number => {
@@ -63,11 +72,14 @@ const EMOTIONS: { value: Emotion; label: string; emoji: string }[] = [
 
 const MISTAKES: Mistake[] = ['None', 'Overtrading', 'FOMO Entry', 'Moving SL', 'Early Exit', 'No Setup'];
 
-export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) {
-  const { addTrade, editTrade, trades, setups } = useTradeStore();
+export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: TradeLoggerProps) {
+  const { addTrade, editTrade, trades, setups, selectedFY, defaultBroker, brokerAccounts, brokerCharges } = useTradeStore();
+  const lastTrade = trades.length > 0 ? trades[trades.length - 1] : undefined;
   const [formData, setFormData] = useState(DEFAULT_FORM_STATE);
   const [tagsInput, setTagsInput] = useState('');
   const [error, setError] = useState('');
+  const [entryTimeConfirmed, setEntryTimeConfirmed] = useState(false);
+  const [exitTimeConfirmed, setExitTimeConfirmed] = useState(false);
 
   const [lotsInput, setLotsInput] = useState<string>('');
   const [lotSizeInput, setLotSizeInput] = useState<string>('75');
@@ -99,8 +111,14 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
           strikePrice: existing.strikePrice || 0,
           optionType: existing.optionType || 'None',
           setupType: existing.setupType || 'None',
+          useManualCharges: existing.useManualCharges || false,
+          manualBrokerage: existing.manualBrokerage || 0,
+          manualTaxes: existing.manualTaxes || 0,
+          holdingType: existing.holdingType || 'Short Term',
+          broker: existing.broker || 'Other',
+          brokerAccountId: existing.brokerAccountId || '',
         });
-        setTagsInput(existing.tags ? existing.tags.join(', ') : '');
+        setTagsInput(existing.tags ? existing.tags.join(', ').replace(/#/g, '') : '');
 
         // Set lots and lot size on edit load
         const guessedSz = guessLotSize(existing.symbol);
@@ -108,18 +126,58 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
         setLotsInput((existing.qty / guessedSz).toString());
       }
     } else {
+      const getDefaultDateForFY = (fy: string): string => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (fy === 'All') return todayStr;
+        
+        const todayFY = getFinancialYear(todayStr);
+        if (todayFY === fy) return todayStr;
+
+        const match = fy.match(/FY (\d{4})/);
+        if (match) {
+          const startYear = match[1];
+          return `${startYear}-04-01`; 
+        }
+        return todayStr;
+      };
+
+      const matchedAcc = brokerAccounts.find((a) => a.id === activeAccountId) || brokerAccounts.find(a => a.active) || brokerAccounts[0];
+      const initialBroker = matchedAcc ? matchedAcc.broker : (lastTrade ? (lastTrade.broker || defaultBroker) : defaultBroker);
+      const initialAccId = matchedAcc ? matchedAcc.id : '';
+
       setFormData({
         ...DEFAULT_FORM_STATE,
-        strategy: setups.length > 0 ? setups[0].name : '',
-        date: new Date().toISOString().split('T')[0],
+        broker: initialBroker,
+        brokerAccountId: initialAccId,
+        segment: lastTrade ? lastTrade.segment : 'F&O',
+        product: lastTrade ? lastTrade.product : 'Intraday',
+        strategy: lastTrade ? (lastTrade.strategy || '') : (setups.length > 0 ? setups[0].name : ''),
+        date: getDefaultDateForFY(selectedFY),
         entryTime: new Date().toTimeString().slice(0, 5),
         exitTime: new Date(Date.now() + 15 * 60 * 1000).toTimeString().slice(0, 5),
+        useManualCharges: false,
+        manualBrokerage: 0,
+        manualTaxes: 0,
+        holdingType: 'Short Term',
+        qty: 1,
+        entryPrice: 0,
+        exitPrice: 0,
+        slippagePoints: 0,
+        stopLoss: 0,
+        target: 0,
+        rulesFollowed: [],
+        emotion: 'Calm',
+        mistake: 'None',
+        notes: '',
+        strikePrice: 0,
+        optionType: 'None',
+        setupType: 'None',
       });
       setTagsInput('');
       setLotsInput('');
-      setLotSizeInput('75');
+      setLotSizeInput(lastTrade && lastTrade.segment === 'F&O' ? guessLotSize(lastTrade.symbol).toString() : '75');
     }
-  }, [editTradeId, trades, setups, isOpen]);
+  }, [editTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
 
   // Sync lots and quantity when lots or lot size changes
   const handleLotsChange = (val: string) => {
@@ -142,9 +200,51 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
     }
   };
 
-  // Watch symbol to auto-detect lot sizes
+  // Watch symbol to auto-detect lot sizes AND auto-fill optionType, strikePrice, segment
   useEffect(() => {
-    if (formData.segment === 'F&O' && formData.symbol && isOpen) {
+    if (!isOpen) return;
+    const sym = formData.symbol.toUpperCase().trim();
+    if (!sym) return;
+
+    // Detect F&O index option format like: NIFTY 22400 CE, BANKNIFTY 48000 PE, FINNIFTY 20100 CE, etc.
+    const optionMatch = sym.match(/(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)?\s*(\d{5})\s*(CE|PE)/i);
+    
+    if (optionMatch) {
+      const detectedStrike = parseInt(optionMatch[2], 10);
+      const detectedType = optionMatch[3].toUpperCase() as 'CE' | 'PE';
+
+      setFormData((prev) => {
+        if (
+          prev.segment !== 'F&O' ||
+          prev.strikePrice !== detectedStrike ||
+          prev.optionType !== detectedType
+        ) {
+          return {
+            ...prev,
+            segment: 'F&O',
+            strikePrice: detectedStrike,
+            optionType: detectedType,
+          };
+        }
+        return prev;
+      });
+    } else if (sym.includes('FUT') || sym.includes('FUTURES')) {
+      // Future contracts
+      setFormData((prev) => {
+        if (prev.segment !== 'F&O' || prev.optionType !== 'None' || prev.strikePrice !== 0) {
+          return {
+            ...prev,
+            segment: 'F&O',
+            optionType: 'None',
+            strikePrice: 0
+          };
+        }
+        return prev;
+      });
+    }
+
+    // Auto-detect lot sizes if segment is F&O
+    if (formData.segment === 'F&O') {
       const guessed = guessLotSize(formData.symbol);
       setLotSizeInput(guessed.toString());
       
@@ -157,13 +257,53 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
     }
   }, [formData.symbol, formData.segment, isOpen]);
 
+  // Real-time auto-calculation of charges & taxes
+  useEffect(() => {
+    if (!formData.useManualCharges && isOpen) {
+      const { segment, product, action, qty, entryPrice, exitPrice } = formData;
+      if (qty > 0 && entryPrice > 0 && exitPrice > 0) {
+        const config = brokerCharges.find(c => c.broker === formData.broker);
+        const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config);
+        setFormData((prev) => ({
+          ...prev,
+          manualBrokerage: taxResult.brokerage,
+          manualTaxes: Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100
+        }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          manualBrokerage: 0,
+          manualTaxes: 0
+        }));
+      }
+    }
+  }, [
+    formData.useManualCharges,
+    formData.segment,
+    formData.product,
+    formData.action,
+    formData.qty,
+    formData.entryPrice,
+    formData.exitPrice,
+    formData.broker,
+    brokerCharges,
+    isOpen
+  ]);
+
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const parsedVal = ['qty', 'entryPrice', 'exitPrice', 'slippagePoints', 'stopLoss', 'target', 'strikePrice'].includes(name)
-      ? parseFloat(value) || 0
-      : value;
+    const type = e.target.type;
+    
+    let parsedVal: any = value;
+    if (name === 'symbol') {
+      parsedVal = value.toUpperCase();
+    } else if (type === 'checkbox') {
+      parsedVal = (e.target as HTMLInputElement).checked;
+    } else if (['qty', 'entryPrice', 'exitPrice', 'slippagePoints', 'stopLoss', 'target', 'strikePrice', 'manualBrokerage', 'manualTaxes'].includes(name)) {
+      parsedVal = parseFloat(value) || 0;
+    }
 
     setFormData((prev) => ({
       ...prev,
@@ -197,6 +337,31 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
     }
   };
 
+
+  const handleQuickIndexOption = (index: 'NIFTY' | 'SENSEX', type: 'CE' | 'PE') => {
+    const strike = index === 'NIFTY' ? 23000 : 80000;
+    const lotSz = index === 'NIFTY' ? 25 : 10;
+    const sym = `${index} ${strike} ${type}`;
+    
+    setFormData((prev) => ({
+      ...prev,
+      segment: 'F&O',
+      optionType: type,
+      strikePrice: strike,
+      symbol: sym,
+    }));
+    
+    setLotSizeInput(lotSz.toString());
+    const currentLots = parseFloat(lotsInput) || 1;
+    if (isNaN(parseFloat(lotsInput))) {
+      setLotsInput('1');
+    }
+    setFormData((prev) => ({
+      ...prev,
+      qty: Math.round(currentLots * lotSz)
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -213,6 +378,20 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
     if (formData.entryPrice <= 0 || formData.exitPrice <= 0) {
       setError('Prices must be greater than zero.');
       return;
+    }
+
+    // Validate that trade date falls within the selected Financial Year
+    if (selectedFY !== 'All') {
+      const match = selectedFY.match(/FY (\d{4})/);
+      if (match) {
+        const startYear = parseInt(match[1], 10);
+        const startStr = `${startYear}-04-01`;
+        const endStr = `${startYear + 1}-03-31`;
+        if (formData.date < startStr || formData.date > endStr) {
+          setError(`Selected date (${formData.date}) falls outside the active Financial Year range (${selectedFY}: ${startStr} to ${endStr}). Please select a valid date or change the active FY selector.`);
+          return;
+        }
+      }
     }
 
     const parsedTags = tagsInput
@@ -238,15 +417,15 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content glass-card animate-fade-in" style={{ padding: 0 }}>
+      <div className="modal-content glass-card animate-fade-in" style={{ padding: 0, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div className="modal-header">
           <h2>{editTradeId ? 'Edit Options/Equity Log' : 'Log Options/Equity Trade'}</h2>
-          <button className="btn-secondary" style={{ padding: '6px', borderRadius: '50%' }} onClick={onClose}>
+          <button type="button" className="btn-secondary" style={{ padding: '6px', borderRadius: '50%', border: 'none', background: 'transparent' }} onClick={onClose}>
             <X size={18} />
           </button>
         </div>
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flexGrow: 1 }}>
+          <div className="modal-body" style={{ overflowY: 'auto', flexGrow: 1, padding: '20px' }}>
             {error && (
               <div 
                 style={{ 
@@ -282,25 +461,53 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
               </div>
               <div className="form-group">
                 <label className="form-label">Entry Time</label>
-                <input
-                  type="time"
-                  name="entryTime"
-                  value={formData.entryTime}
-                  onChange={handleChange}
-                  className="form-input"
-                  required
-                />
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="time"
+                    name="entryTime"
+                    value={formData.entryTime}
+                    onChange={handleChange}
+                    className="form-input"
+                    required
+                  />
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0 10px', height: '35px', fontSize: '0.75rem', minWidth: '40px' }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEntryTimeConfirmed(true);
+                      setTimeout(() => setEntryTimeConfirmed(false), 1500);
+                    }}
+                  >
+                    {entryTimeConfirmed ? '✓' : 'OK'}
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Exit Time</label>
-                <input
-                  type="time"
-                  name="exitTime"
-                  value={formData.exitTime}
-                  onChange={handleChange}
-                  className="form-input"
-                  required
-                />
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="time"
+                    name="exitTime"
+                    value={formData.exitTime}
+                    onChange={handleChange}
+                    className="form-input"
+                    required
+                  />
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0 10px', height: '35px', fontSize: '0.75rem', minWidth: '40px' }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setExitTimeConfirmed(true);
+                      setTimeout(() => setExitTimeConfirmed(false), 1500);
+                    }}
+                  >
+                    {exitTimeConfirmed ? '✓' : 'OK'}
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Segment</label>
@@ -378,21 +585,93 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
               </div>
             )}
 
-            {/* Grid 2: Symbol & Product & Action */}
-            <div className="grid-logger-3col" style={{ marginBottom: '16px' }}>
-              <div className="form-group">
+            {/* Grid 2: Symbol & Broker & Product & Action */}
+            <div 
+              style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
+                gap: '16px', 
+                marginBottom: '16px' 
+              }}
+            >
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Symbol / Ticker</label>
                 <input
                   type="text"
                   name="symbol"
                   value={formData.symbol}
                   onChange={handleChange}
-                  placeholder="e.g. NIFTY 22400 CE or HDFCBANK"
+                  placeholder="e.g. NIFTY 22400 CE"
                   className="form-input"
                   required
                 />
+                <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickIndexOption('NIFTY', 'CE')}
+                    className="btn"
+                    style={{ padding: '2px 6px', fontSize: '0.65rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '22px', cursor: 'pointer' }}
+                  >
+                    + NIFTY CE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickIndexOption('NIFTY', 'PE')}
+                    className="btn"
+                    style={{ padding: '2px 6px', fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '22px', cursor: 'pointer' }}
+                  >
+                    + NIFTY PE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickIndexOption('SENSEX', 'CE')}
+                    className="btn"
+                    style={{ padding: '2px 6px', fontSize: '0.65rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '22px', cursor: 'pointer' }}
+                  >
+                    + SENSEX CE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickIndexOption('SENSEX', 'PE')}
+                    className="btn"
+                    style={{ padding: '2px 6px', fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '22px', cursor: 'pointer' }}
+                  >
+                    + SENSEX PE
+                  </button>
+                </div>
               </div>
-              <div className="form-group">
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Active Account</label>
+                <select
+                  name="brokerAccountId"
+                  value={formData.brokerAccountId}
+                  onChange={(e) => {
+                    const accId = e.target.value;
+                    const matched = brokerAccounts.find(a => a.id === accId);
+                    setFormData(prev => ({
+                      ...prev,
+                      brokerAccountId: accId,
+                      broker: matched ? matched.broker : 'Other'
+                    }));
+                  }}
+                  className="form-select"
+                >
+                  {brokerAccounts.filter(a => a.active).map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.accountName} ({acc.broker})
+                    </option>
+                  ))}
+                  {formData.brokerAccountId && !brokerAccounts.find(a => a.id === formData.brokerAccountId) && (
+                    <option value={formData.brokerAccountId}>
+                      {formData.broker} Account (Inactive)
+                    </option>
+                  )}
+                  {brokerAccounts.length === 0 && <option value="">Other / Direct</option>}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Product</label>
                 <select
                   name="product"
@@ -400,12 +679,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
                   onChange={handleChange}
                   className="form-select"
                 >
-                  <option value="MIS">Intraday (MIS)</option>
-                  <option value="CNC">Delivery (CNC)</option>
-                  <option value="NRML">Carry Forward (NRML)</option>
+                  <option value="Intraday">Intraday</option>
+                  <option value="Delivery">Delivery</option>
                 </select>
               </div>
-              <div className="form-group">
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Action</label>
                 <select
                   name="action"
@@ -422,6 +701,39 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
                 </select>
               </div>
             </div>
+
+            {/* Conditionally Render Equity Delivery Holding Type (STCG vs LTCG) */}
+            {formData.segment === 'Equity' && formData.product === 'Delivery' && (
+              <div 
+                style={{ 
+                  marginBottom: '16px',
+                  background: 'rgba(16, 185, 129, 0.04)',
+                  border: '1px solid rgba(16, 185, 129, 0.1)',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '16px'
+                }}
+              >
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: 'var(--color-win)', fontWeight: 600 }}>Capital Gains Holding Duration</label>
+                  <select
+                    name="holdingType"
+                    value={formData.holdingType}
+                    onChange={handleChange}
+                    className="form-select"
+                    style={{ borderColor: 'rgba(16, 185, 129, 0.2)' }}
+                  >
+                    <option value="Short Term">Short Term / Swing (&lt; 1 Year) [STCG 20%]</option>
+                    <option value="Long Term">Long Term Investment (&gt; 1 Year) [LTCG 12.5%]</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                  Used to calculate correct Indian capital gains taxes. STCG is taxed at 20%. LTCG is taxed at 12.5% after ₹1.25L exemption.
+                </div>
+              </div>
+            )}
 
             {/* Conditionally Render F&O Lot Calculator */}
             {formData.segment === 'F&O' && (
@@ -538,33 +850,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
               </div>
             </div>
 
-            {/* Grid 4: Risk Parameters & Setup */}
-            <div className="grid-4col-equal" style={{ marginBottom: '16px' }}>
-              <div className="form-group">
-                <label className="form-label">Stop Loss (SL)</label>
-                <input
-                  type="number"
-                  name="stopLoss"
-                  value={formData.stopLoss || ''}
-                  onChange={handleChange}
-                  step="0.05"
-                  placeholder="0.00"
-                  className="form-input"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Target Price</label>
-                <input
-                  type="number"
-                  name="target"
-                  value={formData.target || ''}
-                  onChange={handleChange}
-                  step="0.05"
-                  placeholder="0.00"
-                  className="form-input"
-                />
-              </div>
-              <div className="form-group">
+            {/* Grid 4: Setup & Strategy */}
+            <div className="grid-2col-equal-small" style={{ marginBottom: '16px', gap: '16px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Strategy</label>
                 <select
                   name="strategy"
@@ -580,7 +868,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
                   {setups.length === 0 && <option value="">No setups defined</option>}
                 </select>
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Setup Type</label>
                 <select
                   name="setupType"
@@ -594,6 +882,84 @@ export function TradeLogger({ isOpen, onClose, editTradeId }: TradeLoggerProps) 
                   <option value="Reversal">Reversal</option>
                   <option value="Range Bound">Range Bound</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Charges & Brokerage Section */}
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ fontSize: '0.95rem', margin: 0 }}>Charges & Brokerage (₹)</h3>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input
+                    type="checkbox"
+                    id="useManualCharges"
+                    name="useManualCharges"
+                    checked={formData.useManualCharges}
+                    onChange={handleChange}
+                    style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="useManualCharges" style={{ fontSize: '0.78rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                    Manual Edit Override
+                  </label>
+                </div>
+              </div>
+
+              <div 
+                className="grid-2col-equal" 
+                style={{ 
+                  background: formData.useManualCharges ? 'rgba(251, 146, 60, 0.03)' : 'rgba(255, 255, 255, 0.01)',
+                  border: formData.useManualCharges ? '1px solid rgba(251, 146, 60, 0.15)' : '1px solid var(--border-color)',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '16px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: formData.useManualCharges ? '#fb923c' : 'var(--text-muted)', fontWeight: 600 }}>
+                    Brokerage {formData.useManualCharges ? '(Manual)' : '(Auto)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="manualBrokerage"
+                    value={formData.manualBrokerage || ''}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    disabled={!formData.useManualCharges}
+                    className="form-input"
+                    style={{ 
+                      borderColor: formData.useManualCharges ? 'rgba(251, 146, 60, 0.3)' : 'var(--border-color)',
+                      opacity: formData.useManualCharges ? 1 : 0.6,
+                      cursor: formData.useManualCharges ? 'text' : 'not-allowed'
+                    }}
+                    step="0.01;any"
+                    min="0"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: formData.useManualCharges ? '#fb923c' : 'var(--text-muted)', fontWeight: 600 }}>
+                    Government Taxes & Fees {formData.useManualCharges ? '(Manual)' : '(Auto)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="manualTaxes"
+                    value={formData.manualTaxes || ''}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    disabled={!formData.useManualCharges}
+                    className="form-input"
+                    style={{ 
+                      borderColor: formData.useManualCharges ? 'rgba(251, 146, 60, 0.3)' : 'var(--border-color)',
+                      opacity: formData.useManualCharges ? 1 : 0.6,
+                      cursor: formData.useManualCharges ? 'text' : 'not-allowed'
+                    }}
+                    step="0.01;any"
+                    min="0"
+                  />
+                </div>
               </div>
             </div>
 

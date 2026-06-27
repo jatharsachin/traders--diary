@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff } from 'lucide-react';
+import { BrokerBadge } from './BrokerBadge';
 
 const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   // 2025
@@ -32,7 +33,31 @@ const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   '2026-10-20': 'Dussehra',
   '2026-11-10': 'Diwali-Balipratipada',
   '2026-11-24': 'Guru Nanak Dev Jayanti',
-  '2026-12-25': 'Christmas'
+  '2026-12-25': 'Christmas',
+
+  // 2027
+  '2027-01-26': 'Republic Day',
+  '2027-03-08': 'Mahashivratri',
+  '2027-03-22': 'Holi',
+  '2027-03-26': 'Good Friday',
+  '2027-04-14': 'Dr. Ambedkar Jayanti',
+  '2027-05-01': 'Maharashtra Day',
+  '2027-08-15': 'Independence Day',
+  '2027-10-02': 'Mahatma Gandhi Jayanti',
+  '2027-11-08': 'Guru Nanak Dev Jayanti',
+  '2027-12-25': 'Christmas',
+
+  // 2028
+  '2028-01-26': 'Republic Day',
+  '2028-03-06': 'Mahashivratri',
+  '2028-03-10': 'Holi',
+  '2028-04-07': 'Good Friday',
+  '2028-04-14': 'Dr. Ambedkar Jayanti',
+  '2028-05-01': 'Maharashtra Day',
+  '2028-08-15': 'Independence Day',
+  '2028-10-02': 'Mahatma Gandhi Jayanti',
+  '2028-11-23': 'Guru Nanak Dev Jayanti',
+  '2028-12-25': 'Christmas'
 };
 
 const formatCompactPnLMobile = (val: number) => {
@@ -46,8 +71,11 @@ const formatCompactPnLMobile = (val: number) => {
   return `${val > 0 ? '+' : '-'}${Math.round(absVal)}`;
 };
 
-export function TradingCalendar() {
-  const { trades, isPnlVisible, togglePnlVisibility } = useTradeStore();
+export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
+  const { trades: allTrades, isPnlVisible, togglePnlVisibility } = useTradeStore();
+  const trades = activeAccountId === 'Combined'
+    ? allTrades
+    : allTrades.filter(t => t.brokerAccountId === activeAccountId);
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026
   const [activePnlTab, setActivePnlTab] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -73,6 +101,15 @@ export function TradingCalendar() {
 
   // Dynamic live Indian Public Holidays sync when online
   useEffect(() => {
+    const cached = localStorage.getItem(`traders_diary_cached_holidays_${year}`);
+    if (cached) {
+      try {
+        setOnlineHolidays((prev) => ({ ...prev, ...JSON.parse(cached) }));
+      } catch (e) {
+        console.error("Failed to parse cached holidays", e);
+      }
+    }
+
     if (navigator.onLine) {
       fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/IN`)
         .then((res) => {
@@ -83,10 +120,10 @@ export function TradingCalendar() {
           if (Array.isArray(data)) {
             const fetched: Record<string, string> = {};
             data.forEach((item: any) => {
-              // Map local names or names to date string keys
               fetched[item.date] = item.localName || item.name;
             });
             setOnlineHolidays((prev) => ({ ...prev, ...fetched }));
+            localStorage.setItem(`traders_diary_cached_holidays_${year}`, JSON.stringify(fetched));
             console.log("Successfully auto-synced Indian holidays online for year", year);
           }
         })
@@ -129,6 +166,17 @@ export function TradingCalendar() {
     const netPnL = dailyTrades.reduce((acc, t) => acc + t.netPnL, 0);
     const grossPnL = dailyTrades.reduce((acc, t) => acc + t.grossPnL, 0);
     
+    // Group P&L and trade count by broker
+    const brokerSummaries: Record<string, { netPnL: number; count: number }> = {};
+    dailyTrades.forEach((t) => {
+      const b = t.broker || 'Other';
+      if (!brokerSummaries[b]) {
+        brokerSummaries[b] = { netPnL: 0, count: 0 };
+      }
+      brokerSummaries[b].netPnL += t.netPnL;
+      brokerSummaries[b].count += 1;
+    });
+    
     // Find dominant emotion
     const emotionsCount: Record<string, number> = {};
     dailyTrades.forEach((t) => {
@@ -151,6 +199,7 @@ export function TradingCalendar() {
       count: dailyTrades.length,
       dominantEmotion,
       mainMistake,
+      brokerSummaries,
     };
   };
 
@@ -288,6 +337,19 @@ export function TradingCalendar() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
                       <span>Main Mistake:</span>
                       <span>{summary.mainMistake}</span>
+                    </div>
+                  )}
+                  {summary.brokerSummaries && Object.keys(summary.brokerSummaries).length > 1 && (
+                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed var(--border-color)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>Broker-wise P&L:</span>
+                      {Object.entries(summary.brokerSummaries).map(([brokerName, bSum]: any) => (
+                        <div key={brokerName} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{brokerName}:</span>
+                          <span style={{ color: bSum.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 550 }}>
+                            {isPnlVisible ? `${bSum.netPnL >= 0 ? '+' : ''}${formatCurrency(bSum.netPnL)}` : '••••'} ({bSum.count}t)
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </>
@@ -1157,6 +1219,7 @@ export function TradingCalendar() {
                   <tr>
                     <th>Time</th>
                     <th>Symbol</th>
+                    <th>Broker</th>
                     <th>Action</th>
                     <th style={{ textAlign: 'right' }}>Qty</th>
                     <th style={{ textAlign: 'right' }}>Entry</th>
@@ -1177,6 +1240,9 @@ export function TradingCalendar() {
                     >
                       <td style={{ fontWeight: 550, fontSize: '0.78rem' }}>{t.entryTime}</td>
                       <td style={{ fontWeight: 600 }}>{t.symbol}</td>
+                      <td>
+                        <BrokerBadge broker={t.broker} />
+                      </td>
                       <td>
                         <span className={`badge ${t.action === 'BUY' ? 'badge-win' : 'badge-loss'}`} style={{ padding: '2px 6px', fontSize: '0.65rem' }}>
                           {t.action}

@@ -1,7 +1,13 @@
 import { create } from 'zustand';
-import type { Trade, Setup, Segment, Product, TradeAction, Emotion, Mistake, CapitalAdjustment, Investment } from '../types';
+import type { 
+  Trade, Setup, Broker, CapitalAdjustment, Investment, BrokerAccount, BankAccount, 
+  SubscriptionExpense, BankTransaction, BrokerChargesConfig 
+} from '../types';
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
-import { syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, fetchMetaFromCloud, getSupabaseClient } from '../utils/supabaseClient';
+import { 
+  syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, 
+  fetchMetaFromCloud, getSupabaseClient 
+} from '../utils/supabaseClient';
 
 interface TradeStore {
   trades: Trade[];
@@ -46,6 +52,48 @@ interface TradeStore {
   // Weekly Retrospectives
   weeklyRetrospectives: Record<string, string>;
   saveWeeklyRetrospective: (weekId: string, notes: string) => void;
+
+  // Financial Year Filter
+  selectedFY: string;
+  setSelectedFY: (fy: string) => void;
+
+  bulkImportTrades: (
+    imported: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>[],
+    overwrite: boolean
+  ) => void;
+
+  // Profile and Broker settings
+  userName: string;
+  userAvatar: string;
+  activeBrokers: Broker[];
+  defaultBroker: Broker;
+  setProfile: (name: string, avatar: string) => void;
+  setActiveBrokers: (brokers: Broker[]) => void;
+  setDefaultBroker: (broker: Broker) => void;
+
+  // NEW MULTI-USER & BANK LEDGER PROPERTIES
+  brokerAccounts: BrokerAccount[];
+  bankAccounts: BankAccount[];
+  subscriptionExpenses: SubscriptionExpense[];
+  bankTransactions: BankTransaction[];
+  brokerCharges: BrokerChargesConfig[];
+
+  addBrokerAccount: (account: Omit<BrokerAccount, 'id'>) => void;
+  editBrokerAccount: (id: string, accountData: Partial<BrokerAccount>) => void;
+  deleteBrokerAccount: (id: string) => void;
+
+  addBankAccount: (bank: Omit<BankAccount, 'id'>) => void;
+  editBankAccount: (id: string, bankData: Partial<BankAccount>) => void;
+  deleteBankAccount: (id: string) => void;
+
+  addSubscriptionExpense: (expense: Omit<SubscriptionExpense, 'id'>) => void;
+  deleteSubscriptionExpense: (id: string) => void;
+
+  updateBrokerCharges: (charges: BrokerChargesConfig[]) => void;
+  
+  // Bank transaction direct adjustments
+  addDirectBankTransaction: (tx: Omit<BankTransaction, 'id'>) => void;
+  deleteDirectBankTransaction: (id: string) => void;
 }
 
 const DEFAULT_SETUPS: Setup[] = [
@@ -56,13 +104,46 @@ const DEFAULT_SETUPS: Setup[] = [
   { name: 'Price Action Breakout', description: 'Trading flag and pole or cup and handle pattern breakouts' },
 ];
 
+const DEFAULT_BROKER_ACCOUNTS: BrokerAccount[] = [
+  { id: 'acc-1', broker: 'Zerodha', accountName: 'Sachin', startingCapital: 500000, active: true },
+  { id: 'acc-2', broker: 'Dhan', accountName: 'Sachin', startingCapital: 200000, active: true },
+  { id: 'acc-3', broker: 'Dhan', accountName: 'Rupali', startingCapital: 100000, active: true },
+];
+
+const DEFAULT_BANK_ACCOUNTS: BankAccount[] = [
+  { id: 'bank-1', bankName: 'SBI', accountHolderName: 'Sachin', startingBalance: 150000, active: true },
+  { id: 'bank-2', bankName: 'HDFC', accountHolderName: 'Rupali', startingBalance: 80000, active: true },
+];
+
+const DEFAULT_BROKER_CHARGES: BrokerChargesConfig[] = [
+  { broker: 'Zerodha', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Groww', deliveryRatePct: 0.05, deliveryMaxFee: 20, intradayRatePct: 0.05, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.05, futuresMaxFee: 20 },
+  { broker: 'Angel One', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Upstox', deliveryRatePct: 0.1, deliveryMaxFee: 20, intradayRatePct: 0.05, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.05, futuresMaxFee: 20 },
+  { broker: 'Fyers', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Dhan', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Kotak Neo', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0, intradayMaxFee: 0, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Other', deliveryRatePct: 0.1, deliveryMaxFee: 20, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+];
+
+const DEFAULT_SUBSCRIPTION_EXPENSES: SubscriptionExpense[] = [
+  { id: 'sub-1', name: 'Tradetron Algo Basic', amount: 1200, date: '2026-06-01', paymentSource: 'Bank', bankAccountId: 'bank-1', notes: 'Monthly algo platform fee', frequency: 'Monthly' },
+  { id: 'sub-2', name: 'Sensibull Options Pro', amount: 800, date: '2026-06-05', paymentSource: 'Broker', brokerAccountId: 'acc-1', notes: 'Options analysis subscription', frequency: 'Monthly' },
+];
+
 // Helper to compute calculated fields for a trade
 const computeTradeCalculations = (
   trade: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'> & {
     strikePrice?: number;
     optionType?: 'CE' | 'PE' | 'None';
     setupType?: 'Breakout' | 'Pullback' | 'Reversal' | 'Range Bound' | 'None';
-  }
+    useManualCharges?: boolean;
+    manualBrokerage?: number;
+    manualTaxes?: number;
+    holdingType?: 'Short Term' | 'Long Term';
+    broker?: Broker;
+  },
+  chargesConfig?: BrokerChargesConfig
 ) => {
   const { date, entryTime, exitTime, segment, product, action, qty, entryPrice, exitPrice, stopLoss } = trade;
 
@@ -80,20 +161,29 @@ const computeTradeCalculations = (
   const entryMins = parseInt(entryParts[0], 10) * 60 + parseInt(entryParts[1], 10);
   const exitMins = parseInt(exitParts[0], 10) * 60 + parseInt(exitParts[1], 10);
   let durationMinutes = exitMins - entryMins;
-  if (durationMinutes < 0) durationMinutes = 0; // Handle overnight or entry error
+  if (durationMinutes < 0) durationMinutes = 0; 
 
   // Gross PnL
-  // Long trade: (exit - entry) * qty. Short trade: (entry - exit) * qty
   const grossPnL = action === 'BUY' 
     ? (exitPrice - entryPrice) * qty 
     : (entryPrice - exitPrice) * qty;
 
   // Taxes & Brokerage
-  const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice);
-  
-  const brokerage = taxResult.brokerage;
-  const taxes = taxResult.totalCharges - brokerage;
-  const netPnL = grossPnL - taxResult.totalCharges;
+  let brokerage = 0;
+  let taxes = 0;
+  let totalCharges = 0;
+
+  if (trade.useManualCharges) {
+    brokerage = trade.manualBrokerage || 0;
+    taxes = trade.manualTaxes || 0;
+    totalCharges = brokerage + taxes;
+  } else {
+    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, chargesConfig);
+    brokerage = taxResult.brokerage;
+    taxes = taxResult.totalCharges - brokerage;
+    totalCharges = taxResult.totalCharges;
+  }
+  const netPnL = grossPnL - totalCharges;
 
   // ROI: (Net PnL / Capital Deployed) * 100
   const capital = entryPrice * qty;
@@ -108,7 +198,7 @@ const computeTradeCalculations = (
     isExpiryDay,
     durationMinutes,
     grossPnL: Math.round(grossPnL * 100) / 100,
-    brokerage,
+    brokerage: Math.round(brokerage * 100) / 100,
     taxes: Math.round(taxes * 100) / 100,
     netPnL: Math.round(netPnL * 100) / 100,
     roi: Math.round(roi * 100) / 100,
@@ -116,232 +206,8 @@ const computeTradeCalculations = (
   };
 };
 
-const getMockTrades = (): Trade[] => {
-  const rawMockData = [
-    {
-      date: '2026-06-02',
-      entryTime: '09:30',
-      exitTime: '09:42',
-      segment: 'F&O' as Segment,
-      product: 'MIS' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'NIFTY 22400 CE',
-      qty: 100,
-      entryPrice: 120,
-      exitPrice: 165,
-      slippagePoints: 0.5,
-      stopLoss: 100,
-      target: 160,
-      strategy: 'EMA Crossover',
-      rulesFollowed: ['Trend Alignment', 'Position Sizing OK'],
-      emotion: 'Calm' as Emotion,
-      mistake: 'None' as Mistake,
-      notes: 'Clean entry on EMA crossover. Exited at target resistance zone.',
-      strikePrice: 22400,
-      optionType: 'CE' as const,
-    },
-    {
-      date: '2026-06-03',
-      entryTime: '11:15',
-      exitTime: '12:05',
-      segment: 'Equity' as Segment,
-      product: 'MIS' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'RELIANCE',
-      qty: 50,
-      entryPrice: 2450,
-      exitPrice: 2430,
-      slippagePoints: 1,
-      stopLoss: 2440,
-      target: 2480,
-      strategy: 'Support Reversal',
-      rulesFollowed: ['Patience Kept'],
-      emotion: 'Fearful' as Emotion,
-      mistake: 'Moving SL' as Mistake,
-      notes: 'Moved stop loss lower in panic during a dip, resulting in a larger loss than planned. Need to follow rules.',
-    },
-    {
-      date: '2026-06-04',
-      entryTime: '14:00',
-      exitTime: '14:05',
-      segment: 'F&O' as Segment,
-      product: 'MIS' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'NIFTY 22500 CE',
-      qty: 150,
-      entryPrice: 40,
-      exitPrice: 75,
-      slippagePoints: 1,
-      stopLoss: 25,
-      target: 70,
-      strategy: 'ORB Breakout',
-      rulesFollowed: ['Patience Kept', 'Clean Execution'],
-      emotion: 'Calm' as Emotion,
-      mistake: 'None' as Mistake,
-      notes: 'Expiry day momentum spike. Captured 35 points in 5 minutes.',
-      strikePrice: 22500,
-      optionType: 'CE' as const,
-    },
-    {
-      date: '2026-06-08',
-      entryTime: '14:20',
-      exitTime: '15:10',
-      segment: 'Equity' as Segment,
-      product: 'CNC' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'HDFCBANK',
-      qty: 40,
-      entryPrice: 1420,
-      exitPrice: 1455,
-      slippagePoints: 0,
-      stopLoss: 1390,
-      target: 1460,
-      strategy: 'Support Reversal',
-      rulesFollowed: ['Position Sizing OK', 'Patience Kept'],
-      emotion: 'Calm' as Emotion,
-      mistake: 'None' as Mistake,
-      notes: 'Swing trade entry near historical support level. Exited just before target due to market weakness.',
-    },
-    {
-      date: '2026-06-10',
-      entryTime: '09:45',
-      exitTime: '10:35',
-      segment: 'F&O' as Segment,
-      product: 'MIS' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'NIFTY 22500 PE',
-      qty: 150,
-      entryPrice: 95,
-      exitPrice: 60,
-      slippagePoints: 1.5,
-      stopLoss: 80,
-      target: 130,
-      strategy: 'ORB Breakout',
-      rulesFollowed: [],
-      emotion: 'Impatient' as Emotion,
-      mistake: 'FOMO Entry' as Mistake,
-      notes: 'Chased the market. Entered option buying trade without confirmation. Complete FOMO trade.',
-      strikePrice: 22500,
-      optionType: 'PE' as const,
-    },
-    {
-      date: '2026-06-11',
-      entryTime: '13:00',
-      exitTime: '13:45',
-      segment: 'F&O' as Segment,
-      product: 'MIS' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'BANKNIFTY 48200 CE',
-      qty: 60,
-      entryPrice: 280,
-      exitPrice: 180,
-      slippagePoints: 3,
-      stopLoss: 240,
-      target: 360,
-      strategy: 'VWAP Pullback',
-      rulesFollowed: [],
-      emotion: 'Fearful' as Emotion,
-      mistake: 'Moving SL' as Mistake,
-      notes: 'Held options on expiry day. Premium melted fast as Banknifty traded sideways. Major decay loss.',
-      strikePrice: 48200,
-      optionType: 'CE' as const,
-    },
-    {
-      date: '2026-06-15',
-      entryTime: '10:30',
-      exitTime: '10:48',
-      segment: 'Equity' as Segment,
-      product: 'MIS' as Product,
-      action: 'SELL' as TradeAction,
-      symbol: 'TATASTEEL',
-      qty: 500,
-      entryPrice: 155,
-      exitPrice: 157.5,
-      slippagePoints: 0.1,
-      stopLoss: 154,
-      target: 160,
-      strategy: 'Price Action Breakout',
-      rulesFollowed: ['Position Sizing OK'],
-      emotion: 'Fearful' as Emotion,
-      mistake: 'Moving SL' as Mistake,
-      notes: 'Short trade in Tata Steel. Stock broke out on the upside instead of breaking down. Stop loss hit.',
-    },
-    {
-      date: '2026-06-17',
-      entryTime: '11:00',
-      exitTime: '11:55',
-      segment: 'F&O' as Segment,
-      product: 'MIS' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'NIFTY 22600 CE',
-      qty: 100,
-      entryPrice: 85,
-      exitPrice: 50,
-      slippagePoints: 1,
-      stopLoss: 70,
-      target: 120,
-      strategy: 'EMA Crossover',
-      rulesFollowed: [],
-      emotion: 'Revengeful' as Emotion,
-      mistake: 'Overtrading' as Mistake,
-      notes: 'Took a random trade after the previous loss to recover money. Kept averaging and lost more.',
-      strikePrice: 22600,
-      optionType: 'CE' as const,
-    },
-    {
-      date: '2026-06-18',
-      entryTime: '09:20',
-      exitTime: '09:32',
-      segment: 'F&O' as Segment,
-      product: 'MIS' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'BANKNIFTY 48500 CE',
-      qty: 60,
-      entryPrice: 310,
-      exitPrice: 420,
-      slippagePoints: 2,
-      stopLoss: 270,
-      target: 400,
-      strategy: 'ORB Breakout',
-      rulesFollowed: ['Trend Alignment', 'Risk Size', 'Patience Kept'],
-      emotion: 'Calm' as Emotion,
-      mistake: 'None' as Mistake,
-      notes: 'Opening range breakout trade on expiry day. Executed perfectly according to the plan.',
-      strikePrice: 48500,
-      optionType: 'CE' as const,
-    },
-    {
-      date: '2026-06-19',
-      entryTime: '13:50',
-      exitTime: '14:05',
-      segment: 'F&O' as Segment,
-      product: 'MIS' as Product,
-      action: 'BUY' as TradeAction,
-      symbol: 'NIFTY 22700 CE',
-      qty: 150,
-      entryPrice: 75,
-      exitPrice: 90,
-      slippagePoints: 0.5,
-      stopLoss: 60,
-      target: 100,
-      strategy: 'VWAP Pullback',
-      rulesFollowed: ['Position Sizing OK'],
-      emotion: 'Greedy' as Emotion,
-      mistake: 'Early Exit' as Mistake,
-      notes: 'Panicked and exited early at 90. Stock later went up to 110. Need to hold with patience.',
-      strikePrice: 22700,
-      optionType: 'CE' as const,
-    }
-  ];
-
-  return rawMockData.map((t, idx) => {
-    const computed = computeTradeCalculations(t);
-    return {
-      ...t,
-      id: `trade-${idx + 1}-${Date.now()}`,
-      ...computed
-    };
-  });
+const updateBaseCapital = (accounts: BrokerAccount[]) => {
+  return accounts.filter(a => a.active).reduce((sum, a) => sum + a.startingCapital, 0);
 };
 
 export const useTradeStore = create<TradeStore>((set, get) => {
@@ -378,41 +244,130 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return userId ? `${baseKey}_${userId}` : baseKey;
   };
 
-  // Load initial data from LocalStorage (guest/fallback defaults)
-  const loadTrades = (): Trade[] => {
-    const saved = localStorage.getItem('traders_diary_trades');
+  // Load initial data from LocalStorage with Migrations
+  const loadBrokerAccounts = (): BrokerAccount[] => {
+    const saved = localStorage.getItem('traders_diary_broker_accounts');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as BrokerAccount[];
+        let changed = false;
+        const updated = parsed.map(a => {
+          if (a.accountName === 'Wife') {
+            a.accountName = 'Rupali';
+            changed = true;
+          }
+          return a;
+        });
+        if (changed) {
+          localStorage.setItem('traders_diary_broker_accounts', JSON.stringify(updated));
+        }
+        return updated;
+      } catch (e) {
+        console.error('Failed to parse broker accounts', e);
+      }
+    }
+    localStorage.setItem('traders_diary_broker_accounts', JSON.stringify(DEFAULT_BROKER_ACCOUNTS));
+    return DEFAULT_BROKER_ACCOUNTS;
+  };
+
+  const loadBankAccounts = (): BankAccount[] => {
+    const saved = localStorage.getItem('traders_diary_bank_accounts');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as BankAccount[];
+        let changed = false;
+        const updated = parsed.map(b => {
+          if (b.accountHolderName === 'Wife') {
+            b.accountHolderName = 'Rupali';
+            changed = true;
+          }
+          return b;
+        });
+        if (changed) {
+          localStorage.setItem('traders_diary_bank_accounts', JSON.stringify(updated));
+        }
+        return updated;
+      } catch (e) {
+        console.error('Failed to parse bank accounts', e);
+      }
+    }
+    localStorage.setItem('traders_diary_bank_accounts', JSON.stringify(DEFAULT_BANK_ACCOUNTS));
+    return DEFAULT_BANK_ACCOUNTS;
+  };
+
+  const loadBrokerCharges = (): BrokerChargesConfig[] => {
+    const saved = localStorage.getItem('traders_diary_broker_charges');
     if (saved) {
       try {
         return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse broker charges', e);
+      }
+    }
+    localStorage.setItem('traders_diary_broker_charges', JSON.stringify(DEFAULT_BROKER_CHARGES));
+    return DEFAULT_BROKER_CHARGES;
+  };
+
+  const loadSubscriptionExpenses = (): SubscriptionExpense[] => {
+    const saved = localStorage.getItem('traders_diary_subscription_expenses');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse subscription expenses', e);
+      }
+    }
+    localStorage.setItem('traders_diary_subscription_expenses', JSON.stringify(DEFAULT_SUBSCRIPTION_EXPENSES));
+    return DEFAULT_SUBSCRIPTION_EXPENSES;
+  };
+
+  const loadBankTransactions = (): BankTransaction[] => {
+    const saved = localStorage.getItem('traders_diary_bank_transactions');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse bank transactions', e);
+      }
+    }
+    localStorage.setItem('traders_diary_bank_transactions', JSON.stringify([]));
+    return [];
+  };
+
+  const loadTrades = (accountsList: BrokerAccount[]): Trade[] => {
+    const saved = localStorage.getItem('traders_diary_trades');
+    let tradesList: Trade[] = [];
+    if (saved) {
+      try {
+        tradesList = JSON.parse(saved);
       } catch (e) {
         console.error('Failed to parse trades', e);
+        tradesList = [];
       }
     }
-    const mock = getMockTrades();
-    localStorage.setItem('traders_diary_trades', JSON.stringify(mock));
-    return mock;
-  };
+    if (tradesList.length === 0 && !saved) {
+      tradesList = []; 
+    }
 
-  const loadSetups = (): Setup[] => {
-    const saved = localStorage.getItem('traders_diary_setups');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse setups', e);
+    // Migrate trades to new schema (assigning brokerAccountId)
+    let migrated = false;
+    const updated = tradesList.map((t) => {
+      if (!t.brokerAccountId) {
+        const matched = accountsList.find(a => a.broker === t.broker);
+        t.brokerAccountId = matched ? matched.id : (accountsList[0]?.id || 'acc-1');
+        migrated = true;
       }
+      return t;
+    });
+
+    if (migrated || !saved) {
+      localStorage.setItem('traders_diary_trades', JSON.stringify(updated));
     }
-    localStorage.setItem('traders_diary_setups', JSON.stringify(DEFAULT_SETUPS));
-    return DEFAULT_SETUPS;
+    return updated;
   };
 
-  const loadBaseCapital = (): number => {
-    const saved = localStorage.getItem('traders_diary_capital');
-    if (saved) {
-      const parsed = parseFloat(saved);
-      if (!isNaN(parsed) && parsed > 0) return parsed;
-    }
-    return 500000;
+  const loadBaseCapital = (accountsList: BrokerAccount[]): number => {
+    return updateBaseCapital(accountsList);
   };
 
   const loadTheme = (): 'light' | 'dark' => {
@@ -420,16 +375,36 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return saved === 'light' ? 'light' : 'dark';
   };
 
-  const loadAdjustments = (): CapitalAdjustment[] => {
+  const loadAdjustments = (accountsList: BrokerAccount[], banksList: BankAccount[]): CapitalAdjustment[] => {
     const saved = localStorage.getItem('traders_diary_adjustments');
+    let adjList: CapitalAdjustment[] = [];
     if (saved) {
       try {
-        return JSON.parse(saved);
+        adjList = JSON.parse(saved);
       } catch (e) {
         console.error('Failed to parse adjustments', e);
       }
     }
-    return [];
+
+    // Migrate adjustments to new schema
+    let migrated = false;
+    const updated = adjList.map((a) => {
+      if (!a.brokerAccountId) {
+        const matched = accountsList.find(acc => acc.broker === a.broker);
+        a.brokerAccountId = matched ? matched.id : (accountsList[0]?.id || 'acc-1');
+        migrated = true;
+      }
+      if (!a.bankAccountId) {
+        a.bankAccountId = banksList[0]?.id || 'bank-1';
+        migrated = true;
+      }
+      return a;
+    });
+
+    if (migrated || !saved) {
+      localStorage.setItem('traders_diary_adjustments', JSON.stringify(updated));
+    }
+    return updated;
   };
 
   const loadInvestments = (): Investment[] => {
@@ -441,9 +416,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         console.error('Failed to parse investments', e);
       }
     }
-    const mock = getMockInvestments();
-    localStorage.setItem('traders_diary_investments', JSON.stringify(mock));
-    return mock;
+    return getMockInvestments();
   };
 
   const loadPnlVisibility = (): boolean => {
@@ -466,175 +439,69 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return {};
   };
 
+  const loadUserName = (): string => {
+    return localStorage.getItem('traders_diary_user_name') || 'Sachin';
+  };
+
+  const loadUserAvatar = (): string => {
+    return localStorage.getItem('traders_diary_user_avatar') || 'bull';
+  };
+
+  const loadActiveBrokers = (): Broker[] => {
+    const saved = localStorage.getItem('traders_diary_active_brokers');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse active brokers', e);
+      }
+    }
+    return ['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other'];
+  };
+
+  const loadDefaultBroker = (): Broker => {
+    const saved = localStorage.getItem('traders_diary_default_broker');
+    if (saved && ['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other'].includes(saved)) {
+      return saved as Broker;
+    }
+    return 'Zerodha';
+  };
+
+  // Seed default collections first to make sure they exist
+  const initialAccounts = loadBrokerAccounts();
+  const initialBanks = loadBankAccounts();
+  const initialCharges = loadBrokerCharges();
+  const initialExpenses = loadSubscriptionExpenses();
+  const initialBankTx = loadBankTransactions();
+
   return {
-    trades: loadTrades(),
-    setups: loadSetups(),
-    baseCapital: loadBaseCapital(),
-    capitalAdjustments: loadAdjustments(),
+    brokerAccounts: initialAccounts,
+    bankAccounts: initialBanks,
+    brokerCharges: initialCharges,
+    subscriptionExpenses: initialExpenses,
+    bankTransactions: initialBankTx,
+
+    trades: loadTrades(initialAccounts),
+    setups: DEFAULT_SETUPS,
+    baseCapital: loadBaseCapital(initialAccounts),
+    capitalAdjustments: loadAdjustments(initialAccounts, initialBanks),
     theme: loadTheme(),
     investments: loadInvestments(),
     sessionUser: null,
     isPnlVisible: loadPnlVisibility(),
     weeklyRetrospectives: loadWeeklyRetrospectives(),
+    selectedFY: 'All',
+    userName: loadUserName(),
+    userAvatar: loadUserAvatar(),
+    activeBrokers: loadActiveBrokers(),
+    defaultBroker: loadDefaultBroker(),
 
     setSessionUser: (user) => set({ sessionUser: user }),
-
-    signUpUser: async (email, pass, metadata) => {
-      const client = getSupabaseClient();
-      if (!client) return { error: new Error('Supabase client not configured') };
-      try {
-        const { error } = await client.auth.signUp({ 
-          email, 
-          password: pass,
-          options: {
-            data: metadata || {}
-          }
-        });
-        if (error) return { error };
-        return { error: null };
-      } catch (e: any) {
-        return { error: e };
-      }
-    },
-
-    signInUser: async (email, pass) => {
-      const client = getSupabaseClient();
-      if (!client) return { error: new Error('Supabase client not configured') };
-      try {
-        const { error } = await client.auth.signInWithPassword({ email, password: pass });
-        if (error) return { error };
-        return { error: null };
-      } catch (e: any) {
-        return { error: e };
-      }
-    },
-
-    sendPasswordResetEmail: async (email) => {
-      const client = getSupabaseClient();
-      if (!client) return { error: new Error('Supabase client not configured') };
-      try {
-        const { error } = await client.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin
-        });
-        if (error) return { error };
-        return { error: null };
-      } catch (e: any) {
-        return { error: e };
-      }
-    },
-
-    updatePassword: async (password) => {
-      const client = getSupabaseClient();
-      if (!client) return { error: new Error('Supabase client not configured') };
-      try {
-        const { error } = await client.auth.updateUser({ password });
-        if (error) return { error };
-        return { error: null };
-      } catch (e: any) {
-        return { error: e };
-      }
-    },
-
-    signOutUser: async () => {
-      const client = getSupabaseClient();
-      if (!client) return { error: new Error('Supabase client not configured') };
-      try {
-        const { error } = await client.auth.signOut();
-        if (error) return { error };
-        set({
-          sessionUser: null,
-          trades: [],
-          setups: DEFAULT_SETUPS,
-          baseCapital: 500000,
-          capitalAdjustments: [],
-          investments: [],
-          weeklyRetrospectives: {},
-        });
-        return { error: null };
-      } catch (e: any) {
-        return { error: e };
-      }
-    },
-
-    loadUserData: (userId) => {
-      const getOrMigrate = (baseKey: string, defaultVal: any) => {
-        const scopedKey = `${baseKey}_${userId}`;
-        const savedScoped = localStorage.getItem(scopedKey);
-        if (savedScoped) {
-          try {
-            return JSON.parse(savedScoped);
-          } catch (e) {
-            console.error(`Failed to parse ${scopedKey}`, e);
-          }
-        }
-        
-        // Migrate guest/default data if scoped key is empty
-        const savedGuest = localStorage.getItem(baseKey);
-        if (savedGuest) {
-          try {
-            const parsed = JSON.parse(savedGuest);
-            localStorage.setItem(scopedKey, savedGuest);
-            return parsed;
-          } catch (e) {
-            console.error(`Failed to parse guest key ${baseKey}`, e);
-          }
-        }
-        
-        localStorage.setItem(scopedKey, JSON.stringify(defaultVal));
-        return defaultVal;
-      };
-
-      const trades = getOrMigrate('traders_diary_trades', []);
-      const setups = getOrMigrate('traders_diary_setups', DEFAULT_SETUPS);
-      const baseCapital = (() => {
-        const scopedKey = `traders_diary_capital_${userId}`;
-        const savedScoped = localStorage.getItem(scopedKey);
-        if (savedScoped) {
-          const parsed = parseFloat(savedScoped);
-          if (!isNaN(parsed) && parsed > 0) return parsed;
-        }
-        const savedGuest = localStorage.getItem('traders_diary_capital');
-        if (savedGuest) {
-          const parsed = parseFloat(savedGuest);
-          if (!isNaN(parsed) && parsed > 0) {
-            localStorage.setItem(scopedKey, savedGuest);
-            return parsed;
-          }
-        }
-        return 500000;
-      })();
-      const capitalAdjustments = getOrMigrate('traders_diary_adjustments', []);
-      const investments = getOrMigrate('traders_diary_investments', getMockInvestments());
-      const weeklyRetrospectives = getOrMigrate('traders_diary_weekly_retrospectives', {});
-
-      set({
-        trades,
-        setups,
-        baseCapital,
-        capitalAdjustments,
-        investments,
-        weeklyRetrospectives,
-      });
-
-      get().pullTradesFromCloud();
-    },
-
-    saveWeeklyRetrospective: (weekId, notes) => set((state) => {
-      const updated = { ...state.weeklyRetrospectives, [weekId]: notes };
-      localStorage.setItem(getScopedKey('traders_diary_weekly_retrospectives'), JSON.stringify(updated));
-      syncMetaToCloud('weekly_retrospectives', updated);
-      return { weeklyRetrospectives: updated };
-    }),
-
-    togglePnlVisibility: () => set((state) => {
-      const next = !state.isPnlVisible;
-      localStorage.setItem(getScopedKey('traders_diary_pnl_visibility'), JSON.stringify(next));
-      return { isPnlVisible: next };
-    }),
+    setSelectedFY: (fy) => set({ selectedFY: fy }),
 
     setBaseCapital: (capital) => set(() => {
-      localStorage.setItem(getScopedKey('traders_diary_capital'), capital.toString());
-      syncMetaToCloud('base_capital', capital.toString());
+      // Legacy compatibility
+      localStorage.setItem('traders_diary_capital', capital.toString());
       return { baseCapital: capital };
     }),
 
@@ -645,13 +512,14 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     }),
 
     addTrade: (tradeData) => set((state) => {
-      const calculated = computeTradeCalculations(tradeData);
+      const chargesConfig = state.brokerCharges.find((c) => c.broker === tradeData.broker);
+      const calculated = computeTradeCalculations(tradeData, chargesConfig);
       const newTrade: Trade = {
         ...tradeData,
         id: `trade-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        ...calculated
+        ...calculated,
       };
-      const updatedTrades = [newTrade, ...state.trades];
+      const updatedTrades = [...state.trades, newTrade];
       localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
       
       // Async Cloud Sync
@@ -664,6 +532,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const updatedTrades = state.trades.map((t) => {
         if (t.id === id) {
           const merged = { ...t, ...tradeData };
+          const chargesConfig = state.brokerCharges.find((c) => c.broker === merged.broker);
           const calculated = computeTradeCalculations({
             date: merged.date,
             entryTime: merged.entryTime,
@@ -686,8 +555,13 @@ export const useTradeStore = create<TradeStore>((set, get) => {
             chartUrl: merged.chartUrl,
             strikePrice: merged.strikePrice,
             optionType: merged.optionType,
-            setupType: merged.setupType
-          });
+            setupType: merged.setupType,
+            useManualCharges: merged.useManualCharges,
+            manualBrokerage: merged.manualBrokerage,
+            manualTaxes: merged.manualTaxes,
+            holdingType: merged.holdingType,
+            broker: merged.broker,
+          }, chargesConfig);
           const updatedTrade = { ...merged, ...calculated };
           
           // Async Cloud Sync
@@ -725,8 +599,53 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       return { setups: updatedSetups };
     }),
 
+    addCapitalAdjustment: (adj) => set((state) => {
+      const newAdj: CapitalAdjustment = {
+        ...adj,
+        id: `adj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      };
+      
+      const updated = [newAdj, ...state.capitalAdjustments];
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
+      syncMetaToCloud('capital_adjustments', updated);
+
+      // Link to Bank Ledger Transaction (Double-entry)
+      let updatedBankTx = state.bankTransactions;
+      if (adj.bankAccountId) {
+        const newBankTx: BankTransaction = {
+          id: `btx-${newAdj.id}`,
+          date: adj.date,
+          time: adj.time,
+          bankAccountId: adj.bankAccountId,
+          type: adj.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT', // opposite direction
+          amount: adj.amount,
+          category: adj.type === 'DEPOSIT' ? 'Broker Pay-in' : 'Broker Pay-out',
+          notes: adj.notes || `${adj.type === 'DEPOSIT' ? 'Pay-in to' : 'Pay-out from'} ${adj.broker || 'broker'} account`,
+          brokerAccountId: adj.brokerAccountId,
+        };
+        updatedBankTx = [newBankTx, ...state.bankTransactions];
+        localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+        syncMetaToCloud('bank_transactions', updatedBankTx);
+      }
+
+      return { capitalAdjustments: updated, bankTransactions: updatedBankTx };
+    }),
+
+    deleteCapitalAdjustment: (id) => set((state) => {
+      const updated = state.capitalAdjustments.filter((a) => a.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
+      syncMetaToCloud('capital_adjustments', updated);
+
+      // Clean up linked double-entry Bank Transaction
+      const updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== `btx-${id}`);
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+      syncMetaToCloud('bank_transactions', updatedBankTx);
+
+      return { capitalAdjustments: updated, bankTransactions: updatedBankTx };
+    }),
+
     resetToMockData: () => set(() => {
-      const mock = getMockTrades();
+      const mock: Trade[] = []; // Clear trades by default or reset
       const mockInv = getMockInvestments();
       localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(mock));
       localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(DEFAULT_SETUPS));
@@ -734,34 +653,34 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(mockInv));
       localStorage.setItem(getScopedKey('traders_diary_weekly_retrospectives'), JSON.stringify({}));
       
-      // Sync mock adjustments and setups to cloud
+      // Reset new structures
+      localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(DEFAULT_BROKER_ACCOUNTS));
+      localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(DEFAULT_BANK_ACCOUNTS));
+      localStorage.setItem(getScopedKey('traders_diary_broker_charges'), JSON.stringify(DEFAULT_BROKER_CHARGES));
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(DEFAULT_SUBSCRIPTION_EXPENSES));
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify([]));
+
       syncMetaToCloud('setups', DEFAULT_SETUPS);
       syncMetaToCloud('capital_adjustments', []);
-      syncMetaToCloud('investments', mockInv);
-      syncMetaToCloud('weekly_retrospectives', {});
-      for (const t of mock) {
-        syncTradeToCloud('insert', t);
-      }
+      syncMetaToCloud('broker_accounts', DEFAULT_BROKER_ACCOUNTS);
+      syncMetaToCloud('bank_accounts', DEFAULT_BANK_ACCOUNTS);
+      syncMetaToCloud('broker_charges', DEFAULT_BROKER_CHARGES);
+      syncMetaToCloud('subscription_expenses', DEFAULT_SUBSCRIPTION_EXPENSES);
+      syncMetaToCloud('bank_transactions', []);
 
-      return { trades: mock, setups: DEFAULT_SETUPS, capitalAdjustments: [], investments: mockInv, weeklyRetrospectives: {} };
-    }),
-
-    addCapitalAdjustment: (adj) => set((state) => {
-      const newAdj: CapitalAdjustment = {
-        ...adj,
-        id: `adj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      return { 
+        trades: mock, 
+        setups: DEFAULT_SETUPS, 
+        capitalAdjustments: [], 
+        investments: mockInv, 
+        weeklyRetrospectives: {},
+        brokerAccounts: DEFAULT_BROKER_ACCOUNTS,
+        bankAccounts: DEFAULT_BANK_ACCOUNTS,
+        brokerCharges: DEFAULT_BROKER_CHARGES,
+        subscriptionExpenses: DEFAULT_SUBSCRIPTION_EXPENSES,
+        bankTransactions: [],
+        baseCapital: updateBaseCapital(DEFAULT_BROKER_ACCOUNTS)
       };
-      const updated = [newAdj, ...state.capitalAdjustments];
-      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
-      syncMetaToCloud('capital_adjustments', updated);
-      return { capitalAdjustments: updated };
-    }),
-
-    deleteCapitalAdjustment: (id) => set((state) => {
-      const updated = state.capitalAdjustments.filter((a) => a.id !== id);
-      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
-      syncMetaToCloud('capital_adjustments', updated);
-      return { capitalAdjustments: updated };
     }),
 
     pullTradesFromCloud: async () => {
@@ -827,6 +746,41 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         localStorage.setItem(`traders_diary_weekly_retrospectives_${userId}`, JSON.stringify(retrosCloud));
       } else if (Object.keys(get().weeklyRetrospectives).length > 0) {
         await syncMetaToCloud('weekly_retrospectives', get().weeklyRetrospectives);
+      }
+
+      // 7. Broker Accounts
+      const accountsCloud = await fetchMetaFromCloud('broker_accounts');
+      if (accountsCloud !== null) {
+        set({ brokerAccounts: accountsCloud, baseCapital: updateBaseCapital(accountsCloud) });
+        localStorage.setItem(`traders_diary_broker_accounts_${userId}`, JSON.stringify(accountsCloud));
+      }
+
+      // 8. Bank Accounts
+      const banksCloud = await fetchMetaFromCloud('bank_accounts');
+      if (banksCloud !== null) {
+        set({ bankAccounts: banksCloud });
+        localStorage.setItem(`traders_diary_bank_accounts_${userId}`, JSON.stringify(banksCloud));
+      }
+
+      // 9. Broker Charges
+      const chargesCloud = await fetchMetaFromCloud('broker_charges');
+      if (chargesCloud !== null) {
+        set({ brokerCharges: chargesCloud });
+        localStorage.setItem(`traders_diary_broker_charges_${userId}`, JSON.stringify(chargesCloud));
+      }
+
+      // 10. Expenses
+      const expensesCloud = await fetchMetaFromCloud('subscription_expenses');
+      if (expensesCloud !== null) {
+        set({ subscriptionExpenses: expensesCloud });
+        localStorage.setItem(`traders_diary_subscription_expenses_${userId}`, JSON.stringify(expensesCloud));
+      }
+
+      // 11. Bank Transactions
+      const bankTxCloud = await fetchMetaFromCloud('bank_transactions');
+      if (bankTxCloud !== null) {
+        set({ bankTransactions: bankTxCloud });
+        localStorage.setItem(`traders_diary_bank_transactions_${userId}`, JSON.stringify(bankTxCloud));
       }
 
       return true;
@@ -903,6 +857,375 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updatedList));
       syncMetaToCloud('investments', updatedList);
       return { investments: updatedList };
+    }),
+
+    loadUserData: (userId) => {
+      const getOrMigrate = (baseKey: string, defaultVal: any) => {
+        const scopedKey = `${baseKey}_${userId}`;
+        const savedScoped = localStorage.getItem(scopedKey);
+        if (savedScoped) {
+          try {
+            return JSON.parse(savedScoped);
+          } catch (e) {
+            console.error(`Failed to parse ${scopedKey}`, e);
+          }
+        }
+        
+        const savedGuest = localStorage.getItem(baseKey);
+        if (savedGuest) {
+          try {
+            const parsed = JSON.parse(savedGuest);
+            localStorage.setItem(scopedKey, savedGuest);
+            return parsed;
+          } catch (e) {
+            console.error(`Failed to parse guest key ${baseKey}`, e);
+          }
+        }
+        
+        localStorage.setItem(scopedKey, JSON.stringify(defaultVal));
+        return defaultVal;
+      };
+
+      const rawBrokerAccs = getOrMigrate('traders_diary_broker_accounts', DEFAULT_BROKER_ACCOUNTS) as BrokerAccount[];
+      const brokerAccounts = rawBrokerAccs.map(a => {
+        if (a.accountName === 'Wife') a.accountName = 'Rupali';
+        return a;
+      });
+
+      const rawBankAccs = getOrMigrate('traders_diary_bank_accounts', DEFAULT_BANK_ACCOUNTS) as BankAccount[];
+      const bankAccounts = rawBankAccs.map(b => {
+        if (b.accountHolderName === 'Wife') b.accountHolderName = 'Rupali';
+        return b;
+      });
+      const brokerCharges = getOrMigrate('traders_diary_broker_charges', DEFAULT_BROKER_CHARGES);
+      const subscriptionExpenses = getOrMigrate('traders_diary_subscription_expenses', DEFAULT_SUBSCRIPTION_EXPENSES);
+      const bankTransactions = getOrMigrate('traders_diary_bank_transactions', []);
+
+      const trades = loadTrades(brokerAccounts);
+      const setups = getOrMigrate('traders_diary_setups', DEFAULT_SETUPS);
+      const baseCapital = updateBaseCapital(brokerAccounts);
+      const capitalAdjustments = loadAdjustments(brokerAccounts, bankAccounts);
+      const investments = getOrMigrate('traders_diary_investments', getMockInvestments());
+      const weeklyRetrospectives = getOrMigrate('traders_diary_weekly_retrospectives', {});
+
+      const userName = localStorage.getItem(`traders_diary_user_name_${userId}`) || localStorage.getItem('traders_diary_user_name') || 'Sachin';
+      const userAvatar = localStorage.getItem(`traders_diary_user_avatar_${userId}`) || localStorage.getItem('traders_diary_user_avatar') || 'bull';
+      const activeBrokers = getOrMigrate('traders_diary_active_brokers', ['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other']);
+      const defaultBroker = localStorage.getItem(`traders_diary_default_broker_${userId}`) || localStorage.getItem('traders_diary_default_broker') || 'Zerodha';
+
+      set({
+        trades,
+        setups,
+        baseCapital,
+        capitalAdjustments,
+        investments,
+        weeklyRetrospectives,
+        userName,
+        userAvatar,
+        activeBrokers,
+        defaultBroker: defaultBroker as Broker,
+        brokerAccounts,
+        bankAccounts,
+        brokerCharges,
+        subscriptionExpenses,
+        bankTransactions,
+      });
+
+      get().pullTradesFromCloud();
+    },
+
+    saveWeeklyRetrospective: (weekId, notes) => set((state) => {
+      const updated = { ...state.weeklyRetrospectives, [weekId]: notes };
+      localStorage.setItem(getScopedKey('traders_diary_weekly_retrospectives'), JSON.stringify(updated));
+      syncMetaToCloud('weekly_retrospectives', updated);
+      return { weeklyRetrospectives: updated };
+    }),
+
+    bulkImportTrades: (imported, overwrite) => set((state) => {
+      const parsedTrades = imported.map((t, idx) => {
+        const chargesConfig = state.brokerCharges.find((c) => c.broker === t.broker);
+        const calculated = computeTradeCalculations(t, chargesConfig);
+        const matchedAcc = state.brokerAccounts.find(a => a.broker === t.broker);
+        const brokerAccountId = t.brokerAccountId || (matchedAcc ? matchedAcc.id : (state.brokerAccounts[0]?.id || 'acc-1'));
+        return {
+          ...t,
+          brokerAccountId,
+          id: `trade-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+          ...calculated
+        };
+      });
+
+      const updatedTrades = overwrite ? parsedTrades : [...state.trades, ...parsedTrades];
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+      
+      // Batch sync
+      if (overwrite) {
+        syncMetaToCloud('trades_overwrite_sync', updatedTrades); 
+      } else {
+        parsedTrades.forEach(t => syncTradeToCloud('insert', t));
+      }
+
+      return { trades: updatedTrades };
+    }),
+
+    setProfile: (name, avatar) => {
+      localStorage.setItem(getScopedKey('traders_diary_user_name'), name);
+      localStorage.setItem(getScopedKey('traders_diary_user_avatar'), avatar);
+      set({ userName: name, userAvatar: avatar });
+    },
+
+    setActiveBrokers: (brokers) => {
+      localStorage.setItem(getScopedKey('traders_diary_active_brokers'), JSON.stringify(brokers));
+      set({ activeBrokers: brokers });
+    },
+
+    setDefaultBroker: (broker) => {
+      localStorage.setItem(getScopedKey('traders_diary_default_broker'), broker);
+      set({ defaultBroker: broker });
+    },
+
+    // NEW ACTIONS IMPLEMENTATION
+
+    addBrokerAccount: (account) => set((state) => {
+      const newAcc: BrokerAccount = {
+        ...account,
+        id: `acc-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      const updated = [...state.brokerAccounts, newAcc];
+      localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('broker_accounts', updated);
+      return { 
+        brokerAccounts: updated, 
+        baseCapital: updateBaseCapital(updated) 
+      };
+    }),
+
+    editBrokerAccount: (id, accountData) => set((state) => {
+      const updated = state.brokerAccounts.map((a) => a.id === id ? { ...a, ...accountData } : a);
+      localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('broker_accounts', updated);
+      return { 
+        brokerAccounts: updated, 
+        baseCapital: updateBaseCapital(updated) 
+      };
+    }),
+
+    deleteBrokerAccount: (id) => set((state) => {
+      const updated = state.brokerAccounts.filter((a) => a.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('broker_accounts', updated);
+      return { 
+        brokerAccounts: updated, 
+        baseCapital: updateBaseCapital(updated) 
+      };
+    }),
+
+    addBankAccount: (bank) => set((state) => {
+      const newBank: BankAccount = {
+        ...bank,
+        id: `bank-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      const updated = [...state.bankAccounts, newBank];
+      localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('bank_accounts', updated);
+      return { bankAccounts: updated };
+    }),
+
+    editBankAccount: (id, bankData) => set((state) => {
+      const updated = state.bankAccounts.map((b) => b.id === id ? { ...b, ...bankData } : b);
+      localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('bank_accounts', updated);
+      return { bankAccounts: updated };
+    }),
+
+    deleteBankAccount: (id) => set((state) => {
+      const updated = state.bankAccounts.filter((b) => b.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('bank_accounts', updated);
+      return { bankAccounts: updated };
+    }),
+
+    addSubscriptionExpense: (expense) => set((state) => {
+      const newExp: SubscriptionExpense = {
+        ...expense,
+        id: `exp-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      const updatedExpenses = [...state.subscriptionExpenses, newExp];
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
+      syncMetaToCloud('subscription_expenses', updatedExpenses);
+
+      // Handle pay from Bank
+      let updatedBankTx = state.bankTransactions;
+      if (expense.paymentSource === 'Bank' && expense.bankAccountId) {
+        const newBankTx: BankTransaction = {
+          id: `btx-${newExp.id}`,
+          date: expense.date,
+          time: '12:00',
+          bankAccountId: expense.bankAccountId,
+          type: 'WITHDRAWAL',
+          amount: expense.amount,
+          category: 'Subscription/Expense',
+          notes: `Paid: ${expense.name}. ${expense.notes}`,
+          expenseId: newExp.id,
+        };
+        updatedBankTx = [newBankTx, ...state.bankTransactions];
+        localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+        syncMetaToCloud('bank_transactions', updatedBankTx);
+      }
+
+      // Handle pay from Broker
+      let updatedAdjustments = state.capitalAdjustments;
+      if (expense.paymentSource === 'Broker' && expense.brokerAccountId) {
+        const matchingAcc = state.brokerAccounts.find(a => a.id === expense.brokerAccountId);
+        const newAdj: CapitalAdjustment = {
+          id: `adj-${newExp.id}`,
+          date: expense.date,
+          time: '12:00',
+          type: 'WITHDRAWAL',
+          amount: expense.amount,
+          notes: `Subscription/Expense: ${expense.name}`,
+          broker: matchingAcc?.broker || 'Other',
+          brokerAccountId: expense.brokerAccountId
+        };
+        updatedAdjustments = [newAdj, ...state.capitalAdjustments];
+        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+        syncMetaToCloud('capital_adjustments', updatedAdjustments);
+      }
+
+      return { 
+        subscriptionExpenses: updatedExpenses, 
+        bankTransactions: updatedBankTx,
+        capitalAdjustments: updatedAdjustments
+      };
+    }),
+
+    deleteSubscriptionExpense: (id) => set((state) => {
+      const updatedExpenses = state.subscriptionExpenses.filter((e) => e.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
+      syncMetaToCloud('subscription_expenses', updatedExpenses);
+
+      // Clean up linked double entry transaction
+      const updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== `btx-${id}`);
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+      syncMetaToCloud('bank_transactions', updatedBankTx);
+
+      // Clean up linked double entry capital adjustment
+      const updatedAdjustments = state.capitalAdjustments.filter((a) => a.id !== `adj-${id}`);
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+      syncMetaToCloud('capital_adjustments', updatedAdjustments);
+
+      return { 
+        subscriptionExpenses: updatedExpenses, 
+        bankTransactions: updatedBankTx,
+        capitalAdjustments: updatedAdjustments
+      };
+    }),
+
+    updateBrokerCharges: (charges) => set(() => {
+      localStorage.setItem(getScopedKey('traders_diary_broker_charges'), JSON.stringify(charges));
+      syncMetaToCloud('broker_charges', charges);
+      return { brokerCharges: charges };
+    }),
+
+    addDirectBankTransaction: (tx) => set((state) => {
+      const newTx: BankTransaction = {
+        ...tx,
+        id: `btx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      const updated = [newTx, ...state.bankTransactions];
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updated));
+      syncMetaToCloud('bank_transactions', updated);
+      return { bankTransactions: updated };
+    }),
+
+    deleteDirectBankTransaction: (id) => set((state) => {
+      const updated = state.bankTransactions.filter((t) => t.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updated));
+      syncMetaToCloud('bank_transactions', updated);
+      return { bankTransactions: updated };
+    }),
+
+    signUpUser: async (email, pass, metadata) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signUp({ 
+          email, 
+          password: pass,
+          options: {
+            data: metadata || {}
+          }
+        });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    signInUser: async (email, pass) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signInWithPassword({ email, password: pass });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    signOutUser: async () => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signOut();
+        if (error) return { error };
+        set({
+          sessionUser: null,
+          trades: [],
+          setups: DEFAULT_SETUPS,
+          baseCapital: 500000,
+          capitalAdjustments: [],
+          investments: [],
+          weeklyRetrospectives: {},
+        });
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    sendPasswordResetEmail: async (email) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin
+        });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    updatePassword: async (password) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.updateUser({ password });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    togglePnlVisibility: () => set((state) => {
+      const nextVisible = !state.isPnlVisible;
+      localStorage.setItem(getScopedKey('traders_diary_pnl_visibility'), JSON.stringify(nextVisible));
+      return { isPnlVisible: nextVisible };
     }),
   };
 });

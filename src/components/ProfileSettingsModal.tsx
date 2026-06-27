@@ -1,0 +1,884 @@
+import React, { useState, useEffect } from 'react';
+import { useTradeStore } from '../store/useTradeStore';
+import type { Broker, BrokerChargesConfig } from '../types';
+import { 
+  X, User, ShieldAlert, Save, Download, Upload, 
+  Database, Trash2, IndianRupee, Settings, Plus,
+  Percent, HelpCircle
+} from 'lucide-react';
+
+interface ProfileSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalProps) {
+  const { 
+    trades, 
+    baseCapital, 
+    resetToMockData,
+    bulkImportTrades,
+    sessionUser,
+    signOutUser,
+    userName,
+    userAvatar,
+    setProfile,
+    activeBrokers,
+    setActiveBrokers,
+    
+    // NEW STATES & ACTIONS
+    brokerAccounts,
+    bankAccounts,
+    brokerCharges,
+    addBrokerAccount,
+    editBrokerAccount,
+    deleteBrokerAccount,
+    addBankAccount,
+    editBankAccount,
+    deleteBankAccount,
+    updateBrokerCharges
+  } = useTradeStore();
+
+  const [activeTab, setActiveTab] = useState<'profile' | 'charges' | 'backup' | 'danger'>('profile');
+
+  // Profile forms
+  const [profileNameInput, setProfileNameInput] = useState(userName);
+  const [profileAvatarInput, setProfileAvatarInput] = useState(userAvatar);
+  
+  // Custom Profile Pic (Base64)
+  const [customPicError, setCustomPicError] = useState('');
+
+  // Add Account Form
+  const [newAccBroker, setNewAccBroker] = useState<Broker>('Zerodha');
+  const [newAccName, setNewAccName] = useState('');
+  const [newAccCapital, setNewAccCapital] = useState('100000');
+
+  // Add Bank Form
+  const [newBankName, setNewBankName] = useState('');
+  const [newBankHolder, setNewBankHolder] = useState('');
+  const [newBankBalance, setNewBankBalance] = useState('50000');
+
+  // Charges Form State
+  const [selectedChargesBroker, setSelectedChargesBroker] = useState<Broker>('Zerodha');
+  const [deliveryRate, setDeliveryRate] = useState('0');
+  const [deliveryMax, setDeliveryMax] = useState('0');
+  const [intradayRate, setIntradayRate] = useState('0.03');
+  const [intradayMax, setIntradayMax] = useState('20');
+  const [optionsFlat, setOptionsFlat] = useState('20');
+  const [futuresRate, setFuturesRate] = useState('0.03');
+  const [futuresMax, setFuturesMax] = useState('20');
+
+  // CSV Settings
+  const [csvImportMode, setCsvImportMode] = useState<'append' | 'overwrite'>('append');
+
+  // Danger Zone confirmation
+  const [resetConfirmInput, setResetConfirmInput] = useState('');
+
+  // Sync inputs on open
+  useEffect(() => {
+    if (isOpen) {
+      setProfileNameInput(userName);
+      setProfileAvatarInput(userAvatar);
+      setResetConfirmInput('');
+      
+      // Load current charges config for first active broker
+      const firstActive = brokerCharges.find(c => c.broker === selectedChargesBroker) || brokerCharges[0];
+      if (firstActive) {
+        setChargesForm(firstActive);
+      }
+    }
+  }, [isOpen, userName, userAvatar, brokerCharges]);
+
+  const setChargesForm = (config: BrokerChargesConfig) => {
+    setDeliveryRate(config.deliveryRatePct.toString());
+    setDeliveryMax(config.deliveryMaxFee.toString());
+    setIntradayRate(config.intradayRatePct.toString());
+    setIntradayMax(config.intradayMaxFee.toString());
+    setOptionsFlat(config.optionsFlatFee.toString());
+    setFuturesRate(config.futuresRatePct.toString());
+    setFuturesMax(config.futuresMaxFee.toString());
+  };
+
+  const handleBrokerChargesChange = (broker: Broker) => {
+    setSelectedChargesBroker(broker);
+    const config = brokerCharges.find(c => c.broker === broker);
+    if (config) {
+      setChargesForm(config);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const handleProfileSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileNameInput.trim()) {
+      alert('Please enter a display name.');
+      return;
+    }
+    setProfile(profileNameInput.trim(), profileAvatarInput);
+    alert('Display profile saved successfully!');
+  };
+
+  // Image to base64 converter
+  const handleCustomPicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomPicError('');
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        setCustomPicError('Image size must be less than 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setProfileAvatarInput(reader.result);
+        }
+      };
+      reader.onerror = () => {
+        setCustomPicError('Failed to read image file.');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // CRUD Handlers
+  const handleAddAccountSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccName.trim()) {
+      alert('Please enter account holder name.');
+      return;
+    }
+    const cap = parseFloat(newAccCapital) || 0;
+    if (cap < 0) {
+      alert('Starting capital cannot be negative.');
+      return;
+    }
+    addBrokerAccount({
+      broker: newAccBroker,
+      accountName: newAccName.trim(),
+      startingCapital: cap,
+      active: true
+    });
+    
+    // Auto add to active list if not already
+    if (!activeBrokers.includes(newAccBroker)) {
+      setActiveBrokers([...activeBrokers, newAccBroker]);
+    }
+    
+    setNewAccName('');
+    setNewAccCapital('100000');
+    alert('Broker Account successfully added!');
+  };
+
+  const handleAddBankSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBankName.trim() || !newBankHolder.trim()) {
+      alert('Please fill out all bank details.');
+      return;
+    }
+    const bal = parseFloat(newBankBalance) || 0;
+    addBankAccount({
+      bankName: newBankName.trim(),
+      accountHolderName: newBankHolder.trim(),
+      startingBalance: bal,
+      active: true
+    });
+    setNewBankName('');
+    setNewBankHolder('');
+    setNewBankBalance('50000');
+    alert('Bank Account successfully added!');
+  };
+
+  const handleSaveCharges = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updatedCharges = brokerCharges.map((config) => {
+      if (config.broker === selectedChargesBroker) {
+        return {
+          broker: selectedChargesBroker,
+          deliveryRatePct: parseFloat(deliveryRate) || 0,
+          deliveryMaxFee: parseFloat(deliveryMax) || 0,
+          intradayRatePct: parseFloat(intradayRate) || 0,
+          intradayMaxFee: parseFloat(intradayMax) || 0,
+          optionsFlatFee: parseFloat(optionsFlat) || 0,
+          futuresRatePct: parseFloat(futuresRate) || 0,
+          futuresMaxFee: parseFloat(futuresMax) || 0
+        };
+      }
+      return config;
+    });
+
+    updateBrokerCharges(updatedCharges);
+    alert(`Successfully updated master charges configuration for ${selectedChargesBroker}!`);
+  };
+
+  const handleExportBackup = () => {
+    try {
+      const backupData = {
+        trades,
+        baseCapital,
+        brokerAccounts,
+        bankAccounts,
+        brokerCharges,
+        userName,
+        userAvatar,
+        activeBrokers
+      };
+      const dataStr = JSON.stringify(backupData, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      const filename = `tradediary_backup_${new Date().toISOString().split('T')[0]}.json`;
+      
+      const link = document.createElement('a');
+      link.setAttribute('href', dataUri);
+      link.setAttribute('download', filename);
+      link.click();
+    } catch (e) {
+      alert('Failed to generate backup JSON file.');
+    }
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileReader = new FileReader();
+    if (e.target.files && e.target.files[0]) {
+      fileReader.readAsText(e.target.files[0], "UTF-8");
+      fileReader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target?.result as string);
+          if (parsed && Array.isArray(parsed.trades)) {
+            const overwrite = window.confirm("Are you sure you want to restore this JSON snapshot? This will replace your current data.");
+            if (overwrite) {
+              if (parsed.brokerAccounts) {
+                localStorage.setItem('traders_diary_broker_accounts', JSON.stringify(parsed.brokerAccounts));
+              }
+              if (parsed.bankAccounts) {
+                localStorage.setItem('traders_diary_bank_accounts', JSON.stringify(parsed.bankAccounts));
+              }
+              if (parsed.brokerCharges) {
+                localStorage.setItem('traders_diary_broker_charges', JSON.stringify(parsed.brokerCharges));
+              }
+              if (parsed.userName) {
+                localStorage.setItem('traders_diary_user_name', parsed.userName);
+              }
+              if (parsed.userAvatar) {
+                localStorage.setItem('traders_diary_user_avatar', parsed.userAvatar);
+              }
+              bulkImportTrades(parsed.trades, true);
+              alert("System database successfully restored!");
+              window.location.reload();
+            }
+          } else {
+            alert("Invalid backup JSON format.");
+          }
+        } catch (error) {
+          alert("Failed to parse snapshot file.");
+        }
+      };
+    }
+  };
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 3000 }}>
+      <div 
+        className="modal-content glass-card animate-fade-in" 
+        style={{ 
+          width: '840px', 
+          maxWidth: '92vw', 
+          height: '630px', 
+          maxHeight: '90vh', 
+          padding: 0, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          overflow: 'hidden',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+          border: '1px solid var(--border-color-active)'
+        }}
+      >
+        
+        {/* Header */}
+        <div 
+          style={{ 
+            padding: '16px 20px', 
+            borderBottom: '1px solid var(--border-color)', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.015)' 
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Settings size={18} color="var(--primary)" />
+            <h2 style={{ fontSize: '1.08rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em', color: '#fff' }}>
+              Traders Settings & Master Profile
+            </h2>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="btn btn-secondary" 
+            style={{ width: '28px', height: '28px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.04)', border: 'none' }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Body Container */}
+        <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+          
+          {/* Sidebar */}
+          <div 
+            style={{ 
+              width: '210px', 
+              borderRight: '1px solid var(--border-color)', 
+              background: 'rgba(255, 255, 255, 0.01)', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '6px', 
+              padding: '16px', 
+              flexShrink: 0 
+            }}
+          >
+            <button 
+              onClick={() => setActiveTab('profile')} 
+              className={`btn ${activeTab === 'profile' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', justifyContent: 'flex-start', fontSize: '0.8rem', padding: '8px 12px', gap: '8px' }}
+            >
+              <User size={14} color="#3b82f6" />
+              <span>Profile & Accounts</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('charges')} 
+              className={`btn ${activeTab === 'charges' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', justifyContent: 'flex-start', fontSize: '0.8rem', padding: '8px 12px', gap: '8px' }}
+            >
+              <Percent size={14} color="#ec4899" />
+              <span>Charges Master</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('backup')} 
+              className={`btn ${activeTab === 'backup' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', justifyContent: 'flex-start', fontSize: '0.8rem', padding: '8px 12px', gap: '8px' }}
+            >
+              <Database size={14} color="#eab308" />
+              <span>Backup & Spreadsheet</span>
+            </button>
+
+            <div style={{ flexGrow: 1 }} />
+
+            <button 
+              onClick={() => setActiveTab('danger')} 
+              className={`btn ${activeTab === 'danger' ? 'btn-danger' : 'btn-secondary'}`}
+              style={{ border: 'none', justifyContent: 'flex-start', fontSize: '0.8rem', padding: '8px 12px', gap: '8px', color: activeTab === 'danger' ? '#fff' : 'var(--color-loss)' }}
+            >
+              <ShieldAlert size={14} color="#ef4444" />
+              <span>Danger Zone</span>
+            </button>
+          </div>
+
+          {/* Content Area */}
+          <div style={{ flexGrow: 1, padding: '20px', overflowY: 'auto', background: 'rgba(0,0,0,0.1)' }}>
+            
+            {/* TAB 1: Profile & Accounts */}
+            {activeTab === 'profile' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Profile configurations */}
+                <div className="glass-card" style={{ padding: '16px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={14} color="var(--primary)" />
+                    Profile Configurations
+                  </h3>
+                  
+                  <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                      <div className="form-group" style={{ marginBottom: 0, flexGrow: 1 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Display Name</label>
+                        <input 
+                          type="text" 
+                          value={profileNameInput} 
+                          onChange={(e) => setProfileNameInput(e.target.value)} 
+                          className="form-input" 
+                          placeholder="e.g. Sachin"
+                          required 
+                        />
+                      </div>
+                      
+                      {/* Custom profile upload */}
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Upload Photo</label>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleCustomPicUpload} 
+                          style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }} 
+                        />
+                        {customPicError && <div style={{ color: 'var(--color-loss)', fontSize: '0.62rem', marginTop: '2px' }}>{customPicError}</div>}
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Avatar Symbol</label>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {(['bull', 'bear', 'trader', 'gold', 'coin', 'clock', 'rocket', 'shield'] as const).map((av) => {
+                          const labelMap = { bull: '🐂', bear: '🐻', trader: '👨‍💻', gold: '🏆', coin: '🪙', clock: '⏱️', rocket: '🚀', shield: '🛡️' };
+                          const isCustom = profileAvatarInput.startsWith('data:image/');
+                          const isSelected = !isCustom && profileAvatarInput === av;
+                          return (
+                            <button
+                              type="button"
+                              key={av}
+                              onClick={() => setProfileAvatarInput(av)}
+                              style={{
+                                padding: '6px 8px',
+                                borderRadius: '6px',
+                                fontSize: '1.1rem',
+                                background: isSelected ? 'var(--primary-glow)' : 'rgba(255,255,255,0.02)',
+                                border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                flex: 1,
+                                minWidth: '40px'
+                              }}
+                            >
+                              <span>{labelMap[av]}</span>
+                            </button>
+                          );
+                        })}
+                        {profileAvatarInput.startsWith('data:image/') && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', border: '1.5px solid var(--primary)', borderRadius: '6px', background: 'var(--primary-glow)' }}>
+                            <img src={profileAvatarInput} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="uploaded" />
+                            <span style={{ fontSize: '0.65rem', color: 'var(--primary)' }}>Custom</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '6px 12px', fontSize: '0.75rem' }}>
+                      <Save size={12} />
+                      <span>Save Display Profile</span>
+                    </button>
+                  </form>
+                </div>
+
+                {/* Broker Accounts Panel */}
+                <div className="glass-card" style={{ padding: '16px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Settings size={14} color="var(--primary)" />
+                    Broker Accounts (Multiple Users)
+                  </h3>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                    Configure multiple trading accounts under different brokers (e.g. Dhan-Sachin vs. Dhan-Wife).
+                  </p>
+
+                  <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '6px', marginBottom: '12px', background: 'rgba(0,0,0,0.1)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)' }}>
+                          <th style={{ padding: '8px' }}>User/Account Name</th>
+                          <th style={{ padding: '8px' }}>Broker</th>
+                          <th style={{ padding: '8px' }}>Starting Capital</th>
+                          <th style={{ padding: '8px', textAlign: 'center' }}>Active</th>
+                          <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {brokerAccounts.map((acc) => (
+                          <tr key={acc.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px', fontWeight: 600 }}>{acc.accountName}</td>
+                            <td style={{ padding: '8px' }}>{acc.broker}</td>
+                            <td style={{ padding: '8px' }}>
+                              <input 
+                                type="number" 
+                                value={acc.startingCapital} 
+                                onChange={(e) => editBrokerAccount(acc.id, { startingCapital: parseFloat(e.target.value) || 0 })}
+                                style={{ width: '90px', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', color: '#fff', fontSize: '0.75rem', outline: 'none' }}
+                              />
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={acc.active} 
+                                onChange={() => editBrokerAccount(acc.id, { active: !acc.active })}
+                                style={{ accentColor: 'var(--primary)' }}
+                              />
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                              <button 
+                                onClick={() => { if (confirm('Delete this broker account?')) deleteBrokerAccount(acc.id); }}
+                                className="btn btn-secondary" 
+                                style={{ padding: '2px 6px', color: 'var(--color-loss)', border: 'none' }}
+                                disabled={brokerAccounts.length <= 1}
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <form onSubmit={handleAddAccountSubmit} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '6px', border: '1px dashed var(--border-color)' }}>
+                    <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: '100px' }}>
+                      <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Broker</label>
+                      <select value={newAccBroker} onChange={(e) => setNewAccBroker(e.target.value as Broker)} className="form-select" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }}>
+                        {['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other'].map(b => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0, flex: 2, minWidth: '120px' }}>
+                      <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Account Holder Name</label>
+                      <input type="text" value={newAccName} onChange={(e) => setNewAccName(e.target.value)} placeholder="e.g. Sachin / Wife" className="form-input" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }} required />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: '100px' }}>
+                      <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Starting Capital</label>
+                      <input type="number" value={newAccCapital} onChange={(e) => setNewAccCapital(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }} required />
+                    </div>
+                    <button type="submit" className="btn btn-primary" style={{ height: '28px', padding: '0 10px', fontSize: '0.72rem' }}>
+                      <Plus size={12} />
+                      <span>Add</span>
+                    </button>
+                  </form>
+                </div>
+
+                {/* Bank Accounts Panel */}
+                <div className="glass-card" style={{ padding: '16px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <IndianRupee size={14} color="var(--primary)" />
+                    Linked Bank Accounts (Double-Entry Ledger)
+                  </h3>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                    Manage multiple bank accounts. Adjusting capital will trigger opposite transactional flows in these bank statements.
+                  </p>
+
+                  <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '6px', marginBottom: '12px', background: 'rgba(0,0,0,0.1)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)' }}>
+                          <th style={{ padding: '8px' }}>Bank Name</th>
+                          <th style={{ padding: '8px' }}>Holder Name</th>
+                          <th style={{ padding: '8px' }}>Starting Balance</th>
+                          <th style={{ padding: '8px', textAlign: 'center' }}>Active</th>
+                          <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bankAccounts.map((bank) => (
+                          <tr key={bank.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px', fontWeight: 600 }}>{bank.bankName}</td>
+                            <td style={{ padding: '8px' }}>{bank.accountHolderName}</td>
+                            <td style={{ padding: '8px' }}>
+                              <input 
+                                type="number" 
+                                value={bank.startingBalance} 
+                                onChange={(e) => editBankAccount(bank.id, { startingBalance: parseFloat(e.target.value) || 0 })}
+                                style={{ width: '90px', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', color: '#fff', fontSize: '0.75rem', outline: 'none' }}
+                              />
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={bank.active} 
+                                onChange={() => editBankAccount(bank.id, { active: !bank.active })}
+                                style={{ accentColor: 'var(--primary)' }}
+                              />
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                              <button 
+                                onClick={() => { if (confirm('Delete this bank account?')) deleteBankAccount(bank.id); }}
+                                className="btn btn-secondary" 
+                                style={{ padding: '2px 6px', color: 'var(--color-loss)', border: 'none' }}
+                                disabled={bankAccounts.length <= 1}
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <form onSubmit={handleAddBankSubmit} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '6px', border: '1px dashed var(--border-color)' }}>
+                    <div className="form-group" style={{ marginBottom: 0, flex: 1.5, minWidth: '100px' }}>
+                      <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Bank Name (e.g. SBI, HDFC)</label>
+                      <input type="text" value={newBankName} onChange={(e) => setNewBankName(e.target.value)} placeholder="e.g. SBI" className="form-input" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }} required />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0, flex: 1.5, minWidth: '120px' }}>
+                      <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Holder Name</label>
+                      <input type="text" value={newBankHolder} onChange={(e) => setNewBankHolder(e.target.value)} placeholder="e.g. Sachin" className="form-input" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }} required />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: '90px' }}>
+                      <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Starting Bal</label>
+                      <input type="number" value={newBankBalance} onChange={(e) => setNewBankBalance(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }} required />
+                    </div>
+                    <button type="submit" className="btn btn-primary" style={{ height: '28px', padding: '0 10px', fontSize: '0.72rem' }}>
+                      <Plus size={12} />
+                      <span>Add Bank</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: Broker Charges Configuration Master */}
+            {activeTab === 'charges' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="glass-card" style={{ padding: '16px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Percent size={14} color="var(--primary)" />
+                    Broker Charges Master Configurations
+                  </h3>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                    Customize brokerage rates for each broker to automate charge estimations on trades. Rates can be adjusted anytime as rules evolve.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch' }}>
+                    
+                    {/* Left: Broker list */}
+                    <div style={{ width: '150px', display: 'flex', flexDirection: 'column', gap: '4px', borderRight: '1px solid var(--border-color)', paddingRight: '12px', flexShrink: 0 }}>
+                      {['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other'].map((b) => (
+                        <button
+                          key={b}
+                          type="button"
+                          onClick={() => handleBrokerChargesChange(b as Broker)}
+                          className={`btn ${selectedChargesBroker === b ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ border: 'none', justifyContent: 'flex-start', padding: '6px 10px', fontSize: '0.72rem', height: '28px' }}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Right: Selected Broker Overrides Form */}
+                    <form onSubmit={handleSaveCharges} style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '0.8rem', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {selectedChargesBroker} Fee Structure
+                      </h4>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        
+                        {/* Equity Delivery */}
+                        <div style={{ background: 'rgba(255,255,255,0.01)', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>Equity Delivery</span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                              <label style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Rate (%)</label>
+                              <input type="number" step="0.001" value={deliveryRate} onChange={(e) => setDeliveryRate(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '2px 6px' }} />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                              <label style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Max Cap (₹)</label>
+                              <input type="number" value={deliveryMax} onChange={(e) => setDeliveryMax(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '2px 6px' }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Equity Intraday */}
+                        <div style={{ background: 'rgba(255,255,255,0.01)', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>Equity Intraday</span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                              <label style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Rate (%)</label>
+                              <input type="number" step="0.001" value={intradayRate} onChange={(e) => setIntradayRate(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '2px 6px' }} />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                              <label style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Max Cap (₹)</label>
+                              <input type="number" value={intradayMax} onChange={(e) => setIntradayMax(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '2px 6px' }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Options Flat Fee */}
+                        <div style={{ background: 'rgba(255,255,255,0.01)', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>F&O Options</span>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Flat Fee per order (₹)</label>
+                            <input type="number" value={optionsFlat} onChange={(e) => setOptionsFlat(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '2px 6px' }} />
+                          </div>
+                        </div>
+
+                        {/* Futures Rates */}
+                        <div style={{ background: 'rgba(255,255,255,0.01)', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>F&O Futures / General</span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                              <label style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Rate (%)</label>
+                              <input type="number" step="0.001" value={futuresRate} onChange={(e) => setFuturesRate(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '2px 6px' }} />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                              <label style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Max Cap (₹)</label>
+                              <input type="number" value={futuresMax} onChange={(e) => setFuturesMax(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '2px 6px' }} />
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+
+                      <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '6px 14px', fontSize: '0.75rem', marginTop: '6px' }}>
+                        <Save size={12} />
+                        <span>Save Broker Charges Override</span>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Indian Tax Engine Info card */}
+                <div className="glass-card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255,255,255,0.01)' }}>
+                  <HelpCircle size={15} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '2px' }}>Regulatory Calculations</span>
+                    <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
+                      In addition to your customized brokerage rates, the system dynamically calculates standard Indian government levies (STT/CTT, GST @ 18% on brokerage+tx fee, Exchange Tx charges, Stamp Duty, and SEBI Turnover fees) based on the asset segment.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: Backup & Spreadsheet */}
+            {activeTab === 'backup' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '10px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Database size={16} color="var(--primary)" />
+                    Database Snapshots (JSON)
+                  </h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: '1.4' }}>
+                    Export a full snapshot file of your trading accounts, bank balances, setups, and diary history to restore or migrate browsers.
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button type="button" className="btn btn-primary" onClick={handleExportBackup} style={{ fontSize: '0.75rem', height: '32px' }}>
+                      <Download size={13} />
+                      <span>Export JSON Snapshot</span>
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => document.getElementById('modal-json-file')?.click()} style={{ fontSize: '0.75rem', height: '32px' }}>
+                      <Upload size={13} />
+                      <span>Restore JSON File</span>
+                    </button>
+                    <input id="modal-json-file" type="file" accept=".json" onChange={handleImportBackup} style={{ display: 'none' }} />
+                  </div>
+                </div>
+
+                <div className="glass-card" style={{ padding: '20px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '10px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Percent size={16} color="var(--color-win)" />
+                    Excel/CSV Spreadsheet Logs Sync
+                  </h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                    Bulk import trade logs from CSV spreadsheets. Download our template first to align column names.
+                  </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.75rem', padding: '10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', width: 'fit-content', marginBottom: '14px' }}>
+                    <span style={{ color: 'var(--text-dim)', fontWeight: 650 }}>Import Mode:</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <input type="radio" name="modalCsvMode" checked={csvImportMode === 'append'} onChange={() => setCsvImportMode('append')} style={{ accentColor: 'var(--primary)' }} />
+                      <span>Append</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      <input type="radio" name="modalCsvMode" checked={csvImportMode === 'overwrite'} onChange={() => setCsvImportMode('overwrite')} style={{ accentColor: 'var(--color-loss)' }} />
+                      <span style={{ color: csvImportMode === 'overwrite' ? 'var(--color-loss)' : 'inherit' }}>Overwrite</span>
+                    </label>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button type="button" className="btn btn-primary" onClick={handleExportBackup} style={{ fontSize: '0.75rem', height: '32px' }}>
+                      <Download size={13} />
+                      <span>Export Logs (CSV)</span>
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => document.getElementById('modal-csv-file')?.click()} style={{ fontSize: '0.75rem', height: '32px' }}>
+                      <Upload size={13} />
+                      <span>Bulk Import Trades (CSV)</span>
+                    </button>
+                    <input id="modal-csv-file" type="file" accept=".csv" style={{ display: 'none' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: Danger Zone */}
+            {activeTab === 'danger' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="glass-card" style={{ padding: '20px', border: '1.5px solid rgba(239, 68, 68, 0.25)', background: 'rgba(239, 68, 68, 0.02)' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--color-loss)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldAlert size={16} color="var(--color-loss)" />
+                    System Reset Danger Zone
+                  </h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: '1.4' }}>
+                    Resetting will wipe all trades, weekly retrospectives, setups, adjustments, and preferences, restoring original guest mock data. This is irreversible.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-main)' }}>To confirm, type <strong style={{ color: 'var(--color-loss)' }}>RESET</strong>:</span>
+                      <input 
+                        type="text" 
+                        value={resetConfirmInput} 
+                        onChange={(e) => setResetConfirmInput(e.target.value)} 
+                        placeholder="Type RESET"
+                        className="form-input" 
+                        style={{ maxWidth: '100px', height: '28px', fontSize: '0.78rem', borderColor: resetConfirmInput === 'RESET' ? 'var(--color-loss)' : 'var(--border-color)' }}
+                      />
+                      <button 
+                        type="button" 
+                        className="btn btn-danger" 
+                        disabled={resetConfirmInput !== 'RESET'}
+                        onClick={() => {
+                          if (window.confirm('Wipe database and restore mock trading data?')) {
+                            resetToMockData();
+                            setResetConfirmInput('');
+                            alert('System reset successfully completed.');
+                            onClose();
+                          }
+                        }}
+                        style={{ opacity: resetConfirmInput === 'RESET' ? 1 : 0.5, cursor: resetConfirmInput === 'RESET' ? 'pointer' : 'not-allowed', height: '28px', fontSize: '0.75rem' }}
+                      >
+                        <Trash2 size={12} />
+                        <span>Confirm Reset Database</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SaaS Account Details */}
+                <div className="glass-card" style={{ padding: '20px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={16} color="var(--primary)" />
+                    Active SaaS Account Details
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                      <span>Email:</span>
+                      <strong style={{ color: 'var(--text-main)' }}>{sessionUser?.email || 'Guest Session'}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                      <span>User ID:</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--text-main)' }}>{sessionUser?.id || 'N/A'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px' }}>
+                      <span>Sync Provider:</span>
+                      <span style={{ color: 'var(--text-main)' }}>{sessionUser?.app_metadata?.provider || 'None (Local Cache)'}</span>
+                    </div>
+                    {sessionUser && (
+                      <button 
+                        type="button" 
+                        className="btn btn-danger" 
+                        onClick={() => { if (window.confirm('Sign out?')) { signOutUser(); onClose(); } }}
+                        style={{ width: '100%', justifyContent: 'center', marginTop: '6px' }}
+                      >
+                        <span>Sign Out of Account</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

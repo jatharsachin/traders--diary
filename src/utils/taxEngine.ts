@@ -1,4 +1,4 @@
-import type { Segment, Product, TradeAction } from '../types';
+import type { Segment, Product, TradeAction, BrokerChargesConfig } from '../types';
 
 interface TaxResult {
   brokerage: number;
@@ -12,7 +12,7 @@ interface TaxResult {
 
 /**
  * Calculates Indian Stock Market brokerage, taxes, and other charges.
- * Rates align closely with standard discount brokers (e.g., Zerodha).
+ * Dynamic calculations are backed by active Broker Charges Configurations.
  */
 export function calculateIndianTaxesAndBrokerage(
   segment: Segment,
@@ -20,7 +20,8 @@ export function calculateIndianTaxesAndBrokerage(
   action: TradeAction,
   qty: number,
   entryPrice: number,
-  exitPrice: number
+  exitPrice: number,
+  chargesConfig?: BrokerChargesConfig
 ): TaxResult {
   // Determine buy and sell prices/values based on trade action (BUY = Long, SELL = Short)
   const isLong = action === 'BUY';
@@ -40,68 +41,88 @@ export function calculateIndianTaxesAndBrokerage(
 
   // 1. Brokerage & Exchange Tx Charges
   if (segment === 'Equity') {
-    if (product === 'CNC') {
+    if (product === 'Delivery') {
       // Delivery
-      brokerage = 0;
+      if (chargesConfig) {
+        const buyBroker = Math.min(chargesConfig.deliveryMaxFee || Infinity, buyValue * (chargesConfig.deliveryRatePct / 100));
+        const sellBroker = Math.min(chargesConfig.deliveryMaxFee || Infinity, sellValue * (chargesConfig.deliveryRatePct / 100));
+        brokerage = buyBroker + sellBroker;
+      } else {
+        brokerage = 0; // Default Zerodha Delivery is ₹0
+      }
       exchangeTx = totalTurnover * 0.0000325; // 0.00325%
       stt = totalTurnover * 0.001; // 0.1% on buy and sell
       stampDuty = buyValue * 0.00015; // 0.015% on buy side only
     } else {
       // Intraday (MIS)
-      const buyBrokerage = Math.min(20, buyValue * 0.0003); // 0.03% or Rs 20
-      const sellBrokerage = Math.min(20, sellValue * 0.0003);
-      brokerage = buyBrokerage + sellBrokerage;
-      exchangeTx = totalTurnover * 0.00325 * 0.01; // 0.00325%
+      if (chargesConfig) {
+        const buyBroker = Math.min(chargesConfig.intradayMaxFee || Infinity, buyValue * (chargesConfig.intradayRatePct / 100));
+        const sellBroker = Math.min(chargesConfig.intradayMaxFee || Infinity, sellValue * (chargesConfig.intradayRatePct / 100));
+        brokerage = buyBroker + sellBroker;
+      } else {
+        const buyBroker = Math.min(20, buyValue * 0.0003); // 0.03% or ₹20 max
+        const sellBroker = Math.min(20, sellValue * 0.0003);
+        brokerage = buyBroker + sellBroker;
+      }
+      exchangeTx = totalTurnover * 0.0000325; // 0.00325%
       stt = sellValue * 0.00025; // 0.025% on sell side only
       stampDuty = buyValue * 0.00003; // 0.003% on buy side only
     }
   } else if (segment === 'F&O') {
-    // Determine if option or future (option contracts usually have strike prices or CE/PE in symbol)
-    // For simplicity, we can assume that if product is MIS/NRML in F&O, we treat based on instrument details.
-    // Let's check entryPrice. If price is very low (e.g., premium of option) or standard option calculation:
-    // Let's assume F&O Options has flat ₹20/order, and Futures has min(20, 0.03%). 
-    // We can infer option vs future based on whether it is options or futures. Let's make options the default for F&O,
-    // and futures if the price is high or if we provide a simple heuristic, or let's distinguish:
-    // Options: Brokerage = ₹20 per order (₹40 round trip)
-    // Futures: Brokerage = min(20, 0.03%) per order
-    // Let's assume options if price is lower than 1000, or let's write a generic logic:
-    // Actually, in Indian markets, Options brokerage is flat ₹20 per executed order, STT is 0.0625% on sell side.
-    // Futures brokerage is 0.03% or ₹20, STT is 0.0125% on sell side.
-    // Let's assume F&O trades are Options by default unless specified or if we implement both.
-    // Let's assume: if buyPrice < 1500, it's Options; else Futures. (Standard option premiums are usually < 1000, whereas Futures are > 5000+ index/stock prices).
-    // Better yet, we can check if it's Futures or Options based on the price or segment. Let's write a clean heuristic:
-    const isOption = buyPrice < 2000; // Options premium is usually under 2000, Futures price is underlying price (typically high)
+    const isOption = buyPrice < 2000; // Options premium heuristic
 
     if (isOption) {
       // Options
-      brokerage = 40; // ₹20 entry + ₹20 exit
+      if (chargesConfig) {
+        brokerage = chargesConfig.optionsFlatFee * 2; // Flat fee per trade (entry + exit orders)
+      } else {
+        brokerage = 40; // Default ₹20 per order = ₹40 round trip
+      }
       exchangeTx = totalTurnover * 0.00053; // 0.053% on premium value
       stt = sellValue * 0.000625; // 0.0625% on sell side premium
       stampDuty = buyValue * 0.00003; // 0.003% on buy side
     } else {
       // Futures
-      const buyBrokerage = Math.min(20, buyValue * 0.0003);
-      const sellBrokerage = Math.min(20, sellValue * 0.0003);
-      brokerage = buyBrokerage + sellBrokerage;
+      if (chargesConfig) {
+        const buyBroker = Math.min(chargesConfig.futuresMaxFee || Infinity, buyValue * (chargesConfig.futuresRatePct / 100));
+        const sellBroker = Math.min(chargesConfig.futuresMaxFee || Infinity, sellValue * (chargesConfig.futuresRatePct / 100));
+        brokerage = buyBroker + sellBroker;
+      } else {
+        const buyBroker = Math.min(20, buyValue * 0.0003);
+        const sellBroker = Math.min(20, sellValue * 0.0003);
+        brokerage = buyBroker + sellBroker;
+      }
       exchangeTx = totalTurnover * 0.000019; // 0.0019%
       stt = sellValue * 0.000125; // 0.0125% on sell side
       stampDuty = buyValue * 0.00002; // 0.002% on buy side
     }
   } else if (segment === 'Commodity') {
     // MCX charges
-    const buyBrokerage = Math.min(20, buyValue * 0.0003);
-    const sellBrokerage = Math.min(20, sellValue * 0.0003);
-    brokerage = buyBrokerage + sellBrokerage;
+    if (chargesConfig) {
+      const buyBroker = Math.min(chargesConfig.futuresMaxFee || Infinity, buyValue * (chargesConfig.futuresRatePct / 100));
+      const sellBroker = Math.min(chargesConfig.futuresMaxFee || Infinity, sellValue * (chargesConfig.futuresRatePct / 100));
+      brokerage = buyBroker + sellBroker;
+    } else {
+      const buyBroker = Math.min(20, buyValue * 0.0003);
+      const sellBroker = Math.min(20, sellValue * 0.0003);
+      brokerage = buyBroker + sellBroker;
+    }
     exchangeTx = totalTurnover * 0.000026; // 0.0026%
-    stt = sellValue * 0.0001; // CTT 0.01% on sell side Futures
+    stt = sellValue * 0.0001; // CTT 0.01% on sell side
     stampDuty = buyValue * 0.00002; // 0.002% buy side
   } else if (segment === 'Currency') {
     // CDS charges (No STT)
-    const buyBrokerage = Math.min(20, buyValue * 0.0003);
-    const sellBrokerage = Math.min(20, sellValue * 0.0003);
-    brokerage = buyBrokerage + sellBrokerage;
+    if (chargesConfig) {
+      const buyBroker = Math.min(chargesConfig.futuresMaxFee || Infinity, buyValue * (chargesConfig.futuresRatePct / 100));
+      const sellBroker = Math.min(chargesConfig.futuresMaxFee || Infinity, sellValue * (chargesConfig.futuresRatePct / 100));
+      brokerage = buyBroker + sellBroker;
+    } else {
+      const buyBroker = Math.min(20, buyValue * 0.0003);
+      const sellBroker = Math.min(20, sellValue * 0.0003);
+      brokerage = buyBroker + sellBroker;
+    }
     exchangeTx = totalTurnover * 0.000009; // 0.0009%
-    stt = 0; // No STT on Currency
+    stt = 0; 
     stampDuty = buyValue * 0.000001; // 0.0001% buy side
   }
 
