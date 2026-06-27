@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, ArrowLeft, ArrowRight, Edit2
+  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2
 } from 'lucide-react';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
@@ -193,10 +193,15 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const monthsWithData = Array.from(new Set(detailedLedger.map(item => item.date.substring(0, 7)))).sort();
   const currentMonthStr = new Date().toISOString().substring(0, 7);
   const activeMonthList = monthsWithData.length > 0 ? monthsWithData : [currentMonthStr];
-  const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(activeMonthList.length - 1);
+  const [selectedMonthStr, setSelectedMonthStr] = useState<string>(currentMonthStr);
 
-  // Paginated monthly items
-  const selectedMonthStr = activeMonthList[selectedMonthIdx] || currentMonthStr;
+  // Sync selectedMonthStr when activeMonthList changes
+  useEffect(() => {
+    if (!activeMonthList.includes(selectedMonthStr)) {
+      setSelectedMonthStr(activeMonthList[activeMonthList.length - 1] || currentMonthStr);
+    }
+  }, [activeMonthList, selectedMonthStr]);
+
   const filteredLedgerItems = detailedLedger.filter(item => item.date.substring(0, 7) === selectedMonthStr);
 
   // Calculate Starting balance carry forward for selected month
@@ -506,6 +511,20 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 ))}
               </select>
             )}
+
+            <select
+              value={selectedMonthStr}
+              onChange={(e) => setSelectedMonthStr(e.target.value)}
+              className="form-select"
+              style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px' }}
+            >
+              {activeMonthList.map(m => {
+                const parts = m.split('-');
+                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+                const label = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                return <option key={m} value={m}>{label}</option>;
+              })}
+            </select>
             
             <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
               setAdjBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
@@ -571,7 +590,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
               </h3>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Audit Month</span>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ledger Month</span>
               <strong style={{ display: 'block', fontSize: '0.85rem', color: 'var(--primary)' }}>
                 {(() => {
                   const parts = selectedMonthStr.split('-');
@@ -675,51 +694,6 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                     })()}
                   </tbody>
                 </table>
-                
-                {/* Month pagination controls */}
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '20px' }}>
-                  <button 
-                    disabled={selectedMonthIdx === 0} 
-                    onClick={() => setSelectedMonthIdx(0)}
-                    className="btn btn-secondary"
-                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', border: 'none' }}
-                  >
-                    &lt;&lt; First
-                  </button>
-                  <button 
-                    disabled={selectedMonthIdx === 0} 
-                    onClick={() => setSelectedMonthIdx(selectedMonthIdx - 1)}
-                    className="btn btn-secondary"
-                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '2px', border: 'none' }}
-                  >
-                    <ArrowLeft size={10} />
-                    <span>Prev</span>
-                  </button>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                    {(() => {
-                      const parts = selectedMonthStr.split('-');
-                      const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
-                      return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-                    })()}
-                  </span>
-                  <button 
-                    disabled={selectedMonthIdx === activeMonthList.length - 1} 
-                    onClick={() => setSelectedMonthIdx(selectedMonthIdx + 1)}
-                    className="btn btn-secondary"
-                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '2px', border: 'none' }}
-                  >
-                    <span>Next</span>
-                    <ArrowRight size={10} />
-                  </button>
-                  <button 
-                    disabled={selectedMonthIdx === activeMonthList.length - 1} 
-                    onClick={() => setSelectedMonthIdx(activeMonthList.length - 1)}
-                    className="btn btn-secondary"
-                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', border: 'none' }}
-                  >
-                    Last &gt;&gt;
-                  </button>
-                </div>
               </>
             ) : (
               /* Daily Summaries */

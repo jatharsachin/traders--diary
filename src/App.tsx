@@ -30,8 +30,8 @@ export default function App() {
 
   // Live clock and Nifty simulated ticker
   const [liveTime, setLiveTime] = useState<string>('');
-  const [niftyPrice, setNiftyPrice] = useState<number>(23512.40);
-  const [niftyChange, setNiftyChange] = useState<number>(124.50);
+  const [niftyPrice, setNiftyPrice] = useState<number>(24056.00);
+  const [niftyChange, setNiftyChange] = useState<number>(34.35);
   const [niftyFlash, setNiftyFlash] = useState<'up' | 'down' | null>(null);
 
   const isMarketOpen = (): boolean => {
@@ -66,8 +66,8 @@ export default function App() {
 
     const marketTicker = setInterval(() => {
       if (!isMarketOpen()) {
-        setNiftyPrice(23512.40);
-        setNiftyChange(124.50);
+        setNiftyPrice(24056.00);
+        setNiftyChange(34.35);
         return;
       }
       const tick = (Math.random() - 0.47) * 3.5; 
