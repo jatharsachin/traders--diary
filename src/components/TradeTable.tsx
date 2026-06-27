@@ -584,7 +584,12 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
                     }}
                   >
                     <td>
-                      <div style={{ fontWeight: 500 }}>{trade.date}</div>
+                      <div style={{ fontWeight: 500 }}>
+                        {trade.product === 'Delivery' && trade.exitDate && trade.exitDate !== trade.date
+                          ? `${trade.date} → ${trade.exitDate}`
+                          : trade.date
+                        }
+                      </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         {trade.entryTime} - {trade.exitTime}
                       </div>

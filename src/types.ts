@@ -10,6 +10,7 @@ export interface Trade {
   date: string; // YYYY-MM-DD
   entryTime: string; // HH:MM
   exitTime: string; // HH:MM
+  exitDate?: string; // YYYY-MM-DD
   segment: Segment;
   product: Product;
   action: TradeAction;

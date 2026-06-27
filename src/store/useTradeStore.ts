@@ -145,7 +145,7 @@ const computeTradeCalculations = (
   },
   chargesConfig?: BrokerChargesConfig
 ) => {
-  const { date, entryTime, exitTime, segment, product, action, qty, entryPrice, exitPrice, stopLoss } = trade;
+  const { date, entryTime, exitTime, exitDate, segment, product, action, qty, entryPrice, exitPrice, stopLoss } = trade;
 
   // 1. Expiry Day Detection (Thursday check)
   const parts = date.split('-');
@@ -156,12 +156,23 @@ const computeTradeCalculations = (
   const isExpiryDay = d.getDay() === 4; // 4 = Thursday
 
   // 2. Holding Duration Calculation in Minutes
-  const entryParts = entryTime.split(':');
-  const exitParts = exitTime.split(':');
-  const entryMins = parseInt(entryParts[0], 10) * 60 + parseInt(entryParts[1], 10);
-  const exitMins = parseInt(exitParts[0], 10) * 60 + parseInt(exitParts[1], 10);
-  let durationMinutes = exitMins - entryMins;
-  if (durationMinutes < 0) durationMinutes = 0; 
+  let durationMinutes = 0;
+  const actualExitDate = exitDate || date;
+  try {
+    const entryDateTimeStr = `${date}T${entryTime}:00`;
+    const exitDateTimeStr = `${actualExitDate}T${exitTime}:00`;
+    const entryDateObj = new Date(entryDateTimeStr);
+    const exitDateObj = new Date(exitDateTimeStr);
+    const diffMs = exitDateObj.getTime() - entryDateObj.getTime();
+    durationMinutes = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+  } catch (err) {
+    const entryParts = entryTime.split(':');
+    const exitParts = exitTime.split(':');
+    const entryMins = parseInt(entryParts[0], 10) * 60 + parseInt(entryParts[1], 10);
+    const exitMins = parseInt(exitParts[0], 10) * 60 + parseInt(exitParts[1], 10);
+    durationMinutes = exitMins - entryMins;
+    if (durationMinutes < 0) durationMinutes = 0;
+  } 
 
   // Gross PnL
   const grossPnL = action === 'BUY' 
@@ -537,6 +548,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
             date: merged.date,
             entryTime: merged.entryTime,
             exitTime: merged.exitTime,
+            exitDate: merged.exitDate,
             segment: merged.segment,
             product: merged.product,
             action: merged.action,

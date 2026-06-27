@@ -17,6 +17,7 @@ const DEFAULT_FORM_STATE = {
   date: new Date().toISOString().split('T')[0],
   entryTime: new Date().toTimeString().slice(0, 5),
   exitTime: new Date(Date.now() + 15 * 60 * 1000).toTimeString().slice(0, 5), // Default 15 mins hold
+  exitDate: '',
   segment: 'F&O' as Segment,
   product: 'Intraday' as Product,
   action: 'BUY' as TradeAction,
@@ -91,6 +92,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           date: existing.date,
           entryTime: existing.entryTime,
           exitTime: existing.exitTime,
+          exitDate: existing.exitDate || existing.date,
           segment: existing.segment,
           product: existing.product,
           action: existing.action,
@@ -142,6 +144,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       const matchedAcc = brokerAccounts.find((a) => a.id === activeAccountId) || brokerAccounts.find(a => a.active) || brokerAccounts[0];
       const initialBroker = matchedAcc ? matchedAcc.broker : (lastTrade ? (lastTrade.broker || defaultBroker) : defaultBroker);
       const initialAccId = matchedAcc ? matchedAcc.id : '';
+      const initialDate = getDefaultDateForFY(selectedFY);
 
       setFormData({
         ...DEFAULT_FORM_STATE,
@@ -150,9 +153,10 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         segment: lastTrade ? lastTrade.segment : 'F&O',
         product: lastTrade ? lastTrade.product : 'Intraday',
         strategy: lastTrade ? (lastTrade.strategy || '') : (setups.length > 0 ? setups[0].name : ''),
-        date: getDefaultDateForFY(selectedFY),
+        date: initialDate,
         entryTime: new Date().toTimeString().slice(0, 5),
         exitTime: new Date(Date.now() + 15 * 60 * 1000).toTimeString().slice(0, 5),
+        exitDate: initialDate,
         useManualCharges: false,
         manualBrokerage: 0,
         manualTaxes: 0,
@@ -400,6 +404,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
 
     const finalTradeData = {
       ...formData,
+      exitDate: formData.product === 'Delivery' ? (formData.exitDate || formData.date) : formData.date,
       tags: parsedTags,
     };
 
@@ -487,6 +492,20 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   required
                 />
               </div>
+              {formData.product === 'Delivery' && (
+                <div className="form-group">
+                  <label className="form-label" style={{ color: 'var(--color-win)', fontWeight: 600 }}>Exit Date</label>
+                  <input
+                    type="date"
+                    name="exitDate"
+                    value={formData.exitDate || formData.date}
+                    onChange={handleChange}
+                    className="form-input"
+                    style={{ borderColor: 'var(--color-win-border)' }}
+                    required
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label className="form-label">Segment</label>
                 <select
