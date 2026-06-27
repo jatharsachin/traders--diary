@@ -37,9 +37,10 @@ interface TradeStore {
   setups: Setup[];
   baseCapital: number;
   capitalAdjustments: CapitalAdjustment[];
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'emerald' | 'cyberpunk' | 'nordic';
   setBaseCapital: (capital: number) => void;
   toggleTheme: () => void;
+  setTheme: (theme: 'light' | 'dark' | 'emerald' | 'cyberpunk' | 'nordic') => void;
   addTrade: (tradeData: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>) => void;
   editTrade: (id: string, tradeData: Partial<Trade>) => void;
   deleteTrade: (id: string) => void;
@@ -396,9 +397,9 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return updateBaseCapital(accountsList);
   };
 
-  const loadTheme = (): 'light' | 'dark' => {
+  const loadTheme = (): 'light' | 'dark' | 'emerald' | 'cyberpunk' | 'nordic' => {
     const saved = localStorage.getItem('traders_diary_theme');
-    return saved === 'light' ? 'light' : 'dark';
+    return (saved && ['light', 'dark', 'emerald', 'cyberpunk', 'nordic'].includes(saved)) ? (saved as any) : 'dark';
   };
 
   const loadAdjustments = (accountsList: BrokerAccount[], banksList: BankAccount[]): CapitalAdjustment[] => {
@@ -637,6 +638,11 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
       localStorage.setItem(getScopedKey('traders_diary_theme'), nextTheme);
       return { theme: nextTheme };
+    }),
+
+    setTheme: (theme) => set(() => {
+      localStorage.setItem(getScopedKey('traders_diary_theme'), theme);
+      return { theme };
     }),
 
     addTrade: (tradeData) => set((state) => {

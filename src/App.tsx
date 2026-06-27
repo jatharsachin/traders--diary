@@ -316,13 +316,14 @@ export default function App() {
     }
   }, [syncAllInvestmentPrices]);
 
-  // Handle HTML Class toggling for themes
+  // Handle HTML Class and data-theme attributes for premium themes
   useEffect(() => {
     if (theme === 'light') {
       document.documentElement.classList.add('light');
     } else {
       document.documentElement.classList.remove('light');
     }
+    document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
   const handleEditTrade = (id: string) => {
@@ -381,7 +382,22 @@ export default function App() {
               <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
                 {userName || 'Sachin'}'s Trade Diary
                 {isSupabaseConfigured() && (
-                  <span className="badge badge-win" style={{ fontSize: '0.58rem', padding: '2px 6px', textTransform: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span 
+                    className="badge badge-win" 
+                    title="Cloud Status: Connected | Database Sync: Active | SSL Channel: Secured"
+                    style={{ 
+                      fontSize: '0.58rem', 
+                      padding: '2px 6px', 
+                      textTransform: 'none', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '3px',
+                      cursor: 'help',
+                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      boxShadow: '0 0 8px rgba(16, 185, 129, 0.2)'
+                    }}
+                  >
                     <ShieldCheck size={9} /> Sync Linked
                   </span>
                 )}

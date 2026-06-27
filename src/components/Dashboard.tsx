@@ -3,7 +3,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import { 
   IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
   ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
-  Eye, EyeOff, Save
+  Eye, EyeOff, Save, Award, TrendingDown
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
 import { filterTradesByFY } from '../utils/fyHelper';
@@ -147,6 +147,58 @@ export function Dashboard({
   const combinedReturnPct = (activeBaseCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (activeBaseCapital + totalInvInvested)) * 100 : 0;
 
   const grossProfit = trades.reduce((acc, t) => (t.netPnL > 0 ? acc + t.netPnL : acc), 0);
+  const grossLoss = Math.abs(trades.reduce((acc, t) => (t.netPnL < 0 ? acc + t.netPnL : acc), 0));
+  const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? Infinity : 1.0);
+  
+  const avgWin = winningTrades.length > 0 ? (grossProfit / winningTrades.length) : 0;
+  const avgLoss = losingTrades.length > 0 ? (grossLoss / losingTrades.length) : 0;
+  const winRateRatio = winningTrades.length / (totalTrades || 1);
+  const lossRateRatio = losingTrades.length / (totalTrades || 1);
+  const expectancy = (winRateRatio * avgWin) - (lossRateRatio * avgLoss);
+
+  const getMaxDrawdown = () => {
+    let peak = 0;
+    let maxDD = 0;
+    let cumulativePnL = 0;
+    const chronoTrades = [...trades].sort((a, b) => new Date(`${a.date}T${a.entryTime}`).getTime() - new Date(`${b.date}T${b.entryTime}`).getTime());
+    chronoTrades.forEach((t) => {
+      cumulativePnL += t.netPnL;
+      if (cumulativePnL > peak) {
+        peak = cumulativePnL;
+      }
+      const dd = peak - cumulativePnL;
+      if (dd > maxDD) {
+        maxDD = dd;
+      }
+    });
+    return maxDD;
+  };
+  const maxDrawdown = getMaxDrawdown();
+
+  const getStreakAnalysis = () => {
+    let maxWinStreak = 0;
+    let maxLossStreak = 0;
+    let currentWinStreak = 0;
+    let currentLossStreak = 0;
+    const chronoTrades = [...trades].sort((a, b) => new Date(`${a.date}T${a.entryTime}`).getTime() - new Date(`${b.date}T${b.entryTime}`).getTime());
+    chronoTrades.forEach((t) => {
+      if (t.netPnL > 0) {
+        currentWinStreak++;
+        currentLossStreak = 0;
+        if (currentWinStreak > maxWinStreak) {
+          maxWinStreak = currentWinStreak;
+        }
+      } else if (t.netPnL < 0) {
+        currentLossStreak++;
+        currentWinStreak = 0;
+        if (currentLossStreak > maxLossStreak) {
+          maxLossStreak = currentLossStreak;
+        }
+      }
+    });
+    return { maxWinStreak, maxLossStreak };
+  };
+  const { maxWinStreak, maxLossStreak } = getStreakAnalysis();
   
   // Sort trades oldest to newest
   const sortedTrades = [...trades].sort((a, b) => {
@@ -416,18 +468,21 @@ export function Dashboard({
   };
 
   const getEmotionStatsData = () => {
-    const emotionMap: Record<string, { count: number; netPnL: number }> = {
-      Calm: { count: 0, netPnL: 0 },
-      Greedy: { count: 0, netPnL: 0 },
-      Fearful: { count: 0, netPnL: 0 },
-      Impatient: { count: 0, netPnL: 0 },
-      Revengeful: { count: 0, netPnL: 0 }
+    const emotionMap: Record<string, { count: number; wins: number; netPnL: number }> = {
+      Calm: { count: 0, wins: 0, netPnL: 0 },
+      Greedy: { count: 0, wins: 0, netPnL: 0 },
+      Fearful: { count: 0, wins: 0, netPnL: 0 },
+      Impatient: { count: 0, wins: 0, netPnL: 0 },
+      Revengeful: { count: 0, wins: 0, netPnL: 0 }
     };
 
     trades.forEach((t) => {
       const e = t.emotion || 'Calm';
       if (emotionMap[e]) {
         emotionMap[e].count += 1;
+        if (t.netPnL > 0) {
+          emotionMap[e].wins += 1;
+        }
         emotionMap[e].netPnL += t.netPnL;
       }
     });
@@ -435,6 +490,7 @@ export function Dashboard({
     return Object.entries(emotionMap).map(([name, data]) => ({
       name,
       count: data.count,
+      winRate: data.count > 0 ? (data.wins / data.count) * 100 : 0,
       netPnL: Math.round(data.netPnL)
     }));
   };
@@ -1121,6 +1177,75 @@ export function Dashboard({
         </div>
       </div>
 
+      {/* Grid 1.5: Advanced Institutional & Risk Metrics */}
+      <div className="metrics-grid" style={{ marginTop: '16px', marginBottom: '20px' }}>
+        {/* Metric 1: Profit Factor */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Scale size={16} color="var(--primary)" />
+            <span>Profit Factor</span>
+          </div>
+          <div>
+            <div className="metric-value text-white">
+              {profitFactor === Infinity ? '∞' : profitFactor.toFixed(2)}
+            </div>
+            <div className="metric-subtext">
+              Gross Win / Gross Loss ratio. &gt; 1.5 is healthy
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 2: Expectancy */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Award size={16} color="#34d399" />
+            <span>Expectancy</span>
+          </div>
+          <div>
+            <div className="metric-value" style={{ color: expectancy >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+              {isPnlVisible ? formatCurrency(expectancy) : '••••'}
+            </div>
+            <div className="metric-subtext">
+              Expected net return per trade executed
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 3: Max Drawdown */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <TrendingDown size={16} color="var(--color-loss)" />
+            <span>Peak Drawdown</span>
+          </div>
+          <div>
+            <div className="metric-value" style={{ color: 'var(--color-loss)' }}>
+              {isPnlVisible ? formatCurrency(maxDrawdown) : '••••'}
+            </div>
+            <div className="metric-subtext">
+              Max peak-to-trough drop in capital
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 4: Max Win/Loss Streak */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Flame size={16} color="#fb923c" />
+            <span>Streak Analysis</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span style={{ color: 'var(--color-win)' }}>{maxWinStreak}W</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: 'var(--color-loss)' }}>{maxLossStreak}L</span>
+            </div>
+            <div className="metric-subtext">
+              Consecutive wins vs consecutive losses
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Grid 2: Return Periods & Consistency Streaks */}
       <div className="grid-2col-12-1">
         
@@ -1719,6 +1844,39 @@ export function Dashboard({
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+
+            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ color: 'var(--text-dim)', borderBottom: '1px solid var(--border-color)' }}>
+                    <th style={{ padding: '6px 4px' }}>Execution Mindset</th>
+                    <th style={{ padding: '6px 4px', textAlign: 'center' }}>Trades</th>
+                    <th style={{ padding: '6px 4px', textAlign: 'center' }}>Win Rate</th>
+                    <th style={{ padding: '6px 4px', textAlign: 'right' }}>Net P&L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emotionStatsData.map((e) => (
+                    <tr key={e.name} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                      <td style={{ padding: '8px 4px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        {e.name === 'Calm' ? '🧘 Calm & Disciplined' :
+                         e.name === 'Greedy' ? '🤑 Greedy' :
+                         e.name === 'Fearful' ? '😰 Fearful' :
+                         e.name === 'Impatient' ? '⏱️ Impatient' :
+                         '😡 Revenge Trading'}
+                      </td>
+                      <td style={{ padding: '8px 4px', textAlign: 'center', color: 'var(--text-muted)' }}>{e.count}</td>
+                      <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 600, color: e.winRate >= 50 ? 'var(--color-win)' : 'var(--text-muted)' }}>
+                        {e.winRate.toFixed(1)}%
+                      </td>
+                      <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700, color: e.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                        {isPnlVisible ? formatCurrency(e.netPnL) : '••••'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 

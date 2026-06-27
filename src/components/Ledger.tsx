@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2
+  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download
 } from 'lucide-react';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
@@ -89,6 +89,77 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const [subNotes, setSubNotes] = useState('');
   const [selectedBankTxId, setSelectedBankTxId] = useState<string | null>(null);
   const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
+
+  const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
+    const content = [
+      headers.join(','),
+      ...rows.map(r => r.map(val => {
+        const clean = (val || '').replace(/"/g, '""');
+        return clean.includes(',') || clean.includes('\n') ? `"${clean}"` : clean;
+      }).join(','))
+    ].join('\n');
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.click();
+  };
+
+  const exportBrokerLedgerCSV = () => {
+    const headers = ['Date', 'Particulars', 'Debit/Charges', 'Credit/Inflow', 'Running Balance'];
+    let runningBal = startingBalanceOfMonth;
+    const rows = filteredLedgerItems.map(item => {
+      runningBal += item.netPnL;
+      return [
+        item.date + ' ' + item.time,
+        item.particulars,
+        item.netPnL < 0 ? Math.abs(item.netPnL).toString() : '-',
+        item.netPnL >= 0 ? item.netPnL.toString() : '-',
+        runningBal.toString()
+      ];
+    });
+    rows.unshift(['-', 'Opening Balance Carry Forward', '-', '-', startingBalanceOfMonth.toString()]);
+    downloadCSV(`Broker_Ledger_${selectedMonthStr}.csv`, headers, rows);
+  };
+
+  const exportBankLedgerCSV = () => {
+    const headers = ['Date', 'Bank Account', 'Transaction Details', 'Type', 'Amount', 'Category', 'Notes'];
+    const rows = activeFYBankTransactions
+      .filter(tx => selectedBankFilter === 'All' ? true : tx.bankAccountId === selectedBankFilter)
+      .map(tx => {
+        const bank = bankAccounts.find(b => b.id === tx.bankAccountId);
+        return [
+          tx.date + ' ' + tx.time,
+          bank ? `${bank.bankName} (${bank.accountHolderName})` : 'Unknown',
+          tx.category,
+          tx.type,
+          tx.amount.toString(),
+          tx.category,
+          tx.notes || ''
+        ];
+      });
+    downloadCSV(`Bank_Statement_${selectedFY.replace(/\s+/g, '_')}.csv`, headers, rows);
+  };
+
+  const exportSubscriptionsCSV = () => {
+    const headers = ['Expense Name', 'Amount', 'Date', 'Billing Cycle', 'Deducted From', 'Account details', 'Notes'];
+    const rows = activeSubscriptionExpenses.map(sub => {
+      const sourceDetails = sub.paymentSource === 'Bank'
+        ? bankAccounts.find(b => b.id === sub.bankAccountId)?.bankName || 'Bank'
+        : brokerAccounts.find(a => a.id === sub.brokerAccountId)?.accountName || 'Broker';
+      return [
+        sub.name,
+        sub.amount.toString(),
+        sub.date,
+        sub.frequency,
+        sub.paymentSource,
+        sourceDetails,
+        sub.notes || ''
+      ];
+    });
+    downloadCSV(`Subscriptions_Log_${selectedFY.replace(/\s+/g, '_')}.csv`, headers, rows);
+  };
 
   // Filter Broker Ledger Trades & Adjustments
   let trades = filterTradesByFY(allTrades, selectedFY);
@@ -535,6 +606,11 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
               <span>Log Pay-in/Out</span>
             </button>
 
+            <button className="btn btn-secondary" style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={exportBrokerLedgerCSV}>
+              <Download size={12} />
+              <span>Export CSV</span>
+            </button>
+
             <div className="nav-tab-container">
               <button onClick={() => setViewType('daily')} className={`nav-tab ${viewType === 'daily' ? 'active' : ''}`} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Daily</button>
               <button onClick={() => setViewType('detailed')} className={`nav-tab ${viewType === 'detailed' ? 'active' : ''}`} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Detailed</button>
@@ -562,18 +638,28 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
               <Plus size={13} />
               <span>Log Bank Transaction</span>
             </button>
+            <button className="btn btn-secondary" style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={exportBankLedgerCSV}>
+              <Download size={12} />
+              <span>Export CSV</span>
+            </button>
           </div>
         )}
 
         {activeLedgerTab === 'subscriptions' && (
-          <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
-            setSubBankAccId(bankAccounts[0]?.id || '');
-            setSubBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
-            setIsSubOpen(true);
-          }}>
-            <Plus size={13} />
-            <span>Log Subscription</span>
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
+              setSubBankAccId(bankAccounts[0]?.id || '');
+              setSubBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
+              setIsSubOpen(true);
+            }}>
+              <Plus size={13} />
+              <span>Log Subscription</span>
+            </button>
+            <button className="btn btn-secondary" style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={exportSubscriptionsCSV}>
+              <Download size={12} />
+              <span>Export CSV</span>
+            </button>
+          </div>
         )}
       </div>
 
