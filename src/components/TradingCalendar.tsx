@@ -82,6 +82,37 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     brokerAccounts
   } = useTradeStore();
 
+  const getCapitalAtDate = (dateLimit: Date): number => {
+    let startingCap = 0;
+    if (activeAccountId === 'Combined') {
+      startingCap = brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0);
+    } else {
+      startingCap = brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0;
+    }
+
+    const limitStr = dateLimit.toISOString().split('T')[0];
+
+    const priorAdjustments = allCapitalAdjustments.filter(a => a.date <= limitStr && (
+      activeAccountId === 'Combined' 
+        ? true 
+        : a.brokerAccountId === activeAccountId
+    ));
+    const depositsSum = priorAdjustments
+      .filter(a => a.type === 'DEPOSIT')
+      .reduce((sum, a) => sum + a.amount, 0);
+
+    let cap = startingCap + depositsSum;
+
+    if (cap <= 0) {
+      const overallDeposits = allCapitalAdjustments
+        .filter(a => a.type === 'DEPOSIT' && (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId))
+        .reduce((sum, a) => sum + a.amount, 0);
+      cap = startingCap + overallDeposits;
+    }
+
+    return cap > 0 ? cap : 100000;
+  };
+
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
   const trades = activeAccountId === 'Combined'
     ? fyTrades
@@ -313,23 +344,30 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
           </div>
         )}
 
-        {summary && (
-          <div className="day-pnl">
-            {isPnlVisible ? (
-              <>
-                <span className="pnl-desktop">
-                  {summary.netPnL > 0 ? '+' : ''}
-                  {Math.round(summary.netPnL).toLocaleString('en-IN')}
-                </span>
-                <span className="pnl-mobile">
-                  {formatCompactPnLMobile(summary.netPnL)}
-                </span>
-              </>
-            ) : (
-              '••••'
-            )}
-          </div>
-        )}
+        {summary && (() => {
+          const dayCap = getCapitalAtDate(new Date(year, month, d));
+          const dayRoi = (summary.netPnL / dayCap) * 100;
+          return (
+            <div className="day-pnl">
+              {isPnlVisible ? (
+                <>
+                  <span className="pnl-desktop">
+                    {summary.netPnL > 0 ? '+' : ''}
+                    {Math.round(summary.netPnL).toLocaleString('en-IN')}
+                    <span style={{ fontSize: '0.62rem', opacity: 0.85, marginLeft: '2.5px' }}>
+                      ({summary.netPnL >= 0 ? '+' : ''}{dayRoi.toFixed(1)}%)
+                    </span>
+                  </span>
+                  <span className="pnl-mobile">
+                    {formatCompactPnLMobile(summary.netPnL)}
+                  </span>
+                </>
+              ) : (
+                '••••'
+              )}
+            </div>
+          );
+        })()}
 
         {/* Custom tooltip rendered inside the card via absolute positioning */}
         {(summary || holidayName) && (
@@ -439,34 +477,6 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     return { start, end, fyStartYear };
   };
   const { start: fyStart, end: fyEnd, fyStartYear } = getFYRange();
-
-  const getCapitalAtDate = (dateLimit: Date): number => {
-    let startingCap = 0;
-    if (activeAccountId === 'Combined') {
-      startingCap = brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0);
-    } else {
-      startingCap = brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0;
-    }
-
-    const limitStr = dateLimit.toISOString().split('T')[0];
-
-    const priorTrades = allTrades.filter(t => t.date < limitStr && (
-      activeAccountId === 'Combined' 
-        ? true 
-        : t.brokerAccountId === activeAccountId
-    ));
-    const priorPnL = priorTrades.reduce((sum, t) => sum + t.netPnL, 0);
-
-    const priorAdjustments = allCapitalAdjustments.filter(a => a.date < limitStr && (
-      activeAccountId === 'Combined' 
-        ? true 
-        : a.brokerAccountId === activeAccountId
-    ));
-    const priorAdjSum = priorAdjustments.reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
-
-    const cap = startingCap + priorPnL + priorAdjSum;
-    return cap > 0 ? cap : 1;
-  };
 
   const getFYPnL = () => {
     const fyTrades = trades.filter((t) => {
