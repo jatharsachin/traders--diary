@@ -28,6 +28,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     subscriptionExpenses,
     bankTransactions,
     addSubscriptionExpense,
+    editSubscriptionExpense,
     deleteSubscriptionExpense,
     addDirectBankTransaction,
     deleteDirectBankTransaction,
@@ -43,6 +44,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const [isAdjOpen, setIsAdjOpen] = useState(false);
   const [isBankTxOpen, setIsBankTxOpen] = useState(false);
   const [isSubOpen, setIsSubOpen] = useState(false);
+  const [editSubId, setEditSubId] = useState<string | null>(null);
 
   // --- BROKER LEDGER FORM STATES ---
   const [adjType, setAdjType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
@@ -371,27 +373,35 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       alert('Please select a payment bank account.');
       return;
     }
-    if (subSource === 'Broker' && !subBrokerAccId) {
+    if (subSource === 'Broker' && activeAccountId === 'Combined' && !subBrokerAccId) {
       alert('Please select a payment broker account.');
       return;
     }
 
-    addSubscriptionExpense({
+    const payload = {
       name: subName.trim(),
       amount: subAmount,
       date: subDate,
       paymentSource: subSource,
       frequency: subFreq,
-      brokerAccountId: subSource === 'Broker' ? subBrokerAccId : undefined,
+      brokerAccountId: subSource === 'Broker' ? (activeAccountId !== 'Combined' ? activeAccountId : subBrokerAccId) : undefined,
       bankAccountId: subSource === 'Bank' ? subBankAccId : undefined,
       notes: subNotes.trim()
-    });
+    };
+
+    if (editSubId) {
+      editSubscriptionExpense(editSubId, payload);
+      setEditSubId(null);
+      alert('Subscription updated successfully!');
+    } else {
+      addSubscriptionExpense(payload);
+      alert('Subscription expense logged successfully!');
+    }
 
     setIsSubOpen(false);
     setSubName('');
     setSubAmount(0);
     setSubNotes('');
-    alert('Subscription expense logged successfully!');
   };
 
   const formatCurrency = (val: number) => {
@@ -962,20 +972,45 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 </span>
 
                 {selectedSubId && (
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    onClick={() => {
-                      if (confirm('Delete this subscription? Linked double-entry ledger impacts will be reverted.')) {
-                        deleteSubscriptionExpense(selectedSubId);
-                        setSelectedSubId(null);
-                      }
-                    }}
-                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', height: '28px' }}
-                  >
-                    <Trash2 size={11} />
-                    <span>Delete Subscription</span>
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        const sub = subscriptionExpenses.find(s => s.id === selectedSubId);
+                        if (sub) {
+                          setEditSubId(sub.id);
+                          setSubName(sub.name);
+                          setSubAmount(sub.amount);
+                          setSubDate(sub.date);
+                          setSubFreq(sub.frequency);
+                          setSubSource(sub.paymentSource);
+                          setSubBrokerAccId(sub.brokerAccountId || '');
+                          setSubBankAccId(sub.bankAccountId || '');
+                          setSubNotes(sub.notes || '');
+                          setIsSubOpen(true);
+                        }
+                      }}
+                      style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', height: '28px' }}
+                    >
+                      <Edit2 size={11} />
+                      <span>Edit Subscription</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      onClick={() => {
+                        if (confirm('Delete this subscription? Linked double-entry ledger impacts will be reverted.')) {
+                          deleteSubscriptionExpense(selectedSubId);
+                          setSelectedSubId(null);
+                        }
+                      }}
+                      style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', height: '28px' }}
+                    >
+                      <Trash2 size={11} />
+                      <span>Delete Subscription</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -1368,8 +1403,20 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
           <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
-              <h3>Log Subscription Expense</h3>
-              <button onClick={() => setIsSubOpen(false)} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
+              <h3>{editSubId ? 'Edit Subscription Expense' : 'Log Subscription Expense'}</h3>
+              <button 
+                onClick={() => { 
+                  setIsSubOpen(false); 
+                  setEditSubId(null); 
+                  setSubName(''); 
+                  setSubAmount(0); 
+                  setSubNotes(''); 
+                }} 
+                className="btn btn-secondary" 
+                style={{ border: 'none', padding: '4px' }}
+              >
+                <X size={15}/>
+              </button>
             </div>
             <form onSubmit={handleAddSubSubmit}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px' }}>
@@ -1454,7 +1501,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
               <div className="modal-footer" style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
                 <button type="submit" className="btn btn-primary" style={{ fontSize: '0.75rem' }}>
                   <Save size={12} />
-                  <span>Log Subscription Expense</span>
+                  <span>{editSubId ? 'Save Changes' : 'Log Subscription Expense'}</span>
                 </button>
               </div>
             </form>

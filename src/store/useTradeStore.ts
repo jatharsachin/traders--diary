@@ -118,6 +118,7 @@ interface TradeStore {
   deleteBankAccount: (id: string) => void;
 
   addSubscriptionExpense: (expense: Omit<SubscriptionExpense, 'id'>) => void;
+  editSubscriptionExpense: (id: string, expenseData: Partial<SubscriptionExpense>) => void;
   deleteSubscriptionExpense: (id: string) => void;
 
   updateBrokerCharges: (charges: BrokerChargesConfig[]) => void;
@@ -411,8 +412,9 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       }
     }
 
-    // Migrate adjustments to new schema
     let migrated = false;
+
+    // Migrate adjustments to new schema
     const updated = adjList.map((a) => {
       if (!a.brokerAccountId) {
         const matched = accountsList.find(acc => acc.broker === a.broker);
@@ -425,6 +427,38 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       }
       return a;
     });
+
+    // Auto-heal missing double-entry adjustments from bank transactions
+    const bankTxSaved = localStorage.getItem(getScopedKey('traders_diary_bank_transactions'));
+    if (bankTxSaved) {
+      try {
+        const bankTxs: BankTransaction[] = JSON.parse(bankTxSaved);
+        bankTxs.forEach(tx => {
+          if ((tx.category === 'Broker Pay-in' || tx.category === 'Broker Pay-out') && tx.brokerAccountId) {
+            const exists = updated.some(a => a.id === `adj-${tx.id}`);
+            if (!exists) {
+              const matchedAcc = accountsList.find(a => a.id === tx.brokerAccountId);
+              const adjType = (tx.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
+              const newAdj: CapitalAdjustment = {
+                id: `adj-${tx.id}`,
+                date: tx.date,
+                time: tx.time,
+                type: adjType,
+                amount: tx.amount,
+                notes: tx.notes || 'Auto-generated transfer entry',
+                broker: matchedAcc ? matchedAcc.broker : 'Other',
+                brokerAccountId: tx.brokerAccountId,
+                bankAccountId: tx.bankAccountId
+              };
+              updated.push(newAdj);
+              migrated = true;
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Failed to parse bank transactions for auto-heal', e);
+      }
+    }
 
     if (migrated || !saved) {
       localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
@@ -1404,8 +1438,68 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         syncMetaToCloud('capital_adjustments', updatedAdjustments);
       }
 
-      return { 
+       return { 
         subscriptionExpenses: updatedExpenses, 
+        bankTransactions: updatedBankTx,
+        capitalAdjustments: updatedAdjustments
+      };
+    }),
+
+    editSubscriptionExpense: (id, expenseData) => set((state) => {
+      const oldExp = state.subscriptionExpenses.find((e) => e.id === id);
+      if (!oldExp) return {};
+
+      const updatedExpenses = state.subscriptionExpenses.map((e) => {
+        if (e.id === id) {
+          return { ...e, ...expenseData };
+        }
+        return e;
+      });
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
+      syncMetaToCloud('subscription_expenses', updatedExpenses);
+
+      const targetExpense = { ...oldExp, ...expenseData };
+
+      // Manage linked double entry bank transaction
+      let updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== `btx-${id}`);
+      if (targetExpense.paymentSource === 'Bank' && targetExpense.bankAccountId) {
+        const newBankTx: BankTransaction = {
+          id: `btx-${id}`,
+          date: targetExpense.date,
+          time: '12:00',
+          bankAccountId: targetExpense.bankAccountId,
+          type: 'WITHDRAWAL',
+          amount: targetExpense.amount,
+          category: 'Subscription/Expense',
+          notes: `Paid: ${targetExpense.name}. ${targetExpense.notes || ''}`,
+          expenseId: id,
+        };
+        updatedBankTx = [newBankTx, ...updatedBankTx];
+      }
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+      syncMetaToCloud('bank_transactions', updatedBankTx);
+
+      // Manage linked double entry capital adjustment
+      let updatedAdjustments = state.capitalAdjustments.filter((a) => a.id !== `adj-${id}`);
+      if (targetExpense.paymentSource === 'Broker' && targetExpense.brokerAccountId) {
+        const matchingAcc = state.brokerAccounts.find(a => a.id === targetExpense.brokerAccountId);
+        const newAdj: CapitalAdjustment = {
+          id: `adj-${id}`,
+          date: targetExpense.date,
+          time: '12:00',
+          type: 'WITHDRAWAL',
+          amount: targetExpense.amount,
+          notes: `Subscription/Expense: ${targetExpense.name}`,
+          broker: matchingAcc?.broker || 'Other',
+          brokerAccountId: targetExpense.brokerAccountId
+        };
+        updatedAdjustments = [newAdj, ...updatedAdjustments];
+      }
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+      syncMetaToCloud('capital_adjustments', updatedAdjustments);
+
+      return {
+        subscriptionExpenses: updatedExpenses,
         bankTransactions: updatedBankTx,
         capitalAdjustments: updatedAdjustments
       };
