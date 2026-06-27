@@ -84,6 +84,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const [subBrokerAccId, setSubBrokerAccId] = useState('');
   const [subBankAccId, setSubBankAccId] = useState('');
   const [subNotes, setSubNotes] = useState('');
+  const [selectedBankTxId, setSelectedBankTxId] = useState<string | null>(null);
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
 
   // Filter Broker Ledger Trades & Adjustments
   let trades = filterTradesByFY(allTrades, selectedFY);
@@ -573,6 +575,40 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
           <div className="glass-card" style={{ padding: '20px', overflowX: 'auto' }}>
             {viewType === 'detailed' ? (
               <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', background: 'rgba(255,255,255,0.01)', padding: '8px 12px', borderRadius: '6px', border: '1px dashed var(--border-color)' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {selectedRowId ? (() => {
+                      const selectedItem = detailedLedger.find(item => item.id === selectedRowId);
+                      if (selectedItem?.isAdjustment) {
+                        return 'Selected: Capital Flow Adjustment entry';
+                      }
+                      return 'Selected: Trade Log record (Read-Only in Ledger)';
+                    })() : '💡 Click on any entry row in the ledger below to select it.'}
+                  </span>
+                  {selectedRowId && (() => {
+                    const selectedItem = detailedLedger.find(item => item.id === selectedRowId);
+                    if (selectedItem?.isAdjustment) {
+                      return (
+                        <button
+                          type="button"
+                          className="btn btn-danger"
+                          onClick={() => {
+                            if (confirm('Delete this adjustment entry? This will reverse double-entry bank balances!')) {
+                              deleteCapitalAdjustment(selectedRowId);
+                              setSelectedRowId(null);
+                            }
+                          }}
+                          style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
+                        >
+                          <Trash2 size={11} />
+                          <span>Delete Capital Flow</span>
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
                 <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
@@ -612,19 +648,6 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                             <td style={{ padding: '8px' }}>{item.date} <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{item.time}</span></td>
                             <td style={{ padding: '8px', color: isAdjustment ? 'var(--primary)' : 'var(--text-main)' }}>
                               {item.particulars}
-                              {isAdjustment && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm('Delete this adjustment entry? This will reverse double-entry bank balances!')) {
-                                      deleteCapitalAdjustment(item.id);
-                                    }
-                                  }}
-                                  style={{ border: 'none', background: 'transparent', color: 'var(--color-loss)', cursor: 'pointer', paddingLeft: '8px', fontSize: '0.68rem' }}
-                                >
-                                  (Delete)
-                                </button>
-                              )}
                             </td>
                             <td style={{ padding: '8px', textAlign: 'right', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                               {item.netPnL < 0 ? (isPnlVisible ? formatCurrency(Math.abs(item.netPnL)) : '••••') : '-'}
@@ -764,7 +787,53 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
           {/* Transactions list */}
           <div className="glass-card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px' }}>Bank Transaction History</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>Bank Transaction History</h3>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {!selectedBankTxId && '💡 Click a row to select.'}
+                </span>
+                
+                {selectedBankTxId && (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        const tx = bankTransactions.find(t => t.id === selectedBankTxId);
+                        if (tx) handleEditBankTxClick(tx);
+                      }}
+                      style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', height: '28px' }}
+                    >
+                      <Edit2 size={11} />
+                      <span>Edit Transaction</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      onClick={() => {
+                        const tx = bankTransactions.find(t => t.id === selectedBankTxId);
+                        if (!tx) return;
+                        const isDoubleEntry = tx.category.startsWith('Broker') || tx.category === 'Subscription/Expense';
+                        const msg = isDoubleEntry 
+                          ? 'Deleting this transaction will also delete any linked broker pay-in/out or subscription expense ledger records. Proceed?'
+                          : 'Are you sure you want to delete this bank transaction?';
+                        if (confirm(msg)) {
+                          deleteDirectBankTransaction(tx.id);
+                          setSelectedBankTxId(null);
+                        }
+                      }}
+                      style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', height: '28px' }}
+                    >
+                      <Trash2 size={11} />
+                      <span>Delete Transaction</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)' }}>
@@ -774,15 +843,23 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   <th style={{ padding: '8px' }}>Inflow / Outflow</th>
                   <th style={{ padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
                   <th style={{ padding: '8px' }}>Notes</th>
-                  <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {activeBankTxList.map((tx) => {
                   const bank = bankAccounts.find(b => b.id === tx.bankAccountId);
                   const isInflow = tx.type === 'DEPOSIT';
+                  const isSelected = selectedBankTxId === tx.id;
                   return (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <tr 
+                      key={tx.id} 
+                      onClick={() => setSelectedBankTxId(isSelected ? null : tx.id)}
+                      style={{ 
+                        borderBottom: '1px solid var(--border-color)',
+                        background: isSelected ? 'var(--primary-glow)' : 'transparent',
+                        cursor: 'pointer'
+                      }}
+                    >
                       <td style={{ padding: '8px' }}>{tx.date} <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{tx.time}</span></td>
                        <td style={{ padding: '8px', fontWeight: 600 }}>
                          {bank ? (
@@ -813,32 +890,6 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                         {isPnlVisible ? formatCurrency(tx.amount) : '••••'}
                       </td>
                       <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{tx.notes}</td>
-                      <td style={{ padding: '8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <button
-                          onClick={() => handleEditBankTxClick(tx)}
-                          className="btn btn-secondary"
-                          style={{ padding: '2px 6px', color: 'var(--primary)', border: 'none', marginRight: '4px' }}
-                          title="Edit transaction"
-                        >
-                          <Edit2 size={11} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            const isDoubleEntry = tx.category.startsWith('Broker') || tx.category === 'Subscription/Expense';
-                            const msg = isDoubleEntry 
-                              ? 'Deleting this transaction will also delete any linked broker pay-in/out or subscription expense ledger records. Proceed?'
-                              : 'Are you sure you want to delete this bank transaction?';
-                            if (confirm(msg)) {
-                              deleteDirectBankTransaction(tx.id);
-                            }
-                          }}
-                          className="btn btn-secondary"
-                          style={{ padding: '2px 6px', color: 'var(--color-loss)', border: 'none' }}
-                          title="Delete transaction"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </td>
                     </tr>
                   );
                 })}
@@ -861,10 +912,37 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           <div className="glass-card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px' }}>Subscriptions & Expenses Log</h3>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Track algo software licenses, newsletter services, charting platform fees, and other cognitive trading overheads paid from broker ledger or bank account.
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>Subscriptions & Expenses Log</h3>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', marginBottom: 0 }}>
+                  Track algo software licenses, newsletter services, charting platform fees, etc.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {!selectedSubId && '💡 Click a row to select.'}
+                </span>
+
+                {selectedSubId && (
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => {
+                      if (confirm('Delete this subscription? Linked double-entry ledger impacts will be reverted.')) {
+                        deleteSubscriptionExpense(selectedSubId);
+                        setSelectedSubId(null);
+                      }
+                    }}
+                    style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', height: '28px' }}
+                  >
+                    <Trash2 size={11} />
+                    <span>Delete Subscription</span>
+                  </button>
+                )}
+              </div>
+            </div>
 
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
               <thead>
@@ -875,7 +953,6 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   <th style={{ padding: '8px' }}>Paid Source</th>
                   <th style={{ padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
                   <th style={{ padding: '8px' }}>Notes</th>
-                  <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -888,8 +965,17 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                     const acc = brokerAccounts.find(a => a.id === sub.brokerAccountId);
                     sourceLabel = `Broker: ${acc ? `${acc.broker} (${acc.accountName})` : 'N/A'}`;
                   }
+                  const isSelected = selectedSubId === sub.id;
                   return (
-                    <tr key={sub.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <tr 
+                      key={sub.id} 
+                      onClick={() => setSelectedSubId(isSelected ? null : sub.id)}
+                      style={{ 
+                        borderBottom: '1px solid var(--border-color)',
+                        background: isSelected ? 'var(--primary-glow)' : 'transparent',
+                        cursor: 'pointer'
+                      }}
+                    >
                       <td style={{ padding: '8px' }}>{sub.date}</td>
                       <td style={{ padding: '8px', fontWeight: 650 }}>{sub.name}</td>
                       <td style={{ padding: '8px' }}>
@@ -900,25 +986,12 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                         {isPnlVisible ? formatCurrency(sub.amount) : '••••'}
                       </td>
                       <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{sub.notes}</td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
-                        <button
-                          onClick={() => {
-                            if (confirm('Delete this subscription? Linked double-entry ledger impacts will be reverted.')) {
-                              deleteSubscriptionExpense(sub.id);
-                            }
-                          }}
-                          className="btn btn-secondary"
-                          style={{ padding: '2px 6px', color: 'var(--color-loss)', border: 'none' }}
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </td>
                     </tr>
                   );
                 })}
                 {activeSubscriptionExpenses.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
+                    <td colSpan={6} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
                       No subscriptions logged. Keep track of licenses here.
                     </td>
                   </tr>
