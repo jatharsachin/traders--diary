@@ -585,17 +585,12 @@ export default function App() {
               <LogOut size={15} />
             </button>
           </div>
-
-          <button className="btn btn-primary" style={{ height: '38px', padding: '6px 16px', borderRadius: '10px' }} onClick={handleNewTrade}>
-            <Plus size={15} />
-            <span>Log Trade</span>
-          </button>
         </div>
       </header>
 
       {/* Tabs Navigation (macOS Segmented control) */}
-      <nav style={{ marginBottom: '10px' }}>
-        <div className="nav-tab-container">
+      <nav style={{ marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div className="nav-tab-container" style={{ margin: 0 }}>
           <button 
             onClick={() => setActiveTab('dashboard')} 
             className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
@@ -659,6 +654,22 @@ export default function App() {
             Investments
           </button>
         </div>
+
+        <button 
+          className="btn btn-primary" 
+          style={{ 
+            height: '38px', 
+            padding: '0 20px', 
+            borderRadius: '10px', 
+            fontSize: '0.85rem', 
+            boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)',
+            fontWeight: 700
+          }} 
+          onClick={handleNewTrade}
+        >
+          <Plus size={15} />
+          <span>Log Trade</span>
+        </button>
       </nav>
     </div>
 

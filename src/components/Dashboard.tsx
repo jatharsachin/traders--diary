@@ -590,25 +590,26 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
   return (
     <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
-      {/* Personalized Welcome Banner */}
+      {/* Redesigned Welcome Banner */}
       <div 
-        className="glass-card" 
+        className="glass-card animate-tab-panel" 
         style={{ 
-          padding: '20px 24px', 
+          padding: '16px 20px', 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          background: 'var(--primary-glow)',
-          border: '1px solid var(--border-color-active)',
+          background: 'var(--bg-card)',
+          border: '1.5px solid var(--border-color)',
           borderRadius: '12px',
           flexWrap: 'wrap',
-          gap: '16px'
+          gap: '16px',
+          boxShadow: 'var(--shadow-card)'
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.38rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
             Welcome back, {userName || 'Sachin'}!
-            <span style={{ fontSize: '1.6rem' }}>
+            <span style={{ fontSize: '1.4rem' }}>
               {userAvatar === 'bull' ? '🐂' :
                userAvatar === 'bear' ? '🐻' :
                userAvatar === 'trader' ? '👨‍💻' :
@@ -624,76 +625,68 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
           </p>
         </div>
         
-        {/* Large FY display and rollover button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255, 255, 255, 0.05)', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statement Period</span>
-            <strong style={{ fontSize: '1.4rem', color: 'var(--text-main)', fontWeight: 900, fontFamily: 'var(--font-mono)' }}>
-              {selectedFY === 'All' ? 'ALL YEARS' : selectedFY}
-            </strong>
-          </div>
-          {selectedFY !== 'All' && (
-            <button
-              onClick={() => {
-                const match = selectedFY.match(/FY (\d{4})/);
-                if (!match) return;
-                const startYear = parseInt(match[1], 10);
-                const nextYear = startYear + 1;
-                
-                // Calculate ending balance
-                const activeAdjustments = capitalAdjustments
-                  .filter(a => {
-                    const matchFY = selectedFY === 'All' || filterTradesByFY([a as any], selectedFY).length > 0;
-                    const matchAcc = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
-                    return matchFY && matchAcc;
-                  })
-                  .reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
+        {/* Carry-Forward Rollover Button (Visible only if a specific FY is active) */}
+        {selectedFY !== 'All' && (
+          <button
+            onClick={() => {
+              const match = selectedFY.match(/FY (\d{4})/);
+              if (!match) return;
+              const startYear = parseInt(match[1], 10);
+              const nextYear = startYear + 1;
+              
+              // Calculate ending balance
+              const activeAdjustments = capitalAdjustments
+                .filter(a => {
+                  const matchFY = selectedFY === 'All' || filterTradesByFY([a as any], selectedFY).length > 0;
+                  const matchAcc = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
+                  return matchFY && matchAcc;
+                })
+                .reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
 
-                const endingBalance = activeBaseCapital + totalNetPnL + activeAdjustments;
+              const endingBalance = activeBaseCapital + totalNetPnL + activeAdjustments;
 
-                if (window.confirm(`Are you sure you want to rollover the carry-forward closing balance of ${selectedFY} (₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}) to the opening balance of FY ${nextYear}? This will log a corresponding deposit adjustment on April 1st, ${nextYear}.`)) {
-                  const nextFYDate = `${nextYear}-04-01`;
-                  // Remove any duplicate rollover
-                  const existing = capitalAdjustments.find(a => 
-                    a.date === nextFYDate && 
-                    a.notes?.startsWith("Rollover Carry-Forward") &&
-                    (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId)
-                  );
-                  if (existing) {
-                    useTradeStore.getState().deleteCapitalAdjustment(existing.id);
-                  }
-
-                  const targetAccId = activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || '');
-                  const targetBroker = brokerAccounts.find(a => a.id === targetAccId)?.broker || 'Other';
-
-                  useTradeStore.getState().addCapitalAdjustment({
-                    date: nextFYDate,
-                    time: "09:00",
-                    type: 'DEPOSIT',
-                    amount: Math.round(endingBalance * 100) / 100,
-                    notes: `Rollover Carry-Forward from ${selectedFY}`,
-                    broker: targetBroker,
-                    brokerAccountId: targetAccId
-                  });
-                  alert(`Successfully carried forward ₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} to FY ${nextYear}!`);
+              if (window.confirm(`Are you sure you want to rollover the carry-forward closing balance of ${selectedFY} (₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}) to the opening balance of FY ${nextYear}? This will log a corresponding deposit adjustment on April 1st, ${nextYear}.`)) {
+                const nextFYDate = `${nextYear}-04-01`;
+                // Remove any duplicate rollover
+                const existing = capitalAdjustments.find(a => 
+                  a.date === nextFYDate && 
+                  a.notes?.startsWith("Rollover Carry-Forward") &&
+                  (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId)
+                );
+                if (existing) {
+                  useTradeStore.getState().deleteCapitalAdjustment(existing.id);
                 }
-              }}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.72rem',
-                padding: '6px 10px',
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: 'rgba(255,255,255,0.08)',
-                color: '#fff',
-                cursor: 'pointer',
-                borderRadius: '6px',
-                fontWeight: 600
-              }}
-            >
-              Rollover FY Balance
-            </button>
-          )}
-        </div>
+
+                const targetAccId = activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || '');
+                const targetBroker = brokerAccounts.find(a => a.id === targetAccId)?.broker || 'Other';
+
+                useTradeStore.getState().addCapitalAdjustment({
+                  date: nextFYDate,
+                  time: "09:00",
+                  type: 'DEPOSIT',
+                  amount: Math.round(endingBalance * 100) / 100,
+                  notes: `Rollover Carry-Forward from ${selectedFY}`,
+                  broker: targetBroker,
+                  brokerAccountId: targetAccId
+                });
+                alert(`Successfully carried forward ₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} to FY ${nextYear}!`);
+              }
+            }}
+            className="btn btn-secondary"
+            style={{
+              fontSize: '0.72rem',
+              padding: '6px 12px',
+              border: '1.5px solid var(--border-color)',
+              background: 'var(--bg-card)',
+              color: 'var(--text-main)',
+              cursor: 'pointer',
+              borderRadius: '8px',
+              fontWeight: 600
+            }}
+          >
+            Carry-Forward Rollover to FY {parseInt(selectedFY.match(/FY (\d{4})/)?.[1] || '2026') + 1}
+          </button>
+        )}
       </div>
 
       {/* Portfolio Selector Control Bar */}
