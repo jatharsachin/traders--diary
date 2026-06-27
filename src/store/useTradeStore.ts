@@ -259,8 +259,13 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
   // Helper to get user-scoped key
   const getScopedKey = (baseKey: string) => {
-    const userId = get().sessionUser?.id;
-    return userId ? `${baseKey}_${userId}` : baseKey;
+    try {
+      const state = typeof get === 'function' ? get() : null;
+      const userId = state?.sessionUser?.id;
+      return userId ? `${baseKey}_${userId}` : baseKey;
+    } catch (e) {
+      return baseKey;
+    }
   };
 
   // Load initial data from LocalStorage with Migrations
