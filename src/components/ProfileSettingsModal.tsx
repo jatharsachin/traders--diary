@@ -403,7 +403,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Settings size={18} color="var(--primary)" />
-            <h2 style={{ fontSize: '1.08rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em', color: '#fff' }}>
+            <h2 style={{ fontSize: '1.08rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em', color: 'var(--text)' }}>
               Traders Settings & Master Profile
             </h2>
           </div>
@@ -586,14 +586,13 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                             <td style={{ padding: '8px', fontWeight: 600 }}>{acc.accountName}</td>
                             <td style={{ padding: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <BrokerLogoIcon broker={acc.broker} />
-                              <span>{acc.broker}</span>
                             </td>
                             <td style={{ padding: '8px' }}>
                               <input 
                                 type="number" 
                                 value={acc.startingCapital} 
                                 onChange={(e) => editBrokerAccount(acc.id, { startingCapital: parseFloat(e.target.value) || 0 })}
-                                style={{ width: '90px', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', color: '#fff', fontSize: '0.75rem', outline: 'none' }}
+                                style={{ width: '90px', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', color: 'var(--text)', fontSize: '0.75rem', outline: 'none' }}
                               />
                             </td>
                             <td style={{ padding: '8px', textAlign: 'center' }}>
@@ -682,7 +681,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                                 type="number" 
                                 value={bank.startingBalance} 
                                 onChange={(e) => editBankAccount(bank.id, { startingBalance: parseFloat(e.target.value) || 0 })}
-                                style={{ width: '90px', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', color: '#fff', fontSize: '0.75rem', outline: 'none' }}
+                                style={{ width: '90px', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', color: 'var(--text)', fontSize: '0.75rem', outline: 'none' }}
                               />
                             </td>
                             <td style={{ padding: '8px', textAlign: 'center' }}>
