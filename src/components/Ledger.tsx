@@ -896,7 +896,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       {/* --- MODAL 1: ADD CAPITAL ADJUSTMENT --- */}
       {isAdjOpen && (
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
-          <div className="modal-content glass-card" style={{ width: '420px', padding: 0, overflow: 'hidden' }}>
+          <div className="modal-content glass-card" style={{ width: '420px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
               <h3>Log Broker Pay-in/Out</h3>
               <button onClick={() => setIsAdjOpen(false)} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
@@ -985,7 +985,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       {/* --- MODAL 2: ADD BANK TRANSACTION --- */}
       {isBankTxOpen && (
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
-          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'hidden' }}>
+          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
               <h3>Log Bank Transaction</h3>
               <button onClick={() => setIsBankTxOpen(false)} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
@@ -1101,7 +1101,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       {/* --- MODAL: EDIT BANK TRANSACTION --- */}
       {isEditBankTxOpen && (
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
-          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'hidden' }}>
+          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
               <h3>Edit Bank Transaction</h3>
               <button onClick={() => { setIsEditBankTxOpen(false); setEditBankTxId(null); }} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
@@ -1217,7 +1217,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       {/* --- MODAL 3: LOG SUBSCRIPTION EXPENSE --- */}
       {isSubOpen && (
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
-          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'hidden' }}>
+          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
               <h3>Log Subscription Expense</h3>
               <button onClick={() => setIsSubOpen(false)} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>

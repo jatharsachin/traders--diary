@@ -338,7 +338,7 @@ export default function App() {
                     <ShieldCheck size={9} /> Sync Linked
                   </span>
                 )}
-                <span className="badge" style={{ fontSize: '0.72rem', padding: '3px 8px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)', textTransform: 'none' }}>
+                <span className="badge" style={{ fontSize: '0.92rem', fontWeight: 800, padding: '4px 12px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1.5px solid rgba(59, 130, 246, 0.35)', textTransform: 'none', borderRadius: '8px' }}>
                   {selectedFY}
                 </span>
               </h1>

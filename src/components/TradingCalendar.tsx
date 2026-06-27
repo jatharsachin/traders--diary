@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
-import { filterTradesByFY } from '../utils/fyHelper';
+import { filterTradesByFY, getCurrentLiveFY } from '../utils/fyHelper';
 
 export const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   // 2025
@@ -98,10 +98,15 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   // Synchronize currentDate with selectedFY boundaries
   useEffect(() => {
     if (selectedFY && selectedFY !== 'All') {
-      const match = selectedFY.match(/FY (\d{4})/);
-      if (match) {
-        const startYear = parseInt(match[1], 10);
-        setCurrentDate(new Date(startYear, 3, 1)); // April 1st of that FY
+      const liveFY = getCurrentLiveFY();
+      if (selectedFY === liveFY) {
+        setCurrentDate(new Date());
+      } else {
+        const match = selectedFY.match(/FY (\d{4})/);
+        if (match) {
+          const startYear = parseInt(match[1], 10);
+          setCurrentDate(new Date(startYear, 3, 1)); // April 1st of that historical FY
+        }
       }
     }
   }, [selectedFY]);
