@@ -546,7 +546,14 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     activeBrokers: loadActiveBrokers(),
     defaultBroker: loadDefaultBroker(),
 
-    setSessionUser: (user) => set({ sessionUser: user, selectedFY: getCurrentLiveFY(), noTradeDays: loadNoTradeDays() }),
+    setSessionUser: (user) => set((state) => {
+      const shouldResetFY = !state.sessionUser && user;
+      return {
+        sessionUser: user,
+        ...(shouldResetFY ? { selectedFY: getCurrentLiveFY() } : {}),
+        noTradeDays: loadNoTradeDays()
+      };
+    }),
     setSelectedFY: (fy) => set({ selectedFY: fy }),
     toggleNoTradeDay: (date) => set((state) => {
       const exists = state.noTradeDays.includes(date);
