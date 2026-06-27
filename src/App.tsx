@@ -588,6 +588,63 @@ export default function App() {
                 ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
               </span>
             </div>
+
+            {/* Today's Live P&L Badge */}
+            {(() => {
+              const getTodayNetPnL = () => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const todayTrades = filteredTrades.filter(t => t.date === todayStr);
+                if (todayTrades.length === 0) return null;
+                return todayTrades.reduce((sum, t) => sum + t.netPnL, 0);
+              };
+              const todayPnL = getTodayNetPnL();
+              const isProfit = todayPnL !== null && todayPnL >= 0;
+
+              return (
+                <div 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    background: 'var(--bg-card)', 
+                    border: '1.5px solid var(--border-color)', 
+                    borderRadius: '12px', 
+                    padding: '6px 12px',
+                    height: '48px',
+                    boxShadow: 'var(--shadow-card)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                  title="Realized Net P&L from trades executed today"
+                >
+                  <span 
+                    style={{ 
+                      width: '6px', 
+                      height: '6px', 
+                      borderRadius: '50%', 
+                      background: todayPnL === null ? '#888' : isProfit ? 'var(--color-win)' : 'var(--color-loss)',
+                      boxShadow: todayPnL === null ? 'none' : isProfit ? '0 0 8px var(--color-win)' : '0 0 8px var(--color-loss)',
+                      animation: todayPnL === null ? 'none' : 'pulse 2s infinite ease-in-out',
+                      transition: 'all 0.3s ease'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Today's P&L:</span>
+                  <span 
+                    style={{ 
+                      fontSize: '0.92rem', 
+                      fontWeight: 700, 
+                      fontFamily: 'var(--font-mono)',
+                      color: todayPnL === null ? 'var(--text-dim)' : isProfit ? 'var(--color-win)' : 'var(--color-loss)' 
+                    }}
+                  >
+                    {todayPnL === null 
+                      ? 'No Trades' 
+                      : `${isProfit ? '+' : ''}₹${isPnlVisible ? Math.round(todayPnL).toLocaleString('en-IN') : '••••'}`
+                    }
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Market Index & Live Clock Ticker */}
@@ -649,80 +706,93 @@ export default function App() {
         </div>
       </header>
 
-      {/* Tabs Navigation (macOS Segmented control) */}
-      <nav style={{ marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div className="nav-tab-container" style={{ margin: 0 }}>
-          <button 
-            onClick={() => setActiveTab('dashboard')} 
-            className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <LayoutDashboard size={14} color="#38bdf8" />
-            Dashboard
-          </button>
+      {/* Tabs Navigation (macOS Segmented control grouped by category) */}
+      <nav style={{ marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          {/* Group 1: Journaling & Tracking */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>Journal & Tracking</span>
+            <div className="nav-tab-container" style={{ margin: 0 }}>
+              <button 
+                onClick={() => setActiveTab('dashboard')} 
+                className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <LayoutDashboard size={13} color="#38bdf8" />
+                Dashboard
+              </button>
+              <button 
+                onClick={() => setActiveTab('daybook')} 
+                className={`nav-tab ${activeTab === 'daybook' ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <BookOpen size={13} color="#60a5fa" />
+                Day Book
+              </button>
+              <button 
+                onClick={() => setActiveTab('calendar')} 
+                className={`nav-tab ${activeTab === 'calendar' ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Calendar size={13} color="#a855f7" />
+                Calendar
+              </button>
+              <button 
+                onClick={() => setActiveTab('logs')} 
+                className={`nav-tab ${activeTab === 'logs' ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <History size={13} color="#34d399" />
+                Logs ({trades.length})
+              </button>
+            </div>
+          </div>
 
-          <button 
-            onClick={() => setActiveTab('daybook')} 
-            className={`nav-tab ${activeTab === 'daybook' ? 'active' : ''}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <BookOpen size={14} color="#60a5fa" />
-            Day Book
-          </button>
+          {/* Group 2: Portfolio & Capital */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>Capital & Assets</span>
+            <div className="nav-tab-container" style={{ margin: 0 }}>
+              <button 
+                onClick={() => setActiveTab('ledger')} 
+                className={`nav-tab ${activeTab === 'ledger' ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Receipt size={13} color="#f59e0b" />
+                Ledger
+              </button>
+              <button 
+                onClick={() => setActiveTab('account')} 
+                className={`nav-tab ${activeTab === 'account' ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Briefcase size={13} color="#3b82f6" />
+                Investments
+              </button>
+            </div>
+          </div>
 
-          <button 
-            onClick={() => setActiveTab('calendar')} 
-            className={`nav-tab ${activeTab === 'calendar' ? 'active' : ''}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Calendar size={14} color="#a855f7" />
-            Calendar
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('logs')} 
-            className={`nav-tab ${activeTab === 'logs' ? 'active' : ''}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <History size={14} color="#34d399" />
-            Logs ({trades.length})
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('ledger')} 
-            className={`nav-tab ${activeTab === 'ledger' ? 'active' : ''}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Receipt size={14} color="#f59e0b" />
-            Ledger
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('taxation')} 
-            className={`nav-tab ${activeTab === 'taxation' ? 'active' : ''}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Percent size={14} color="#f97316" />
-            Taxation
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('strategies')} 
-            className={`nav-tab ${activeTab === 'strategies' ? 'active' : ''}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Compass size={14} color="#ec4899" />
-            Setups
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('account')} 
-            className={`nav-tab ${activeTab === 'account' ? 'active' : ''}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Briefcase size={14} color="#3b82f6" />
-            Investments
-          </button>
+          {/* Group 3: Setup & Taxes */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>Analysis & Config</span>
+            <div className="nav-tab-container" style={{ margin: 0 }}>
+              <button 
+                onClick={() => setActiveTab('strategies')} 
+                className={`nav-tab ${activeTab === 'strategies' ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Compass size={13} color="#ec4899" />
+                Setups
+              </button>
+              <button 
+                onClick={() => setActiveTab('taxation')} 
+                className={`nav-tab ${activeTab === 'taxation' ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Percent size={13} color="#f97316" />
+                Taxation
+              </button>
+            </div>
+          </div>
         </div>
 
         <button 
@@ -733,7 +803,8 @@ export default function App() {
             borderRadius: '10px', 
             fontSize: '0.85rem', 
             boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)',
-            fontWeight: 700
+            fontWeight: 700,
+            marginBottom: '4px'
           }} 
           onClick={handleNewTrade}
         >
