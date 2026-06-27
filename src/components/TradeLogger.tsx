@@ -447,7 +447,15 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
             )}
 
             {/* Grid 1: Basic Metadata */}
-            <div className="grid-logger-inputs" style={{ marginBottom: '16px' }}>
+            {/* Grid 1: Basic Metadata */}
+            <div 
+              style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', 
+                gap: '12px', 
+                marginBottom: '16px' 
+              }}
+            >
               <div className="form-group">
                 <label className="form-label">Date</label>
                 <input
@@ -605,40 +613,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   className="form-input"
                   required
                 />
-                <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIndexOption('NIFTY', 'CE')}
-                    className="btn"
-                    style={{ padding: '2px 6px', fontSize: '0.65rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '22px', cursor: 'pointer' }}
-                  >
-                    + NIFTY CE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIndexOption('NIFTY', 'PE')}
-                    className="btn"
-                    style={{ padding: '2px 6px', fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '22px', cursor: 'pointer' }}
-                  >
-                    + NIFTY PE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIndexOption('SENSEX', 'CE')}
-                    className="btn"
-                    style={{ padding: '2px 6px', fontSize: '0.65rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '22px', cursor: 'pointer' }}
-                  >
-                    + SENSEX CE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIndexOption('SENSEX', 'PE')}
-                    className="btn"
-                    style={{ padding: '2px 6px', fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '22px', cursor: 'pointer' }}
-                  >
-                    + SENSEX PE
-                  </button>
-                </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -700,6 +674,43 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   <option value="SELL" style={{ color: 'var(--color-loss)' }}>SELL / Short</option>
                 </select>
               </div>
+            </div>
+
+            {/* Quick Auto-Fill Index Option Tags */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Option:</span>
+              <button
+                type="button"
+                onClick={() => handleQuickIndexOption('NIFTY', 'CE')}
+                className="btn"
+                style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+              >
+                + NIFTY CE
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickIndexOption('NIFTY', 'PE')}
+                className="btn"
+                style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+              >
+                + NIFTY PE
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickIndexOption('SENSEX', 'CE')}
+                className="btn"
+                style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+              >
+                + SENSEX CE
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickIndexOption('SENSEX', 'PE')}
+                className="btn"
+                style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+              >
+                + SENSEX PE
+              </button>
             </div>
 
             {/* Conditionally Render Equity Delivery Holding Type (STCG vs LTCG) */}
@@ -983,9 +994,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                           minWidth: '90px',
                           padding: '8px 12px',
                           fontSize: '0.85rem',
-                          background: isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border-color)'}`,
-                          color: '#fff',
+                          background: isSelected ? 'var(--primary)' : 'var(--bg-card)',
+                          border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border-color)'}`,
+                          color: isSelected ? '#fff' : 'var(--text-main)',
                         }}
                       >
                         <span style={{ marginRight: '6px' }}>{emo.emoji}</span>
@@ -1032,11 +1043,11 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                         gap: '8px',
                         fontSize: '0.85rem',
                         cursor: 'pointer',
-                        color: isChecked ? '#fff' : 'var(--text-muted)',
-                        background: 'rgba(255,255,255,0.01)',
+                        color: 'var(--text-main)',
+                        background: isChecked ? 'var(--primary-glow)' : 'var(--bg-card)',
                         padding: '8px 12px',
                         borderRadius: '6px',
-                        border: '1px solid rgba(255,255,255,0.02)',
+                        border: `1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border-color)'}`,
                         transition: 'all 0.15s ease',
                       }}
                     >
