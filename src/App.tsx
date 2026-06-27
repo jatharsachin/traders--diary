@@ -28,7 +28,7 @@ export default function App() {
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState<string>('Combined');
 
-  // Live clock and Nifty simulated ticker
+  // Live clock and Nifty live index ticker
   const [liveTime, setLiveTime] = useState<string>('');
   const [niftyPrice, setNiftyPrice] = useState<number>(24056.00);
   const [niftyChange, setNiftyChange] = useState<number>(34.35);
@@ -48,6 +48,47 @@ export default function App() {
     return currentMinutes >= startMinutes && currentMinutes < endMinutes;
   };
 
+  const fetchLiveNiftyPrice = async () => {
+    const ticker = '^NSEI';
+    const urls = [
+      `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`
+    ];
+    const proxies = [
+      (targetUrl: string) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+      (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+    ];
+
+    for (const url of urls) {
+      for (const getProxyUrl of proxies) {
+        try {
+          const proxyUrl = getProxyUrl(url);
+          const response = await fetch(proxyUrl);
+          if (!response.ok) continue;
+          const json = await response.json();
+          let data = json && json.contents ? JSON.parse(json.contents) : json;
+
+          const quoteResult = data?.quoteResponse?.result?.[0];
+          const quotePrice = quoteResult?.regularMarketPrice;
+          const quoteChange = quoteResult?.regularMarketChange;
+          if (quotePrice && typeof quotePrice === 'number') {
+            return { price: quotePrice, change: quoteChange || 0 };
+          }
+
+          const meta = data?.chart?.result?.[0]?.meta;
+          const chartPrice = meta?.regularMarketPrice;
+          const chartChange = meta ? (meta.regularMarketPrice - meta.previousClose) : 0;
+          if (chartPrice && typeof chartPrice === 'number') {
+            return { price: chartPrice, change: chartChange };
+          }
+        } catch (e) {
+          // Silent fallback and try next proxy/url
+        }
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -64,25 +105,29 @@ export default function App() {
     updateTime();
     const timer = setInterval(updateTime, 1000);
 
-    const marketTicker = setInterval(() => {
-      if (!isMarketOpen()) {
-        setNiftyPrice(24056.00);
-        setNiftyChange(34.35);
-        return;
+    const updateNiftyPrice = async () => {
+      const live = await fetchLiveNiftyPrice();
+      if (live) {
+        setNiftyPrice(prev => {
+          if (prev !== live.price) {
+            setNiftyFlash(live.price > prev ? 'up' : 'down');
+            setTimeout(() => setNiftyFlash(null), 800);
+          }
+          return live.price;
+        });
+        setNiftyChange(live.change);
       }
-      const tick = (Math.random() - 0.47) * 3.5; 
-      setNiftyPrice(prev => {
-        const nextPrice = prev + tick;
-        setNiftyChange(chg => chg + tick);
-        setNiftyFlash(tick >= 0 ? 'up' : 'down');
-        setTimeout(() => setNiftyFlash(null), 800);
-        return Math.round(nextPrice * 100) / 100;
-      });
-    }, 3000);
+    };
+
+    updateNiftyPrice();
+    // Poll every 15 seconds during market hours, or every 2 minutes in off hours
+    const niftyInterval = setInterval(() => {
+      updateNiftyPrice();
+    }, isMarketOpen() ? 15000 : 120000);
 
     return () => {
       clearInterval(timer);
-      clearInterval(marketTicker);
+      clearInterval(niftyInterval);
     };
   }, []);
 
