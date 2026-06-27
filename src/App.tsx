@@ -15,6 +15,7 @@ import { BROKER_LOGOS } from './utils/brandLogos';
 import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
+import { FINANCIAL_YEARS } from './utils/fyHelper';
 
 type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation';
 
@@ -101,6 +102,7 @@ export default function App() {
     userAvatar,
     brokerAccounts,
     selectedFY,
+    setSelectedFY,
     investments,
     syncAllInvestmentPrices
   } = useTradeStore();
@@ -338,9 +340,30 @@ export default function App() {
                     <ShieldCheck size={9} /> Sync Linked
                   </span>
                 )}
-                <span className="badge" style={{ fontSize: '0.92rem', fontWeight: 800, padding: '4px 12px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1.5px solid rgba(59, 130, 246, 0.35)', textTransform: 'none', borderRadius: '8px' }}>
-                  {selectedFY}
-                </span>
+                <select
+                  value={selectedFY}
+                  onChange={(e) => setSelectedFY(e.target.value)}
+                  style={{
+                    fontSize: '0.92rem',
+                    fontWeight: 800,
+                    padding: '4px 12px',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3b82f6',
+                    border: '1.5px solid rgba(59, 130, 246, 0.35)',
+                    borderRadius: '8px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.15s ease'
+                  }}
+                  className="fy-header-select"
+                >
+                  {FINANCIAL_YEARS.map((fy) => (
+                    <option key={fy} value={fy} style={{ background: 'var(--bg-card)', color: 'var(--text)' }}>
+                      {fy}
+                    </option>
+                  ))}
+                </select>
               </h1>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
                 Advanced stock & options cognitive audit journal

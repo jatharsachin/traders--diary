@@ -6,7 +6,7 @@ import {
   Eye, EyeOff, Save
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
-import { filterTradesByFY, FINANCIAL_YEARS } from '../utils/fyHelper';
+import { filterTradesByFY } from '../utils/fyHelper';
 import { BROKER_LOGOS } from '../utils/brandLogos';
 import { OFFLINE_NSE_HOLIDAYS } from './TradingCalendar';
 
@@ -25,7 +25,6 @@ export function Dashboard({
     weeklyRetrospectives, 
     saveWeeklyRetrospective,
     selectedFY,
-    setSelectedFY,
     activeBrokers,
     userName,
     userAvatar,
@@ -967,33 +966,12 @@ export function Dashboard({
             </select>
           </div>
 
-          {/* Financial Year Selector */}
+          {/* Active FY Indicator */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>FY:</span>
-            <select
-              value={selectedFY}
-              onChange={(e) => {
-                const nextFY = e.target.value;
-                if (window.confirm(`Are you sure you want to switch the statement logs view to ${nextFY === 'All' ? 'all financial years' : nextFY}?`)) {
-                  setSelectedFY(nextFY);
-                }
-              }}
-              className="form-select"
-              style={{
-                padding: '4px 10px',
-                fontSize: '0.78rem',
-                height: '32px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                color: 'var(--text-main)',
-                cursor: 'pointer'
-              }}
-            >
-              {FINANCIAL_YEARS.map((fy) => (
-                <option key={fy} value={fy}>{fy}</option>
-              ))}
-            </select>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Active FY:</span>
+            <span className="badge badge-primary-subtle" style={{ fontSize: '0.78rem', fontWeight: 650, padding: '3px 8px' }}>
+              {selectedFY}
+            </span>
           </div>
 
           {/* Eyeball Toggle Button */}

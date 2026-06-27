@@ -359,7 +359,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadTrades = (accountsList: BrokerAccount[]): Trade[] => {
-    const saved = localStorage.getItem('traders_diary_trades');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_trades'));
     let tradesList: Trade[] = [];
     if (saved) {
       try {
@@ -385,7 +385,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     });
 
     if (migrated || !saved) {
-      localStorage.setItem('traders_diary_trades', JSON.stringify(updated));
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updated));
     }
     return updated;
   };
@@ -400,7 +400,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadAdjustments = (accountsList: BrokerAccount[], banksList: BankAccount[]): CapitalAdjustment[] => {
-    const saved = localStorage.getItem('traders_diary_adjustments');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_adjustments'));
     let adjList: CapitalAdjustment[] = [];
     if (saved) {
       try {
@@ -426,7 +426,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     });
 
     if (migrated || !saved) {
-      localStorage.setItem('traders_diary_adjustments', JSON.stringify(updated));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
     }
     return updated;
   };
