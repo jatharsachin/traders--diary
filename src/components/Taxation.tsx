@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { filterTradesByFY, FINANCIAL_YEARS } from '../utils/fyHelper';
+import { filterTradesByFY } from '../utils/fyHelper';
 import { 
   Coins, Percent, Briefcase, Scale, 
   HelpCircle, Info, ShieldAlert, Sparkles, Receipt
 } from 'lucide-react';
 
 export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
-  const { trades: allTrades, selectedFY, setSelectedFY } = useTradeStore();
+  const { trades: allTrades, selectedFY } = useTradeStore();
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
   const trades = activeAccountId === 'Combined'
     ? fyTrades
@@ -164,28 +164,22 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
           </p>
         </div>
 
-        {/* Global Financial Year Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 550 }}>FY Selector:</span>
-          <select
-            value={selectedFY}
-            onChange={(e) => setSelectedFY(e.target.value)}
-            className="form-select"
-            style={{
-              padding: '6px 12px',
-              fontSize: '0.78rem',
-              height: '35px',
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              color: 'var(--text-main)',
-              cursor: 'pointer'
-            }}
-          >
-            {FINANCIAL_YEARS.map((fy) => (
-              <option key={fy} value={fy}>{fy}</option>
-            ))}
-          </select>
+        {/* Read-Only Active Financial Year Badge */}
+        <div 
+          style={{ 
+            padding: '6px 12px', 
+            background: 'rgba(255,255,255,0.02)', 
+            border: '1px solid var(--border-color)', 
+            borderRadius: '8px',
+            fontSize: '0.72rem',
+            fontWeight: 600,
+            color: 'var(--text-dim)',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center'
+          }}
+        >
+          Active FY: {selectedFY}
         </div>
       </div>
 

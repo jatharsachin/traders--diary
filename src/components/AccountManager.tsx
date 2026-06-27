@@ -3,7 +3,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { 
   Plus, Edit2, Trash, Briefcase, BarChart2, ArrowUpRight,
-  IndianRupee, ShieldAlert, RefreshCw, Save, Eye, EyeOff
+  RefreshCw, Save, Eye, EyeOff
 } from 'lucide-react';
 import logoImg from '../assets/tradediary_logo.png';
 
@@ -45,16 +45,7 @@ export function AccountManager() {
   // Sub-navigation tab for ledger view
   const [ledgerSubTab, setLedgerSubTab] = useState<'active' | 'exited'>('active');
 
-  // Average Buy Price Calculator State
-  const [avgCalcCurrentPrice, setAvgCalcCurrentPrice] = useState('');
-  const [avgCalcCurrentQty, setAvgCalcCurrentQty] = useState('');
-  const [avgCalcNewPrice, setAvgCalcNewPrice] = useState('');
-  const [avgCalcNewQty, setAvgCalcNewQty] = useState('');
 
-  // Drawdown Recovery Simulator State
-  const [calcRiskPerTradePct, setCalcRiskPerTradePct] = useState('1');
-  const [calcTargetRr, setCalcTargetRr] = useState('2');
-  const [calcWinRatePct, setCalcWinRatePct] = useState('50');
 
   // Calculations: Trading Portfolio
   const totalTradingNetPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
@@ -76,48 +67,9 @@ export function AccountManager() {
   // Calculations: Combined Wealth Portfolio
   const combinedWealth = currentCapital + totalInvCurrent;
 
-  // Calculations: Drawdown Recovery
-  const getPeakCapitalAndDrawdown = () => {
-    const sortedTrades = [...trades].sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.entryTime}`);
-      const dateB = new Date(`${b.date}T${b.entryTime}`);
-      return dateA.getTime() - dateB.getTime();
-    });
 
-    let peakPnL = 0;
-    let runningPnL = 0;
-    
-    for (const t of sortedTrades) {
-      runningPnL += t.netPnL;
-      if (runningPnL > peakPnL) {
-        peakPnL = runningPnL;
-      }
-    }
 
-    const peakCapital = baseCapital + peakPnL + totalDeposits - totalWithdrawals;
-    const drawdownRupees = Math.max(0, peakCapital - currentCapital);
-    const drawdownPct = peakCapital > 0 ? (drawdownRupees / peakCapital) * 100 : 0;
-    const recoveryRequiredPct = currentCapital > 0 && drawdownRupees > 0
-      ? (drawdownRupees / currentCapital) * 100
-      : 0;
 
-    return { peakCapital, drawdownRupees, drawdownPct, recoveryRequiredPct };
-  };
-
-  const { drawdownRupees, drawdownPct, recoveryRequiredPct } = getPeakCapitalAndDrawdown();
-
-  const wrVal = parseFloat(calcWinRatePct) / 100 || 0;
-  const riskVal = parseFloat(calcRiskPerTradePct) || 0;
-  const rrVal = parseFloat(calcTargetRr) || 0;
-  const expectedReturnPerTradePct = riskVal * (wrVal * rrVal - (1 - wrVal));
-  const expectedTradesToRecover = expectedReturnPerTradePct > 0 ? Math.ceil(drawdownPct / expectedReturnPerTradePct) : 0;
-
-  // Calculators logic
-  const calcCurrentVal = parseFloat(avgCalcCurrentPrice) * parseFloat(avgCalcCurrentQty) || 0;
-  const calcNewVal = parseFloat(avgCalcNewPrice) * parseFloat(avgCalcNewQty) || 0;
-  const calcTotalQty = parseFloat(avgCalcCurrentQty) + parseFloat(avgCalcNewQty) || 0;
-  const calcNewAvgPrice = calcTotalQty > 0 ? (calcCurrentVal + calcNewVal) / calcTotalQty : 0;
-  const calcTotalInvested = calcCurrentVal + calcNewVal;
 
   // Live Price Sync logic
   const [syncPricesLoading, setSyncPricesLoading] = useState(false);
@@ -378,97 +330,6 @@ export function AccountManager() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '0.72rem', color: 'var(--text-dim)', border: '1px dashed var(--border-color)', borderRadius: '6px' }}>
                 No active investments recorded.
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Average Buy Price Calculator */}
-        <div className="glass-card" style={{ padding: '16px' }}>
-          <h3 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <IndianRupee size={15} color="var(--color-win)" />
-            Average Buy Price Optimizer
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div className="grid-2col-equal-small" style={{ gap: '8px' }}>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.62rem', marginBottom: '2px' }}>Current Avg Price</label>
-                <input type="number" placeholder="150" value={avgCalcCurrentPrice} onChange={(e) => setAvgCalcCurrentPrice(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '0 6px' }} />
-              </div>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.62rem', marginBottom: '2px' }}>Current Qty</label>
-                <input type="number" placeholder="50" value={avgCalcCurrentQty} onChange={(e) => setAvgCalcCurrentQty(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '0 6px' }} />
-              </div>
-            </div>
-            <div className="grid-2col-equal-small" style={{ gap: '8px' }}>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.62rem', marginBottom: '2px' }}>New Buy Price</label>
-                <input type="number" placeholder="135" value={avgCalcNewPrice} onChange={(e) => setAvgCalcNewPrice(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '0 6px' }} />
-              </div>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.62rem', marginBottom: '2px' }}>New Qty</label>
-                <input type="number" placeholder="20" value={avgCalcNewQty} onChange={(e) => setAvgCalcNewQty(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.75rem', padding: '0 6px' }} />
-              </div>
-            </div>
-
-            {calcTotalQty > 0 ? (
-              <div style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', fontSize: '0.7rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>New Qty:</span>
-                  <strong>{calcTotalQty}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>New Avg Price:</span>
-                  <strong style={{ color: 'var(--primary)' }}>₹{calcNewAvgPrice.toFixed(2)}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Total Cost:</span>
-                  <strong style={{ color: 'var(--color-win)' }}>₹{calcTotalInvested.toLocaleString('en-IN')}</strong>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Drawdown Simulator */}
-        <div className="glass-card" style={{ padding: '16px' }}>
-          <h3 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <ShieldAlert size={15} color="var(--color-loss)" />
-            Drawdown Recovery Simulator
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', background: 'rgba(255,255,255,0.01)', padding: '6px 8px', borderRadius: '4px' }}>
-              <span style={{ color: 'var(--text-dim)' }}>Drawdown:</span>
-              <strong style={{ color: 'var(--color-loss)' }}>₹{isPnlVisible ? Math.round(drawdownRupees).toLocaleString('en-IN') : '••••'} ({drawdownPct.toFixed(1)}%)</strong>
-            </div>
-
-            <div className="grid-3col-equal-small" style={{ gap: '6px' }}>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.58rem', marginBottom: '2px' }}>Risk/Trade</label>
-                <input type="number" step="0.1" value={calcRiskPerTradePct} onChange={(e) => setCalcRiskPerTradePct(e.target.value)} className="form-input" style={{ height: '26px', fontSize: '0.72rem', padding: '0 4px' }} />
-              </div>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.58rem', marginBottom: '2px' }}>Target RR</label>
-                <input type="number" step="0.5" value={calcTargetRr} onChange={(e) => setCalcTargetRr(e.target.value)} className="form-input" style={{ height: '26px', fontSize: '0.72rem', padding: '0 4px' }} />
-              </div>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.58rem', marginBottom: '2px' }}>Win Rate %</label>
-                <input type="number" value={calcWinRatePct} onChange={(e) => setCalcWinRatePct(e.target.value)} className="form-input" style={{ height: '26px', fontSize: '0.72rem', padding: '0 4px' }} />
-              </div>
-            </div>
-
-            {recoveryRequiredPct > 0 ? (
-              <div style={{ background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)', borderRadius: '6px', padding: '8px', fontSize: '0.7rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Growth Required:</span>
-                  <strong>+{recoveryRequiredPct.toFixed(1)}%</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Est. Trades needed:</span>
-                  <strong style={{ color: 'var(--primary)' }}>{expectedReturnPerTradePct > 0 ? expectedTradesToRecover : '∞ (Negative expectancy)'}</strong>
-                </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-dim)' }}>At historical capital peak!</div>
             )}
           </div>
         </div>

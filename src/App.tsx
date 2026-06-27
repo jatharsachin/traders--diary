@@ -9,12 +9,14 @@ import { ProfileSettingsModal } from './components/ProfileSettingsModal';
 import { TradeLogger } from './components/TradeLogger';
 import { AuthScreen } from './components/AuthScreen';
 import { Taxation } from './components/Taxation';
+import { DayBook } from './components/DayBook';
 import { useTradeStore } from './store/useTradeStore';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent } from 'lucide-react';
+import { BROKER_LOGOS } from './utils/brandLogos';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 
-type Tab = 'dashboard' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation';
+type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -30,6 +32,20 @@ export default function App() {
   const [niftyPrice, setNiftyPrice] = useState<number>(23512.40);
   const [niftyChange, setNiftyChange] = useState<number>(124.50);
   const [niftyFlash, setNiftyFlash] = useState<'up' | 'down' | null>(null);
+
+  const isMarketOpen = (): boolean => {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const istTime = new Date(utc + (3600000 * 5.5));
+    const day = istTime.getDay();
+    if (day === 0 || day === 6) return false;
+    const hours = istTime.getHours();
+    const minutes = istTime.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+    const startMinutes = 9 * 60 + 15;
+    const endMinutes = 15 * 60 + 30;
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  };
 
   useEffect(() => {
     const updateTime = () => {
@@ -48,6 +64,11 @@ export default function App() {
     const timer = setInterval(updateTime, 1000);
 
     const marketTicker = setInterval(() => {
+      if (!isMarketOpen()) {
+        setNiftyPrice(23512.40);
+        setNiftyChange(124.50);
+        return;
+      }
       const tick = (Math.random() - 0.47) * 3.5; 
       setNiftyPrice(prev => {
         const nextPrice = prev + tick;
@@ -286,7 +307,7 @@ export default function App() {
 
             <div>
               <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-                {userName || 'Sachin'}'s Traders Diary
+                {userName || 'Sachin'}'s Trade Diary
                 {isSupabaseConfigured() && (
                   <span className="badge badge-win" style={{ fontSize: '0.58rem', padding: '2px 6px', textTransform: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
                     <ShieldCheck size={9} /> Sync Linked
@@ -497,7 +518,20 @@ export default function App() {
           {/* Account Selector & Capital Balance */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
             {/* Global Account Selector Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              {(() => {
+                const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+                if (activeAcc) {
+                  return (
+                    <img 
+                      src={BROKER_LOGOS[activeAcc.broker] || BROKER_LOGOS['Other']} 
+                      alt={activeAcc.broker} 
+                      style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1.5px', border: '1px solid var(--border-color)' }} 
+                    />
+                  );
+                }
+                return null;
+              })()}
               <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Active Account:</span>
               <select
                 value={activeAccountId}
@@ -567,14 +601,28 @@ export default function App() {
                 borderRadius: '12px', 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '6px',
+                gap: '8px',
                 height: '48px',
                 transition: 'all 0.3s ease',
                 whiteSpace: 'nowrap',
                 flexShrink: 0
               }}
             >
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>NIFTY:</span>
+              <span 
+                style={{ 
+                  display: 'inline-block', 
+                  width: '8px', 
+                  height: '8px', 
+                  borderRadius: '50%', 
+                  background: isMarketOpen() ? 'var(--color-win)' : 'var(--color-loss)',
+                  boxShadow: isMarketOpen() ? '0 0 8px var(--color-win)' : 'none',
+                  animation: isMarketOpen() ? 'pulse 1.5s infinite' : 'none'
+                }}
+                title={isMarketOpen() ? 'Market is LIVE' : 'Market is CLOSED (Off-Market)'}
+              />
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                NIFTY {isMarketOpen() ? '(LIVE)' : '(OFF)'}:
+              </span>
               <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                 {niftyPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </strong>
@@ -611,6 +659,15 @@ export default function App() {
           >
             <LayoutDashboard size={14} color="#38bdf8" />
             Dashboard
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('daybook')} 
+            className={`nav-tab ${activeTab === 'daybook' ? 'active' : ''}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <BookOpen size={14} color="#60a5fa" />
+            Day Book
           </button>
 
           <button 
@@ -689,6 +746,7 @@ export default function App() {
       {/* Main Tab Render Panels */}
       <main style={{ minHeight: '60vh' }}>
         {activeTab === 'dashboard' && <Dashboard activeAccountId={activeAccountId} />}
+        {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
         {activeTab === 'calendar' && <TradingCalendar activeAccountId={activeAccountId} />}
         {activeTab === 'logs' && <TradeTable onEditTrade={handleEditTrade} activeAccountId={activeAccountId} />}
         {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
@@ -722,7 +780,7 @@ export default function App() {
           color: 'var(--text-dim)' 
         }}
       >
-        <p>© 2026 {userName || 'Sachin'}'s Traders Diary. Designed for professional stock market audits. All logs are stored locally client-side.</p>
+        <p>© 2026 {userName || 'Sachin'}'s Trade Diary. Designed for professional stock market audits. All logs are stored locally client-side.</p>
       </footer>
     </div>
   );

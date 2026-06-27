@@ -1,11 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Broker, BrokerChargesConfig } from '../types';
+import { filterTradesByFY } from '../utils/fyHelper';
+import { BROKER_LOGOS, getBankLogoSvg } from '../utils/brandLogos';
 import { 
   X, User, ShieldAlert, Save, Download, Upload, 
   Database, Trash2, IndianRupee, Settings, Plus,
   Percent, HelpCircle
 } from 'lucide-react';
+
+function BankLogoBadge({ bankName }: { bankName: string }) {
+  const localLogo = getBankLogoSvg(bankName);
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+      <img
+        src={localLogo}
+        alt={bankName}
+        style={{
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          objectFit: 'contain',
+          background: '#fff',
+          padding: '1.5px',
+          border: '1px solid var(--border-color)'
+        }}
+      />
+      <span>{bankName}</span>
+    </span>
+  );
+}
+
+function BrokerLogoIcon({ broker }: { broker: Broker }) {
+  const localLogo = BROKER_LOGOS[broker] || BROKER_LOGOS['Other'];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+      <img
+        src={localLogo}
+        alt={broker}
+        style={{
+          width: '16px',
+          height: '16px',
+          borderRadius: '50%',
+          objectFit: 'contain',
+          background: '#fff',
+          padding: '1.5px',
+          border: '1px solid var(--border-color)'
+        }}
+      />
+      <span>{broker}</span>
+    </span>
+  );
+}
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -36,7 +82,10 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
     addBankAccount,
     editBankAccount,
     deleteBankAccount,
-    updateBrokerCharges
+    updateBrokerCharges,
+    lockedFYs,
+    toggleLockFY,
+    capitalAdjustments
   } = useTradeStore();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'charges' | 'backup' | 'danger'>('profile');
@@ -73,6 +122,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
 
   // Danger Zone confirmation
   const [resetConfirmInput, setResetConfirmInput] = useState('');
+  const [yeSelectedFY, setYeSelectedFY] = useState('FY 2026-27');
 
   // Sync inputs on open
   useEffect(() => {
@@ -106,6 +156,8 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
       setChargesForm(config);
     }
   };
+
+
 
   if (!isOpen) return null;
 
@@ -487,7 +539,10 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                         {brokerAccounts.map((acc) => (
                           <tr key={acc.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <td style={{ padding: '8px', fontWeight: 600 }}>{acc.accountName}</td>
-                            <td style={{ padding: '8px' }}>{acc.broker}</td>
+                            <td style={{ padding: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <BrokerLogoIcon broker={acc.broker} />
+                              <span>{acc.broker}</span>
+                            </td>
                             <td style={{ padding: '8px' }}>
                               <input 
                                 type="number" 
@@ -524,9 +579,14 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                     <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: '100px' }}>
                       <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Broker</label>
                       <select value={newAccBroker} onChange={(e) => setNewAccBroker(e.target.value as Broker)} className="form-select" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }}>
-                        {['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other'].map(b => (
-                          <option key={b} value={b}>{b}</option>
-                        ))}
+                        <option value="Zerodha">🪁 Zerodha</option>
+                        <option value="Groww">🌿 Groww</option>
+                        <option value="Angel One">😇 Angel One</option>
+                        <option value="Upstox">📈 Upstox</option>
+                        <option value="Fyers">🔥 Fyers</option>
+                        <option value="Dhan">🎯 Dhan</option>
+                        <option value="Kotak Neo">🦁 Kotak Neo</option>
+                        <option value="Other">💼 Other</option>
                       </select>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0, flex: 2, minWidth: '120px' }}>
@@ -568,7 +628,9 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                       <tbody>
                         {bankAccounts.map((bank) => (
                           <tr key={bank.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '8px', fontWeight: 600 }}>{bank.bankName}</td>
+                            <td style={{ padding: '8px', fontWeight: 600 }}>
+                              <BankLogoBadge bankName={bank.bankName} />
+                            </td>
                             <td style={{ padding: '8px' }}>{bank.accountHolderName}</td>
                             <td style={{ padding: '8px' }}>
                               <input 
@@ -620,6 +682,71 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                       <span>Add Bank</span>
                     </button>
                   </form>
+                </div>
+
+                {/* Financial Years Lock Manager */}
+                <div className="glass-card" style={{ padding: '16px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldAlert size={14} color="var(--primary)" />
+                    Financial Years Data Locking (Security Safeguard)
+                  </h3>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    Lock historical financial years to prevent accidental deletions, edits, or modifications. Lock status can be toggled with confirmation.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {['FY 2024-25', 'FY 2025-26', 'FY 2026-27'].map((fy) => {
+                      const isLocked = lockedFYs.includes(fy);
+                      return (
+                        <div 
+                          key={fy} 
+                          style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            padding: '8px 12px', 
+                            background: 'rgba(255,255,255,0.02)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: '8px' 
+                          }}
+                        >
+                          <div>
+                            <strong style={{ fontSize: '0.78rem', color: 'var(--text-main)' }}>{fy}</strong>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                              {isLocked ? '🔒 Locked (Read-Only)' : '🔓 Unlocked (Editable)'}
+                            </span>
+                          </div>
+                          
+                          <button
+                            type="button"
+                            className={`btn ${isLocked ? 'btn-secondary' : 'btn-danger'}`}
+                            style={{ 
+                              padding: '4px 10px', 
+                              fontSize: '0.7rem', 
+                              height: '26px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => {
+                              if (isLocked) {
+                                if (window.confirm(`Are you sure you want to UNLOCK editing for ${fy}? Editing old logs might affect your past tax data. Proceed with caution.`)) {
+                                  toggleLockFY(fy);
+                                }
+                              } else {
+                                if (window.confirm(`Are you sure you want to LOCK editing for ${fy}? This will protect all trades and adjustments logged in this year from edits or deletes.`)) {
+                                  toggleLockFY(fy);
+                                }
+                              }
+                            }}
+                          >
+                            {isLocked ? 'Unlock Year' : 'Lock Year'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -801,6 +928,106 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
             {/* TAB 4: Danger Zone */}
             {activeTab === 'danger' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Year-End Rollover & Lock Card */}
+                <div className="glass-card" style={{ padding: '20px', border: '1.5px solid var(--primary)', background: 'var(--primary-glow)' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Database size={16} color="var(--primary)" />
+                    Year-End Rollover & FY Close
+                  </h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: '1.4' }}>
+                    This will close the active Financial Year, carry forward the capital balances of all active broker accounts to the next Financial Year as opening deposits, and automatically lock the completed year from future edits.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-main)' }}>Select Year to Close:</span>
+                      <select 
+                        value={yeSelectedFY} 
+                        onChange={(e) => setYeSelectedFY(e.target.value)} 
+                        className="form-select" 
+                        style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px', maxWidth: '120px' }}
+                      >
+                        <option value="FY 2025-26">FY 2025-26</option>
+                        <option value="FY 2026-27">FY 2026-27</option>
+                      </select>
+                      
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ height: '28px', fontSize: '0.72rem', padding: '0 12px' }}
+                        onClick={() => {
+                          const match = yeSelectedFY.match(/FY (\d{4})/);
+                          if (!match) return;
+                          const startYear = parseInt(match[1], 10);
+                          const nextYear = startYear + 1;
+                          const nextYearStr = `FY ${nextYear}-${(nextYear + 1).toString().slice(-2)}`;
+
+                          // Perform carry forward rollover for each active broker account
+                          const activeAccounts = brokerAccounts.filter(a => a.active);
+                          if (activeAccounts.length === 0) {
+                            alert("No active broker accounts found to perform rollover.");
+                            return;
+                          }
+
+                          if (window.confirm(`[STEP 1/2] Are you sure you want to perform the Year-End Rollover for ${yeSelectedFY}? This will calculate the closing balances of all ${activeAccounts.length} active broker accounts and carry them forward to ${nextYearStr}.`)) {
+                            if (window.confirm(`[STEP 2/2] Final Confirmation: Do you want to proceed and LOCK editing for ${yeSelectedFY}? Once completed, past records of this year cannot be modified unless explicitly unlocked.`)) {
+                              
+                              // Perform rollover for each account
+                              activeAccounts.forEach(acc => {
+                                // Filter trades by FY and broker account
+                                const accTrades = trades.filter(t => t.brokerAccountId === acc.id);
+                                const fyTrades = filterTradesByFY(accTrades, yeSelectedFY);
+                                const accNetPnL = fyTrades.reduce((sum, t) => sum + t.netPnL, 0);
+
+                                // Adjustments
+                                const accAdjustments = capitalAdjustments.filter(a => {
+                                  const matchFY = filterTradesByFY([a as any], yeSelectedFY).length > 0;
+                                  return matchFY && a.brokerAccountId === acc.id;
+                                });
+                                const accNetAdj = accAdjustments.reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
+
+                                const endingBalance = acc.startingCapital + accNetPnL + accNetAdj;
+                                const nextFYDate = `${nextYear}-04-01`;
+
+                                // Delete duplicate rollover if exists
+                                const existing = capitalAdjustments.find(a => 
+                                  a.date === nextFYDate && 
+                                  a.notes?.startsWith("Rollover Carry-Forward") &&
+                                  a.brokerAccountId === acc.id
+                                );
+                                if (existing) {
+                                  useTradeStore.getState().deleteCapitalAdjustment(existing.id);
+                                }
+
+                                // Log carry forward deposit
+                                useTradeStore.getState().addCapitalAdjustment({
+                                  date: nextFYDate,
+                                  time: "09:00",
+                                  type: 'DEPOSIT',
+                                  amount: Math.round(endingBalance * 100) / 100,
+                                  notes: `Rollover Carry-Forward from ${yeSelectedFY}`,
+                                  broker: acc.broker,
+                                  brokerAccountId: acc.id
+                                });
+                              });
+
+                              // Lock the year
+                              if (!lockedFYs.includes(yeSelectedFY)) {
+                                toggleLockFY(yeSelectedFY);
+                              }
+
+                              alert(`Successfully completed Year-End process for ${yeSelectedFY}! Closing balances have been carried forward to ${nextYearStr} opening capital, and the year ${yeSelectedFY} is now locked.`);
+                            }
+                          }
+                        }}
+                      >
+                        Run Year-End Process
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="glass-card" style={{ padding: '20px', border: '1.5px solid rgba(239, 68, 68, 0.25)', background: 'rgba(239, 68, 68, 0.02)' }}>
                   <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--color-loss)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <ShieldAlert size={16} color="var(--color-loss)" />

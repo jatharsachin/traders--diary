@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Trade } from '../types';
 import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings } from 'lucide-react';
-import { filterTradesByFY, FINANCIAL_YEARS } from '../utils/fyHelper';
+import { filterTradesByFY } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
 
 interface TradeTableProps {
@@ -11,7 +11,7 @@ interface TradeTableProps {
 }
 
 export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
-  const { trades: allTrades, deleteTrade, setups, isPnlVisible, selectedFY, setSelectedFY, activeBrokers } = useTradeStore();
+  const { trades: allTrades, deleteTrade, setups, isPnlVisible, selectedFY, activeBrokers } = useTradeStore();
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
   const trades = activeAccountId === 'Combined' 
     ? fyTrades 
@@ -253,29 +253,65 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Financial Year Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>FY:</span>
-            <select
-              value={selectedFY}
-              onChange={(e) => setSelectedFY(e.target.value)}
-              className="form-select"
-              style={{
-                padding: '4px 10px',
-                fontSize: '0.78rem',
-                height: '32px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                color: 'var(--text-main)',
-                cursor: 'pointer'
-              }}
-            >
-              {FINANCIAL_YEARS.map((fy) => (
-                <option key={fy} value={fy}>{fy}</option>
-              ))}
-            </select>
+          {/* Active Financial Year Badge */}
+          <div 
+            style={{ 
+              padding: '6px 12px', 
+              background: 'rgba(255,255,255,0.02)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '8px',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              color: 'var(--text-dim)',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            Active: {selectedFY}
           </div>
+
+          {/* Current Month P&L Widget */}
+          {(() => {
+            const today = new Date();
+            const currentMonthName = today.toLocaleDateString('en-IN', { month: 'short' });
+            const monthPrefix = today.toISOString().substring(0, 7);
+            const monthPnL = allTrades
+              .filter(t => t.date.startsWith(monthPrefix))
+              .reduce((sum, t) => sum + t.netPnL, 0);
+
+            return (
+              <div 
+                className="glass-card" 
+                style={{ 
+                  padding: '6px 14px', 
+                  border: '1.5px solid var(--border-color)', 
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  height: '38px',
+                  background: 'rgba(255,255,255,0.02)'
+                }}
+              >
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 650 }}>
+                  {currentMonthName} P&L:
+                </span>
+                <strong 
+                  style={{ 
+                    fontSize: '0.85rem', 
+                    fontFamily: 'var(--font-mono)',
+                    color: !isPnlVisible ? 'var(--text-dim)' : monthPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' 
+                  }}
+                >
+                  {isPnlVisible 
+                    ? `${monthPnL >= 0 ? '+' : ''}${monthPnL.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}` 
+                    : '••••'
+                  }
+                </strong>
+              </div>
+            );
+          })()}
 
           <button 
             className="btn btn-secondary" 
@@ -560,6 +596,7 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('segment')}>
                   Type <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
+                <th>Action</th>
                 <th>Qty</th>
                 <th>Entry Price</th>
                 <th>Exit Price</th>

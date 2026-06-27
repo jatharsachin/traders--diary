@@ -8,6 +8,29 @@ import {
   syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, 
   fetchMetaFromCloud, getSupabaseClient 
 } from '../utils/supabaseClient';
+import { getFinancialYear } from '../utils/fyHelper';
+
+const getCurrentLiveFY = () => {
+  const today = new Date().toISOString().split('T')[0];
+  return getFinancialYear(today);
+};
+
+const checkFYAndConfirm = (targetFY: string, actionType: string): boolean => {
+  const currentLive = getCurrentLiveFY();
+  if (targetFY !== currentLive) {
+    return window.confirm(`Warning: You are performing a ${actionType} action in a historical/non-current financial year (${targetFY}). Are you sure you want to proceed?`);
+  }
+  return true;
+};
+
+const notifyFYSave = (targetFY: string) => {
+  const currentLive = getCurrentLiveFY();
+  if (targetFY !== currentLive) {
+    setTimeout(() => {
+      alert(`Success: Data successfully saved for Financial Year ${targetFY}!`);
+    }, 100);
+  }
+};
 
 interface TradeStore {
   trades: Trade[];
@@ -24,6 +47,7 @@ interface TradeStore {
   deleteSetup: (name: string) => void;
   addCapitalAdjustment: (adj: Omit<CapitalAdjustment, 'id'>) => void;
   deleteCapitalAdjustment: (id: string) => void;
+  editCapitalAdjustment: (id: string, notes: string) => void;
   resetToMockData: () => void;
   pullTradesFromCloud: () => Promise<boolean>;
 
@@ -56,6 +80,9 @@ interface TradeStore {
   // Financial Year Filter
   selectedFY: string;
   setSelectedFY: (fy: string) => void;
+  lockedFYs: string[];
+  toggleLockFY: (fy: string) => void;
+  clearFYData: (fy: string) => void;
 
   bulkImportTrades: (
     imported: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>[],
@@ -478,6 +505,18 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return 'Zerodha';
   };
 
+  const loadLockedFYs = (): string[] => {
+    const saved = localStorage.getItem('traders_diary_locked_fys');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse locked FYs', e);
+      }
+    }
+    return ['FY 2024-25', 'FY 2025-26'];
+  };
+
   // Seed default collections first to make sure they exist
   const initialAccounts = loadBrokerAccounts();
   const initialBanks = loadBankAccounts();
@@ -502,6 +541,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     isPnlVisible: loadPnlVisibility(),
     weeklyRetrospectives: loadWeeklyRetrospectives(),
     selectedFY: 'All',
+    lockedFYs: loadLockedFYs(),
     userName: loadUserName(),
     userAvatar: loadUserAvatar(),
     activeBrokers: loadActiveBrokers(),
@@ -509,6 +549,33 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
     setSessionUser: (user) => set({ sessionUser: user }),
     setSelectedFY: (fy) => set({ selectedFY: fy }),
+    toggleLockFY: (fy) => set((state) => {
+      const isLocked = state.lockedFYs.includes(fy);
+      const nextLocked = isLocked 
+        ? state.lockedFYs.filter(f => f !== fy)
+        : [...state.lockedFYs, fy];
+      localStorage.setItem('traders_diary_locked_fys', JSON.stringify(nextLocked));
+      return { lockedFYs: nextLocked };
+    }),
+    clearFYData: (fy) => set((state) => {
+      const match = fy.match(/FY (\d{4})/);
+      if (!match) return {};
+      const startYear = parseInt(match[1], 10);
+      const endYear = startYear + 1;
+      const startStr = `${startYear}-04-01`;
+      const endStr = `${endYear}-03-31`;
+
+      const remainingTrades = state.trades.filter(t => t.date < startStr || t.date > endStr);
+      const remainingAdjustments = state.capitalAdjustments.filter(a => a.date < startStr || a.date > endStr);
+
+      localStorage.setItem('traders_diary_trades', JSON.stringify(remainingTrades));
+      localStorage.setItem('traders_diary_adjustments', JSON.stringify(remainingAdjustments));
+
+      return { 
+        trades: remainingTrades,
+        capitalAdjustments: remainingAdjustments
+      };
+    }),
 
     setBaseCapital: (capital) => set(() => {
       // Legacy compatibility
@@ -523,6 +590,18 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     }),
 
     addTrade: (tradeData) => set((state) => {
+      const tradeFY = getFinancialYear(tradeData.date);
+      if (state.lockedFYs.includes(tradeFY)) {
+        alert(`Cannot add trade: The financial year "${tradeFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+      if (state.selectedFY !== 'All' && tradeFY !== state.selectedFY) {
+        alert(`Cannot add trade: The date ${tradeData.date} does not fall within the active financial year "${state.selectedFY}".`);
+        return {};
+      }
+      if (!checkFYAndConfirm(tradeFY, 'Add Trade')) {
+        return {};
+      }
       const chargesConfig = state.brokerCharges.find((c) => c.broker === tradeData.broker);
       const calculated = computeTradeCalculations(tradeData, chargesConfig);
       const newTrade: Trade = {
@@ -536,13 +615,42 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       // Async Cloud Sync
       syncTradeToCloud('insert', newTrade);
 
+      notifyFYSave(tradeFY);
       return { trades: updatedTrades };
     }),
 
     editTrade: (id, tradeData) => set((state) => {
+      const targetTrade = state.trades.find(t => t.id === id);
+      if (targetTrade) {
+        const oldFY = getFinancialYear(targetTrade.date);
+        if (state.lockedFYs.includes(oldFY)) {
+          alert(`Cannot edit trade: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+        if (tradeData.date) {
+          const newFY = getFinancialYear(tradeData.date);
+          if (state.lockedFYs.includes(newFY)) {
+            alert(`Cannot edit trade: The target financial year "${newFY}" is locked. Unlock it in Profile settings.`);
+            return {};
+          }
+          if (state.selectedFY !== 'All' && newFY !== state.selectedFY) {
+            alert(`Cannot edit trade: The target date ${tradeData.date} does not fall within the active financial year "${state.selectedFY}".`);
+            return {};
+          }
+          if (!checkFYAndConfirm(newFY, 'Edit Trade')) {
+            return {};
+          }
+        } else {
+          if (!checkFYAndConfirm(oldFY, 'Edit Trade')) {
+            return {};
+          }
+        }
+      }
+      let targetFY = '';
       const updatedTrades = state.trades.map((t) => {
         if (t.id === id) {
           const merged = { ...t, ...tradeData };
+          targetFY = getFinancialYear(merged.date);
           const chargesConfig = state.brokerCharges.find((c) => c.broker === merged.broker);
           const calculated = computeTradeCalculations({
             date: merged.date,
@@ -584,17 +692,33 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         return t;
       });
       localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+      if (targetFY) {
+        notifyFYSave(targetFY);
+      }
       return { trades: updatedTrades };
     }),
 
     deleteTrade: (id) => set((state) => {
-      const updatedTrades = state.trades.filter((t) => t.id !== id);
-      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
-      
-      // Async Cloud Sync
-      syncTradeToCloud('delete', { id });
+      const targetTrade = state.trades.find(t => t.id === id);
+      if (targetTrade) {
+        const oldFY = getFinancialYear(targetTrade.date);
+        if (state.lockedFYs.includes(oldFY)) {
+          alert(`Cannot delete trade: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+        if (!checkFYAndConfirm(oldFY, 'Delete Trade')) {
+          return {};
+        }
+        const updatedTrades = state.trades.filter((t) => t.id !== id);
+        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+        
+        // Async Cloud Sync
+        syncTradeToCloud('delete', { id });
 
-      return { trades: updatedTrades };
+        notifyFYSave(oldFY);
+        return { trades: updatedTrades };
+      }
+      return {};
     }),
 
     addSetup: (setup) => set((state) => {
@@ -612,6 +736,18 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     }),
 
     addCapitalAdjustment: (adj) => set((state) => {
+      const adjFY = getFinancialYear(adj.date);
+      if (state.lockedFYs.includes(adjFY)) {
+        alert(`Cannot add entry: The financial year "${adjFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+      if (state.selectedFY !== 'All' && adjFY !== state.selectedFY) {
+        alert(`Cannot add entry: The date ${adj.date} does not fall within the active financial year "${state.selectedFY}".`);
+        return {};
+      }
+      if (!checkFYAndConfirm(adjFY, 'Add Capital Flow')) {
+        return {};
+      }
       const newAdj: CapitalAdjustment = {
         ...adj,
         id: `adj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -640,20 +776,59 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         syncMetaToCloud('bank_transactions', updatedBankTx);
       }
 
+      notifyFYSave(adjFY);
       return { capitalAdjustments: updated, bankTransactions: updatedBankTx };
     }),
 
     deleteCapitalAdjustment: (id) => set((state) => {
-      const updated = state.capitalAdjustments.filter((a) => a.id !== id);
-      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
-      syncMetaToCloud('capital_adjustments', updated);
+      const targetAdj = state.capitalAdjustments.find(a => a.id === id);
+      if (targetAdj) {
+        const oldFY = getFinancialYear(targetAdj.date);
+        if (state.lockedFYs.includes(oldFY)) {
+          alert(`Cannot delete entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+        if (!checkFYAndConfirm(oldFY, 'Delete Capital Flow')) {
+          return {};
+        }
+        const updated = state.capitalAdjustments.filter((a) => a.id !== id);
+        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
+        syncMetaToCloud('capital_adjustments', updated);
 
-      // Clean up linked double-entry Bank Transaction
-      const updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== `btx-${id}`);
-      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
-      syncMetaToCloud('bank_transactions', updatedBankTx);
+        // Clean up linked double-entry Bank Transaction
+        const updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== `btx-${id}`);
+        localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+        syncMetaToCloud('bank_transactions', updatedBankTx);
 
-      return { capitalAdjustments: updated, bankTransactions: updatedBankTx };
+        notifyFYSave(oldFY);
+        return { capitalAdjustments: updated, bankTransactions: updatedBankTx };
+      }
+      return {};
+    }),
+
+    editCapitalAdjustment: (id, notes) => set((state) => {
+      const oldAdj = state.capitalAdjustments.find(a => a.id === id);
+      if (oldAdj) {
+        const oldFY = getFinancialYear(oldAdj.date);
+        if (state.lockedFYs.includes(oldFY)) {
+          alert(`Cannot edit entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+        if (!checkFYAndConfirm(oldFY, 'Edit Capital Flow')) {
+          return {};
+        }
+        const updated = state.capitalAdjustments.map((a) => {
+          if (a.id === id) {
+            return { ...a, notes };
+          }
+          return a;
+        });
+        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
+        syncMetaToCloud('capital_adjustments', updated);
+        notifyFYSave(oldFY);
+        return { capitalAdjustments: updated };
+      }
+      return {};
     }),
 
     resetToMockData: () => set(() => {

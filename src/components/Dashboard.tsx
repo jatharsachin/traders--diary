@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
 import { filterTradesByFY, FINANCIAL_YEARS } from '../utils/fyHelper';
+import { BROKER_LOGOS } from '../utils/brandLogos';
 
 export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
   const { 
@@ -153,23 +154,28 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
     
     rawTrades.forEach((t) => {
       const b = t.broker || 'Other';
-      if (!brokerMap[b]) {
-        brokerMap[b] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0 };
+      const acc = brokerAccounts.find(a => a.id === t.brokerAccountId);
+      const accName = acc ? acc.accountName : 'Default User';
+      const key = `${b} (${accName})`;
+      if (!brokerMap[key]) {
+        brokerMap[key] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0 };
       }
-      brokerMap[b].netPnL += t.netPnL;
-      brokerMap[b].totalTrades += 1;
-      brokerMap[b].charges += (t.brokerage + t.taxes);
+      brokerMap[key].netPnL += t.netPnL;
+      brokerMap[key].totalTrades += 1;
+      brokerMap[key].charges += (t.brokerage + t.taxes);
       if (t.netPnL > 0) {
-        brokerMap[b].wins += 1;
+        brokerMap[key].wins += 1;
       } else if (t.netPnL < 0) {
-        brokerMap[b].losses += 1;
+        brokerMap[key].losses += 1;
       }
     });
 
     return Object.entries(brokerMap).map(([name, data]) => {
       const wr = data.totalTrades > 0 ? (data.wins / data.totalTrades) * 100 : 0;
+      const brokerName = name.split(' (')[0];
       return {
         name,
+        brokerName,
         ...data,
         winRate: wr
       };
@@ -587,6 +593,8 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
     return null;
   };
 
+  const isCustomAvatar = userAvatar && (userAvatar.startsWith('data:image/') || userAvatar.startsWith('http'));
+
   return (
     <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
@@ -594,7 +602,7 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
       <div 
         className="glass-card animate-tab-panel" 
         style={{ 
-          padding: '16px 20px', 
+          padding: '20px 24px', 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
@@ -606,87 +614,167 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
           boxShadow: 'var(--shadow-card)'
         }}
       >
-        <div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            Welcome back, {userName || 'Sachin'}!
-            <span style={{ fontSize: '1.4rem' }}>
-              {userAvatar === 'bull' ? '🐂' :
-               userAvatar === 'bear' ? '🐻' :
-               userAvatar === 'trader' ? '👨‍💻' :
-               userAvatar === 'gold' ? '🏆' :
-               userAvatar === 'coin' ? '🪙' :
-               userAvatar === 'clock' ? '⏱️' :
-               userAvatar === 'rocket' ? '🚀' :
-               userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
-            </span>
-          </h2>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '4px', marginBottom: 0 }}>
-            Ready for your cognitive trading audit? Track setups, emotions, and broker statements all in one place.
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* User Profile Photo */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            {isCustomAvatar ? (
+              <img
+                src={userAvatar}
+                alt="Profile"
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid var(--primary)',
+                  boxShadow: 'var(--shadow-glow)'
+                }}
+              />
+            ) : (
+              <div 
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--primary-glow)',
+                  border: '2px solid var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.8rem',
+                  boxShadow: 'var(--shadow-glow)'
+                }}
+              >
+                {userAvatar === 'bull' ? '🐂' :
+                 userAvatar === 'bear' ? '🐻' :
+                 userAvatar === 'trader' ? '👨‍💻' :
+                 userAvatar === 'gold' ? '🏆' :
+                 userAvatar === 'coin' ? '🪙' :
+                 userAvatar === 'clock' ? '⏱️' :
+                 userAvatar === 'rocket' ? '🚀' :
+                 userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
+              </div>
+            )}
+            {isCustomAvatar && (
+              <span 
+                style={{ 
+                  position: 'absolute', 
+                  bottom: '-2px', 
+                  right: '-2px', 
+                  fontSize: '0.9rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                👤
+              </span>
+            )}
+          </div>
+
+          <div>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0 }}>
+              Welcome back, {userName || 'Sachin'}!
+            </h2>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '4px', marginBottom: 0 }}>
+              Ready for your cognitive trading audit? Track setups, emotions, and broker statements all in one place.
+            </p>
+          </div>
         </div>
         
-        {/* Carry-Forward Rollover Button (Visible only if a specific FY is active) */}
-        {selectedFY !== 'All' && (
-          <button
-            onClick={() => {
-              const match = selectedFY.match(/FY (\d{4})/);
-              if (!match) return;
-              const startYear = parseInt(match[1], 10);
-              const nextYear = startYear + 1;
-              
-              // Calculate ending balance
-              const activeAdjustments = capitalAdjustments
-                .filter(a => {
-                  const matchFY = selectedFY === 'All' || filterTradesByFY([a as any], selectedFY).length > 0;
-                  const matchAcc = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
-                  return matchFY && matchAcc;
-                })
-                .reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
-
-              const endingBalance = activeBaseCapital + totalNetPnL + activeAdjustments;
-
-              if (window.confirm(`Are you sure you want to rollover the carry-forward closing balance of ${selectedFY} (₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}) to the opening balance of FY ${nextYear}? This will log a corresponding deposit adjustment on April 1st, ${nextYear}.`)) {
-                const nextFYDate = `${nextYear}-04-01`;
-                // Remove any duplicate rollover
-                const existing = capitalAdjustments.find(a => 
-                  a.date === nextFYDate && 
-                  a.notes?.startsWith("Rollover Carry-Forward") &&
-                  (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId)
-                );
-                if (existing) {
-                  useTradeStore.getState().deleteCapitalAdjustment(existing.id);
-                }
-
-                const targetAccId = activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || '');
-                const targetBroker = brokerAccounts.find(a => a.id === targetAccId)?.broker || 'Other';
-
-                useTradeStore.getState().addCapitalAdjustment({
-                  date: nextFYDate,
-                  time: "09:00",
-                  type: 'DEPOSIT',
-                  amount: Math.round(endingBalance * 100) / 100,
-                  notes: `Rollover Carry-Forward from ${selectedFY}`,
-                  broker: targetBroker,
-                  brokerAccountId: targetAccId
-                });
-                alert(`Successfully carried forward ₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} to FY ${nextYear}!`);
-              }
-            }}
-            className="btn btn-secondary"
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Highlighted Big Financial Year Badge */}
+          <div 
             style={{
-              fontSize: '0.72rem',
-              padding: '6px 12px',
-              border: '1.5px solid var(--border-color)',
-              background: 'var(--bg-card)',
-              color: 'var(--text-main)',
-              cursor: 'pointer',
-              borderRadius: '8px',
-              fontWeight: 600
+              background: 'linear-gradient(135deg, var(--primary-glow) 0%, rgba(59, 130, 246, 0.04) 100%)',
+              border: '1.5px solid var(--primary)',
+              padding: '6px 16px',
+              borderRadius: '10px',
+              textAlign: 'center',
+              minWidth: '120px',
+              boxShadow: '0 4px 10px rgba(59, 130, 246, 0.08)'
             }}
           >
-            Carry-Forward Rollover to FY {parseInt(selectedFY.match(/FY (\d{4})/)?.[1] || '2026') + 1}
-          </button>
-        )}
+            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 650 }}>
+              Active Statement
+            </div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 850, color: 'var(--primary)', letterSpacing: '-0.02em', marginTop: '2px' }}>
+              {selectedFY}
+            </div>
+          </div>
+
+          {/* Carry-Forward Rollover Button */}
+          {selectedFY !== 'All' && (
+            <button
+              onClick={() => {
+                const match = selectedFY.match(/FY (\d{4})/);
+                if (!match) return;
+                const startYear = parseInt(match[1], 10);
+                const nextYear = startYear + 1;
+                
+                // Calculate ending balance
+                const activeAdjustments = capitalAdjustments
+                  .filter(a => {
+                    const matchFY = selectedFY === 'All' || filterTradesByFY([a as any], selectedFY).length > 0;
+                    const matchAcc = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
+                    return matchFY && matchAcc;
+                  })
+                  .reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
+
+                const endingBalance = activeBaseCapital + totalNetPnL + activeAdjustments;
+
+                if (window.confirm(`Are you sure you want to rollover the carry-forward closing balance of ${selectedFY} (₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}) to the opening balance of FY ${nextYear}? This will log a corresponding deposit adjustment on April 1st, ${nextYear}.`)) {
+                  const nextFYDate = `${nextYear}-04-01`;
+                  // Remove any duplicate rollover
+                  const existing = capitalAdjustments.find(a => 
+                    a.date === nextFYDate && 
+                    a.notes?.startsWith("Rollover Carry-Forward") &&
+                    (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId)
+                  );
+                  if (existing) {
+                    useTradeStore.getState().deleteCapitalAdjustment(existing.id);
+                  }
+
+                  const targetAccId = activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || '');
+                  const targetBroker = brokerAccounts.find(a => a.id === targetAccId)?.broker || 'Other';
+
+                  useTradeStore.getState().addCapitalAdjustment({
+                    date: nextFYDate,
+                    time: "09:00",
+                    type: 'DEPOSIT',
+                    amount: Math.round(endingBalance * 100) / 100,
+                    notes: `Rollover Carry-Forward from ${selectedFY}`,
+                    broker: targetBroker,
+                    brokerAccountId: targetAccId
+                  });
+                  alert(`Successfully carried forward ₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} to FY ${nextYear}!`);
+                }
+              }}
+              className="btn btn-secondary"
+              style={{
+                fontSize: '0.72rem',
+                padding: '6px 12px',
+                border: '1.5px solid var(--border-color)',
+                background: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                fontWeight: 600,
+                height: '42px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              Carry-Forward to FY {parseInt(selectedFY.match(/FY (\d{4})/)?.[1] || '2026') + 1}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Portfolio Selector Control Bar */}
@@ -1022,17 +1110,25 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
               <div 
                 key={stat.name}
                 style={{
-                  background: 'rgba(255,255,255,0.01)',
+                  background: 'rgba(255,255,255,0.03)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '10px',
                   padding: '16px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '8px'
+                  gap: '8px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '4px' }}>
-                  <strong style={{ fontSize: '0.9rem', color: '#fff' }}>{stat.name}</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <img 
+                      src={BROKER_LOGOS[stat.brokerName] || BROKER_LOGOS['Other']} 
+                      alt={stat.brokerName} 
+                      style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1px', border: '1px solid var(--border-color)' }} 
+                    />
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--text-main)' }}>{stat.name}</strong>
+                  </div>
                   <span 
                     className="badge" 
                     style={{ 
@@ -1342,7 +1438,7 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
               </div>
             ) : (
               <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.85rem', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px dashed var(--border-color)', height: '230px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                ✓ Outstanding Discipline! No mistakes logged on loss-making trades yet.
+                No mistakes tracked. Maintain this discipline!
               </div>
             )}
           </div>
@@ -1372,21 +1468,64 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
                     alignItems: 'center', 
                     justifyContent: 'center',
                     backgroundColor: 'rgba(255,255,255,0.02)',
-                    boxShadow: 'var(--shadow-glow)'
+                    boxShadow: 'var(--shadow-glow)',
+                    flexShrink: 0
                   }}
                 >
                   <span style={{ fontSize: '1.8rem', fontWeight: 900, color: disciplineInfo.color, lineHeight: 1 }}>
                     {disciplineInfo.grade}
                   </span>
                 </div>
-                <div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                <div style={{ flexGrow: 1 }}>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 750, color: 'var(--text-main)' }}>
                     {disciplineScore.toFixed(0)}% Rule Compliance
                   </div>
-                  <p style={{ fontSize: '0.75rem', color: disciplineInfo.color, fontWeight: 550, marginTop: '2px' }}>
+                  <p style={{ fontSize: '0.75rem', color: disciplineInfo.color, fontWeight: 600, marginTop: '2px', margin: 0 }}>
                     {disciplineInfo.desc}
                   </p>
                 </div>
+              </div>
+
+              {/* Dynamic Compliance Progress Bar */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <span>Checklist Compliance Level</span>
+                  <span>{disciplineScore.toFixed(0)}%</span>
+                </div>
+                <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--border-color)', overflow: 'hidden' }}>
+                  <div 
+                    style={{ 
+                      width: `${disciplineScore}%`, 
+                      height: '100%', 
+                      borderRadius: '4px', 
+                      background: disciplineInfo.color,
+                      boxShadow: `0 0 8px ${disciplineInfo.color}`,
+                      transition: 'width 0.4s ease'
+                    }} 
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic behavioral coaching insight */}
+              <div 
+                style={{ 
+                  marginTop: '16px', 
+                  padding: '10px 12px', 
+                  borderRadius: '8px', 
+                  background: 'rgba(255,255,255,0.02)', 
+                  borderLeft: `3.5px solid ${disciplineInfo.color}`,
+                  fontSize: '0.72rem',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '2px' }}>Audit Feedback:</strong>
+                {disciplineScore >= 90 ? (
+                  "Outstanding execution! You are strictly sticking to your plan. Keep maintaining this checklist discipline before every trade entry."
+                ) : disciplineScore >= 75 ? (
+                  "Good performance, but minor rule deviations logged. Double check your setup triggers to restrict impulsive executions."
+                ) : (
+                  "Caution: High mistake rate. Pause trading and review your emotional triggers before you take any more positions."
+                )}
               </div>
             </div>
 
@@ -1401,7 +1540,7 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-dim)' }}>Discipline Grade Standard:</span>
-                <strong style={{ color: 'var(--primary)' }}>macOS Cognitive Metric v1.2</strong>
+                <strong style={{ color: 'var(--primary)' }}>TradeDiary Discipline Standard</strong>
               </div>
             </div>
           </div>

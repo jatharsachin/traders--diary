@@ -4,6 +4,7 @@ import {
   Receipt, Plus, Trash2, X, Save, CreditCard, Layers, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import { filterTradesByFY } from '../utils/fyHelper';
+import { getBankLogoSvg } from '../utils/brandLogos';
 import type { CapitalAdjustment } from '../types';
 
 interface LedgerProps {
@@ -311,6 +312,51 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
           </button>
         </div>
 
+        {/* Current Month P&L Widget */}
+        {(() => {
+          const today = new Date();
+          const currentMonthName = today.toLocaleDateString('en-IN', { month: 'short' });
+          const monthPrefix = today.toISOString().substring(0, 7);
+          const filteredTrades = activeAccountId === 'Combined' 
+            ? allTrades
+            : allTrades.filter(t => t.brokerAccountId === activeAccountId);
+          const monthPnL = filteredTrades
+            .filter(t => t.date.startsWith(monthPrefix))
+            .reduce((sum, t) => sum + t.netPnL, 0);
+
+          return (
+            <div 
+              className="glass-card" 
+              style={{ 
+                padding: '6px 14px', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: '38px',
+                background: 'rgba(255,255,255,0.02)'
+              }}
+            >
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 650 }}>
+                {currentMonthName} P&L:
+              </span>
+              <strong 
+                style={{ 
+                  fontSize: '0.85rem', 
+                  fontFamily: 'var(--font-mono)',
+                  color: !isPnlVisible ? 'var(--text-dim)' : monthPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' 
+                }}
+              >
+                {isPnlVisible 
+                  ? `${monthPnL >= 0 ? '+' : ''}${monthPnL.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}` 
+                  : '••••'
+                }
+              </strong>
+            </div>
+          );
+        })()}
+
         {activeLedgerTab === 'broker' && (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {activeAccountId === 'Combined' && (
@@ -369,7 +415,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         {activeLedgerTab === 'subscriptions' && (
           <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
             setSubBankAccId(bankAccounts[0]?.id || '');
-            setSubBrokerAccId(brokerAccounts[0]?.id || '');
+            setSubBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
             setIsSubOpen(true);
           }}>
             <Plus size={13} />
@@ -617,7 +663,18 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   return (
                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '8px' }}>{tx.date} <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{tx.time}</span></td>
-                      <td style={{ padding: '8px', fontWeight: 600 }}>{bank ? bank.bankName : 'Unknown Bank'}</td>
+                       <td style={{ padding: '8px', fontWeight: 600 }}>
+                         {bank ? (
+                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                             <img 
+                               src={getBankLogoSvg(bank.bankName)} 
+                               alt={bank.bankName} 
+                               style={{ width: '15px', height: '15px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1px', border: '1px solid var(--border-color)' }} 
+                             />
+                             <span>{bank.bankName}</span>
+                           </span>
+                         ) : 'Unknown Bank'}
+                       </td>
                       <td style={{ padding: '8px', color: 'var(--primary)' }}>{tx.category}</td>
                       <td style={{ padding: '8px' }}>
                         <span 
@@ -770,12 +827,22 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem' }}>Broker Account / User</label>
-                  <select value={adjBrokerAccId} onChange={(e) => setAdjBrokerAccId(e.target.value)} className="form-select" required>
-                    <option value="">Select Account</option>
-                    {brokerAccounts.filter(a => a.active).map(acc => (
-                      <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
-                    ))}
-                  </select>
+                  {activeAccountId !== 'Combined' ? (
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={`${brokerAccounts.find(a => a.id === activeAccountId)?.accountName} (${brokerAccounts.find(a => a.id === activeAccountId)?.broker})`}
+                      disabled
+                      style={{ opacity: 0.8 }}
+                    />
+                  ) : (
+                    <select value={adjBrokerAccId} onChange={(e) => setAdjBrokerAccId(e.target.value)} className="form-select" required>
+                      <option value="">Select Account</option>
+                      {brokerAccounts.filter(a => a.active).map(acc => (
+                        <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -969,12 +1036,22 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 ) : (
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.75rem' }}>Deduct from Broker Ledger</label>
-                    <select value={subBrokerAccId} onChange={(e) => setSubBrokerAccId(e.target.value)} className="form-select" required>
-                      <option value="">Select Account</option>
-                      {brokerAccounts.filter(a => a.active).map(acc => (
-                        <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
-                      ))}
-                    </select>
+                    {activeAccountId !== 'Combined' ? (
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={`${brokerAccounts.find(a => a.id === activeAccountId)?.accountName} (${brokerAccounts.find(a => a.id === activeAccountId)?.broker})`}
+                        disabled
+                        style={{ opacity: 0.8 }}
+                      />
+                    ) : (
+                      <select value={subBrokerAccId} onChange={(e) => setSubBrokerAccId(e.target.value)} className="form-select" required>
+                        <option value="">Select Account</option>
+                        {brokerAccounts.filter(a => a.active).map(acc => (
+                          <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 )}
 
