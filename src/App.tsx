@@ -650,12 +650,12 @@ export default function App() {
                 onChange={(e) => setActiveAccountId(e.target.value)}
                 className="form-select"
                 style={{
-                  padding: '6px 10px',
-                  fontSize: '0.88rem',
-                  height: '48px',
+                  padding: '4px 10px',
+                  fontSize: '0.82rem',
+                  height: '38px',
                   background: 'var(--bg-card)',
                   border: '1.5px solid var(--border-color)',
-                  borderRadius: '12px',
+                  borderRadius: '10px',
                   color: 'var(--text-main)',
                   cursor: 'pointer',
                   minWidth: '150px',
@@ -680,18 +680,18 @@ export default function App() {
                 gap: '6px', 
                 background: 'var(--bg-card)', 
                 border: '1.5px solid var(--border-color)', 
-                borderRadius: '12px', 
-                padding: '6px 12px',
-                height: '48px',
+                borderRadius: '10px', 
+                padding: '4px 10px',
+                height: '38px',
                 boxShadow: 'var(--shadow-card)',
                 whiteSpace: 'nowrap',
                 flexShrink: 0
               }}
             >
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Current Capital:</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Current Capital:</span>
               <span 
                 style={{ 
-                  fontSize: '0.92rem', 
+                  fontSize: '0.85rem', 
                   fontWeight: 700, 
                   fontFamily: 'var(--font-mono)',
                   color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' 
@@ -713,16 +713,16 @@ export default function App() {
               const isProfit = todayPnL !== null && todayPnL >= 0;
 
               return (
-                <div 
+                 <div 
                   style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
                     gap: '6px', 
                     background: 'var(--bg-card)', 
                     border: '1.5px solid var(--border-color)', 
-                    borderRadius: '12px', 
-                    padding: '6px 12px',
-                    height: '48px',
+                    borderRadius: '10px', 
+                    padding: '4px 10px',
+                    height: '38px',
                     boxShadow: 'var(--shadow-card)',
                     whiteSpace: 'nowrap',
                     flexShrink: 0
@@ -740,10 +740,10 @@ export default function App() {
                       transition: 'all 0.3s ease'
                     }}
                   />
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Today's P&L:</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Today's P&L:</span>
                   <span 
                     style={{ 
-                      fontSize: '0.92rem', 
+                      fontSize: '0.85rem', 
                       fontWeight: 700, 
                       fontFamily: 'var(--font-mono)',
                       color: todayPnL === null ? 'var(--text-dim)' : isProfit ? 'var(--color-win)' : 'var(--color-loss)' 
@@ -764,14 +764,14 @@ export default function App() {
             {/* Nifty */}
             <div 
               style={{ 
-                padding: '6px 12px', 
+                padding: '4px 10px', 
                 background: niftyFlash === 'up' ? 'rgba(16, 185, 129, 0.12)' : niftyFlash === 'down' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.03)', 
                 border: niftyFlash === 'up' ? '1.5px solid var(--color-win)' : niftyFlash === 'down' ? '1.5px solid var(--color-loss)' : '1.5px solid var(--border-color)', 
-                borderRadius: '12px', 
+                borderRadius: '10px', 
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '8px',
-                height: '48px',
+                height: '38px',
                 transition: 'all 0.3s ease',
                 whiteSpace: 'nowrap',
                 flexShrink: 0
@@ -789,15 +789,15 @@ export default function App() {
                 }}
                 title={isMarketOpen() ? 'Market is LIVE' : 'Market is CLOSED (Off-Market)'}
               />
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                 NIFTY {isMarketOpen() ? '(LIVE)' : '(OFF)'}:
               </span>
-              <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+              <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                 {niftyPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </strong>
               <span 
                 style={{ 
-                  fontSize: '0.75rem', 
+                  fontSize: '0.72rem', 
                   color: niftyChange >= 0 ? 'var(--color-win)' : 'var(--color-loss)', 
                   fontWeight: 700, 
                   fontFamily: 'var(--font-mono)' 
@@ -808,9 +808,9 @@ export default function App() {
             </div>
 
             {/* Clock */}
-            <div style={{ padding: '6px 12px', background: 'rgba(255, 255, 255, 0.03)', border: '1.5px solid var(--border-color)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', height: '48px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <div style={{ padding: '4px 10px', background: 'rgba(255, 255, 255, 0.03)', border: '1.5px solid var(--border-color)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px', height: '38px', whiteSpace: 'nowrap', flexShrink: 0 }}>
               <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)' }}></span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 {liveTime || 'Loading...'}
               </span>
             </div>
@@ -907,22 +907,28 @@ export default function App() {
           </div>
         </div>
 
-        <button 
-          className="btn btn-primary" 
-          style={{ 
-            height: '38px', 
-            padding: '0 20px', 
-            borderRadius: '10px', 
-            fontSize: '0.85rem', 
-            boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)',
-            fontWeight: 700,
-            marginBottom: '4px'
-          }} 
-          onClick={handleNewTrade}
-        >
-          <Plus size={15} />
-          <span>Log Trade</span>
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', visibility: 'hidden' }}>&nbsp;</span>
+          <button 
+            className="btn btn-primary" 
+            style={{ 
+              height: '38px', 
+              padding: '0 20px', 
+              borderRadius: '10px', 
+              fontSize: '0.85rem', 
+              boxShadow: '0 4px 12px var(--primary-glow)',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }} 
+            onClick={handleNewTrade}
+          >
+            <Plus size={15} />
+            <span>Log Trade</span>
+          </button>
+        </div>
       </nav>
     </div>
 
