@@ -47,11 +47,11 @@
 }
 
 :root.light {
-  /* Light Theme variables (iOS Light desktop style) - TRANSLUCENT & HIGH VISIBILITY */
-  --bg-color: #f2f3f6; /* Softer light background */
-  --bg-card: rgba(246, 248, 250, 0.78);  /* Translucent silver cards */
-  --bg-card-hover: rgba(235, 237, 240, 0.88);
-  --border-color: rgba(0, 0, 0, 0.08); /* Soft contrast border */
+  /* Light Theme variables - GREY & WHITE COMBINATION */
+  --bg-color: #e2e5e9; /* Solid grey background */
+  --bg-card: #ffffff;  /* Solid pure white cards */
+  --bg-card-hover: #f5f7fa; /* Very light grey hover state */
+  --border-color: rgba(0, 0, 0, 0.06); /* Clean, soft borders */
   --border-color-active: #007aff;
   
   --primary: #007aff; /* Apple Blue (Light) */
@@ -75,8 +75,8 @@
   
   --glass-shine: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.12) 45%, rgba(255, 255, 255, 0.38) 50%, rgba(255, 255, 255, 0.12) 55%, transparent 60%);
   
-  --shadow-glow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 4px 16px 0 rgba(0, 0, 0, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.01);
+  --shadow-glow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.02);
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01);
   --bg-tooltip-opaque: #ffffff;
 }
 
@@ -971,7 +971,7 @@ h1, h2, h3, h4 {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 /* Sticky Header & Nav Container */

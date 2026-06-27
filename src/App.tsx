@@ -261,7 +261,7 @@ export default function App() {
       <div className="sticky-header-container">
       {/* Header Bar */}
       <header className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           
           {/* macOS Traffic Lights */}
           <div className="mac-traffic-lights">
@@ -284,7 +284,7 @@ export default function App() {
           />
 
           <div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
               {userName || 'Sachin'}'s Traders Diary
               {isSupabaseConfigured() && (
                 <span className="badge badge-win" style={{ fontSize: '0.58rem', padding: '2px 6px', textTransform: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -292,32 +292,32 @@ export default function App() {
                 </span>
               )}
             </h1>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
               Advanced stock & options cognitive audit journal
             </p>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', flexShrink: 0 }}>
           
           {/* Global Account Selector Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active Account:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Active Account:</span>
             <select
               value={activeAccountId}
               onChange={(e) => setActiveAccountId(e.target.value)}
               className="form-select"
               style={{
-                padding: '6px 14px',
+                padding: '6px 10px',
                 fontSize: '0.88rem',
-                height: '42px',
+                height: '48px',
                 background: 'var(--bg-card)',
                 border: '1.5px solid var(--border-color)',
-                borderRadius: '8px',
+                borderRadius: '12px',
                 color: 'var(--text-main)',
                 cursor: 'pointer',
-                minWidth: '180px',
+                minWidth: '150px',
                 outline: 'none',
                 fontWeight: 600
               }}
@@ -338,17 +338,19 @@ export default function App() {
               alignItems: 'center', 
               gap: '6px', 
               background: 'var(--bg-card)', 
-              border: '1px solid var(--border-color)', 
-              borderRadius: '8px', 
+              border: '1.5px solid var(--border-color)', 
+              borderRadius: '12px', 
               padding: '6px 12px',
-              height: '35px',
-              boxShadow: 'var(--shadow-card)'
+              height: '48px',
+              boxShadow: 'var(--shadow-card)',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
           >
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Current Capital:</span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Current Capital:</span>
             <span 
               style={{ 
-                fontSize: '0.85rem', 
+                fontSize: '0.92rem', 
                 fontWeight: 700, 
                 fontFamily: 'var(--font-mono)',
                 color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' 
@@ -363,15 +365,15 @@ export default function App() {
             onClick={toggleTheme}
             className="btn btn-secondary"
             style={{ 
-              width: '35px', 
-              height: '35px', 
+              width: '48px', 
+              height: '48px', 
               padding: 0, 
-              borderRadius: '8px', 
+              borderRadius: '12px', 
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
               background: 'var(--bg-card)',
-              border: '1px solid var(--border-color)'
+              border: '1.5px solid var(--border-color)'
             }}
             title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
           >
@@ -384,16 +386,16 @@ export default function App() {
               onClick={() => setIsNotifOpen(!isNotifOpen)}
               className="btn btn-secondary"
               style={{ 
-                width: '35px', 
-                height: '35px', 
+                width: '48px', 
+                height: '48px', 
                 padding: 0, 
-                borderRadius: '8px', 
+                borderRadius: '12px', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
                 position: 'relative',
                 background: isNotifOpen ? 'var(--primary-glow)' : 'var(--bg-card)',
-                border: isNotifOpen ? '1px solid var(--border-color-active)' : '1px solid var(--border-color)'
+                border: isNotifOpen ? '1px solid var(--border-color-active)' : '1.5px solid var(--border-color)'
               }}
               title="Alerts Center"
             >
@@ -402,8 +404,8 @@ export default function App() {
                 <span 
                   style={{ 
                     position: 'absolute', 
-                    top: '-4px', 
-                    right: '-4px', 
+                    top: '2px', 
+                    right: '2px', 
                     background: 'var(--color-loss)', 
                     color: '#fff', 
                     fontSize: '0.62rem', 
@@ -481,28 +483,30 @@ export default function App() {
           </div>
 
           {/* Live clock and Nifty simulated ticker next to profile avatar */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
             {/* Nifty */}
             <div 
               style={{ 
-                padding: '4px 10px', 
+                padding: '6px 12px', 
                 background: niftyFlash === 'up' ? 'rgba(16, 185, 129, 0.12)' : niftyFlash === 'down' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.03)', 
-                border: niftyFlash === 'up' ? '1px solid var(--color-win)' : niftyFlash === 'down' ? '1px solid var(--color-loss)' : '1px solid var(--border-color)', 
-                borderRadius: '6px', 
+                border: niftyFlash === 'up' ? '1.5px solid var(--color-win)' : niftyFlash === 'down' ? '1.5px solid var(--color-loss)' : '1.5px solid var(--border-color)', 
+                borderRadius: '12px', 
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '6px',
-                height: '35px',
-                transition: 'all 0.3s ease'
+                height: '48px',
+                transition: 'all 0.3s ease',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
               }}
             >
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>NIFTY:</span>
-              <strong style={{ fontSize: '0.72rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>NIFTY:</span>
+              <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                 {niftyPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </strong>
               <span 
                 style={{ 
-                  fontSize: '0.65rem', 
+                  fontSize: '0.75rem', 
                   color: niftyChange >= 0 ? 'var(--color-win)' : 'var(--color-loss)', 
                   fontWeight: 700, 
                   fontFamily: 'var(--font-mono)' 
@@ -513,9 +517,9 @@ export default function App() {
             </div>
 
             {/* Clock */}
-            <div style={{ padding: '4px 10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', height: '35px' }}>
-              <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: 'var(--primary)' }}></span>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+            <div style={{ padding: '6px 12px', background: 'rgba(255, 255, 255, 0.03)', border: '1.5px solid var(--border-color)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', height: '48px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)' }}></span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 {liveTime || 'Loading...'}
               </span>
             </div>
@@ -527,16 +531,18 @@ export default function App() {
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '16px', 
+              gap: '10px', 
               background: 'var(--bg-card)', 
               border: '1.5px solid var(--border-color)', 
               borderRadius: '12px', 
-              padding: '6px 20px',
-              height: '50px',
+              padding: '6px 12px',
+              height: '48px',
               fontSize: '0.92rem',
               color: 'var(--text-muted)',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
             title="Open Account & Master Settings"
           >
