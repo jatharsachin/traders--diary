@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { Plus, Trash2, ShieldAlert, Award, Star, Compass } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShieldAlert, Award, Star, Compass } from 'lucide-react';
 
 export function StrategyManager() {
-  const { setups, addSetup, deleteSetup, trades } = useTradeStore();
+  const { setups, addSetup, editSetup, deleteSetup, trades } = useTradeStore();
   const [newSetupName, setNewSetupName] = useState('');
   const [newSetupDesc, setNewSetupDesc] = useState('');
+  const [editOldName, setEditOldName] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   // Calculate statistics for each setup
@@ -34,25 +35,37 @@ export function StrategyManager() {
     e.preventDefault();
     setError('');
 
-    if (!newSetupName.trim()) {
+    const nameClean = newSetupName.trim();
+    const descClean = newSetupDesc.trim() || 'No description provided.';
+
+    if (!nameClean) {
       setError('Strategy name cannot be empty.');
       return;
     }
 
     // Check duplicate
-    if (setups.some((s) => s.name.toLowerCase() === newSetupName.trim().toLowerCase())) {
+    const isDuplicate = setups.some(
+      (s) => s.name.toLowerCase() === nameClean.toLowerCase() && s.name !== editOldName
+    );
+    if (isDuplicate) {
       setError('A strategy with this name already exists.');
       return;
     }
 
-    if (!window.confirm('Are you sure you want to add this strategy setup tag?')) {
-      return;
+    if (editOldName) {
+      if (!window.confirm(`Are you sure you want to update strategy "${editOldName}"? This will also rename all associated trades.`)) {
+        return;
+      }
+      editSetup(editOldName, { name: nameClean, description: descClean });
+      setEditOldName(null);
+      alert('Strategy updated successfully!');
+    } else {
+      if (!window.confirm('Are you sure you want to add this strategy setup tag?')) {
+        return;
+      }
+      addSetup({ name: nameClean, description: descClean });
+      alert('Strategy tag added successfully!');
     }
-
-    addSetup({
-      name: newSetupName.trim(),
-      description: newSetupDesc.trim() || 'No description provided.',
-    });
 
     setNewSetupName('');
     setNewSetupDesc('');
@@ -173,7 +186,19 @@ export function StrategyManager() {
                       {stats.count > 0 ? formatCurrency(stats.avgPnL) : '-'}
                     </td>
                     <td>
-                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px' }}
+                          title="Edit Strategy"
+                          onClick={() => {
+                            setEditOldName(setup.name);
+                            setNewSetupName(setup.name);
+                            setNewSetupDesc(setup.description);
+                          }}
+                        >
+                          <Edit2 size={14} />
+                        </button>
                         <button
                           className="btn btn-danger"
                           style={{ padding: '6px' }}
@@ -200,7 +225,7 @@ export function StrategyManager() {
       <div className="glass-card" style={{ padding: '24px', height: 'fit-content' }}>
         <h2 style={{ fontSize: '1.1rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Compass size={18} className="text-primary" style={{ color: 'var(--primary)' }} />
-          Create Strategy Tag
+          {editOldName ? 'Edit Strategy Tag' : 'Create Strategy Tag'}
         </h2>
 
         <form onSubmit={handleAddSetup}>
@@ -247,10 +272,26 @@ export function StrategyManager() {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '8px' }}>
-            <Plus size={16} />
-            Add Strategy Tag
-          </button>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+            {editOldName && (
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setEditOldName(null);
+                  setNewSetupName('');
+                  setNewSetupDesc('');
+                }}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+            )}
+            <button type="submit" className="btn btn-primary" style={{ flex: 2 }}>
+              <Plus size={16} />
+              {editOldName ? 'Save Changes' : 'Add Strategy Tag'}
+            </button>
+          </div>
         </form>
       </div>
 

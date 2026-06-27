@@ -44,6 +44,7 @@ interface TradeStore {
   editTrade: (id: string, tradeData: Partial<Trade>) => void;
   deleteTrade: (id: string) => void;
   addSetup: (setup: Setup) => void;
+  editSetup: (oldName: string, updatedSetup: Setup) => void;
   deleteSetup: (name: string) => void;
   addCapitalAdjustment: (adj: Omit<CapitalAdjustment, 'id'>) => void;
   deleteCapitalAdjustment: (id: string) => void;
@@ -741,6 +742,34 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(updatedSetups));
       syncMetaToCloud('setups', updatedSetups);
       return { setups: updatedSetups };
+    }),
+
+    editSetup: (oldName, updatedSetup) => set((state) => {
+      const updatedSetups = state.setups.map((s) => s.name === oldName ? updatedSetup : s);
+      
+      let tradesMigrated = false;
+      const updatedTrades = state.trades.map((t) => {
+        if (t.strategy === oldName) {
+          tradesMigrated = true;
+          return { ...t, strategy: updatedSetup.name };
+        }
+        return t;
+      });
+
+      localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(updatedSetups));
+      syncMetaToCloud('setups', updatedSetups);
+
+      if (tradesMigrated) {
+        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+        // Upsert renamed trades to Supabase
+        const matching = updatedTrades.filter(t => t.strategy === updatedSetup.name);
+        matching.forEach(t => syncTradeToCloud('insert', t));
+      }
+
+      return { 
+        setups: updatedSetups,
+        ...(tradesMigrated ? { trades: updatedTrades } : {})
+      };
     }),
 
     deleteSetup: (name) => set((state) => {
