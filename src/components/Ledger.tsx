@@ -146,6 +146,44 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
   const detailedLedger = getDetailedLedger();
 
+  const getFYDateLimits = () => {
+    if (!selectedFY || selectedFY === 'All') return { startLimit: null, endLimit: null };
+    const match = selectedFY.match(/FY (\d{4})/);
+    if (!match) return { startLimit: null, endLimit: null };
+    const startYear = parseInt(match[1], 10);
+    const startLimit = `${startYear}-04-01`;
+    const endLimit = `${startYear + 1}-03-31`;
+    return { startLimit, endLimit };
+  };
+  const { startLimit, endLimit } = getFYDateLimits();
+
+  const getBankOpeningBalance = (bankId: string) => {
+    const bank = bankAccounts.find(b => b.id === bankId);
+    const baseStart = bank ? bank.startingBalance : bankAccounts.reduce((sum, b) => sum + b.startingBalance, 0);
+    
+    if (!startLimit) return baseStart;
+
+    const priorTx = bankTransactions.filter(tx => {
+      const matchesBank = bankId === 'All' ? true : tx.bankAccountId === bankId;
+      return matchesBank && tx.date < startLimit;
+    });
+
+    const priorInflows = priorTx.filter(tx => tx.type === 'DEPOSIT').reduce((sum, tx) => sum + tx.amount, 0);
+    const priorOutflows = priorTx.filter(tx => tx.type === 'WITHDRAWAL').reduce((sum, tx) => sum + tx.amount, 0);
+
+    return baseStart + priorInflows - priorOutflows;
+  };
+
+  const activeFYBankTransactions = bankTransactions.filter(tx => {
+    if (!startLimit || !endLimit) return true;
+    return tx.date >= startLimit && tx.date <= endLimit;
+  });
+
+  const activeSubscriptionExpenses = subscriptionExpenses.filter(sub => {
+    if (!startLimit || !endLimit) return true;
+    return sub.date >= startLimit && sub.date <= endLimit;
+  });
+
   // Find unique months in records for pagination
   const monthsWithData = Array.from(new Set(detailedLedger.map(item => item.date.substring(0, 7)))).sort();
   const currentMonthStr = new Date().toISOString().substring(0, 7);
@@ -204,23 +242,22 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const [selectedBankFilter, setSelectedBankFilter] = useState<string>('All');
   
   const getBankSummary = (bankId: string) => {
-    const bank = bankAccounts.find(b => b.id === bankId);
-    const startBal = bank ? bank.startingBalance : bankAccounts.reduce((sum, b) => sum + b.startingBalance, 0);
+    const openingBal = getBankOpeningBalance(bankId);
     
-    const txList = bankTransactions.filter(tx => bankId === 'All' ? true : tx.bankAccountId === bankId);
+    const txList = activeFYBankTransactions.filter(tx => bankId === 'All' ? true : tx.bankAccountId === bankId);
     const totalInflows = txList.filter(tx => tx.type === 'DEPOSIT').reduce((sum, tx) => sum + tx.amount, 0);
     const totalOutflows = txList.filter(tx => tx.type === 'WITHDRAWAL').reduce((sum, tx) => sum + tx.amount, 0);
     
     return {
-      startingBalance: startBal,
+      startingBalance: openingBal,
       totalInflows,
       totalOutflows,
-      currentBalance: startBal + totalInflows - totalOutflows
+      currentBalance: openingBal + totalInflows - totalOutflows
     };
   };
 
   const bankSummary = getBankSummary(selectedBankFilter);
-  const activeBankTxList = bankTransactions
+  const activeBankTxList = activeFYBankTransactions
     .filter(tx => selectedBankFilter === 'All' ? true : tx.bankAccountId === selectedBankFilter)
     .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
 
@@ -842,7 +879,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 </tr>
               </thead>
               <tbody>
-                {subscriptionExpenses.map((sub) => {
+                {activeSubscriptionExpenses.map((sub) => {
                   let sourceLabel = '';
                   if (sub.paymentSource === 'Bank') {
                     const bank = bankAccounts.find(b => b.id === sub.bankAccountId);
@@ -879,7 +916,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                     </tr>
                   );
                 })}
-                {subscriptionExpenses.length === 0 && (
+                {activeSubscriptionExpenses.length === 0 && (
                   <tr>
                     <td colSpan={7} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
                       No subscriptions logged. Keep track of licenses here.
