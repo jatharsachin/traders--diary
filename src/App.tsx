@@ -85,6 +85,7 @@ export default function App() {
     };
   }, []);
 
+
   const { 
     trades, 
     baseCapital, 
@@ -98,7 +99,10 @@ export default function App() {
     isPnlVisible,
     userName,
     userAvatar,
-    brokerAccounts
+    brokerAccounts,
+    selectedFY,
+    investments,
+    syncAllInvestmentPrices
   } = useTradeStore();
 
   const filteredTrades = activeAccountId === 'Combined'
@@ -117,6 +121,7 @@ export default function App() {
   const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
   const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
   const currentCapital = filteredBaseCapital + totalNetPnL + totalDeposits - totalWithdrawals;
+
 
   // Dynamic Alert / Notification Center calculations
   const getDynamicNotifications = () => {
@@ -244,6 +249,26 @@ export default function App() {
     };
   }, [setSessionUser, loadUserData]);
 
+  // Centralized Investments Price Sync on Startup
+  useEffect(() => {
+    if (investments.some(inv => inv.status === 'ACTIVE' || !(inv as any).status)) {
+      const triggerPriceSync = async () => {
+        try {
+          const { updatedCount, failedSymbols } = await syncAllInvestmentPrices();
+          if (updatedCount > 0) {
+            console.log(`Auto-synchronized ${updatedCount} investment prices.`);
+          }
+          if (failedSymbols.length > 0) {
+            console.warn(`LTP sync failed for symbols: ${failedSymbols.join(', ')}`);
+          }
+        } catch (err) {
+          console.error('Failed to auto-sync investment prices on startup:', err);
+        }
+      };
+      triggerPriceSync();
+    }
+  }, [syncAllInvestmentPrices]);
+
   // Handle HTML Class toggling for themes
   useEffect(() => {
     if (theme === 'light') {
@@ -313,6 +338,9 @@ export default function App() {
                     <ShieldCheck size={9} /> Sync Linked
                   </span>
                 )}
+                <span className="badge" style={{ fontSize: '0.72rem', padding: '3px 8px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)', textTransform: 'none' }}>
+                  {selectedFY}
+                </span>
               </h1>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
                 Advanced stock & options cognitive audit journal
@@ -816,7 +844,7 @@ export default function App() {
 
       {/* Main Tab Render Panels */}
       <main style={{ minHeight: '60vh' }}>
-        {activeTab === 'dashboard' && <Dashboard activeAccountId={activeAccountId} />}
+        {activeTab === 'dashboard' && <Dashboard activeAccountId={activeAccountId} onNavigateToTab={setActiveTab} />}
         {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
         {activeTab === 'calendar' && <TradingCalendar activeAccountId={activeAccountId} />}
         {activeTab === 'logs' && <TradeTable onEditTrade={handleEditTrade} activeAccountId={activeAccountId} />}

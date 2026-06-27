@@ -8,8 +8,15 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
 import { filterTradesByFY, FINANCIAL_YEARS } from '../utils/fyHelper';
 import { BROKER_LOGOS } from '../utils/brandLogos';
+import { OFFLINE_NSE_HOLIDAYS } from './TradingCalendar';
 
-export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
+export function Dashboard({ 
+  activeAccountId = 'Combined', 
+  onNavigateToTab 
+}: { 
+  activeAccountId?: string; 
+  onNavigateToTab?: (tab: any) => void;
+}) {
   const { 
     trades: allTrades, 
     investments, 
@@ -23,11 +30,51 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
     userName,
     userAvatar,
     brokerAccounts,
-    capitalAdjustments
+    capitalAdjustments,
+    noTradeDays,
+    toggleNoTradeDay
   } = useTradeStore();
   
   const [selectedBroker, setSelectedBroker] = useState<string>('All');
   const [showCombined, setShowCombined] = useState(false);
+
+  // 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries
+  const getMissingLogDates = (): string[] => {
+    const dates: string[] = [];
+    let checkDate = new Date();
+    // Start checking from yesterday
+    checkDate.setDate(checkDate.getDate() - 1);
+    
+    // Check up to 5 market days
+    while (dates.length < 5) {
+      const dayOfWeek = checkDate.getDay(); // 0 = Sun, 6 = Sat
+      const dateStr = checkDate.toISOString().split('T')[0];
+      
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isNseHoliday = !!OFFLINE_NSE_HOLIDAYS[dateStr];
+      
+      if (!isWeekend && !isNseHoliday) {
+        const hasTrade = allTrades.some(t => t.date === dateStr);
+        const hasAdjustment = capitalAdjustments.some(a => a.date === dateStr);
+        const isNoTradeDay = noTradeDays.includes(dateStr);
+        
+        if (!hasTrade && !hasAdjustment && !isNoTradeDay) {
+          dates.push(dateStr);
+        }
+      }
+      
+      checkDate.setDate(checkDate.getDate() - 1);
+      // Safety limit: don't loop back indefinitely (max 30 days history check)
+      const diffTime = Math.abs(new Date().getTime() - checkDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 30) {
+        break;
+      }
+    }
+    return dates;
+  };
+
+  const missingLogDates = getMissingLogDates();
 
 
 
@@ -150,7 +197,15 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
 
   // Broker-wise Performance statistics calculations
   const getBrokerwiseStats = () => {
-    const brokerMap: Record<string, { netPnL: number; totalTrades: number; wins: number; losses: number; charges: number }> = {};
+    const brokerMap: Record<string, { 
+      netPnL: number; 
+      totalTrades: number; 
+      wins: number; 
+      losses: number; 
+      charges: number; 
+      investmentPnL: number;
+      activeInvestmentValue: number;
+    }> = {};
     
     rawTrades.forEach((t) => {
       const b = t.broker || 'Other';
@@ -158,7 +213,7 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
       const accName = acc ? acc.accountName : 'Default User';
       const key = `${b} (${accName})`;
       if (!brokerMap[key]) {
-        brokerMap[key] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0 };
+        brokerMap[key] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0, investmentPnL: 0, activeInvestmentValue: 0 };
       }
       brokerMap[key].netPnL += t.netPnL;
       brokerMap[key].totalTrades += 1;
@@ -167,6 +222,24 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
         brokerMap[key].wins += 1;
       } else if (t.netPnL < 0) {
         brokerMap[key].losses += 1;
+      }
+    });
+
+    investments.forEach((inv) => {
+      const b = inv.broker || 'Other';
+      const acc = brokerAccounts.find(a => a.id === inv.brokerAccountId);
+      const accName = acc ? acc.accountName : 'Default User';
+      const key = `${b} (${accName})`;
+      if (!brokerMap[key]) {
+        brokerMap[key] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0, investmentPnL: 0, activeInvestmentValue: 0 };
+      }
+      if (inv.status === 'EXITED') {
+        const realized = ((inv.exitPrice || 0) - inv.buyPrice) * inv.qty;
+        brokerMap[key].investmentPnL += realized;
+      } else {
+        const unrealized = (inv.currentPrice - inv.buyPrice) * inv.qty;
+        brokerMap[key].investmentPnL += unrealized;
+        brokerMap[key].activeInvestmentValue += (inv.currentPrice * inv.qty);
       }
     });
 
@@ -179,7 +252,7 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
         ...data,
         winRate: wr
       };
-    }).sort((a, b) => b.netPnL - a.netPnL);
+    }).sort((a, b) => (b.netPnL + b.investmentPnL) - (a.netPnL + a.investmentPnL));
   };
 
   const brokerStats = getBrokerwiseStats();
@@ -597,6 +670,77 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
 
   return (
     <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries */}
+      {missingLogDates.length > 0 && (
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '16px 20px', 
+            background: 'rgba(239, 68, 68, 0.08)', 
+            border: '1.5px solid rgba(239, 68, 68, 0.25)', 
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-loss)' }}>
+            <AlertTriangle size={18} />
+            <h3 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0 }}>Coach Reminder: Missing Log Entries</h3>
+          </div>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+            We noticed you have no trade or capital adjustments logged for the following recent market day(s). Keeping your journal entry streak active is key to success! Please select an action for each date:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+            {missingLogDates.map(date => {
+              const formattedDate = new Date(date).toLocaleDateString('en-IN', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              });
+              return (
+                <div 
+                  key={date} 
+                  style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '8px 12px', 
+                    background: 'rgba(255,255,255,0.02)', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border-color)',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}
+                >
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                    {formattedDate}
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => onNavigateToTab?.('logs')}
+                      className="btn btn-primary" 
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      Log Trade
+                    </button>
+                    <button 
+                      onClick={() => toggleNoTradeDay(date)}
+                      className="btn btn-secondary" 
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}
+                    >
+                      Mark No-Trade Day
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       
       {/* Redesigned Welcome Banner */}
       <div 
@@ -1102,7 +1246,7 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
 
         {brokerStats.length === 0 ? (
           <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.8rem' }}>
-            No trades logged in the selected financial year yet to compile broker stats.
+            No trading or investment data logged in the selected financial year yet to compile broker stats.
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
@@ -1122,7 +1266,7 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <img 
+                     <img 
                       src={BROKER_LOGOS[stat.brokerName] || BROKER_LOGOS['Other']} 
                       alt={stat.brokerName} 
                       style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1px', border: '1px solid var(--border-color)' }} 
@@ -1159,6 +1303,20 @@ export function Dashboard({ activeAccountId = 'Combined' }: { activeAccountId?: 
                   <span style={{ color: 'var(--text-dim)' }}>Charges:</span>
                   <span style={{ color: 'var(--text-muted)' }}>
                     ₹{isPnlVisible ? Math.round(stat.charges).toLocaleString('en-IN') : '••••'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', borderTop: '1px dashed var(--border-color)', paddingTop: '6px', marginTop: '2px' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Investment Return:</span>
+                  <strong style={{ color: stat.investmentPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                    {stat.investmentPnL >= 0 ? '+' : ''}₹{isPnlVisible ? Math.round(stat.investmentPnL).toLocaleString('en-IN') : '••••'}
+                  </strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Holding Value:</span>
+                  <span style={{ color: 'var(--text-main)', fontWeight: 650 }}>
+                    ₹{isPnlVisible ? Math.round(stat.activeInvestmentValue).toLocaleString('en-IN') : '••••'}
                   </span>
                 </div>
               </div>

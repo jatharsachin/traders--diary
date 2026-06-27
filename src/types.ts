@@ -95,6 +95,8 @@ export interface Investment {
   exitPrice?: number;
   exitDate?: string;
   exitNotes?: string;
+  broker?: Broker;
+  brokerAccountId?: string; // Links to specific broker-user account
 }
 
 // NEW ENTITIES

@@ -58,6 +58,7 @@ interface TradeStore {
   deleteInvestment: (id: string) => void;
   exitInvestment: (id: string, exitPrice: number, exitDate: string, exitNotes: string, exitQty?: number) => void;
   updateInvestmentsList: (updatedList: Investment[]) => void;
+  syncAllInvestmentPrices: () => Promise<{ updatedCount: number; failedSymbols: string[] }>;
 
   // Supabase SaaS Auth Settings
   sessionUser: any;
@@ -83,6 +84,8 @@ interface TradeStore {
   lockedFYs: string[];
   toggleLockFY: (fy: string) => void;
   clearFYData: (fy: string) => void;
+  noTradeDays: string[];
+  toggleNoTradeDay: (date: string) => void;
 
   bulkImportTrades: (
     imported: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>[],
@@ -121,6 +124,7 @@ interface TradeStore {
   // Bank transaction direct adjustments
   addDirectBankTransaction: (tx: Omit<BankTransaction, 'id'>) => void;
   deleteDirectBankTransaction: (id: string) => void;
+  editDirectBankTransaction: (id: string, txData: Partial<BankTransaction>) => void;
 }
 
 const DEFAULT_SETUPS: Setup[] = [
@@ -250,30 +254,7 @@ const updateBaseCapital = (accounts: BrokerAccount[]) => {
 
 export const useTradeStore = create<TradeStore>((set, get) => {
   const getMockInvestments = (): Investment[] => {
-    return [
-      {
-        id: 'inv-1',
-        type: 'ETF',
-        symbol: 'NIFTYBEES',
-        qty: 250,
-        buyPrice: 215,
-        currentPrice: 242.50,
-        date: '2026-01-10',
-        notes: 'Long-term equity benchmark tracking Nifty 50.',
-        status: 'ACTIVE',
-      },
-      {
-        id: 'inv-2',
-        type: 'BOND',
-        symbol: 'SGB 2.50% Oct 2031',
-        qty: 20,
-        buyPrice: 6200,
-        currentPrice: 6980,
-        date: '2026-02-15',
-        notes: 'Sovereign Gold Bond with 2.5% semi-annual interest.',
-        status: 'ACTIVE',
-      }
-    ];
+    return [];
   };
 
   // Helper to get user-scoped key
@@ -517,6 +498,18 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return ['FY 2024-25', 'FY 2025-26'];
   };
 
+  const loadNoTradeDays = (): string[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_notradedays'));
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse no trade days', e);
+      }
+    }
+    return [];
+  };
+
   // Seed default collections first to make sure they exist
   const initialAccounts = loadBrokerAccounts();
   const initialBanks = loadBankAccounts();
@@ -540,15 +533,25 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     sessionUser: null,
     isPnlVisible: loadPnlVisibility(),
     weeklyRetrospectives: loadWeeklyRetrospectives(),
-    selectedFY: 'All',
+    selectedFY: getCurrentLiveFY(),
     lockedFYs: loadLockedFYs(),
+    noTradeDays: loadNoTradeDays(),
     userName: loadUserName(),
     userAvatar: loadUserAvatar(),
     activeBrokers: loadActiveBrokers(),
     defaultBroker: loadDefaultBroker(),
 
-    setSessionUser: (user) => set({ sessionUser: user }),
+    setSessionUser: (user) => set({ sessionUser: user, selectedFY: getCurrentLiveFY(), noTradeDays: loadNoTradeDays() }),
     setSelectedFY: (fy) => set({ selectedFY: fy }),
+    toggleNoTradeDay: (date) => set((state) => {
+      const exists = state.noTradeDays.includes(date);
+      const nextNoTradeDays = exists 
+        ? state.noTradeDays.filter(d => d !== date)
+        : [...state.noTradeDays, date];
+      localStorage.setItem(getScopedKey('traders_diary_notradedays'), JSON.stringify(nextNoTradeDays));
+      syncMetaToCloud('notradedays', nextNoTradeDays);
+      return { noTradeDays: nextNoTradeDays };
+    }),
     toggleLockFY: (fy) => set((state) => {
       const isLocked = state.lockedFYs.includes(fy);
       const nextLocked = isLocked 
@@ -1046,6 +1049,57 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       return { investments: updatedList };
     }),
 
+    syncAllInvestmentPrices: async () => {
+      const state = get();
+      const activeInvs = state.investments.filter((i) => i.status === 'ACTIVE' || !i.status);
+      if (activeInvs.length === 0) return { updatedCount: 0, failedSymbols: [] };
+
+      let updatedCount = 0;
+      const failedSymbols: string[] = [];
+
+      const fetchLatestPriceFromYahoo = async (symbol: string): Promise<number | null> => {
+        const cleanSymbol = symbol.trim().toUpperCase();
+        const ticker = cleanSymbol.includes('.') ? cleanSymbol : `${cleanSymbol}.NS`;
+        try {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
+          const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+          if (!response.ok) return null;
+          const json = await response.json();
+          const data = JSON.parse(json.contents);
+          const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+          if (price && typeof price === 'number') {
+            return price;
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch price for ${ticker} from Yahoo Finance:`, e);
+        }
+        return null;
+      };
+
+      const updatedList = await Promise.all(
+        state.investments.map(async (inv) => {
+          if (inv.status === 'ACTIVE' || !inv.status) {
+            const livePrice = await fetchLatestPriceFromYahoo(inv.symbol);
+            if (livePrice !== null) {
+              updatedCount++;
+              return { ...inv, currentPrice: livePrice, status: 'ACTIVE' as const };
+            } else {
+              failedSymbols.push(inv.symbol);
+            }
+          }
+          return inv;
+        })
+      );
+
+      if (updatedCount > 0) {
+        set({ investments: updatedList });
+        localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updatedList));
+        syncMetaToCloud('investments', updatedList);
+      }
+
+      return { updatedCount, failedSymbols };
+    },
+
     loadUserData: (userId) => {
       const getOrMigrate = (baseKey: string, defaultVal: any) => {
         const scopedKey = `${baseKey}_${userId}`;
@@ -1315,21 +1369,153 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     }),
 
     addDirectBankTransaction: (tx) => set((state) => {
+      const btxId = `btx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
       const newTx: BankTransaction = {
         ...tx,
-        id: `btx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+        id: btxId
       };
-      const updated = [newTx, ...state.bankTransactions];
-      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updated));
-      syncMetaToCloud('bank_transactions', updated);
-      return { bankTransactions: updated };
+      
+      const updatedBankTxList = [newTx, ...state.bankTransactions];
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTxList));
+      syncMetaToCloud('bank_transactions', updatedBankTxList);
+
+      let updatedAdjustments = state.capitalAdjustments;
+      if ((tx.category === 'Broker Pay-in' || tx.category === 'Broker Pay-out') && tx.brokerAccountId) {
+        const matchedAcc = state.brokerAccounts.find(a => a.id === tx.brokerAccountId);
+        const adjType = (tx.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
+        const newAdj: CapitalAdjustment = {
+          id: `adj-${btxId}`,
+          date: tx.date,
+          time: tx.time,
+          type: adjType,
+          amount: tx.amount,
+          notes: tx.notes,
+          broker: matchedAcc ? matchedAcc.broker : 'Other',
+          brokerAccountId: tx.brokerAccountId,
+          bankAccountId: tx.bankAccountId
+        };
+        updatedAdjustments = [newAdj, ...state.capitalAdjustments];
+        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+        syncMetaToCloud('capital_adjustments', updatedAdjustments);
+      }
+
+      return { 
+        bankTransactions: updatedBankTxList,
+        capitalAdjustments: updatedAdjustments,
+        baseCapital: updateBaseCapital(state.brokerAccounts)
+      };
     }),
 
     deleteDirectBankTransaction: (id) => set((state) => {
+      const oldTx = state.bankTransactions.find(t => t.id === id);
+      if (!oldTx) return {};
+
+      const oldFY = getFinancialYear(oldTx.date);
+      if (state.lockedFYs.includes(oldFY)) {
+        alert(`Cannot delete entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+
       const updated = state.bankTransactions.filter((t) => t.id !== id);
       localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updated));
       syncMetaToCloud('bank_transactions', updated);
-      return { bankTransactions: updated };
+
+      // Clean up linked adjustments
+      const adjId = id.startsWith('btx-adj-') ? id.replace('btx-adj-', 'adj-') : `adj-${id}`;
+      const updatedAdjustments = state.capitalAdjustments.filter((a) => a.id !== adjId && a.id !== id.replace('btx-', ''));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+      syncMetaToCloud('capital_adjustments', updatedAdjustments);
+
+      // Clean up linked subscription expenses
+      const subId = id.startsWith('btx-sub-') ? id.replace('btx-sub-', '') : id;
+      const updatedExpenses = state.subscriptionExpenses.filter((s) => s.id !== subId);
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
+      syncMetaToCloud('subscription_expenses', updatedExpenses);
+
+      return { 
+        bankTransactions: updated, 
+        capitalAdjustments: updatedAdjustments,
+        subscriptionExpenses: updatedExpenses,
+        baseCapital: updateBaseCapital(state.brokerAccounts)
+      };
+    }),
+
+    editDirectBankTransaction: (id, txData) => set((state) => {
+      const oldTx = state.bankTransactions.find(t => t.id === id);
+      if (!oldTx) return {};
+
+      const oldFY = getFinancialYear(oldTx.date);
+      if (state.lockedFYs.includes(oldFY)) {
+        alert(`Cannot edit entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+      if (txData.date) {
+        const newFY = getFinancialYear(txData.date);
+        if (state.lockedFYs.includes(newFY)) {
+          alert(`Cannot edit entry: The target financial year "${newFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+      }
+
+      const updatedTxList = state.bankTransactions.map((tx) => {
+        if (tx.id === id) {
+          return { ...tx, ...txData };
+        }
+        return tx;
+      });
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedTxList));
+      syncMetaToCloud('bank_transactions', updatedTxList);
+
+      let updatedAdjustments = state.capitalAdjustments;
+      const targetCategory = txData.category !== undefined ? txData.category : oldTx.category;
+      const targetType = txData.type !== undefined ? txData.type : oldTx.type;
+      const targetAmount = txData.amount !== undefined ? txData.amount : oldTx.amount;
+      const targetNotes = txData.notes !== undefined ? txData.notes : oldTx.notes;
+      const targetDate = txData.date || oldTx.date;
+      const targetTime = txData.time || oldTx.time;
+      const targetBrokerAccountId = txData.brokerAccountId || oldTx.brokerAccountId;
+      const targetBankAccountId = txData.bankAccountId || oldTx.bankAccountId;
+
+      const adjId = id.startsWith('btx-adj-') ? id.replace('btx-adj-', 'adj-') : `adj-${id}`;
+      const hasAdj = state.capitalAdjustments.some(a => a.id === adjId);
+      const adjType = (targetType === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
+
+      if (targetCategory === 'Broker Pay-in' || targetCategory === 'Broker Pay-out') {
+        if (targetBrokerAccountId) {
+          const matchedAcc = state.brokerAccounts.find(a => a.id === targetBrokerAccountId);
+          const newAdjData: CapitalAdjustment = {
+            id: adjId,
+            date: targetDate,
+            time: targetTime,
+            type: adjType,
+            amount: targetAmount,
+            notes: targetNotes,
+            broker: matchedAcc ? matchedAcc.broker : 'Other',
+            brokerAccountId: targetBrokerAccountId,
+            bankAccountId: targetBankAccountId
+          };
+          if (hasAdj) {
+            updatedAdjustments = state.capitalAdjustments.map(a => a.id === adjId ? newAdjData : a);
+          } else {
+            updatedAdjustments = [newAdjData, ...state.capitalAdjustments];
+          }
+          localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+          syncMetaToCloud('capital_adjustments', updatedAdjustments);
+        }
+      } else {
+        // Changed to a non-broker category, so remove the linked adjustment if it exists
+        if (hasAdj) {
+          updatedAdjustments = state.capitalAdjustments.filter(a => a.id !== adjId);
+          localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+          syncMetaToCloud('capital_adjustments', updatedAdjustments);
+        }
+      }
+
+      return { 
+        bankTransactions: updatedTxList,
+        capitalAdjustments: updatedAdjustments,
+        baseCapital: updateBaseCapital(state.brokerAccounts)
+      };
     }),
 
     signUpUser: async (email, pass, metadata) => {
@@ -1376,6 +1562,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           capitalAdjustments: [],
           investments: [],
           weeklyRetrospectives: {},
+          selectedFY: getCurrentLiveFY(),
+          noTradeDays: []
         });
         return { error: null };
       } catch (e: any) {

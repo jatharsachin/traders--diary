@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, ArrowLeft, ArrowRight
+  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, ArrowLeft, ArrowRight, Edit2
 } from 'lucide-react';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
-import type { CapitalAdjustment } from '../types';
+import type { CapitalAdjustment, BankTransaction } from '../types';
 
 interface LedgerProps {
   activeAccountId?: string;
@@ -29,7 +29,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     addSubscriptionExpense,
     deleteSubscriptionExpense,
     addDirectBankTransaction,
-    deleteDirectBankTransaction
+    deleteDirectBankTransaction,
+    editDirectBankTransaction
   } = useTradeStore();
 
   const [activeLedgerTab, setActiveLedgerTab] = useState<'broker' | 'bank' | 'subscriptions'>('broker');
@@ -57,9 +58,22 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const [bankTxAmount, setBankTxAmount] = useState<number>(0);
   const [bankTxNotes, setBankTxNotes] = useState<string>('');
   const [bankTxAccId, setBankTxAccId] = useState<string>('');
-  const [bankTxCategory, setBankTxCategory] = useState<'Direct Deposit' | 'Direct Withdrawal'>('Direct Deposit');
+  const [bankTxCategory, setBankTxCategory] = useState<string>('Direct Deposit');
   const [bankTxDate, setBankTxDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [bankTxTime, setBankTxTime] = useState<string>(new Date().toTimeString().slice(0, 5));
+  const [bankTxBrokerAccId, setBankTxBrokerAccId] = useState<string>('');
+
+  // --- BANK TRANSACTION EDIT STATES ---
+  const [isEditBankTxOpen, setIsEditBankTxOpen] = useState(false);
+  const [editBankTxId, setEditBankTxId] = useState<string | null>(null);
+  const [editBankTxType, setEditBankTxType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
+  const [editBankTxAmount, setEditBankTxAmount] = useState<number>(0);
+  const [editBankTxNotes, setEditBankTxNotes] = useState<string>('');
+  const [editBankTxAccId, setEditBankTxAccId] = useState<string>('');
+  const [editBankTxCategory, setEditBankTxCategory] = useState<string>('Direct Deposit');
+  const [editBankTxDate, setEditBankTxDate] = useState<string>('');
+  const [editBankTxTime, setEditBankTxTime] = useState<string>('');
+  const [editBankTxBrokerAccId, setEditBankTxBrokerAccId] = useState<string>('');
 
   // --- SUBSCRIPTION FORM STATES ---
   const [subName, setSubName] = useState('');
@@ -143,7 +157,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const filteredLedgerItems = detailedLedger.filter(item => item.date.substring(0, 7) === selectedMonthStr);
 
   // Calculate Starting balance carry forward for selected month
-  const getCarryForwardCapitalForMonth = () => {
+  const getFYOpeningBalance = () => {
     let startingCap = 0;
     if (activeAccountId !== 'Combined') {
       startingCap = brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0;
@@ -153,9 +167,35 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       startingCap = brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0);
     }
 
+    if (selectedFY === 'All') return startingCap;
+
+    const match = selectedFY.match(/FY (\d{4})/);
+    if (!match) return startingCap;
+    const startYear = parseInt(match[1], 10);
+    const startStr = `${startYear}-04-01`;
+
+    const priorTrades = allTrades.filter(t => t.date < startStr && (
+      activeAccountId !== 'Combined' 
+        ? t.brokerAccountId === activeAccountId 
+        : (selectedBrokerFilter !== 'All' ? t.broker === selectedBrokerFilter : true)
+    ));
+    const priorPnL = priorTrades.reduce((sum, t) => sum + t.netPnL, 0);
+
+    const priorAdjs = allCapitalAdjustments.filter(a => a.date < startStr && (
+      activeAccountId !== 'Combined' 
+        ? a.brokerAccountId === activeAccountId 
+        : (selectedBrokerFilter !== 'All' ? a.broker === selectedBrokerFilter : true)
+    ));
+    const priorAdjSum = priorAdjs.reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
+
+    return startingCap + priorPnL + priorAdjSum;
+  };
+
+  const getCarryForwardCapitalForMonth = () => {
+    const fyOpeningBalance = getFYOpeningBalance();
     const priorRecords = detailedLedger.filter(item => item.date.substring(0, 7) < selectedMonthStr);
     const priorPnL = priorRecords.reduce((sum, item) => sum + item.netPnL, 0);
-    return startingCap + priorPnL;
+    return fyOpeningBalance + priorPnL;
   };
 
   const startingBalanceOfMonth = getCarryForwardCapitalForMonth();
@@ -222,19 +262,63 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       alert('Please select bank and enter a valid amount.');
       return;
     }
+    if ((bankTxCategory === 'Broker Pay-in' || bankTxCategory === 'Broker Pay-out') && !bankTxBrokerAccId) {
+      alert('Please select a Broker account for this double-entry transfer.');
+      return;
+    }
     addDirectBankTransaction({
       date: bankTxDate,
       time: bankTxTime,
       bankAccountId: bankTxAccId,
       type: bankTxType,
       amount: bankTxAmount,
-      category: bankTxCategory,
-      notes: bankTxNotes.trim()
+      category: bankTxCategory as any,
+      notes: bankTxNotes.trim(),
+      brokerAccountId: (bankTxCategory === 'Broker Pay-in' || bankTxCategory === 'Broker Pay-out') ? bankTxBrokerAccId : undefined
     });
     setIsBankTxOpen(false);
     setBankTxAmount(0);
     setBankTxNotes('');
+    setBankTxBrokerAccId('');
     alert('Bank transaction logged successfully!');
+  };
+
+  const handleEditBankTxClick = (tx: BankTransaction) => {
+    setEditBankTxId(tx.id);
+    setEditBankTxType(tx.type);
+    setEditBankTxAmount(tx.amount);
+    setEditBankTxNotes(tx.notes);
+    setEditBankTxAccId(tx.bankAccountId);
+    setEditBankTxCategory(tx.category);
+    setEditBankTxDate(tx.date);
+    setEditBankTxTime(tx.time);
+    setEditBankTxBrokerAccId(tx.brokerAccountId || '');
+    setIsEditBankTxOpen(true);
+  };
+
+  const handleEditBankTxSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editBankTxId || editBankTxAmount <= 0 || !editBankTxAccId) {
+      alert('Please fill in all fields correctly.');
+      return;
+    }
+    if ((editBankTxCategory === 'Broker Pay-in' || editBankTxCategory === 'Broker Pay-out') && !editBankTxBrokerAccId) {
+      alert('Please select a Broker account for this double-entry transfer.');
+      return;
+    }
+    editDirectBankTransaction(editBankTxId, {
+      date: editBankTxDate,
+      time: editBankTxTime,
+      bankAccountId: editBankTxAccId,
+      type: editBankTxType,
+      amount: editBankTxAmount,
+      category: editBankTxCategory as any,
+      notes: editBankTxNotes.trim(),
+      brokerAccountId: (editBankTxCategory === 'Broker Pay-in' || editBankTxCategory === 'Broker Pay-out') ? editBankTxBrokerAccId : undefined
+    });
+    setIsEditBankTxOpen(false);
+    setEditBankTxId(null);
+    alert('Bank transaction updated successfully!');
   };
 
   const handleAddSubSubmit = (e: React.FormEvent) => {
@@ -692,16 +776,28 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                         {isPnlVisible ? formatCurrency(tx.amount) : '••••'}
                       </td>
                       <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{tx.notes}</td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                      <td style={{ padding: '8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <button
+                          onClick={() => handleEditBankTxClick(tx)}
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 6px', color: 'var(--primary)', border: 'none', marginRight: '4px' }}
+                          title="Edit transaction"
+                        >
+                          <Edit2 size={11} />
+                        </button>
                         <button
                           onClick={() => {
-                            if (confirm('Delete this bank transaction?')) {
+                            const isDoubleEntry = tx.category.startsWith('Broker') || tx.category === 'Subscription/Expense';
+                            const msg = isDoubleEntry 
+                              ? 'Deleting this transaction will also delete any linked broker pay-in/out or subscription expense ledger records. Proceed?'
+                              : 'Are you sure you want to delete this bank transaction?';
+                            if (confirm(msg)) {
                               deleteDirectBankTransaction(tx.id);
                             }
                           }}
                           className="btn btn-secondary"
                           style={{ padding: '2px 6px', color: 'var(--color-loss)', border: 'none' }}
-                          disabled={tx.category.startsWith('Broker') || tx.category === 'Subscription/Expense'} // linked transactions must be deleted from original places
+                          title="Delete transaction"
                         >
                           <Trash2 size={11} />
                         </button>
@@ -922,7 +1018,17 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   <label className="form-label" style={{ fontSize: '0.75rem' }}>Transaction Category</label>
                   <select 
                     value={bankTxCategory} 
-                    onChange={(e) => setBankTxCategory(e.target.value as any)} 
+                    onChange={(e) => {
+                      const cat = e.target.value;
+                      setBankTxCategory(cat);
+                      if (cat === 'Broker Pay-in' || cat === 'Broker Pay-out') {
+                        if (brokerAccounts.filter(b => b.active).length > 0) {
+                          setBankTxBrokerAccId(brokerAccounts.filter(b => b.active)[0].id);
+                        }
+                      } else {
+                        setBankTxBrokerAccId('');
+                      }
+                    }} 
                     className="form-select"
                   >
                     {bankTxType === 'DEPOSIT' ? (
@@ -930,15 +1036,34 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                         <option value="Direct Deposit">Direct Deposit (Capital)</option>
                         <option value="Salary">Salary Inflow</option>
                         <option value="Interest">Interest Credit</option>
+                        <option value="Broker Pay-out">Broker Pay-out (Transfer to Bank)</option>
                       </>
                     ) : (
                       <>
                         <option value="Direct Withdrawal">Direct Withdrawal (Personal)</option>
                         <option value="Expense">Bank Charge</option>
+                        <option value="Broker Pay-in">Broker Pay-in (Transfer to Broker)</option>
                       </>
                     )}
                   </select>
                 </div>
+
+                {(bankTxCategory === 'Broker Pay-in' || bankTxCategory === 'Broker Pay-out') && (
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Select Target Broker Account</label>
+                    <select 
+                      value={bankTxBrokerAccId} 
+                      onChange={(e) => setBankTxBrokerAccId(e.target.value)} 
+                      className="form-select" 
+                      required
+                    >
+                      <option value="">Select Account</option>
+                      {brokerAccounts.filter(a => a.active).map(a => (
+                        <option key={a.id} value={a.id}>{a.accountName} ({a.broker})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem' }}>Amount (₹)</label>
@@ -966,6 +1091,122 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 <button type="submit" className="btn btn-primary" style={{ fontSize: '0.75rem' }}>
                   <Save size={12} />
                   <span>Log Bank Transaction</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: EDIT BANK TRANSACTION --- */}
+      {isEditBankTxOpen && (
+        <div className="modal-overlay" style={{ zIndex: 3100 }}>
+          <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'hidden' }}>
+            <div className="modal-header">
+              <h3>Edit Bank Transaction</h3>
+              <button onClick={() => { setIsEditBankTxOpen(false); setEditBankTxId(null); }} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
+            </div>
+            <form onSubmit={handleEditBankTxSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px' }}>
+                
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Select Bank Account</label>
+                  <select value={editBankTxAccId} onChange={(e) => setEditBankTxAccId(e.target.value)} className="form-select" required>
+                    <option value="">Select Bank</option>
+                    {bankAccounts.filter(b => b.active).map(b => (
+                      <option key={b.id} value={b.id}>{b.bankName} ({b.accountHolderName})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                    <input type="radio" checked={editBankTxType === 'DEPOSIT'} onChange={() => { setEditBankTxType('DEPOSIT'); setEditBankTxCategory('Direct Deposit'); }} style={{ accentColor: 'var(--primary)' }} />
+                    <span>Inflow / Deposit (+)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                    <input type="radio" checked={editBankTxType === 'WITHDRAWAL'} onChange={() => { setEditBankTxType('WITHDRAWAL'); setEditBankTxCategory('Direct Withdrawal'); }} style={{ accentColor: 'var(--color-loss)' }} />
+                    <span>Outflow / Withdrawal (-)</span>
+                  </label>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Transaction Category</label>
+                  <select 
+                    value={editBankTxCategory} 
+                    onChange={(e) => {
+                      const cat = e.target.value;
+                      setEditBankTxCategory(cat);
+                      if (cat === 'Broker Pay-in' || cat === 'Broker Pay-out') {
+                        if (brokerAccounts.filter(b => b.active).length > 0) {
+                          setEditBankTxBrokerAccId(brokerAccounts.filter(b => b.active)[0].id);
+                        }
+                      } else {
+                        setEditBankTxBrokerAccId('');
+                      }
+                    }} 
+                    className="form-select"
+                  >
+                    {editBankTxType === 'DEPOSIT' ? (
+                      <>
+                        <option value="Direct Deposit">Direct Deposit (Capital)</option>
+                        <option value="Salary">Salary Inflow</option>
+                        <option value="Interest">Interest Credit</option>
+                        <option value="Broker Pay-out">Broker Pay-out (Transfer to Bank)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Direct Withdrawal">Direct Withdrawal (Personal)</option>
+                        <option value="Expense">Bank Charge</option>
+                        <option value="Broker Pay-in">Broker Pay-in (Transfer to Broker)</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                {(editBankTxCategory === 'Broker Pay-in' || editBankTxCategory === 'Broker Pay-out') && (
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Select Target Broker Account</label>
+                    <select 
+                      value={editBankTxBrokerAccId} 
+                      onChange={(e) => setEditBankTxBrokerAccId(e.target.value)} 
+                      className="form-select" 
+                      required
+                    >
+                      <option value="">Select Account</option>
+                      {brokerAccounts.filter(a => a.active).map(a => (
+                        <option key={a.id} value={a.id}>{a.accountName} ({a.broker})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Amount (₹)</label>
+                  <input type="number" value={editBankTxAmount || ''} onChange={(e) => setEditBankTxAmount(parseFloat(e.target.value) || 0)} className="form-input" required />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Date</label>
+                    <input type="date" value={editBankTxDate} onChange={(e) => setEditBankTxDate(e.target.value)} className="form-input" required />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Time</label>
+                    <input type="time" value={editBankTxTime} onChange={(e) => setEditBankTxTime(e.target.value)} className="form-input" required />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Notes / Description</label>
+                  <input type="text" value={editBankTxNotes} onChange={(e) => setEditBankTxNotes(e.target.value)} placeholder="e.g. Salary credited" className="form-input" />
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
+                <button type="submit" className="btn btn-primary" style={{ fontSize: '0.75rem' }}>
+                  <Save size={12} />
+                  <span>Save Changes</span>
                 </button>
               </div>
             </form>

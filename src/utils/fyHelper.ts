@@ -32,3 +32,14 @@ export const FINANCIAL_YEARS = [
   'FY 2024-25',
   'FY 2023-24'
 ];
+
+export function getCurrentLiveFY(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth(); // 0-indexed: 3 = April
+  if (month >= 3) {
+    return `FY ${year}-${(year + 1).toString().slice(-2)}`;
+  } else {
+    return `FY ${year - 1}-${year.toString().slice(-2)}`;
+  }
+}

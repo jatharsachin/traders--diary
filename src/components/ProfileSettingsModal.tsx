@@ -3,6 +3,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import type { Broker, BrokerChargesConfig } from '../types';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { BROKER_LOGOS, getBankLogoSvg } from '../utils/brandLogos';
+import { syncMetaToCloud } from '../utils/supabaseClient';
 import { 
   X, User, ShieldAlert, Save, Download, Upload, 
   Database, Trash2, IndianRupee, Settings, Plus,
@@ -85,7 +86,12 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
     updateBrokerCharges,
     lockedFYs,
     toggleLockFY,
-    capitalAdjustments
+    capitalAdjustments,
+    investments,
+    weeklyRetrospectives,
+    bankTransactions,
+    subscriptionExpenses,
+    noTradeDays
   } = useTradeStore();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'charges' | 'backup' | 'danger'>('profile');
@@ -273,7 +279,13 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
         brokerCharges,
         userName,
         userAvatar,
-        activeBrokers
+        activeBrokers,
+        capitalAdjustments,
+        investments,
+        weeklyRetrospectives,
+        bankTransactions,
+        subscriptionExpenses,
+        noTradeDays
       };
       const dataStr = JSON.stringify(backupData, null, 2);
       const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
@@ -292,27 +304,60 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
     const fileReader = new FileReader();
     if (e.target.files && e.target.files[0]) {
       fileReader.readAsText(e.target.files[0], "UTF-8");
-      fileReader.onload = (event) => {
+      fileReader.onload = async (event) => {
         try {
           const parsed = JSON.parse(event.target?.result as string);
           if (parsed && Array.isArray(parsed.trades)) {
             const overwrite = window.confirm("Are you sure you want to restore this JSON snapshot? This will replace your current data.");
             if (overwrite) {
+              const userId = sessionUser?.id;
+              const suffix = userId ? `_${userId}` : '';
+
               if (parsed.brokerAccounts) {
-                localStorage.setItem('traders_diary_broker_accounts', JSON.stringify(parsed.brokerAccounts));
+                localStorage.setItem(`traders_diary_broker_accounts${suffix}`, JSON.stringify(parsed.brokerAccounts));
+                if (userId) syncMetaToCloud('broker_accounts', parsed.brokerAccounts);
               }
               if (parsed.bankAccounts) {
-                localStorage.setItem('traders_diary_bank_accounts', JSON.stringify(parsed.bankAccounts));
+                localStorage.setItem(`traders_diary_bank_accounts${suffix}`, JSON.stringify(parsed.bankAccounts));
+                if (userId) syncMetaToCloud('bank_accounts', parsed.bankAccounts);
               }
               if (parsed.brokerCharges) {
-                localStorage.setItem('traders_diary_broker_charges', JSON.stringify(parsed.brokerCharges));
+                localStorage.setItem(`traders_diary_broker_charges${suffix}`, JSON.stringify(parsed.brokerCharges));
+                if (userId) syncMetaToCloud('broker_charges', parsed.brokerCharges);
               }
               if (parsed.userName) {
-                localStorage.setItem('traders_diary_user_name', parsed.userName);
+                localStorage.setItem(`traders_diary_user_name${suffix}`, parsed.userName);
+                if (userId) syncMetaToCloud('user_name', parsed.userName);
               }
               if (parsed.userAvatar) {
-                localStorage.setItem('traders_diary_user_avatar', parsed.userAvatar);
+                localStorage.setItem(`traders_diary_user_avatar${suffix}`, parsed.userAvatar);
+                if (userId) syncMetaToCloud('user_avatar', parsed.userAvatar);
               }
+              if (parsed.capitalAdjustments) {
+                localStorage.setItem(`traders_diary_adjustments${suffix}`, JSON.stringify(parsed.capitalAdjustments));
+                if (userId) syncMetaToCloud('capital_adjustments', parsed.capitalAdjustments);
+              }
+              if (parsed.investments) {
+                localStorage.setItem(`traders_diary_investments${suffix}`, JSON.stringify(parsed.investments));
+                if (userId) syncMetaToCloud('investments', parsed.investments);
+              }
+              if (parsed.weeklyRetrospectives) {
+                localStorage.setItem(`traders_diary_weekly_retrospectives${suffix}`, JSON.stringify(parsed.weeklyRetrospectives));
+                if (userId) syncMetaToCloud('weekly_retrospectives', parsed.weeklyRetrospectives);
+              }
+              if (parsed.bankTransactions) {
+                localStorage.setItem(`traders_diary_bank_transactions${suffix}`, JSON.stringify(parsed.bankTransactions));
+                if (userId) syncMetaToCloud('bank_transactions', parsed.bankTransactions);
+              }
+              if (parsed.subscriptionExpenses) {
+                localStorage.setItem(`traders_diary_subscription_expenses${suffix}`, JSON.stringify(parsed.subscriptionExpenses));
+                if (userId) syncMetaToCloud('subscription_expenses', parsed.subscriptionExpenses);
+              }
+              if (parsed.noTradeDays) {
+                localStorage.setItem(`traders_diary_notradedays${suffix}`, JSON.stringify(parsed.noTradeDays));
+                if (userId) syncMetaToCloud('notradedays', parsed.noTradeDays);
+              }
+
               bulkImportTrades(parsed.trades, true);
               alert("System database successfully restored!");
               window.location.reload();

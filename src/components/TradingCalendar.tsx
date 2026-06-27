@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
+import { filterTradesByFY } from '../utils/fyHelper';
 
-const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
+export const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   // 2025
   '2025-02-26': 'Mahashivratri',
   '2025-03-14': 'Holi',
@@ -72,10 +73,20 @@ const formatCompactPnLMobile = (val: number) => {
 };
 
 export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
-  const { trades: allTrades, isPnlVisible, togglePnlVisibility } = useTradeStore();
+  const { 
+    trades: allTrades, 
+    isPnlVisible, 
+    togglePnlVisibility, 
+    selectedFY,
+    capitalAdjustments: allCapitalAdjustments,
+    brokerAccounts
+  } = useTradeStore();
+
+  const fyTrades = filterTradesByFY(allTrades, selectedFY);
   const trades = activeAccountId === 'Combined'
-    ? allTrades
-    : allTrades.filter(t => t.brokerAccountId === activeAccountId);
+    ? fyTrades
+    : fyTrades.filter(t => t.brokerAccountId === activeAccountId);
+
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026
   const [activePnlTab, setActivePnlTab] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -83,6 +94,17 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   const [selectedMonthNum, setSelectedMonthNum] = useState<number | null>(null);
   const [onlineHolidays, setOnlineHolidays] = useState<Record<string, string>>({});
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+
+  // Synchronize currentDate with selectedFY boundaries
+  useEffect(() => {
+    if (selectedFY && selectedFY !== 'All') {
+      const match = selectedFY.match(/FY (\d{4})/);
+      if (match) {
+        const startYear = parseInt(match[1], 10);
+        setCurrentDate(new Date(startYear, 3, 1)); // April 1st of that FY
+      }
+    }
+  }, [selectedFY]);
 
   // Reset selections on tab change
   useEffect(() => {
@@ -413,6 +435,34 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   };
   const { start: fyStart, end: fyEnd, fyStartYear } = getFYRange();
 
+  const getCapitalAtDate = (dateLimit: Date): number => {
+    let startingCap = 0;
+    if (activeAccountId === 'Combined') {
+      startingCap = brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0);
+    } else {
+      startingCap = brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0;
+    }
+
+    const limitStr = dateLimit.toISOString().split('T')[0];
+
+    const priorTrades = allTrades.filter(t => t.date < limitStr && (
+      activeAccountId === 'Combined' 
+        ? true 
+        : t.brokerAccountId === activeAccountId
+    ));
+    const priorPnL = priorTrades.reduce((sum, t) => sum + t.netPnL, 0);
+
+    const priorAdjustments = allCapitalAdjustments.filter(a => a.date < limitStr && (
+      activeAccountId === 'Combined' 
+        ? true 
+        : a.brokerAccountId === activeAccountId
+    ));
+    const priorAdjSum = priorAdjustments.reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
+
+    const cap = startingCap + priorPnL + priorAdjSum;
+    return cap > 0 ? cap : 1;
+  };
+
   const getFYPnL = () => {
     const fyTrades = trades.filter((t) => {
       const tDate = new Date(t.date);
@@ -423,6 +473,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   const activeFYPnL = getFYPnL();
 
   const headerPnL = activePnlTab === 'monthly' ? activeMonthPnL : activeFYPnL;
+  const headerCap = getCapitalAtDate(activePnlTab === 'monthly' ? new Date(year, month, 1) : fyStart);
+  const headerRoi = (headerPnL / headerCap) * 100;
   const headerTitle = activePnlTab === 'monthly' 
     ? `${months[month]} ${year}` 
     : `FY ${fyStartYear}-${String(fyStartYear + 1).slice(-2)}`;
@@ -430,7 +482,28 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     ? `P&L for ${months[month]} ${year}`
     : `P&L for FY ${fyStartYear}-${String(fyStartYear + 1).slice(-2)}`;
 
+  const prevDisabled = selectedFY !== 'All' && (
+    activePnlTab !== 'monthly' || 
+    (() => {
+      const match = selectedFY.match(/FY (\d{4})/);
+      if (!match) return false;
+      const startYear = parseInt(match[1], 10);
+      return year === startYear && month === 3; // April of start year
+    })()
+  );
+
+  const nextDisabled = selectedFY !== 'All' && (
+    activePnlTab !== 'monthly' || 
+    (() => {
+      const match = selectedFY.match(/FY (\d{4})/);
+      if (!match) return false;
+      const startYear = parseInt(match[1], 10);
+      return year === (startYear + 1) && month === 2; // March of next year
+    })()
+  );
+
   const handlePrev = () => {
+    if (prevDisabled) return;
     if (activePnlTab === 'monthly') {
       setCurrentDate(new Date(year, month - 1, 1));
     } else {
@@ -439,6 +512,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   };
 
   const handleNext = () => {
+    if (nextDisabled) return;
     if (activePnlTab === 'monthly') {
       setCurrentDate(new Date(year, month + 1, 1));
     } else {
@@ -739,6 +813,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   const weeklyCells = fyWeeks.map((w) => {
     const isSelected = selectedWeekNum === w.weekNum;
     const hasTrades = w.trades.length > 0;
+    const weekCap = getCapitalAtDate(new Date(w.startDate));
+    const weekRoi = (w.netPnL / weekCap) * 100;
     
     let cellClass = 'calendar-day weekly-day';
     if (hasTrades) {
@@ -784,6 +860,9 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                   <span className="pnl-desktop">
                     {w.netPnL > 0 ? '+' : ''}
                     {Math.round(w.netPnL).toLocaleString('en-IN')}
+                    <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                      ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
+                    </span>
                   </span>
                   <span className="pnl-mobile">
                     {formatCompactPnLMobile(w.netPnL)}
@@ -834,6 +913,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   const yearlyCells = fyMonthsList.map((m) => {
     const isSelected = selectedMonthNum === m.monthNum;
     const hasTrades = m.trades.length > 0;
+    const monthCap = getCapitalAtDate(new Date(m.year, m.monthNum - 1, 1));
+    const monthRoi = (m.netPnL / monthCap) * 100;
     
     let cellClass = 'calendar-day yearly-day';
     if (hasTrades) {
@@ -879,6 +960,9 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                   <span className="pnl-desktop">
                     {m.netPnL > 0 ? '+' : ''}
                     {Math.round(m.netPnL).toLocaleString('en-IN')}
+                    <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                      ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
+                    </span>
                   </span>
                   <span className="pnl-mobile">
                     {formatCompactPnLMobile(m.netPnL)}
@@ -943,7 +1027,12 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={handlePrev}>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '6px 12px', opacity: prevDisabled ? 0.35 : 1, cursor: prevDisabled ? 'not-allowed' : 'pointer' }} 
+            onClick={handlePrev}
+            disabled={prevDisabled}
+          >
             <ChevronLeft size={16} />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -965,14 +1054,19 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
             >
               {isPnlVisible ? (
                 <>
-                  {headerPnL >= 0 ? '+' : ''}{formatCurrency(headerPnL)}
+                  {headerPnL >= 0 ? '+' : ''}{formatCurrency(headerPnL)} ({headerPnL >= 0 ? '+' : ''}{headerRoi.toFixed(1)}%)
                 </>
               ) : (
                 '••••'
               )}
             </span>
           </div>
-          <button className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={handleNext}>
+          <button 
+            className="btn btn-secondary" 
+            style={{ padding: '6px 12px', opacity: nextDisabled ? 0.35 : 1, cursor: nextDisabled ? 'not-allowed' : 'pointer' }} 
+            onClick={handleNext}
+            disabled={nextDisabled}
+          >
             <ChevronRight size={16} />
           </button>
         </div>

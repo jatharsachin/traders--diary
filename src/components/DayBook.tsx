@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
   CalendarRange, Printer, Eye, EyeOff, Edit2
@@ -14,7 +14,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     capitalAdjustments: allAdjustments, 
     brokerAccounts, 
     isPnlVisible,
-    togglePnlVisibility
+    togglePnlVisibility,
+    selectedFY
   } = useTradeStore();
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -26,6 +27,42 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   const [startDate, setStartDate] = useState<string>(sevenDaysAgoStr);
   const [endDate, setEndDate] = useState<string>(todayStr);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+
+  // Whenever selectedFY changes, adapt the start and end dates to fit that FY
+  useEffect(() => {
+    if (selectedFY && selectedFY !== 'All') {
+      const match = selectedFY.match(/FY (\d{4})/);
+      if (match) {
+        const startYear = parseInt(match[1], 10);
+        const endYear = startYear + 1;
+        setStartDate(`${startYear}-04-01`);
+        setEndDate(`${endYear}-03-31`);
+      }
+    } else {
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(today.getDate() - 7);
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+      setStartDate(sevenDaysAgoStr);
+      setEndDate(todayStr);
+    }
+  }, [selectedFY]);
+
+  const { minDate, maxDate } = (() => {
+    if (selectedFY && selectedFY !== 'All') {
+      const match = selectedFY.match(/FY (\d{4})/);
+      if (match) {
+        const startYear = parseInt(match[1], 10);
+        const endYear = startYear + 1;
+        return {
+          minDate: `${startYear}-04-01`,
+          maxDate: `${endYear}-03-31`
+        };
+      }
+    }
+    return { minDate: undefined, maxDate: undefined };
+  })();
   
   // Inline editing states for narration/particulars
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -157,6 +194,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   
   const netFlow = totalDeposits - totalWithdrawals;
   const endingBalance = openingBalance + netPnL + netFlow;
+  const totalCredits = totalDeposits + rangeTrades.filter(t => t.netPnL > 0).reduce((sum, t) => sum + t.netPnL, 0);
+  const totalDebits = totalWithdrawals + rangeTrades.filter(t => t.netPnL < 0).reduce((sum, t) => sum + Math.abs(t.netPnL), 0);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -285,6 +324,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
             <input 
               type="date" 
               value={startDate} 
+              min={minDate}
+              max={maxDate}
               onChange={(e) => setStartDate(e.target.value)} 
               className="form-input" 
               style={{ padding: '4px 8px', fontSize: '0.78rem', height: '32px', width: '130px' }} 
@@ -293,6 +334,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
             <input 
               type="date" 
               value={endDate} 
+              min={minDate}
+              max={maxDate}
               onChange={(e) => setEndDate(e.target.value)} 
               className="form-input" 
               style={{ padding: '4px 8px', fontSize: '0.78rem', height: '32px', width: '130px' }} 
@@ -535,6 +578,24 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
               });
             })()}
           </tbody>
+          <tfoot>
+            <tr style={{ borderTop: '2px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}>
+              <td style={{ padding: '10px 8px', color: 'var(--text-main)' }}>Summary ({startDate} to {endDate})</td>
+              <td style={{ padding: '10px 8px', color: 'var(--text-muted)' }}>
+                <div>Opening: <span style={{ fontFamily: 'var(--font-mono)' }}>{isPnlVisible ? formatCurrency(openingBalance) : '••••'}</span></div>
+                <div>Closing: <span style={{ fontFamily: 'var(--font-mono)' }}>{isPnlVisible ? formatCurrency(endingBalance) : '••••'}</span></div>
+              </td>
+              <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                -{isPnlVisible ? formatCurrency(totalDebits) : '••••'}
+              </td>
+              <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+                +{isPnlVisible ? formatCurrency(totalCredits) : '••••'}
+              </td>
+              <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
+                {isPnlVisible ? formatCurrency(endingBalance) : '••••'}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>

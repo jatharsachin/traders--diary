@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { 
@@ -6,6 +6,7 @@ import {
   RefreshCw, Save, Eye, EyeOff
 } from 'lucide-react';
 import logoImg from '../assets/tradediary_logo.png';
+import { BROKER_LOGOS } from '../utils/brandLogos';
 
 export function AccountManager() {
   const { 
@@ -17,9 +18,10 @@ export function AccountManager() {
     editInvestment,
     deleteInvestment,
     exitInvestment,
-    updateInvestmentsList,
     isPnlVisible,
-    togglePnlVisibility
+    togglePnlVisibility,
+    brokerAccounts,
+    syncAllInvestmentPrices
   } = useTradeStore();
 
   // Investment Form States
@@ -74,75 +76,27 @@ export function AccountManager() {
   // Live Price Sync logic
   const [syncPricesLoading, setSyncPricesLoading] = useState(false);
 
-  const fetchLatestPriceFromYahoo = async (symbol: string): Promise<number | null> => {
-    const cleanSymbol = symbol.trim().toUpperCase();
-    const ticker = cleanSymbol.includes('.') ? cleanSymbol : `${cleanSymbol}.NS`;
-    try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
-      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-      if (!response.ok) return null;
-      const json = await response.json();
-      const data = JSON.parse(json.contents);
-      const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-      if (price && typeof price === 'number') {
-        return price;
-      }
-    } catch (e) {
-      console.warn(`Failed to fetch price for ${ticker} from Yahoo Finance:`, e);
-    }
-    return null;
-  };
+
 
   const handleSyncAllPrices = async () => {
     const activeInvs = investments.filter((i) => i.status === 'ACTIVE');
     if (activeInvs.length === 0) return;
     
     setSyncPricesLoading(true);
-    let updatedCount = 0;
-    
-    const updatedList = await Promise.all(
-      investments.map(async (inv) => {
-        if (inv.status === 'ACTIVE') {
-          const livePrice = await fetchLatestPriceFromYahoo(inv.symbol);
-          if (livePrice !== null) {
-            updatedCount++;
-            return { ...inv, currentPrice: livePrice };
-          }
-        }
-        return inv;
-      })
-    );
+    const { updatedCount, failedSymbols } = await syncAllInvestmentPrices();
     
     if (updatedCount > 0) {
-      updateInvestmentsList(updatedList);
-      alert(`Successfully synchronized latest day-end market prices for ${updatedCount} assets!`);
+      if (failedSymbols.length > 0) {
+        alert(`Synchronized latest prices for ${updatedCount} assets. Failed symbols: ${failedSymbols.join(', ')}`);
+      } else {
+        alert(`Successfully synchronized latest day-end market prices for ${updatedCount} assets!`);
+      }
     } else {
       alert("Could not update prices. Please check internet connection or symbols format.");
     }
     
     setSyncPricesLoading(false);
   };
-
-  // Auto-sync prices once on load
-  useEffect(() => {
-    if (investments.filter((i) => i.status === 'ACTIVE').length > 0) {
-      const autoSyncPrices = async () => {
-        const updatedList = await Promise.all(
-          investments.map(async (inv) => {
-            if (inv.status === 'ACTIVE') {
-              const livePrice = await fetchLatestPriceFromYahoo(inv.symbol);
-              if (livePrice !== null) {
-                return { ...inv, currentPrice: livePrice };
-              }
-            }
-            return inv;
-          })
-        );
-        updateInvestmentsList(updatedList);
-      };
-      autoSyncPrices();
-    }
-  }, []);
 
   // Handlers: Investments form
   const handleAddOrEditInvestment = (e: React.FormEvent) => {
@@ -469,6 +423,7 @@ export function AccountManager() {
                       <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-dim)', textAlign: 'left' }}>
                         <th style={{ padding: '6px' }}>Asset</th>
                         <th style={{ padding: '6px' }}>Type</th>
+                        <th style={{ padding: '6px' }}>Broker</th>
                         <th style={{ padding: '6px', textAlign: 'right' }}>Qty</th>
                         <th style={{ padding: '6px', textAlign: 'right' }}>Buy Avg</th>
                         <th style={{ padding: '6px', textAlign: 'right' }}>LTP</th>
@@ -482,6 +437,8 @@ export function AccountManager() {
                         const currentVal = inv.currentPrice * inv.qty;
                         const gain = currentVal - cost;
                         const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+                        const acc = brokerAccounts.find(a => a.id === inv.brokerAccountId);
+                        const brokerName = inv.broker || 'Other';
                         return (
                           <tr key={inv.id} className="table-row" style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <td style={{ padding: '8px 6px', fontWeight: 600, color: 'var(--text-main)' }}>
@@ -490,6 +447,16 @@ export function AccountManager() {
                             </td>
                             <td style={{ padding: '8px 6px' }}>
                               <span className="badge badge-neutral" style={{ fontSize: '0.58rem', padding: '2px 4px' }}>{inv.type}</span>
+                            </td>
+                            <td style={{ padding: '8px 6px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <img 
+                                  src={BROKER_LOGOS[brokerName] || BROKER_LOGOS['Other']} 
+                                  alt={brokerName} 
+                                  style={{ width: '15px', height: '15px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1px', border: '1px solid var(--border-color)' }} 
+                                />
+                                <span>{acc ? `${acc.accountName} (${brokerName})` : brokerName}</span>
+                              </span>
                             </td>
                             <td style={{ padding: '8px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{inv.qty}</td>
                             <td style={{ padding: '8px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>₹{isPnlVisible ? inv.buyPrice.toLocaleString('en-IN') : '••••'}</td>
@@ -541,6 +508,7 @@ export function AccountManager() {
                       <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-dim)', textAlign: 'left' }}>
                         <th style={{ padding: '6px' }}>Asset</th>
                         <th style={{ padding: '6px' }}>Type</th>
+                        <th style={{ padding: '6px' }}>Broker</th>
                         <th style={{ padding: '6px', textAlign: 'right' }}>Qty</th>
                         <th style={{ padding: '6px', textAlign: 'right' }}>Cost Avg</th>
                         <th style={{ padding: '6px', textAlign: 'right' }}>Exit Avg</th>
@@ -554,6 +522,8 @@ export function AccountManager() {
                         const exitVal = (inv.exitPrice || 0) * inv.qty;
                         const gain = exitVal - cost;
                         const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+                        const acc = brokerAccounts.find(a => a.id === inv.brokerAccountId);
+                        const brokerName = inv.broker || 'Other';
                         return (
                           <tr key={inv.id} className="table-row" style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <td style={{ padding: '8px 6px', fontWeight: 600, color: 'var(--text-main)' }}>
@@ -562,6 +532,16 @@ export function AccountManager() {
                             </td>
                             <td style={{ padding: '8px 6px' }}>
                               <span className="badge badge-neutral" style={{ fontSize: '0.58rem', padding: '2px 4px' }}>{inv.type}</span>
+                            </td>
+                            <td style={{ padding: '8px 6px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <img 
+                                  src={BROKER_LOGOS[brokerName] || BROKER_LOGOS['Other']} 
+                                  alt={brokerName} 
+                                  style={{ width: '15px', height: '15px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1px', border: '1px solid var(--border-color)' }} 
+                                />
+                                <span>{acc ? `${acc.accountName} (${brokerName})` : brokerName}</span>
+                              </span>
                             </td>
                             <td style={{ padding: '8px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{inv.qty}</td>
                             <td style={{ padding: '8px 6px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>₹{inv.buyPrice.toLocaleString('en-IN')}</td>
