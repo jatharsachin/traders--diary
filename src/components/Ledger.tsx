@@ -714,38 +714,73 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
             ) : (
               /* Daily Summaries */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Daily Realized profit/loss summary grid:</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Daily Realized activity & capital flow summary grid:</span>
                 <table className="custom-table" style={{ width: '100%', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
                       <th style={{ padding: '8px' }}>Date</th>
-                      <th style={{ padding: '8px' }}>Trades Count</th>
-                      <th style={{ padding: '8px', textAlign: 'right' }}>Charges Leakage</th>
-                      <th style={{ padding: '8px', textAlign: 'right' }}>Net Profit/Loss</th>
+                      <th style={{ padding: '8px' }}>Activity / Particulars</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Charges</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Net Impact</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(() => {
-                      const daysMap: Record<string, { count: number; charges: number; net: number }> = {};
-                      trades.forEach(t => {
-                        if (!daysMap[t.date]) daysMap[t.date] = { count: 0, charges: 0, net: 0 };
+                      const daysMap: Record<string, { count: number; charges: number; net: number; deposits: number; withdrawals: number }> = {};
+                      
+                      const monthlyTrades = trades.filter(t => t.date.substring(0, 7) === selectedMonthStr);
+                      const monthlyAdjustments = capitalAdjustments.filter(a => a.date.substring(0, 7) === selectedMonthStr);
+
+                      monthlyTrades.forEach(t => {
+                        if (!daysMap[t.date]) daysMap[t.date] = { count: 0, charges: 0, net: 0, deposits: 0, withdrawals: 0 };
                         daysMap[t.date].count += 1;
                         daysMap[t.date].charges += (t.brokerage + t.taxes);
                         daysMap[t.date].net += t.netPnL;
                       });
+
+                      monthlyAdjustments.forEach(a => {
+                        if (!daysMap[a.date]) daysMap[a.date] = { count: 0, charges: 0, net: 0, deposits: 0, withdrawals: 0 };
+                        if (a.type === 'DEPOSIT') {
+                          daysMap[a.date].deposits += a.amount;
+                        } else {
+                          daysMap[a.date].withdrawals += a.amount;
+                        }
+                      });
                       
-                      return Object.entries(daysMap)
-                        .sort((a, b) => b[0].localeCompare(a[0]))
-                        .map(([day, stats]) => (
-                          <tr key={day} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '8px', fontWeight: 600 }}>{day}</td>
-                            <td style={{ padding: '8px' }}>{stats.count}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-muted)' }}>{isPnlVisible ? formatCurrency(stats.charges) : '••••'}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: stats.net >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                              {stats.net >= 0 ? '+' : ''}{isPnlVisible ? formatCurrency(stats.net) : '••••'}
+                      const entries = Object.entries(daysMap).sort((a, b) => b[0].localeCompare(a[0]));
+
+                      if (entries.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={4} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
+                              No activity (trades or capital flows) recorded in this month.
                             </td>
                           </tr>
-                        ));
+                        );
+                      }
+
+                      return entries.map(([day, stats]) => {
+                        const netImpact = stats.net + stats.deposits - stats.withdrawals;
+                        const particulars = [];
+                        if (stats.count > 0) particulars.push(`${stats.count} Trades`);
+                        if (stats.deposits > 0) particulars.push(`Deposit +${formatCurrency(stats.deposits)}`);
+                        if (stats.withdrawals > 0) particulars.push(`Withdrawal -${formatCurrency(stats.withdrawals)}`);
+
+                        return (
+                          <tr key={day} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px', fontWeight: 600 }}>{day}</td>
+                            <td style={{ padding: '8px' }}>
+                              {particulars.join(' | ')}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                              {stats.count > 0 ? (isPnlVisible ? formatCurrency(stats.charges) : '••••') : '-'}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: netImpact >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                              {netImpact >= 0 ? '+' : ''}{isPnlVisible ? formatCurrency(netImpact) : '••••'}
+                            </td>
+                          </tr>
+                        );
+                      });
                     })()}
                   </tbody>
                 </table>
