@@ -794,7 +794,7 @@ export default function App() {
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <History size={13} color="#34d399" />
-                Logs ({trades.length})
+                Logs
               </button>
             </div>
           </div>
