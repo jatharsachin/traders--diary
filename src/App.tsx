@@ -260,130 +260,50 @@ export default function App() {
     <div className="app-container">
       <div className="sticky-header-container">
       {/* Header Bar */}
-      <header className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          
-          {/* macOS Traffic Lights */}
-          <div className="mac-traffic-lights">
-            <span className="mac-dot mac-close"></span>
-            <span className="mac-dot mac-minimize"></span>
-            <span className="mac-dot mac-maximize"></span>
-          </div>
+      <header className="app-header" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'stretch' }}>
+        {/* Row 1: Identity & App Settings */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+            {/* macOS Traffic Lights */}
+            <div className="mac-traffic-lights">
+              <span className="mac-dot mac-close"></span>
+              <span className="mac-dot mac-minimize"></span>
+              <span className="mac-dot mac-maximize"></span>
+            </div>
 
-          <img 
-            src={logoImg} 
-            alt="TradeDiary Pro Logo" 
-            style={{ 
-              width: '40px', 
-              height: '40px', 
-              borderRadius: '10px', 
-              objectFit: 'cover',
-              border: '1.5px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: '0 4px 10px rgba(0, 0, 0, 0.25)' 
-            }} 
-          />
-
-          <div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-              {userName || 'Sachin'}'s Traders Diary
-              {isSupabaseConfigured() && (
-                <span className="badge badge-win" style={{ fontSize: '0.58rem', padding: '2px 6px', textTransform: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                  <ShieldCheck size={9} /> Sync Linked
-                </span>
-              )}
-            </h1>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
-              Advanced stock & options cognitive audit journal
-            </p>
-          </div>
-        </div>
-
-        {/* Action Controls */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap', flexShrink: 0 }}>
-          
-          {/* Global Account Selector Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Active Account:</span>
-            <select
-              value={activeAccountId}
-              onChange={(e) => setActiveAccountId(e.target.value)}
-              className="form-select"
-              style={{
-                padding: '6px 10px',
-                fontSize: '0.88rem',
-                height: '48px',
-                background: 'var(--bg-card)',
-                border: '1.5px solid var(--border-color)',
-                borderRadius: '12px',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                minWidth: '150px',
-                outline: 'none',
-                fontWeight: 600
-              }}
-            >
-              <option value="Combined">Combined Accounts</option>
-              {brokerAccounts.filter(a => a.active).map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.accountName} ({acc.broker})
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Current Capital Balance (Dynamically adapts to P&L) */}
-          <div 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              background: 'var(--bg-card)', 
-              border: '1.5px solid var(--border-color)', 
-              borderRadius: '12px', 
-              padding: '6px 12px',
-              height: '48px',
-              boxShadow: 'var(--shadow-card)',
-              whiteSpace: 'nowrap',
-              flexShrink: 0
-            }}
-          >
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Current Capital:</span>
-            <span 
+            <img 
+              src={logoImg} 
+              alt="TradeDiary Pro Logo" 
               style={{ 
-                fontSize: '0.92rem', 
-                fontWeight: 700, 
-                fontFamily: 'var(--font-mono)',
-                color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' 
-              }}
-            >
-              ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
-            </span>
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '10px', 
+                objectFit: 'cover',
+                border: '1.5px solid rgba(255, 255, 255, 0.08)',
+                boxShadow: '0 4px 10px rgba(0, 0, 0, 0.25)' 
+              }} 
+            />
+
+            <div>
+              <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
+                {userName || 'Sachin'}'s Traders Diary
+                {isSupabaseConfigured() && (
+                  <span className="badge badge-win" style={{ fontSize: '0.58rem', padding: '2px 6px', textTransform: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <ShieldCheck size={9} /> Sync Linked
+                  </span>
+                )}
+              </h1>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                Advanced stock & options cognitive audit journal
+              </p>
+            </div>
           </div>
 
-          {/* Theme Toggle Button */}
-          <button 
-            onClick={toggleTheme}
-            className="btn btn-secondary"
-            style={{ 
-              width: '48px', 
-              height: '48px', 
-              padding: 0, 
-              borderRadius: '12px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              background: 'var(--bg-card)',
-              border: '1.5px solid var(--border-color)'
-            }}
-            title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-          >
-            {theme === 'dark' ? <Sun size={16} color="var(--primary)" /> : <Moon size={16} color="var(--primary)" />}
-          </button>
-
-          {/* Bell Icon & Notification Center */}
-          <div style={{ position: 'relative' }}>
+          {/* Theme, Notification, and User Profile Info */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+            {/* Theme Toggle Button */}
             <button 
-              onClick={() => setIsNotifOpen(!isNotifOpen)}
+              onClick={toggleTheme}
               className="btn btn-secondary"
               style={{ 
                 width: '48px', 
@@ -393,96 +313,250 @@ export default function App() {
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
-                position: 'relative',
-                background: isNotifOpen ? 'var(--primary-glow)' : 'var(--bg-card)',
-                border: isNotifOpen ? '1px solid var(--border-color-active)' : '1.5px solid var(--border-color)'
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)'
               }}
-              title="Alerts Center"
+              title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
             >
-              <Bell size={16} color={notifications.length > 0 ? 'var(--color-loss)' : 'var(--text-main)'} />
-              {notifications.length > 0 && (
-                <span 
-                  style={{ 
-                    position: 'absolute', 
-                    top: '2px', 
-                    right: '2px', 
-                    background: 'var(--color-loss)', 
-                    color: '#fff', 
-                    fontSize: '0.62rem', 
-                    fontWeight: 'bold',
-                    borderRadius: '50%', 
-                    width: '15px', 
-                    height: '15px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    boxShadow: '0 0 8px var(--color-loss)'
-                  }}
-                >
-                  {notifications.length}
-                </span>
-              )}
+              {theme === 'dark' ? <Sun size={16} color="var(--primary)" /> : <Moon size={16} color="var(--primary)" />}
             </button>
 
-            {/* Glassmorphic Dropdown Panel */}
-            {isNotifOpen && (
-              <div 
-                className="glass-card animate-tab-panel"
+            {/* Bell Icon & Notification Center */}
+            <div style={{ position: 'relative' }}>
+              <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="btn btn-secondary"
                 style={{ 
-                  position: 'absolute', 
-                  right: 0, 
-                  top: '42px', 
-                  width: '320px', 
-                  maxHeight: '400px', 
-                  overflowY: 'auto',
-                  zIndex: 2000, 
-                  padding: '16px',
-                  boxShadow: 'var(--shadow-glow)',
-                  border: '1.5px solid var(--border-color-active)',
+                  width: '48px', 
+                  height: '48px', 
+                  padding: 0, 
+                  borderRadius: '12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  position: 'relative',
+                  background: isNotifOpen ? 'var(--primary-glow)' : 'var(--bg-card)',
+                  border: isNotifOpen ? '1px solid var(--border-color-active)' : '1.5px solid var(--border-color)'
+                }}
+                title="Alerts Center"
+              >
+                <Bell size={16} color={notifications.length > 0 ? 'var(--color-loss)' : 'var(--text-main)'} />
+                {notifications.length > 0 && (
+                  <span 
+                    style={{ 
+                      position: 'absolute', 
+                      top: '2px', 
+                      right: '2px', 
+                      background: 'var(--color-loss)', 
+                      color: '#fff', 
+                      fontSize: '0.62rem', 
+                      fontWeight: 'bold',
+                      borderRadius: '50%', 
+                      width: '15px', 
+                      height: '15px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      boxShadow: '0 0 8px var(--color-loss)'
+                    }}
+                  >
+                    {notifications.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Glassmorphic Dropdown Panel */}
+              {isNotifOpen && (
+                <div 
+                  className="glass-card animate-tab-panel"
+                  style={{ 
+                    position: 'absolute', 
+                    right: 0, 
+                    top: '56px', 
+                    width: '320px', 
+                    maxHeight: '400px', 
+                    overflowY: 'auto',
+                    zIndex: 2000, 
+                    padding: '16px',
+                    boxShadow: 'var(--shadow-glow)',
+                    border: '1.5px solid var(--border-color-active)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>Alerts & Notifications</span>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
+                  </div>
+
+                  {notifications.length > 0 ? (
+                    notifications.map((n) => (
+                      <div 
+                        key={n.id}
+                        style={{ 
+                          padding: '10px', 
+                          borderRadius: '6px', 
+                          fontSize: '0.75rem', 
+                          borderLeft: `3px solid ${
+                            n.type === 'danger' ? 'var(--color-loss)' : 
+                            n.type === 'warning' ? '#fb923c' : 'var(--primary)'
+                          }`,
+                          background: 'rgba(255, 255, 255, 0.015)',
+                          border: '1px solid var(--border-color)',
+                          borderLeftWidth: '3px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <strong style={{ color: 'var(--text-main)', fontSize: '0.78rem' }}>{n.title}</strong>
+                          <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
+                        </div>
+                        <p style={{ color: 'var(--text-muted)', lineHeight: '1.3' }}>{n.message}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.78rem' }}>
+                      ✓ No active alerts. Trading discipline is healthy!
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* User account info & logout action */}
+            <div 
+              onClick={() => setIsProfileSettingsOpen(true)}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                background: 'var(--bg-card)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '12px', 
+                padding: '6px 12px',
+                height: '48px',
+                fontSize: '0.92rem',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+              title="Open Account & Master Settings"
+            >
+              <span style={{ display: 'flex', alignItems: 'center', width: '38px', height: '38px', justifyContent: 'center' }}>
+                {userAvatar && userAvatar.startsWith('data:image/') ? (
+                  <img 
+                    src={userAvatar} 
+                    alt="Avatar" 
+                    style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} 
+                  />
+                ) : (
+                  <span style={{ fontSize: '1.9rem' }}>
+                    {userAvatar === 'bull' ? '🐂' :
+                     userAvatar === 'bear' ? '🐻' :
+                     userAvatar === 'trader' ? '👨‍💻' :
+                     userAvatar === 'gold' ? '🏆' :
+                     userAvatar === 'coin' ? '🪙' :
+                     userAvatar === 'clock' ? '⏱️' :
+                     userAvatar === 'rocket' ? '🚀' :
+                     userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
+                  </span>
+                )}
+              </span>
+              <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
+                {userName || 'Sachin'}
+              </strong>
+              <span style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }}></span>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm('Are you sure you want to log out of your trading journal?')) {
+                    signOutUser();
+                  }
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-loss)',
+                  cursor: 'pointer',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
+                  alignItems: 'center',
+                  padding: '2px'
+                }}
+                title="Log Out"
+              >
+                <LogOut size={15} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Account Context, Capital, Nifty simulated Ticker & Live Clock */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderTop: '1.5px solid var(--border-color)', paddingTop: '12px', marginTop: '4px' }}>
+          {/* Account Selector & Capital Balance */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+            {/* Global Account Selector Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Active Account:</span>
+              <select
+                value={activeAccountId}
+                onChange={(e) => setActiveAccountId(e.target.value)}
+                className="form-select"
+                style={{
+                  padding: '6px 10px',
+                  fontSize: '0.88rem',
+                  height: '48px',
+                  background: 'var(--bg-card)',
+                  border: '1.5px solid var(--border-color)',
+                  borderRadius: '12px',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  minWidth: '150px',
+                  outline: 'none',
+                  fontWeight: 600
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>Alerts & Notifications</span>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
-                </div>
+                <option value="Combined">Combined Accounts</option>
+                {brokerAccounts.filter(a => a.active).map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.accountName} ({acc.broker})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                {notifications.length > 0 ? (
-                  notifications.map((n) => (
-                    <div 
-                      key={n.id}
-                      style={{ 
-                        padding: '10px', 
-                        borderRadius: '6px', 
-                        fontSize: '0.75rem', 
-                        borderLeft: `3px solid ${
-                          n.type === 'danger' ? 'var(--color-loss)' : 
-                          n.type === 'warning' ? '#fb923c' : 'var(--primary)'
-                        }`,
-                        background: 'rgba(255, 255, 255, 0.015)',
-                        border: '1px solid var(--border-color)',
-                        borderLeftWidth: '3px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <strong style={{ color: 'var(--text-main)', fontSize: '0.78rem' }}>{n.title}</strong>
-                        <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
-                      </div>
-                      <p style={{ color: 'var(--text-muted)', lineHeight: '1.3' }}>{n.message}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.78rem' }}>
-                    ✓ No active alerts. Trading discipline is healthy!
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Current Capital Balance */}
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                background: 'var(--bg-card)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '12px', 
+                padding: '6px 12px',
+                height: '48px',
+                boxShadow: 'var(--shadow-card)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Current Capital:</span>
+              <span 
+                style={{ 
+                  fontSize: '0.92rem', 
+                  fontWeight: 700, 
+                  fontFamily: 'var(--font-mono)',
+                  color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' 
+                }}
+              >
+                ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
+              </span>
+            </div>
           </div>
 
-          {/* Live clock and Nifty simulated ticker next to profile avatar */}
+          {/* Market Index & Live Clock Ticker */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
             {/* Nifty */}
             <div 
@@ -523,73 +597,6 @@ export default function App() {
                 {liveTime || 'Loading...'}
               </span>
             </div>
-          </div>
-          
-          {/* User account info & logout action */}
-          <div 
-            onClick={() => setIsProfileSettingsOpen(true)}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '10px', 
-              background: 'var(--bg-card)', 
-              border: '1.5px solid var(--border-color)', 
-              borderRadius: '12px', 
-              padding: '6px 12px',
-              height: '48px',
-              fontSize: '0.92rem',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              whiteSpace: 'nowrap',
-              flexShrink: 0
-            }}
-            title="Open Account & Master Settings"
-          >
-            <span style={{ display: 'flex', alignItems: 'center', width: '38px', height: '38px', justifyContent: 'center' }}>
-              {userAvatar && userAvatar.startsWith('data:image/') ? (
-                <img 
-                  src={userAvatar} 
-                  alt="Avatar" 
-                  style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} 
-                />
-              ) : (
-                <span style={{ fontSize: '1.9rem' }}>
-                  {userAvatar === 'bull' ? '🐂' :
-                   userAvatar === 'bear' ? '🐻' :
-                   userAvatar === 'trader' ? '👨‍💻' :
-                   userAvatar === 'gold' ? '🏆' :
-                   userAvatar === 'coin' ? '🪙' :
-                   userAvatar === 'clock' ? '⏱️' :
-                   userAvatar === 'rocket' ? '🚀' :
-                   userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
-                </span>
-              )}
-            </span>
-            <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
-              {userName || 'Sachin'}
-            </strong>
-            <span style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }}></span>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm('Are you sure you want to log out of your trading journal?')) {
-                  signOutUser();
-                }
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--color-loss)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '2px'
-              }}
-              title="Log Out"
-            >
-              <LogOut size={15} />
-            </button>
           </div>
         </div>
       </header>
