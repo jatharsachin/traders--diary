@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { Plus, Trash2, ShieldAlert, Award, Star, Compass, Edit3 } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShieldAlert, Award, Star, Compass } from 'lucide-react';
 
 export function StrategyManager() {
   const { setups, addSetup, editSetup, deleteSetup, trades } = useTradeStore();
-  const [selectedStrategy, setSelectedStrategy] = useState<string>('NEW');
   const [newSetupName, setNewSetupName] = useState('');
   const [newSetupDesc, setNewSetupDesc] = useState('');
+  const [editOldName, setEditOldName] = useState<string | null>(null);
+  const [selectedStrategyName, setSelectedStrategyName] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   // Calculate statistics for each setup
@@ -31,22 +32,7 @@ export function StrategyManager() {
     };
   };
 
-  const handleStrategyChange = (val: string) => {
-    setSelectedStrategy(val);
-    setError('');
-    if (val === 'NEW') {
-      setNewSetupName('');
-      setNewSetupDesc('');
-    } else {
-      const match = setups.find(s => s.name === val);
-      if (match) {
-        setNewSetupName(match.name);
-        setNewSetupDesc(match.description);
-      }
-    }
-  };
-
-  const handleAddOrEditSetup = (e: React.FormEvent) => {
+  const handleAddSetup = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -58,45 +44,32 @@ export function StrategyManager() {
       return;
     }
 
-    if (selectedStrategy === 'NEW') {
-      // Check duplicate
-      const isDuplicate = setups.some(
-        (s) => s.name.toLowerCase() === nameClean.toLowerCase()
-      );
-      if (isDuplicate) {
-        setError('A strategy with this name already exists.');
-        return;
-      }
-      
-      addSetup({ name: nameClean, description: descClean });
-      alert('Strategy tag created successfully!');
-    } else {
-      // Edit mode
-      const isDuplicate = setups.some(
-        (s) => s.name.toLowerCase() === nameClean.toLowerCase() && s.name !== selectedStrategy
-      );
-      if (isDuplicate) {
-        setError('A strategy with this name already exists.');
-        return;
-      }
+    // Check duplicate
+    const isDuplicate = setups.some(
+      (s) => s.name.toLowerCase() === nameClean.toLowerCase() && s.name !== editOldName
+    );
+    if (isDuplicate) {
+      setError('A strategy with this name already exists.');
+      return;
+    }
 
-      if (!window.confirm(`Are you sure you want to update strategy "${selectedStrategy}"? This will also rename all associated trades.`)) {
+    if (editOldName) {
+      if (!window.confirm(`Are you sure you want to update strategy "${editOldName}"? This will also rename all associated trades.`)) {
         return;
       }
-      editSetup(selectedStrategy, { name: nameClean, description: descClean });
+      editSetup(editOldName, { name: nameClean, description: descClean });
+      setEditOldName(null);
       alert('Strategy updated successfully!');
+    } else {
+      if (!window.confirm('Are you sure you want to add this strategy setup tag?')) {
+        return;
+      }
+      addSetup({ name: nameClean, description: descClean });
+      alert('Strategy tag added successfully!');
     }
 
-    handleStrategyChange('NEW');
-  };
-
-  const handleDeleteSetup = () => {
-    if (selectedStrategy === 'NEW') return;
-    if (window.confirm(`Are you sure you want to permanently delete strategy "${selectedStrategy}"? This will untag it from all associated trades.`)) {
-      deleteSetup(selectedStrategy);
-      handleStrategyChange('NEW');
-      alert('Strategy deleted successfully!');
-    }
+    setNewSetupName('');
+    setNewSetupDesc('');
   };
 
   const formatCurrency = (val: number) => {
@@ -133,7 +106,7 @@ export function StrategyManager() {
       
       {/* List & Stats */}
       <div className="glass-card" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
           <div>
             <h2 style={{ fontSize: '1.25rem' }}>Strategies & Setups Matrix</h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -141,26 +114,93 @@ export function StrategyManager() {
             </p>
           </div>
           
-          {bestStrategy && (
-            <div 
-              style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                gap: '6px', 
-                backgroundColor: 'rgba(250, 204, 21, 0.1)', 
-                border: '1px solid rgba(250, 204, 21, 0.2)',
-                color: '#facc15',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontSize: '0.75rem',
-                fontWeight: 600
-              }}
-            >
-              <Award size={14} />
-              <span>Best: {bestStrategy.name} ({formatCurrency(bestStrategy.pnl)})</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {bestStrategy && (
+              <div 
+                style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  backgroundColor: 'rgba(250, 204, 21, 0.1)', 
+                  border: '1px solid rgba(250, 204, 21, 0.2)',
+                  color: '#facc15',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600
+                }}
+              >
+                <Award size={14} />
+                <span>Best: {bestStrategy.name} ({formatCurrency(bestStrategy.pnl)})</span>
+              </div>
+            )}
+
+            {/* Common Action Toolbar */}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={!selectedStrategyName}
+                onClick={() => {
+                  if (selectedStrategyName) {
+                    const matched = setups.find(s => s.name === selectedStrategyName);
+                    if (matched) {
+                      setEditOldName(matched.name);
+                      setNewSetupName(matched.name);
+                      setNewSetupDesc(matched.description);
+                    }
+                  }
+                }}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  opacity: selectedStrategyName ? 1 : 0.5,
+                  cursor: selectedStrategyName ? 'pointer' : 'not-allowed',
+                  height: '32px'
+                }}
+              >
+                <Edit2 size={12} />
+                <span>Edit Strategy</span>
+              </button>
+              
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={!selectedStrategyName}
+                onClick={() => {
+                  if (selectedStrategyName) {
+                    if (window.confirm(`Are you sure you want to delete strategy "${selectedStrategyName}"?`)) {
+                      deleteSetup(selectedStrategyName);
+                      setSelectedStrategyName(null);
+                    }
+                  }
+                }}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  opacity: selectedStrategyName ? 1 : 0.5,
+                  cursor: selectedStrategyName ? 'pointer' : 'not-allowed',
+                  height: '32px'
+                }}
+              >
+                <Trash2 size={12} />
+                <span>Delete Strategy</span>
+              </button>
             </div>
-          )}
+          </div>
         </div>
+
+        {!selectedStrategyName && (
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '12px', background: 'rgba(255,255,255,0.01)', padding: '6px 12px', borderRadius: '6px', border: '1px dashed var(--border-color)' }}>
+            💡 Click on any strategy row in the list below to select it, then use the toolbar to Edit or Delete.
+          </div>
+        )}
 
         <div className="table-container">
           <table className="custom-table">
@@ -177,11 +217,20 @@ export function StrategyManager() {
               {setups.map((setup) => {
                 const stats = getSetupStats(setup.name);
                 const isProfit = stats.netPnL >= 0;
+                const isSelected = selectedStrategyName === setup.name;
                 
                 return (
-                  <tr key={setup.name}>
+                  <tr 
+                    key={setup.name}
+                    onClick={() => setSelectedStrategyName(isSelected ? null : setup.name)}
+                    style={{
+                      borderBottom: '1px solid var(--border-color)',
+                      background: isSelected ? 'var(--primary-glow)' : 'transparent',
+                      cursor: 'pointer'
+                    }}
+                  >
                     <td style={{ maxWidth: '280px' }}>
-                      <div style={{ fontWeight: 650, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {bestStrategy?.name === setup.name && <Star size={12} fill="#facc15" color="#facc15" />}
                         {setup.name}
                       </div>
@@ -215,26 +264,19 @@ export function StrategyManager() {
                   </tr>
                 );
               })}
-              {setups.length === 0 && (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>
-                    No strategy tags logged. Create one on the right to tag trades!
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Common Setup Form (Manager) */}
+      {/* Add New Setup Form */}
       <div className="glass-card" style={{ padding: '24px', height: 'fit-content' }}>
         <h2 style={{ fontSize: '1.1rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Compass size={18} className="text-primary" style={{ color: 'var(--primary)' }} />
-          {selectedStrategy === 'NEW' ? 'Create Strategy Tag' : 'Edit / Manage Strategy'}
+          {editOldName ? 'Edit Strategy Tag' : 'Create Strategy Tag'}
         </h2>
 
-        <form onSubmit={handleAddOrEditSetup}>
+        <form onSubmit={handleAddSetup}>
           {error && (
             <div 
               style={{ 
@@ -254,23 +296,6 @@ export function StrategyManager() {
               <span>{error}</span>
             </div>
           )}
-
-          <div className="form-group">
-            <label className="form-label">Select Strategy to Edit/Delete</label>
-            <select
-              value={selectedStrategy}
-              onChange={(e) => handleStrategyChange(e.target.value)}
-              className="form-select"
-              style={{ height: '36px' }}
-            >
-              <option value="NEW">+ Create New Strategy</option>
-              {setups.map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div className="form-group">
             <label className="form-label">Strategy Name</label>
@@ -295,37 +320,25 @@ export function StrategyManager() {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-            {selectedStrategy !== 'NEW' ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleDeleteSetup}
-                  className="btn btn-danger"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', height: '36px' }}
-                >
-                  <Trash2 size={14} />
-                  <span>Delete</span>
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', height: '36px' }}
-                >
-                  <Edit3 size={14} />
-                  <span>Save Changes</span>
-                </button>
-              </>
-            ) : (
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', height: '36px' }}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+            {editOldName && (
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setEditOldName(null);
+                  setNewSetupName('');
+                  setNewSetupDesc('');
+                }}
+                style={{ flex: 1 }}
               >
-                <Plus size={16} />
-                <span>Add Strategy Tag</span>
+                Cancel
               </button>
             )}
+            <button type="submit" className="btn btn-primary" style={{ flex: 2 }}>
+              <Plus size={16} />
+              {editOldName ? 'Save Changes' : 'Add Strategy Tag'}
+            </button>
           </div>
         </form>
       </div>
