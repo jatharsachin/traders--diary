@@ -402,6 +402,11 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return (saved && ['light', 'dark', 'emerald', 'cyberpunk', 'nordic'].includes(saved)) ? (saved as any) : 'dark';
   };
 
+  const loadSelectedFY = (): string => {
+    const saved = localStorage.getItem('traders_diary_selected_fy');
+    return saved || getCurrentLiveFY();
+  };
+
   const loadAdjustments = (accountsList: BrokerAccount[], banksList: BankAccount[]): CapitalAdjustment[] => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_adjustments'));
     let adjList: CapitalAdjustment[] = [];
@@ -574,7 +579,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     sessionUser: null,
     isPnlVisible: loadPnlVisibility(),
     weeklyRetrospectives: loadWeeklyRetrospectives(),
-    selectedFY: getCurrentLiveFY(),
+    selectedFY: loadSelectedFY(),
     lockedFYs: loadLockedFYs(),
     noTradeDays: loadNoTradeDays(),
     userName: loadUserName(),
@@ -590,7 +595,10 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         noTradeDays: loadNoTradeDays()
       };
     }),
-    setSelectedFY: (fy) => set({ selectedFY: fy }),
+    setSelectedFY: (fy) => {
+      localStorage.setItem('traders_diary_selected_fy', fy);
+      set({ selectedFY: fy });
+    },
     toggleNoTradeDay: (date) => set((state) => {
       const exists = state.noTradeDays.includes(date);
       const nextNoTradeDays = exists 
