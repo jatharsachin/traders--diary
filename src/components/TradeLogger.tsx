@@ -78,8 +78,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const [formData, setFormData] = useState(DEFAULT_FORM_STATE);
   const [tagsInput, setTagsInput] = useState('');
   const [error, setError] = useState('');
-  const [entryTimeConfirmed, setEntryTimeConfirmed] = useState(false);
-  const [exitTimeConfirmed, setExitTimeConfirmed] = useState(false);
 
   const [lotsInput, setLotsInput] = useState<string>('');
   const [lotSizeInput, setLotSizeInput] = useState<string>('75');
@@ -469,53 +467,25 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
               </div>
               <div className="form-group">
                 <label className="form-label">Entry Time</label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    type="time"
-                    name="entryTime"
-                    value={formData.entryTime}
-                    onChange={handleChange}
-                    className="form-input"
-                    required
-                  />
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    style={{ padding: '0 10px', height: '35px', fontSize: '0.75rem', minWidth: '40px' }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEntryTimeConfirmed(true);
-                      setTimeout(() => setEntryTimeConfirmed(false), 1500);
-                    }}
-                  >
-                    {entryTimeConfirmed ? '✓' : 'OK'}
-                  </button>
-                </div>
+                <input
+                  type="time"
+                  name="entryTime"
+                  value={formData.entryTime}
+                  onChange={handleChange}
+                  className="form-input"
+                  required
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Exit Time</label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    type="time"
-                    name="exitTime"
-                    value={formData.exitTime}
-                    onChange={handleChange}
-                    className="form-input"
-                    required
-                  />
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    style={{ padding: '0 10px', height: '35px', fontSize: '0.75rem', minWidth: '40px' }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setExitTimeConfirmed(true);
-                      setTimeout(() => setExitTimeConfirmed(false), 1500);
-                    }}
-                  >
-                    {exitTimeConfirmed ? '✓' : 'OK'}
-                  </button>
-                </div>
+                <input
+                  type="time"
+                  name="exitTime"
+                  value={formData.exitTime}
+                  onChange={handleChange}
+                  className="form-input"
+                  required
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Segment</label>
