@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
   Receipt, Plus, Trash2, X, Save, CreditCard, Layers, ArrowLeft, ArrowRight, Edit2
@@ -1004,7 +1005,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       )}
 
       {/* --- MODAL 1: ADD CAPITAL ADJUSTMENT --- */}
-      {isAdjOpen && (
+      {isAdjOpen && createPortal(
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
           <div className="modal-content glass-card" style={{ width: '420px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
@@ -1089,11 +1090,12 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- MODAL 2: ADD BANK TRANSACTION --- */}
-      {isBankTxOpen && (
+      {isBankTxOpen && createPortal(
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
           <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
@@ -1205,11 +1207,12 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- MODAL: EDIT BANK TRANSACTION --- */}
-      {isEditBankTxOpen && (
+      {isEditBankTxOpen && createPortal(
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
           <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
@@ -1321,11 +1324,12 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- MODAL 3: LOG SUBSCRIPTION EXPENSE --- */}
-      {isSubOpen && (
+      {isSubOpen && createPortal(
         <div className="modal-overlay" style={{ zIndex: 3100 }}>
           <div className="modal-content glass-card" style={{ width: '400px', padding: 0, overflow: 'visible' }}>
             <div className="modal-header">
@@ -1420,7 +1424,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
