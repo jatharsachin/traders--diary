@@ -34,6 +34,7 @@ export function AccountManager() {
   const [invCurrentPrice, setInvCurrentPrice] = useState('');
   const [invDate, setInvDate] = useState('');
   const [invNotes, setInvNotes] = useState('');
+  const [invBroker, setInvBroker] = useState('Other');
 
   // Exit Asset form states
   const [isExitFormOpen, setIsExitFormOpen] = useState(false);
@@ -126,7 +127,8 @@ export function AccountManager() {
       currentPrice,
       date: invDate || new Date().toISOString().split('T')[0],
       notes: invNotes.trim(),
-      status: 'ACTIVE' as const
+      status: 'ACTIVE' as const,
+      broker: invBroker as any
     };
 
     if (editInvId) {
@@ -148,6 +150,7 @@ export function AccountManager() {
     setInvCurrentPrice(inv.currentPrice.toString());
     setInvDate(inv.date);
     setInvNotes(inv.notes || '');
+    setInvBroker(inv.broker || 'Other');
     setIsInvFormOpen(true);
   };
 
@@ -201,6 +204,7 @@ export function AccountManager() {
     setInvCurrentPrice('');
     setInvDate('');
     setInvNotes('');
+    setInvBroker('Other');
     setIsInvFormOpen(false);
   };
 
@@ -300,13 +304,24 @@ export function AccountManager() {
               {editInvId ? 'Edit Asset Purchase Log' : 'Record New Investment Purchase'}
             </h4>
             <form onSubmit={handleAddOrEditInvestment} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="grid-2col-equal-small">
+              <div className="grid-3col-equal-small">
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem' }}>Asset Class Type</label>
                   <select value={invType} onChange={(e) => setInvType(e.target.value as any)} className="form-input" style={{ height: '32px', padding: '0 8px' }}>
                     <option value="EQUITY">Equity (Stocks / Shares)</option>
                     <option value="ETF">ETF (Exchange Traded Fund)</option>
                     <option value="BOND">Government Bond / Debt</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Broker / Account</label>
+                  <select value={invBroker} onChange={(e) => setInvBroker(e.target.value)} className="form-input" style={{ height: '32px', padding: '0 8px' }}>
+                    <option value="Other">Other / External</option>
+                    {brokerAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.broker}>
+                        {acc.broker} ({acc.accountName})
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>

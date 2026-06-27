@@ -1071,19 +1071,49 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
       const fetchLatestPriceFromYahoo = async (symbol: string): Promise<number | null> => {
         const cleanSymbol = symbol.trim().toUpperCase();
-        const ticker = cleanSymbol.includes('.') ? cleanSymbol : `${cleanSymbol}.NS`;
-        try {
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
-          const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-          if (!response.ok) return null;
-          const json = await response.json();
-          const data = JSON.parse(json.contents);
-          const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-          if (price && typeof price === 'number') {
-            return price;
+        const tickerSymbol = cleanSymbol.replace(/\s+/g, '');
+        const ticker = tickerSymbol.includes('.') ? tickerSymbol : `${tickerSymbol}.NS`;
+
+        const urls = [
+          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`,
+          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`
+        ];
+        
+        const proxies = [
+          (targetUrl: string) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+          (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+        ];
+
+        for (const url of urls) {
+          for (const getProxyUrl of proxies) {
+            try {
+              const proxyUrl = getProxyUrl(url);
+              const response = await fetch(proxyUrl);
+              if (!response.ok) continue;
+              const json = await response.json();
+              
+              let data: any;
+              if (json && json.contents) {
+                data = JSON.parse(json.contents);
+              } else {
+                data = json;
+              }
+
+              // Check quote response format
+              const quotePrice = data?.quoteResponse?.result?.[0]?.regularMarketPrice;
+              if (quotePrice && typeof quotePrice === 'number') {
+                return quotePrice;
+              }
+
+              // Check chart response format
+              const chartPrice = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+              if (chartPrice && typeof chartPrice === 'number') {
+                return chartPrice;
+              }
+            } catch (e) {
+              console.warn(`Proxy fetch failed for ${ticker} on ${url}:`, e);
+            }
           }
-        } catch (e) {
-          console.warn(`Failed to fetch price for ${ticker} from Yahoo Finance:`, e);
         }
         return null;
       };
