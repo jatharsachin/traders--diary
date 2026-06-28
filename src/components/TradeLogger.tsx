@@ -481,6 +481,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                 <input
                   type="date"
                   name="date"
+                  min="2026-04-01"
+                  max="2027-03-31"
                   value={formData.date}
                   onChange={handleChange}
                   className="form-input"
@@ -515,6 +517,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   <input
                     type="date"
                     name="exitDate"
+                    min="2026-04-01"
+                    max="2027-03-31"
                     value={formData.exitDate || formData.date}
                     onChange={handleChange}
                     className="form-input"

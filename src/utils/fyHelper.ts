@@ -27,10 +27,7 @@ export function filterTradesByFY(trades: Trade[], fy: string): Trade[] {
 
 export const FINANCIAL_YEARS = [
   'All',
-  'FY 2026-27',
-  'FY 2025-26',
-  'FY 2024-25',
-  'FY 2023-24'
+  'FY 2026-27'
 ];
 
 export function getCurrentLiveFY(): string {
