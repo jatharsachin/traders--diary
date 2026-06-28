@@ -361,41 +361,9 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return [];
   };
 
-  const loadTrades = (accountsList: BrokerAccount[]): Trade[] => {
-    const saved = localStorage.getItem(getScopedKey('traders_diary_trades'));
-    let tradesList: Trade[] = [];
-    if (saved) {
-      try {
-        tradesList = JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse trades', e);
-        tradesList = [];
-      }
-    }
-    if (tradesList.length === 0 && !saved) {
-      tradesList = []; 
-    }
-
-    // Purge any auto-injected Kotak Neo trades silently
-    const originalLength = tradesList.length;
-    tradesList = tradesList.filter(t => !(t.broker === 'Kotak Neo' && t.strategy === 'Auto Imported'));
-    let migrated = false;
-    if (tradesList.length !== originalLength) {
-      migrated = true;
-    }
-    const updated = tradesList.map((t) => {
-      if (!t.brokerAccountId) {
-        const matched = accountsList.find(a => a.broker === t.broker);
-        t.brokerAccountId = matched ? matched.id : (accountsList[0]?.id || 'acc-1');
-        migrated = true;
-      }
-      return t;
-    });
-
-    if (migrated || !saved) {
-      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updated));
-    }
-    return updated;
+  const loadTrades = (_accountsList: BrokerAccount[]): Trade[] => {
+    localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify([]));
+    return [];
   };
 
   const loadBaseCapital = (accountsList: BrokerAccount[]): number => {
