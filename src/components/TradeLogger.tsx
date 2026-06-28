@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
 import { X, Save, ShieldAlert, Sparkles } from 'lucide-react';
@@ -48,7 +48,7 @@ const guessLotSize = (symbol: string): number => {
   if (sym.includes('BANKNIFTY')) return 15;
   if (sym.includes('FINNIFTY')) return 25;
   if (sym.includes('MIDCPNIFTY')) return 50;
-  if (sym.includes('NIFTY')) return 75;
+  if (sym.includes('NIFTY')) return 65;
   if (sym.includes('SENSEX')) return 10;
   if (sym.includes('BANKEX')) return 15;
   return 1;
@@ -81,7 +81,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const [error, setError] = useState('');
 
   const [lotsInput, setLotsInput] = useState<string>('');
-  const [lotSizeInput, setLotSizeInput] = useState<string>('75');
+  const [lotSizeInput, setLotSizeInput] = useState<string>('65');
+
+  const prevSymbolPrefixRef = useRef('');
 
   const [manualBrokerageText, setManualBrokerageText] = useState<string>('0');
   const [manualTaxesText, setManualTaxesText] = useState<string>('0');
@@ -201,7 +203,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       });
       setTagsInput('');
       setLotsInput('');
-      setLotSizeInput(lastTrade && lastTrade.segment === 'F&O' ? guessLotSize(lastTrade.symbol).toString() : '75');
+      setLotSizeInput(lastTrade && lastTrade.segment === 'F&O' ? guessLotSize(lastTrade.symbol).toString() : '65');
     }
   }, [editTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
 
@@ -269,19 +271,23 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       });
     }
 
-    // Auto-detect lot sizes if segment is F&O
-    if (formData.segment === 'F&O') {
-      const guessed = guessLotSize(formData.symbol);
-      setLotSizeInput(guessed.toString());
-      
-      const l = parseFloat(lotsInput);
-      if (!isNaN(l) && l >= 0) {
-        setFormData((prev) => ({ ...prev, qty: Math.round(l * guessed) }));
-      } else if (formData.qty > 0) {
-        setLotsInput((formData.qty / guessed).toString());
+    // Auto-detect lot sizes if segment is F&O (only for new entries to prevent overwriting manual inputs)
+    if (formData.segment === 'F&O' && formData.symbol && isOpen && !editTradeId) {
+      const prefix = formData.symbol.trim().split(' ')[0].toUpperCase();
+      if (prefix !== prevSymbolPrefixRef.current) {
+        prevSymbolPrefixRef.current = prefix;
+        const guessed = guessLotSize(formData.symbol);
+        setLotSizeInput(guessed.toString());
+        
+        const l = parseFloat(lotsInput);
+        if (!isNaN(l) && l >= 0) {
+          setFormData((prev) => ({ ...prev, qty: Math.round(l * guessed) }));
+        } else if (formData.qty > 0) {
+          setLotsInput((formData.qty / guessed).toString());
+        }
       }
     }
-  }, [formData.symbol, formData.segment, isOpen]);
+  }, [formData.symbol, formData.segment, isOpen, lotsInput, editTradeId]);
 
   // Real-time auto-calculation of charges & taxes
   useEffect(() => {
