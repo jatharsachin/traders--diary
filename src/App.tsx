@@ -169,6 +169,11 @@ export default function App() {
   const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
   const currentCapital = filteredBaseCapital + totalNetPnL + totalDeposits - totalWithdrawals;
 
+  const totalInvCurrent = investments
+    .filter(i => i.status === 'ACTIVE' || !(i as any).status)
+    .reduce((sum, i) => sum + (i.qty * (i.currentPrice || i.buyPrice)), 0);
+  const combinedWealth = currentCapital + totalInvCurrent;
+
 
   // Dynamic Alert / Notification Center calculations
   const getDynamicNotifications = () => {
@@ -700,6 +705,35 @@ export default function App() {
                 }}
               >
                 ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
+              </span>
+            </div>
+
+            {/* Combined Portfolio Wealth (Total Wealth) */}
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                background: 'var(--bg-card)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '10px', 
+                padding: '4px 10px',
+                height: '38px',
+                boxShadow: 'var(--shadow-card)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Total Wealth:</span>
+              <span 
+                style={{ 
+                  fontSize: '0.85rem', 
+                  fontWeight: 700, 
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--color-win)' 
+                }}
+              >
+                ₹{isPnlVisible ? Math.round(combinedWealth).toLocaleString('en-IN') : '••••'}
               </span>
             </div>
 
