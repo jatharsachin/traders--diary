@@ -4,6 +4,7 @@ import type { Broker, BrokerChargesConfig } from '../types';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { BROKER_LOGOS, getBankLogoSvg } from '../utils/brandLogos';
 import { syncMetaToCloud } from '../utils/supabaseClient';
+import { parseKotakNeoText, matchExecutionsIntoTrades } from '../utils/statementParser';
 import { 
   X, User, ShieldAlert, Save, Download, Upload, 
   Database, Trash2, IndianRupee, Settings, Plus,
@@ -127,6 +128,13 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
 
   // CSV Settings
   const [csvImportMode, setCsvImportMode] = useState<'append' | 'overwrite'>('append');
+
+  // State for Interactive Importer
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFormat, setImportFormat] = useState<'Standard' | 'KotakNeo'>('KotakNeo');
+  const [importPastedText, setImportPastedText] = useState('');
+  const [parsedImportTrades, setParsedImportTrades] = useState<any[]>([]);
+  const [isReviewingImport, setIsReviewingImport] = useState(false);
 
   // Danger Zone confirmation
   const [resetConfirmInput, setResetConfirmInput] = useState('');
@@ -370,6 +378,49 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
         } catch (error) {
           alert("Failed to parse snapshot file.");
         }
+      };
+    }
+  };
+
+  const handleParseImport = () => {
+    if (!importPastedText.trim()) {
+      alert("Please paste statement text first.");
+      return;
+    }
+
+    try {
+      if (importFormat === 'KotakNeo') {
+        const executions = parseKotakNeoText(importPastedText);
+        if (executions.length === 0) {
+          alert("No valid trade executions found. Make sure you copy-pasted the Excel columns correctly starting with a date column (DD/MM/YYYY).");
+          return;
+        }
+        const matched = matchExecutionsIntoTrades(executions);
+        setParsedImportTrades(matched);
+        setIsReviewingImport(true);
+      }
+    } catch (e: any) {
+      alert("Parsing error: " + e.message);
+    }
+  };
+
+  const handleConfirmImport = () => {
+    if (parsedImportTrades.length === 0) return;
+    const overwrite = csvImportMode === 'overwrite';
+    bulkImportTrades(parsedImportTrades, overwrite);
+    alert(`Successfully imported ${parsedImportTrades.length} trades into your diary!`);
+    setIsImportModalOpen(false);
+    setIsReviewingImport(false);
+    setImportPastedText('');
+    setParsedImportTrades([]);
+  };
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileReader = new FileReader();
+    if (e.target.files && e.target.files[0]) {
+      fileReader.readAsText(e.target.files[0], "UTF-8");
+      fileReader.onload = (event) => {
+        setImportPastedText(event.target?.result as string || '');
       };
     }
   };
@@ -1003,11 +1054,10 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                       <Download size={13} />
                       <span>Export Logs (CSV)</span>
                     </button>
-                    <button type="button" className="btn btn-secondary" onClick={() => document.getElementById('modal-csv-file')?.click()} style={{ fontSize: '0.75rem', height: '32px' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)} style={{ fontSize: '0.75rem', height: '32px' }}>
                       <Upload size={13} />
-                      <span>Bulk Import Trades (CSV)</span>
+                      <span>Bulk Import / Auto-Match Statements</span>
                     </button>
-                    <input id="modal-csv-file" type="file" accept=".csv" style={{ display: 'none' }} />
                   </div>
                 </div>
               </div>
@@ -1194,6 +1244,133 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
           </div>
         </div>
       </div>
+
+      {/* Interactive Statement Importer Modal Overlay */}
+      {isImportModalOpen && (
+        <div className="modal-overlay" style={{ zIndex: 4000, background: 'rgba(0,0,0,0.7)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content glass-card animate-fade-in" style={{ width: '780px', maxWidth: '92vw', height: '520px', maxHeight: '85vh', padding: '24px', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--border-color-active)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+            
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  <Upload size={18} color="var(--primary)" />
+                  Kotak Neo Excel / CSV Statement Importer
+                </h3>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                  Paste raw text copied directly from your Kotak Neo Excel/CSV transaction statements. We will auto-match buys and sells.
+                </p>
+              </div>
+              <button type="button" onClick={() => { setIsImportModalOpen(false); setIsReviewingImport(false); }} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {!isReviewingImport ? (
+                <>
+                  <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)' }}>Select Format:</span>
+                      <select value={importFormat} onChange={(e) => setImportFormat(e.target.value as any)} className="form-select" style={{ fontSize: '0.75rem', height: '32px', padding: '4px 8px' }}>
+                        <option value="KotakNeo">Kotak Neo Transaction Statement (Excel Columns)</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)' }}>Upload File (Optional):</span>
+                      <input type="file" accept=".csv,.txt,.xls,.xlsx" onChange={handleImportFileChange} style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)' }}>Paste Excel Data (Copy cells from Trade Date to STT/CTT and paste below):</span>
+                    <textarea 
+                      value={importPastedText} 
+                      onChange={(e) => setImportPastedText(e.target.value)} 
+                      placeholder="05/03/2026	09:41:50	09:41:50	Coal India Ltd	INE522F01014	NSE	Kotak Neo	Sell	Cash	160	448.55	71768	2.2	10	3.27	15.47	8.96&#10;05/03/2026	09:34:08	09:34:08	Coal India Ltd	INE522F01014	NSE	Kotak Neo	Buy	Cash	160	452.397	72383.5	2.2	10	3.3	15.52	9.04"
+                      className="form-input" 
+                      style={{ flex: 1, minHeight: '180px', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', padding: '12px', background: 'rgba(0,0,0,0.2)', resize: 'none' }}
+                    />
+                  </div>
+                </>
+              ) : (
+                /* Review / Preview Panel */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', height: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      🔍 Parsed {parsedImportTrades.length} matched trades from Kotak Neo:
+                    </span>
+                    <button type="button" onClick={() => setIsReviewingImport(false)} className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '4px 10px', height: '26px' }}>
+                      Back to Paste
+                    </button>
+                  </div>
+                  
+                  <div style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'auto', background: 'rgba(0,0,0,0.1)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(255,255,255,0.02)', color: 'var(--text-dim)', borderBottom: '1px solid var(--border-color)' }}>
+                          <th style={{ padding: '8px' }}>Date</th>
+                          <th style={{ padding: '8px' }}>Symbol</th>
+                          <th style={{ padding: '8px' }}>Type</th>
+                          <th style={{ padding: '8px', textAlign: 'center' }}>Qty</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Buy Px</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Sell Px</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Net P&L</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedImportTrades.map((t, idx) => {
+                          const netPnL = t.action === 'BUY' 
+                            ? (t.exitPrice - t.entryPrice) * t.qty - t.manualBrokerage - t.manualTaxes
+                            : (t.entryPrice - t.exitPrice) * t.qty - t.manualBrokerage - t.manualTaxes;
+                          return (
+                            <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                              <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{t.date}</td>
+                              <td style={{ padding: '8px', fontWeight: 600, color: 'var(--text-main)' }}>{t.symbol}</td>
+                              <td style={{ padding: '8px' }}>
+                                <span style={{ fontSize: '0.62rem', padding: '2px 6px', borderRadius: '4px', background: t.product === 'Intraday' ? 'rgba(59,130,246,0.15)' : 'rgba(168,85,247,0.15)', color: t.product === 'Intraday' ? '#3b82f6' : '#a855f7', fontWeight: 700 }}>
+                                  {t.product}
+                                </span>
+                              </td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: 'var(--text-muted)' }}>{t.qty}</td>
+                              <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>₹{t.entryPrice.toFixed(2)}</td>
+                              <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>₹{t.exitPrice.toFixed(2)}</td>
+                              <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                                ₹{Math.round(netPnL).toLocaleString('en-IN')}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setIsImportModalOpen(false); setIsReviewingImport(false); }} style={{ fontSize: '0.75rem', height: '32px' }}>
+                Cancel
+              </button>
+              {!isReviewingImport ? (
+                <button type="button" className="btn btn-primary" onClick={handleParseImport} style={{ fontSize: '0.75rem', height: '32px' }}>
+                  Analyze & Parse Data
+                </button>
+              ) : (
+                <button type="button" className="btn btn-primary" onClick={handleConfirmImport} style={{ fontSize: '0.75rem', height: '32px' }}>
+                  Confirm Import {parsedImportTrades.length} Trades
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
