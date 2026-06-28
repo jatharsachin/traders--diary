@@ -188,6 +188,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   const winRate = totalTradesCount > 0 ? (winTradesCount / totalTradesCount) * 100 : 0;
   
   const netPnL = rangeTrades.reduce((sum, t) => sum + t.netPnL, 0);
+  const totalBrokerage = rangeTrades.reduce((sum, t) => sum + t.brokerage, 0);
+  const totalTaxes = rangeTrades.reduce((sum, t) => sum + t.taxes, 0);
 
   const totalDeposits = rangeAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + a.amount, 0);
   const totalWithdrawals = rangeAdjustments.filter(a => a.type === 'WITHDRAWAL').reduce((sum, a) => sum + a.amount, 0);
@@ -261,6 +263,11 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
               <td><strong>Deposits (Credits):</strong> +${formatCurrency(totalDeposits)}</td>
               <td><strong>Withdrawals (Debits):</strong> -${formatCurrency(totalWithdrawals)}</td>
               <td><strong>Closing Balance:</strong> ${formatCurrency(endingBalance)}</td>
+            </tr>
+            <tr>
+              <td><strong>Total Brokerage:</strong> ${formatCurrency(totalBrokerage)}</td>
+              <td><strong>Taxes & Fees:</strong> ${formatCurrency(totalTaxes)}</td>
+              <td><strong>Total Charges:</strong> ${formatCurrency(totalBrokerage + totalTaxes)}</td>
             </tr>
           </table>
 
@@ -418,6 +425,25 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
           </h4>
           <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
             +{formatCurrency(totalDeposits)} / -{formatCurrency(totalWithdrawals)}
+          </span>
+        </div>
+
+        <div className="glass-card" style={{ padding: '14px', background: 'rgba(255,255,255,0.015)' }}>
+          <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Paid Charges
+          </span>
+          <h4 
+            style={{ 
+              margin: '4px 0 0 0', 
+              fontSize: '1.05rem', 
+              fontFamily: 'var(--font-mono)', 
+              color: 'var(--color-loss)'
+            }}
+          >
+            -{isPnlVisible ? formatCurrency(totalBrokerage + totalTaxes) : '••••'}
+          </h4>
+          <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+            Brokerage: {isPnlVisible ? formatCurrency(totalBrokerage) : '••••'} | Taxes: {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
           </span>
         </div>
 

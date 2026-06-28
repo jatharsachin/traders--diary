@@ -730,8 +730,9 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
                       }}
                     >
                       {isProfit ? '+' : ''}{isPnlVisible ? formatCurrency(trade.netPnL) : '••••'}
-                      <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', fontWeight: 400 }}>
-                        Charges: {isPnlVisible ? formatCurrency(trade.brokerage + trade.taxes) : '••••'}
+                      <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 400, marginTop: '2px', lineHeight: '1.2' }}>
+                        <div>Brokerage: {isPnlVisible ? formatCurrency(trade.brokerage) : '••••'}</div>
+                        <div>Taxes & Fees: {isPnlVisible ? formatCurrency(trade.taxes) : '••••'}</div>
                       </div>
                     </td>
                     <td>

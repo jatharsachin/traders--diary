@@ -559,6 +559,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
       });
       
       const netPnL = weeklyTrades.reduce((acc, t) => acc + t.netPnL, 0);
+      const wBrokerage = weeklyTrades.reduce((acc, t) => acc + t.brokerage, 0);
+      const wTaxes = weeklyTrades.reduce((acc, t) => acc + t.taxes, 0);
       
       weeksList.push({
         weekNum: w,
@@ -566,7 +568,9 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         endDate: wEnd.toISOString().split('T')[0],
         formattedRange: `${wStart.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - ${wEnd.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`,
         trades: weeklyTrades,
-        netPnL: Math.round(netPnL * 100) / 100
+        netPnL: Math.round(netPnL * 100) / 100,
+        brokerage: Math.round(wBrokerage * 100) / 100,
+        taxes: Math.round(wTaxes * 100) / 100
       });
       
       // Advance by 7 days
@@ -592,6 +596,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
       });
       
       const netPnL = monthlyTrades.reduce((acc, t) => acc + t.netPnL, 0);
+      const mBrokerage = monthlyTrades.reduce((acc, t) => acc + t.brokerage, 0);
+      const mTaxes = monthlyTrades.reduce((acc, t) => acc + t.taxes, 0);
       
       monthsList.push({
         monthNum: m + 1,
@@ -599,7 +605,9 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         year: mYear,
         name: months[mMonthIndex],
         trades: monthlyTrades,
-        netPnL: Math.round(netPnL * 100) / 100
+        netPnL: Math.round(netPnL * 100) / 100,
+        brokerage: Math.round(mBrokerage * 100) / 100,
+        taxes: Math.round(mTaxes * 100) / 100
       });
     }
     return monthsList;
@@ -911,6 +919,14 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                   </strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Brokerage:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{isPnlVisible ? formatCurrency(w.brokerage) : '••••'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Taxes & Fees:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{isPnlVisible ? formatCurrency(w.taxes) : '••••'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Trades Executed:</span>
                   <span>{w.trades.length}</span>
                 </div>
@@ -1005,6 +1021,14 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                   <strong style={{ color: m.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
                     {isPnlVisible ? formatCurrency(m.netPnL) : '••••••'}
                   </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Brokerage:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{isPnlVisible ? formatCurrency(m.brokerage) : '••••'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Taxes & Fees:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{isPnlVisible ? formatCurrency(m.taxes) : '••••'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Trades Executed:</span>
@@ -1334,7 +1358,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                     <th style={{ textAlign: 'right' }}>Entry</th>
                     <th style={{ textAlign: 'right' }}>Exit</th>
                     <th style={{ textAlign: 'right' }}>Gross P&L</th>
-                    <th style={{ textAlign: 'right' }}>Charges</th>
+                    <th style={{ textAlign: 'right' }}>Brokerage</th>
+                    <th style={{ textAlign: 'right' }}>Taxes & Fees</th>
                     <th style={{ textAlign: 'right' }}>Net P&L</th>
                     <th>Setup/Mistake</th>
                     <th>Notes</th>
@@ -1364,7 +1389,10 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                         {t.grossPnL >= 0 ? '+' : ''}{formatCurrency(t.grossPnL)}
                       </td>
                       <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                        ₹{Math.round(t.brokerage + t.taxes)}
+                        ₹{Math.round(t.brokerage)}
+                      </td>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                        ₹{Math.round(t.taxes)}
                       </td>
                       <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: t.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
                         {t.netPnL >= 0 ? '+' : ''}{formatCurrency(t.netPnL)}

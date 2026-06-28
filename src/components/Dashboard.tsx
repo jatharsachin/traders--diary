@@ -126,6 +126,8 @@ export function Dashboard({
   
   const totalGrossPnL = trades.reduce((acc, t) => acc + t.grossPnL, 0);
   const totalCharges = trades.reduce((acc, t) => acc + t.brokerage + t.taxes, 0);
+  const totalBrokerage = trades.reduce((acc, t) => acc + t.brokerage, 0);
+  const totalTaxes = trades.reduce((acc, t) => acc + t.taxes, 0);
   const totalNetPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
 
   // Investment stats (filtering by status to support exits)
@@ -1118,7 +1120,7 @@ export function Dashboard({
             <div className="metric-subtext">
               {showCombined 
                 ? `Trading Net: ${isPnlVisible ? formatCurrency(totalNetPnL) : '••••'} | Inv. Returns: ${isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}`
-                : `Gross P&L: ${isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'} | Charges: ${isPnlVisible ? formatCurrency(totalCharges) : '••••'}`
+                : `Gross P&L: ${isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'} | Brokerage: ${isPnlVisible ? formatCurrency(totalBrokerage) : '••••'} | Taxes & Fees: ${isPnlVisible ? formatCurrency(totalTaxes) : '••••'}`
               }
             </div>
           </div>
