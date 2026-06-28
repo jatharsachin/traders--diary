@@ -821,7 +821,7 @@ export default function App() {
       </header>
 
       {/* Tabs Navigation (macOS Segmented control grouped by category) */}
-      <nav style={{ margin: '28px 0 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
+      <nav style={{ margin: '16px 0 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '28px', flexWrap: 'wrap' }}>
           {/* Group 1: Journaling & Tracking */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
