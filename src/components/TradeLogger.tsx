@@ -83,6 +83,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const [lotsInput, setLotsInput] = useState<string>('');
   const [lotSizeInput, setLotSizeInput] = useState<string>('75');
 
+  const [manualBrokerageText, setManualBrokerageText] = useState<string>('0');
+  const [manualTaxesText, setManualTaxesText] = useState<string>('0');
+
   // Load existing data if editing
   useEffect(() => {
     if (editTradeId) {
@@ -119,6 +122,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           brokerAccountId: existing.brokerAccountId || '',
         });
         setTagsInput(existing.tags ? existing.tags.join(', ').replace(/#/g, '') : '');
+        setManualBrokerageText((existing.manualBrokerage || 0).toString());
+        setManualTaxesText((existing.manualTaxes || 0).toString());
 
         // Set lots and lot size on edit load
         const guessedSz = guessLotSize(existing.symbol);
@@ -266,17 +271,23 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       if (qty > 0 && entryPrice > 0 && exitPrice > 0) {
         const config = brokerCharges.find(c => c.broker === formData.broker);
         const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config);
+        const calcBrokerage = taxResult.brokerage;
+        const calcTaxes = Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100;
         setFormData((prev) => ({
           ...prev,
-          manualBrokerage: taxResult.brokerage,
-          manualTaxes: Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100
+          manualBrokerage: calcBrokerage,
+          manualTaxes: calcTaxes
         }));
+        setManualBrokerageText(calcBrokerage.toString());
+        setManualTaxesText(calcTaxes.toString());
       } else {
         setFormData((prev) => ({
           ...prev,
           manualBrokerage: 0,
           manualTaxes: 0
         }));
+        setManualBrokerageText('0');
+        setManualTaxesText('0');
       }
     }
   }, [
@@ -305,6 +316,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       parsedVal = (e.target as HTMLInputElement).checked;
     } else if (['qty', 'entryPrice', 'exitPrice', 'slippagePoints', 'stopLoss', 'target', 'strikePrice', 'manualBrokerage', 'manualTaxes'].includes(name)) {
       parsedVal = parseFloat(value) || 0;
+    }
+
+    if (name === 'manualBrokerage') {
+      setManualBrokerageText(value);
+    } else if (name === 'manualTaxes') {
+      setManualTaxesText(value);
     }
 
     setFormData((prev) => ({
@@ -925,7 +942,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   <input
                     type="number"
                     name="manualBrokerage"
-                    value={formData.manualBrokerage || ''}
+                    value={manualBrokerageText}
                     onChange={handleChange}
                     placeholder="0.00"
                     disabled={!formData.useManualCharges}
@@ -946,7 +963,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   <input
                     type="number"
                     name="manualTaxes"
-                    value={formData.manualTaxes || ''}
+                    value={manualTaxesText}
                     onChange={handleChange}
                     placeholder="0.00"
                     disabled={!formData.useManualCharges}
