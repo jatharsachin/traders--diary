@@ -131,6 +131,25 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         setLotsInput((existing.qty / guessedSz).toString());
       }
     } else {
+      const draft = localStorage.getItem('traders_diary_draft_trade');
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          setFormData(parsed);
+          setTagsInput(parsed.tagsInput || '');
+          setManualBrokerageText((parsed.manualBrokerage || 0).toString());
+          setManualTaxesText((parsed.manualTaxes || 0).toString());
+          if (parsed.symbol) {
+            const guessedSz = guessLotSize(parsed.symbol);
+            setLotSizeInput(guessedSz.toString());
+            if (parsed.qty) setLotsInput((parsed.qty / guessedSz).toString());
+          }
+          return;
+        } catch (e) {
+          console.error("Failed to parse draft trade", e);
+        }
+      }
+
       const getDefaultDateForFY = (fy: string): string => {
         const todayStr = new Date().toISOString().split('T')[0];
         if (fy === 'All') return todayStr;
@@ -303,6 +322,16 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     isOpen
   ]);
 
+  // Save draft to localStorage as user types
+  useEffect(() => {
+    if (!editTradeId && isOpen) {
+      localStorage.setItem('traders_diary_draft_trade', JSON.stringify({
+        ...formData,
+        tagsInput
+      }));
+    }
+  }, [formData, tagsInput, editTradeId, isOpen]);
+
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -432,6 +461,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       if (!window.confirm('Are you sure you want to log this trade?')) return;
       addTrade(finalTradeData);
     }
+    localStorage.removeItem('traders_diary_draft_trade');
+    onClose();
+  };
+
+  const handleClose = () => {
+    localStorage.removeItem('traders_diary_draft_trade');
     onClose();
   };
 
@@ -440,7 +475,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       <div className="modal-content glass-card animate-fade-in" style={{ padding: 0, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div className="modal-header">
           <h2>{editTradeId ? 'Edit Options/Equity Log' : 'Log Options/Equity Trade'}</h2>
-          <button type="button" className="btn-secondary" style={{ padding: '6px', borderRadius: '50%', border: 'none', background: 'transparent' }} onClick={onClose}>
+          <button type="button" className="btn-secondary" style={{ padding: '6px', borderRadius: '50%', border: 'none', background: 'transparent' }} onClick={handleClose}>
             <X size={18} />
           </button>
         </div>
@@ -1105,7 +1140,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           </div>
           
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" onClick={handleClose}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
