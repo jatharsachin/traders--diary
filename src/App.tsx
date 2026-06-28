@@ -16,6 +16,7 @@ import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, 
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
+import { parseKotakNeoText, matchExecutionsIntoTrades } from './utils/statementParser';
 
 type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation';
 
@@ -149,7 +150,8 @@ export default function App() {
     selectedFY,
     setSelectedFY,
     investments,
-    syncAllInvestmentPrices
+    syncAllInvestmentPrices,
+    bulkImportTrades
   } = useTradeStore();
 
   const filteredTrades = activeAccountId === 'Combined'
@@ -325,6 +327,75 @@ export default function App() {
     }
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Auto-inject Q4 FY25-26 Kotak Neo statement data on first load/login
+  useEffect(() => {
+    const flag = localStorage.getItem('kotak_neo_auto_injected_q4_2025_26');
+    if (!flag && sessionUser) {
+      const rawText = `05/03/2026\t09:41:50\t09:41:50\tCoal India Ltd\tINE522F01014\tNSE\tKotak Neo\tSell\tCash\t160\t448.55\t71768\t2.2\t10\t3.27\t15.47\t8.96
+05/03/2026\t09:34:08\t09:34:08\tCoal India Ltd\tINE522F01014\tNSE\tKotak Neo\tBuy\tCash\t160\t452.397\t72383.5\t2.2\t10\t3.3\t15.52\t9.04
+02/03/2026\t14:58:44\t14:58:44\tNippon Ir\tINE204KB0101\tNSE\tKotak Neo\tBuy\tCash\t439\t107.07\t47003.7\t4.48\t23.49\t8.32\t36.29\t0
+02/03/2026\t14:56:51\t14:56:51\tNippon Ir\tINE204KB0101\tNSE\tKotak Neo\tSell\tCash\t91\t516.888\t47036.8\t4.5\t23.52\t1.49\t29.51\t0
+02/03/2026\t14:11:38\t14:11:38\tICICI Pru\tINF109KC0101\tNSE\tKotak Neo\tBuy\tCash\t74\t285.3\t21112.2\t2.02\t10.56\t3.84\t16.42\t0
+02/03/2026\t10:49:43\t10:49:43\tHindusta\tINE267A01025\tNSE\tKotak Neo\tSell\tCash\t80\t615\t49200\t2.08\t10\t2.3\t14.38\t6.15
+02/03/2026\t10:14:42\t10:14:42\tMulti Cor\tINE745G01035\tNSE\tKotak Neo\tSell\tCash\t20\t2500.9\t50018\t2.08\t10\t2.33\t14.41\t6.3
+02/03/2026\t09:47:36\t09:47:36\tMulti Cor\tINE745G01035\tNSE\tKotak Neo\tBuy\tCash\t20\t2522.8\t50456\t2.1\t10\t2.36\t14.46\t6.36
+02/03/2026\t09:32:14\t09:32:14\tHindusta\tINE267A01025\tNSE\tKotak Neo\tBuy\tCash\t80\t619\t49520\t2.08\t10\t2.32\t14.4\t6.19
+26/02/2026\t11:46:00\t11:46:00\tAurobind\tINE406A01037\tNSE\tKotak Neo\tBuy\tCash\t2\t1227.9\t2455.8\t0.24\t1.23\t0.11\t1.58\t0.3
+26/02/2026\t11:45:52\t11:45:52\tAurobind\tINE406A01037\tNSE\tKotak Neo\tSell\tCash\t1\t1227.8\t1227.8\t0.12\t0.61\t0.05\t0.78\t0.15
+26/02/2026\t11:45:30\t11:45:30\tAurobind\tINE406A01037\tNSE\tKotak Neo\tSell\tCash\t1\t1227.8\t1227.8\t0.12\t0.61\t0.05\t0.78\t0.15
+26/02/2026\t11:37:22\t11:35:52\tLupin Ltd\tINE326A01039\tNSE\tKotak Neo\tSell\tCash\t38\t2314.7\t87958.6\t2.3\t10\t4.13\t16.43\t11.11
+26/02/2026\t10:49:13\t10:49:13\tAurobind\tINE406A01037\tNSE\tKotak Neo\tBuy\tCash\t33\t1229.1\t40560.3\t2.02\t10\t1.89\t13.91\t5.07
+26/02/2026\t09:52:50\t09:52:49\tAurobind\tINE406A01037\tNSE\tKotak Neo\tBuy\tCash\t33\t1249\t41217\t2.04\t10\t1.96\t14\t5.17
+26/02/2026\t09:27:03\t09:27:03\tLupin Ltd\tINE326A01039\tNSE\tKotak Neo\tBuy\tCash\t38\t2300.7\t87426.6\t2.3\t10\t4.12\t16.42\t11.05
+19/02/2026\t11:26:18\t11:26:18\tRBL Bank\tINE976G01028\tNSE\tKotak Neo\tBuy\tCash\t120\t339.066\t40687.9\t1.98\t10\t1.88\t13.86\t5.07
+19/02/2026\t11:12:52\t09:30:11\tRBL Bank\tINE976G01028\tNSE\tKotak Neo\tSell\tCash\t120\t339.5\t40740\t2.02\t10\t1.9\t13.92\t5.09
+19/02/2026\t10:14:31\t10:14:31\tRBL Bank\tINE976G01028\tNSE\tKotak Neo\tBuy\tCash\t120\t330.25\t39630\t2.02\t10\t1.85\t13.87\t4.95
+19/02/2026\t09:23:27\t09:23:27\tRBL Bank\tINE976G01028\tNSE\tKotak Neo\tSell\tCash\t120\t333.6\t40032\t2.1\t10\t1.9\t14\t5.03
+18/02/2026\t10:43:24\t10:43:24\tWaaree E\tINE377N01021\tNSE\tKotak Neo\tBuy\tCash\t14\t2956.6\t41392.4\t2.02\t10\t1.92\t13.94\t5.17
+18/02/2026\t10:42:46\t10:42:45\tWaaree E\tINE377N01021\tNSE\tKotak Neo\tSell\tCash\t1\t2956\t2956\t0.28\t1.48\t0.13\t1.89\t0.36
+18/02/2026\t09:49:12\t09:49:08\tWaaree E\tINE377N01021\tNSE\tKotak Neo\tSell\tCash\t13\t2964\t38532\t2.04\t10\t1.81\t13.85\t4.83
+18/02/2026\t09:35:59\t09:35:59\tSBI Cards\tINE018E01018\tNSE\tKotak Neo\tBuy\tCash\t70\t786.45\t55051.5\t2.1\t10\t2.57\t14.67\t6.86
+18/02/2026\t09:35:12\t09:35:10\tAngel On\tINE732I01013\tNSE\tKotak Neo\tBuy\tCash\t23\t2629.5\t60478.5\t2.14\t10\t2.95\t15.09\t7.37
+18/02/2026\t09:30:16\t09:30:06\tAngel On\tINE732I01013\tNSE\tKotak Neo\tSell\tCash\t23\t2651\t60973\t2.16\t10\t2.99\t15.15\t7.44
+18/02/2026\t09:26:45\t09:26:45\tSBI Cards\tINE018E01018\tNSE\tKotak Neo\tSell\tCash\t70\t794.05\t55583.5\t2.14\t10\t2.61\t14.75\t6.97
+17/02/2026\t10:54:12\t10:54:12\tInfosys Lt\tINE009A01021\tNSE\tKotak Neo\tSell\tCash\t50\t1401\t70050\t2.2\t10\t3.21\t15.41\t8.97
+17/02/2026\t09:56:06\t09:56:06\tInfosys Lt\tINE009A01021\tNSE\tKotak Neo\tBuy\tCash\t50\t1408.5\t70425\t2.2\t10\t3.24\t15.44\t9.03
+16/02/2026\t15:16:29\t15:16:24\tMulti Cor\tINE745G01035\tNSE\tKotak Neo\tSell\tCash\t20\t2345\t46900\t2.02\t10\t1.96\t13.98\t6.01
+16/02/2026\t13:03:25\t13:03:17\tMulti Cor\tINE745G01035\tNSE\tKotak Neo\tBuy\tCash\t20\t2325\t46500\t2.12\t10\t2\t14.12\t5.99
+30/01/2026\t10:28:44\t10:28:44\tAmber En\tINE371P01015\tNSE\tKotak Neo\tSell\tCash\t10\t5791\t57910\t0\t0\t2.6\t2.6\t7.11
+30/01/2026\t09:26:29\t09:26:29\tAmber En\tINE371P01015\tNSE\tKotak Neo\tSell\tCash\t10\t5641\t56410\t0\t0\t2.53\t2.53\t6.96
+30/01/2026\t09:25:30\t09:25:30\tAmber En\tINE371P01015\tNSE\tKotak Neo\tSell\tCash\t10\t5613\t56130\t0\t0\t2.52\t2.52\t6.92
+30/01/2026\t09:23:36\t09:23:36\tAmber En\tINE371P01015\tNSE\tKotak Neo\tBuy\tCash\t10\t5638\t56380\t1.3\t0.01\t2.54\t3.85\t7.01
+29/01/2026\t12:03:15\t12:03:15\tNational\tINE139A01034\tNSE\tKotak Neo\tSell\tCash\t70\t421\t29519\t0\t0\t1.43\t1.43\t3.5
+29/01/2026\t09:31:26\t09:31:26\tNational\tINE139A01034\tNSE\tKotak Neo\tBuy\tCash\t70\t421\t29470\t0.34\t0.01\t1.44\t1.79\t3.5
+28/01/2026\t11:30:59\t11:30:59\tMulti Cor\tINE745G01035\tNSE\tKotak Neo\tBuy\tCash\t14\t2558\t35812\t0\t0\t1.63\t1.63\t4.49
+28/01/2026\t10:03:23\t10:03:23\tMulti Cor\tINE745G01035\tNSE\tKotak Neo\tSell\tCash\t14\t2562\t35868\t0.42\t0.01\t1.64\t2.07\t4.51
+27/01/2026\t13:39:24\t13:39:24\tAdani Ent\tINE423A01024\tNSE\tKotak Neo\tSell\tCash\t10\t1942.3\t19423\t0\t0\t1.11\t1.11\t2.49
+27/01/2026\t09:36:04\t09:36:04\tAdani Ent\tINE423A01024\tNSE\tKotak Neo\tBuy\tCash\t10\t1943.37\t19433.7\t0.22\t0.01\t1.12\t1.35\t2.51
+21/01/2026\t09:28:22\t09:28:22\tDr Reddy\tINE089A01023\tNSE\tKotak Neo\tSell\tCash\t70\t1183.5\t82845\t0\t0\t4.12\t4.12\t10.46
+21/01/2026\t09:23:18\t09:23:18\tDr Reddy\tINE089A01023\tNSE\tKotak Neo\tBuy\tCash\t70\t1192.1\t83447\t0.96\t0.01\t4.16\t5.13\t10.54
+20/01/2026\t13:55:55\t13:55:55\tCENTRAL\tIN0020200234\tNSE\tKotak Neo\tBuy\tCash\t9\t16766.2\t150896\t0.86\t0\t4.78\t5.64\t0
+20/01/2026\t12:34:02\t12:34:02\tDalmia B\tINE00R701011\tNSE\tKotak Neo\tSell\tCash\t21\t2197.2\t46141.2\t0.24\t0\t2.14\t2.38\t5.99
+20/01/2026\t09:23:20\t09:23:20\tDalmia B\tINE00R701011\tNSE\tKotak Neo\tBuy\tCash\t21\t2197.8\t46153.8\t0.28\t0\t2.16\t2.44\t6.01
+20/01/2026\t09:21:50\t09:18:56\tNippon Ir\tINE204KB0101\tNSE\tKotak Neo\tBuy\tCash\t91\t548.14\t49880.7\t0.28\t0\t9.06\t9.34\t0
+20/01/2026\t09:17:31\t09:17:31\tICICI Pru\tINF109KC0101\tNSE\tKotak Neo\tSell\tCash\t164\t306.58\t50279.1\t0.28\t0.01\t8.73\t9.02\t0
+19/01/2026\t13:43:15\t13:43:15\tICICI Pru\tINF109KC0101\tNSE\tKotak Neo\tSell\tCash\t403\t124.3\t50092.9\t0.28\t0\t9.1\t9.38\t0
+19/01/2026\t13:26:59\t13:26:59\tNippon Ir\tINE204KB0101\tNSE\tKotak Neo\tSell\tCash\t179\t280\t50120\t0.28\t0\t9.15\t9.43\t0
+19/01/2026\t10:22:13\t10:22:13\tTech Mah\tINE669C01036\tNSE\tKotak Neo\tSell\tCash\t18\t1712.8\t30830.4\t0\t0\t1.42\t1.42\t3.97
+19/01/2026\t09:22:09\t09:22:09\tTech Mah\tINE669C01036\tNSE\tKotak Neo\tBuy\tCash\t18\t1730\t31140\t0.36\t0.01\t1.47\t1.84\t4.03`;
+
+      try {
+        const executions = parseKotakNeoText(rawText);
+        const matched = matchExecutionsIntoTrades(executions);
+        bulkImportTrades(matched, false);
+        localStorage.setItem('kotak_neo_auto_injected_q4_2025_26', 'true');
+        console.log("Successfully auto-injected Kotak Neo statement trades!");
+      } catch (err) {
+        console.error("Auto injection failed:", err);
+      }
+    }
+  }, [sessionUser, bulkImportTrades]);
 
   const handleEditTrade = (id: string) => {
     setEditTradeId(id);
