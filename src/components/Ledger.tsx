@@ -733,6 +733,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                       <th style={{ padding: '8px', textAlign: 'right' }}>Debit (₹)</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Credit (₹)</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Balance (₹)</th>
+                      <th style={{ padding: '8px', textAlign: 'center', width: '60px' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -745,6 +746,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                       <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                         {isPnlVisible ? formatCurrency(startingBalanceOfMonth) : '••••'}
                       </td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
                     </tr>
                     {(() => {
                       let runningBal = startingBalanceOfMonth;
@@ -774,6 +776,33 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                             <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: runningBal >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                               {isPnlVisible ? formatCurrency(runningBal) : '••••'}
                             </td>
+                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                              {isAdjustment && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm('Delete this adjustment entry? This will reverse double-entry bank balances!')) {
+                                      deleteCapitalAdjustment(item.id);
+                                    }
+                                  }}
+                                  style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: 'var(--color-loss)',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                  title="Delete Adjustment"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         );
                       });
@@ -784,7 +813,12 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
             ) : (
               /* Daily Summaries */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Daily Realized activity & capital flow summary grid:</span>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Daily Realized activity & capital flow summary grid:</span>
+                   <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontStyle: 'italic', fontWeight: 500 }}>
+                     💡 Tip: Switch to "Detailed" view (top-right) to view & delete individual capital adjustments.
+                   </span>
+                 </div>
                 <table className="custom-table" style={{ width: '100%', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
