@@ -634,10 +634,8 @@ export default function App() {
 
         {/* Row 2: Account Context, Capital, Nifty simulated Ticker & Live Clock */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none', gap: '8px', borderTop: '1.5px solid var(--border-color)', paddingTop: '12px', marginTop: '4px' }}>
-          {/* Account Selector & Capital Balance */}
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-            {/* Global Account Selector Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {/* Global Account Selector Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
               {(() => {
                 const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
                 if (activeAcc) {
@@ -793,13 +791,11 @@ export default function App() {
                 </div>
               );
             })()}
-          </div>
 
-          {/* Market Index & Live Clock Ticker */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
             {/* Nifty */}
             <div 
               style={{ 
+                marginLeft: 'auto',
                 padding: '4px 10px', 
                 background: niftyFlash === 'up' ? 'rgba(16, 185, 129, 0.12)' : niftyFlash === 'down' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.03)', 
                 border: niftyFlash === 'up' ? '1.5px solid var(--color-win)' : niftyFlash === 'down' ? '1.5px solid var(--color-loss)' : '1.5px solid var(--border-color)', 
@@ -851,8 +847,7 @@ export default function App() {
               </span>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Tabs Navigation (macOS Segmented control grouped by category) */}
       <nav style={{ margin: '16px 0 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
