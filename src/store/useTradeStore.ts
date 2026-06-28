@@ -965,64 +965,96 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const userId = get().sessionUser?.id;
       if (!userId) return false;
 
-      // Check if we have already uploaded local state once to Supabase (sync initialization check)
       const isSynced = localStorage.getItem(`traders_diary_cloud_synced_${userId}`);
+
+      // Mark user as synced
+      localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');
 
       // 1. Trades
       const cloudTrades = await fetchTradesFromCloud();
       if (cloudTrades !== null) {
-        if (cloudTrades.length > 0 || isSynced) {
-          set({ trades: cloudTrades });
-          localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
-        } else if (get().trades.length > 0) {
-          for (const trade of get().trades) {
-            await syncTradeToCloud('insert', trade);
+        const localTrades = get().trades;
+        const mergedTrades = [...cloudTrades];
+        for (const lt of localTrades) {
+          if (!cloudTrades.some(ct => ct.id === lt.id)) {
+            await syncTradeToCloud('insert', lt);
+            mergedTrades.push(lt);
           }
         }
+        set({ trades: mergedTrades });
+        localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(mergedTrades));
       }
 
-      // 2. Base Capital: (Always dynamic based on active accounts starting capital, removed conflicting cloud sync metadata)
+      // 2. Base Capital
 
       // 3. Investments
       const investmentsCloud = await fetchMetaFromCloud('investments');
-      if (investmentsCloud !== null) {
-        if (Array.isArray(investmentsCloud) && (investmentsCloud.length > 0 || isSynced)) {
-          set({ investments: investmentsCloud });
-          localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(investmentsCloud));
-        } else if (get().investments.length > 0 && !isSynced) {
-          await syncMetaToCloud('investments', get().investments);
+      if (investmentsCloud !== null && Array.isArray(investmentsCloud)) {
+        const localInvs = get().investments;
+        const mergedInvs = [...investmentsCloud];
+        let hasNewLocal = false;
+        for (const li of localInvs) {
+          if (!investmentsCloud.some(ci => ci.id === li.id)) {
+            mergedInvs.push(li);
+            hasNewLocal = true;
+          }
         }
+        if (hasNewLocal) {
+          await syncMetaToCloud('investments', mergedInvs);
+        }
+        set({ investments: mergedInvs });
+        localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(mergedInvs));
       }
 
       // 4. Capital Adjustments
       const adjustmentsCloud = await fetchMetaFromCloud('capital_adjustments');
-      if (adjustmentsCloud !== null) {
-        if (Array.isArray(adjustmentsCloud) && (adjustmentsCloud.length > 0 || isSynced)) {
-          set({ capitalAdjustments: adjustmentsCloud });
-          localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(adjustmentsCloud));
-        } else if (get().capitalAdjustments.length > 0 && !isSynced) {
-          await syncMetaToCloud('capital_adjustments', get().capitalAdjustments);
+      if (adjustmentsCloud !== null && Array.isArray(adjustmentsCloud)) {
+        const localAdjs = get().capitalAdjustments;
+        const mergedAdjs = [...adjustmentsCloud];
+        let hasNewLocal = false;
+        for (const la of localAdjs) {
+          if (!adjustmentsCloud.some(ca => ca.id === la.id)) {
+            mergedAdjs.push(la);
+            hasNewLocal = true;
+          }
         }
+        if (hasNewLocal) {
+          await syncMetaToCloud('capital_adjustments', mergedAdjs);
+        }
+        set({ capitalAdjustments: mergedAdjs });
+        localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(mergedAdjs));
       }
 
       // 5. Setups
       const setupsCloud = await fetchMetaFromCloud('setups');
-      if (setupsCloud !== null) {
-        if (Array.isArray(setupsCloud) && (setupsCloud.length > 0 || isSynced)) {
-          set({ setups: setupsCloud });
-          localStorage.setItem(`traders_diary_setups_${userId}`, JSON.stringify(setupsCloud));
-        } else if (get().setups.length > 0 && !isSynced) {
-          await syncMetaToCloud('setups', get().setups);
+      if (setupsCloud !== null && Array.isArray(setupsCloud)) {
+        const localSetups = get().setups;
+        const mergedSetups = [...setupsCloud];
+        let hasNewLocal = false;
+        for (const ls of localSetups) {
+          if (!setupsCloud.some(cs => cs.name === ls.name)) {
+            mergedSetups.push(ls);
+            hasNewLocal = true;
+          }
         }
+        if (hasNewLocal) {
+          await syncMetaToCloud('setups', mergedSetups);
+        }
+        set({ setups: mergedSetups });
+        localStorage.setItem(`traders_diary_setups_${userId}`, JSON.stringify(mergedSetups));
       }
 
       // 6. Weekly Retrospectives
       const retrosCloud = await fetchMetaFromCloud('weekly_retrospectives');
       if (retrosCloud !== null) {
-        set({ weeklyRetrospectives: retrosCloud });
-        localStorage.setItem(`traders_diary_weekly_retrospectives_${userId}`, JSON.stringify(retrosCloud));
-      } else if (Object.keys(get().weeklyRetrospectives).length > 0 && !isSynced) {
-        await syncMetaToCloud('weekly_retrospectives', get().weeklyRetrospectives);
+        const localRetros = get().weeklyRetrospectives;
+        const mergedRetros = { ...retrosCloud, ...localRetros };
+        const hasNewLocal = Object.keys(localRetros).some(k => !retrosCloud[k]);
+        if (hasNewLocal) {
+          await syncMetaToCloud('weekly_retrospectives', mergedRetros);
+        }
+        set({ weeklyRetrospectives: mergedRetros });
+        localStorage.setItem(`traders_diary_weekly_retrospectives_${userId}`, JSON.stringify(mergedRetros));
       }
 
       // 7. Broker Accounts
