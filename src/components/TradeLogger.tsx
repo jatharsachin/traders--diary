@@ -935,7 +935,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                       opacity: formData.useManualCharges ? 1 : 0.6,
                       cursor: formData.useManualCharges ? 'text' : 'not-allowed'
                     }}
-                    step="0.01;any"
+                    step="any"
                     min="0"
                   />
                 </div>
@@ -956,7 +956,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                       opacity: formData.useManualCharges ? 1 : 0.6,
                       cursor: formData.useManualCharges ? 'text' : 'not-allowed'
                     }}
-                    step="0.01;any"
+                    step="any"
                     min="0"
                   />
                 </div>
