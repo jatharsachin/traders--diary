@@ -326,25 +326,7 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Temporary cleanup block to purge auto-injected Kotak Neo trades from local & cloud databases
-  useEffect(() => {
-    const targetTrades = trades.filter(t => t.broker === 'Kotak Neo' && t.strategy === 'Auto Imported');
-    if (targetTrades.length > 0) {
-      const cleaned = trades.filter(t => !(t.broker === 'Kotak Neo' && t.strategy === 'Auto Imported'));
-      localStorage.setItem('traders_diary_trades', JSON.stringify(cleaned));
-      localStorage.removeItem('kotak_neo_auto_injected_q4_2025_26');
-      
-      const client = getSupabaseClient();
-      if (client && sessionUser) {
-        targetTrades.forEach(async (t) => {
-          await client.from('trades').delete().eq('id', t.id);
-        });
-      }
-      
-      alert(`Wiped ${targetTrades.length} auto-injected Kotak Neo trades from your database.`);
-      window.location.reload();
-    }
-  }, [trades, sessionUser]);
+
 
   const handleEditTrade = (id: string) => {
     setEditTradeId(id);

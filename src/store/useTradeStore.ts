@@ -376,8 +376,13 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       tradesList = []; 
     }
 
-    // Migrate trades to new schema (assigning brokerAccountId)
+    // Purge any auto-injected Kotak Neo trades silently
+    const originalLength = tradesList.length;
+    tradesList = tradesList.filter(t => !(t.broker === 'Kotak Neo' && t.strategy === 'Auto Imported'));
     let migrated = false;
+    if (tradesList.length !== originalLength) {
+      migrated = true;
+    }
     const updated = tradesList.map((t) => {
       if (!t.brokerAccountId) {
         const matched = accountsList.find(a => a.broker === t.broker);
