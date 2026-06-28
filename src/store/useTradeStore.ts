@@ -965,10 +965,13 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const userId = get().sessionUser?.id;
       if (!userId) return false;
 
+      // Check if we have already uploaded local state once to Supabase (sync initialization check)
+      const isSynced = localStorage.getItem(`traders_diary_cloud_synced_${userId}`);
+
       // 1. Trades
       const cloudTrades = await fetchTradesFromCloud();
       if (cloudTrades !== null) {
-        if (cloudTrades.length > 0) {
+        if (cloudTrades.length > 0 || isSynced) {
           set({ trades: cloudTrades });
           localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
         } else if (get().trades.length > 0) {
@@ -978,43 +981,39 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         }
       }
 
-      // 2. Base Capital
-      const baseCapitalCloud = await fetchMetaFromCloud('base_capital');
-      if (baseCapitalCloud !== null) {
-        const capitalNum = parseFloat(baseCapitalCloud);
-        if (!isNaN(capitalNum)) {
-          set({ baseCapital: capitalNum });
-          localStorage.setItem(`traders_diary_capital_${userId}`, capitalNum.toString());
-        }
-      } else {
-        await syncMetaToCloud('base_capital', get().baseCapital.toString());
-      }
+      // 2. Base Capital: (Always dynamic based on active accounts starting capital, removed conflicting cloud sync metadata)
 
       // 3. Investments
       const investmentsCloud = await fetchMetaFromCloud('investments');
       if (investmentsCloud !== null) {
-        set({ investments: investmentsCloud });
-        localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(investmentsCloud));
-      } else if (get().investments.length > 0) {
-        await syncMetaToCloud('investments', get().investments);
+        if (Array.isArray(investmentsCloud) && (investmentsCloud.length > 0 || isSynced)) {
+          set({ investments: investmentsCloud });
+          localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(investmentsCloud));
+        } else if (get().investments.length > 0 && !isSynced) {
+          await syncMetaToCloud('investments', get().investments);
+        }
       }
 
       // 4. Capital Adjustments
       const adjustmentsCloud = await fetchMetaFromCloud('capital_adjustments');
       if (adjustmentsCloud !== null) {
-        set({ capitalAdjustments: adjustmentsCloud });
-        localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(adjustmentsCloud));
-      } else if (get().capitalAdjustments.length > 0) {
-        await syncMetaToCloud('capital_adjustments', get().capitalAdjustments);
+        if (Array.isArray(adjustmentsCloud) && (adjustmentsCloud.length > 0 || isSynced)) {
+          set({ capitalAdjustments: adjustmentsCloud });
+          localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(adjustmentsCloud));
+        } else if (get().capitalAdjustments.length > 0 && !isSynced) {
+          await syncMetaToCloud('capital_adjustments', get().capitalAdjustments);
+        }
       }
 
       // 5. Setups
       const setupsCloud = await fetchMetaFromCloud('setups');
       if (setupsCloud !== null) {
-        set({ setups: setupsCloud });
-        localStorage.setItem(`traders_diary_setups_${userId}`, JSON.stringify(setupsCloud));
-      } else if (get().setups.length > 0) {
-        await syncMetaToCloud('setups', get().setups);
+        if (Array.isArray(setupsCloud) && (setupsCloud.length > 0 || isSynced)) {
+          set({ setups: setupsCloud });
+          localStorage.setItem(`traders_diary_setups_${userId}`, JSON.stringify(setupsCloud));
+        } else if (get().setups.length > 0 && !isSynced) {
+          await syncMetaToCloud('setups', get().setups);
+        }
       }
 
       // 6. Weekly Retrospectives
@@ -1022,22 +1021,30 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       if (retrosCloud !== null) {
         set({ weeklyRetrospectives: retrosCloud });
         localStorage.setItem(`traders_diary_weekly_retrospectives_${userId}`, JSON.stringify(retrosCloud));
-      } else if (Object.keys(get().weeklyRetrospectives).length > 0) {
+      } else if (Object.keys(get().weeklyRetrospectives).length > 0 && !isSynced) {
         await syncMetaToCloud('weekly_retrospectives', get().weeklyRetrospectives);
       }
 
       // 7. Broker Accounts
       const accountsCloud = await fetchMetaFromCloud('broker_accounts');
       if (accountsCloud !== null) {
-        set({ brokerAccounts: accountsCloud, baseCapital: updateBaseCapital(accountsCloud) });
-        localStorage.setItem(`traders_diary_broker_accounts_${userId}`, JSON.stringify(accountsCloud));
+        if (Array.isArray(accountsCloud) && (accountsCloud.length > 0 || isSynced)) {
+          set({ brokerAccounts: accountsCloud, baseCapital: updateBaseCapital(accountsCloud) });
+          localStorage.setItem(`traders_diary_broker_accounts_${userId}`, JSON.stringify(accountsCloud));
+        } else if (get().brokerAccounts.length > 0 && !isSynced) {
+          await syncMetaToCloud('broker_accounts', get().brokerAccounts);
+        }
       }
 
       // 8. Bank Accounts
       const banksCloud = await fetchMetaFromCloud('bank_accounts');
       if (banksCloud !== null) {
-        set({ bankAccounts: banksCloud });
-        localStorage.setItem(`traders_diary_bank_accounts_${userId}`, JSON.stringify(banksCloud));
+        if (Array.isArray(banksCloud) && (banksCloud.length > 0 || isSynced)) {
+          set({ bankAccounts: banksCloud });
+          localStorage.setItem(`traders_diary_bank_accounts_${userId}`, JSON.stringify(banksCloud));
+        } else if (get().bankAccounts.length > 0 && !isSynced) {
+          await syncMetaToCloud('bank_accounts', get().bankAccounts);
+        }
       }
 
       // 9. Broker Charges
@@ -1045,20 +1052,33 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       if (chargesCloud !== null) {
         set({ brokerCharges: chargesCloud });
         localStorage.setItem(`traders_diary_broker_charges_${userId}`, JSON.stringify(chargesCloud));
+      } else if (get().brokerCharges.length > 0 && !isSynced) {
+        await syncMetaToCloud('broker_charges', get().brokerCharges);
       }
 
       // 10. Expenses
       const expensesCloud = await fetchMetaFromCloud('subscription_expenses');
       if (expensesCloud !== null) {
-        set({ subscriptionExpenses: expensesCloud });
-        localStorage.setItem(`traders_diary_subscription_expenses_${userId}`, JSON.stringify(expensesCloud));
+        if (Array.isArray(expensesCloud) && (expensesCloud.length > 0 || isSynced)) {
+          set({ subscriptionExpenses: expensesCloud });
+          localStorage.setItem(`traders_diary_subscription_expenses_${userId}`, JSON.stringify(expensesCloud));
+        } else if (get().subscriptionExpenses.length > 0 && !isSynced) {
+          await syncMetaToCloud('subscription_expenses', get().subscriptionExpenses);
+        }
       }
+
+      // Mark the sync initialization as completed
+      localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');
 
       // 11. Bank Transactions
       const bankTxCloud = await fetchMetaFromCloud('bank_transactions');
       if (bankTxCloud !== null) {
-        set({ bankTransactions: bankTxCloud });
-        localStorage.setItem(`traders_diary_bank_transactions_${userId}`, JSON.stringify(bankTxCloud));
+        if (Array.isArray(bankTxCloud) && (bankTxCloud.length > 0 || isSynced)) {
+          set({ bankTransactions: bankTxCloud });
+          localStorage.setItem(`traders_diary_bank_transactions_${userId}`, JSON.stringify(bankTxCloud));
+        } else if (get().bankTransactions.length > 0 && !isSynced) {
+          await syncMetaToCloud('bank_transactions', get().bankTransactions);
+        }
       }
 
       return true;
@@ -1156,6 +1176,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         ];
         
         const proxies = [
+          (targetUrl: string) => `https://api.codetabs.com/v1/proxy?url=${encodeURIComponent(targetUrl)}`,
           (targetUrl: string) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
           (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
         ];
