@@ -822,10 +822,13 @@ export default function App() {
 
       {/* Tabs Navigation (macOS Segmented control grouped by category) */}
       <nav style={{ marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '28px', flexWrap: 'wrap' }}>
           {/* Group 1: Journaling & Tracking */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>Journal & Tracking</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
+              Journal & Tracking
+            </span>
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('dashboard')} 
@@ -863,8 +866,11 @@ export default function App() {
           </div>
 
           {/* Group 2: Portfolio & Capital */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>Capital & Assets</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
+              Capital & Assets
+            </span>
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('ledger')} 
@@ -886,8 +892,11 @@ export default function App() {
           </div>
 
           {/* Group 3: Setup & Taxes */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>Analysis & Config</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ec4899', display: 'inline-block' }}></span>
+              Analysis & Config
+            </span>
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('strategies')} 
