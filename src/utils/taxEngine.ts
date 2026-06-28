@@ -35,9 +35,9 @@ export function calculateIndianTaxesAndBrokerage(
   let brokerage = 0;
   let stt = 0;
   let exchangeTx = 0;
-  let sebiFee = 0;
+  let sebiFee: number;
   let stampDuty = 0;
-  let gst = 0;
+  let gst: number;
 
   // 1. Brokerage & Exchange Tx Charges
   if (segment === 'Equity') {
