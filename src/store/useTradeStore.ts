@@ -1050,71 +1050,57 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       // 3. Investments
       const investmentsCloud = await fetchMetaFromCloud('investments');
       if (investmentsCloud !== null && Array.isArray(investmentsCloud)) {
-        const localInvs = get().investments;
-        const mergedInvs = [...investmentsCloud];
-        let hasNewLocal = false;
-        for (const li of localInvs) {
-          if (!investmentsCloud.some(ci => ci.id === li.id)) {
-            mergedInvs.push(li);
-            hasNewLocal = true;
+        if (investmentsCloud.length > 0 || isSynced) {
+          set({ investments: investmentsCloud });
+          localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(investmentsCloud));
+        } else {
+          const localInvs = get().investments;
+          if (localInvs.length > 0) {
+            await syncMetaToCloud('investments', localInvs);
           }
         }
-        if (hasNewLocal) {
-          await syncMetaToCloud('investments', mergedInvs);
-        }
-        set({ investments: mergedInvs });
-        localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(mergedInvs));
       }
 
       // 4. Capital Adjustments
       const adjustmentsCloud = await fetchMetaFromCloud('capital_adjustments');
       if (adjustmentsCloud !== null && Array.isArray(adjustmentsCloud)) {
-        const localAdjs = get().capitalAdjustments;
-        const mergedAdjs = [...adjustmentsCloud];
-        let hasNewLocal = false;
-        for (const la of localAdjs) {
-          if (!adjustmentsCloud.some(ca => ca.id === la.id)) {
-            mergedAdjs.push(la);
-            hasNewLocal = true;
+        if (adjustmentsCloud.length > 0 || isSynced) {
+          set({ capitalAdjustments: adjustmentsCloud });
+          localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(adjustmentsCloud));
+        } else {
+          const localAdjs = get().capitalAdjustments;
+          if (localAdjs.length > 0) {
+            await syncMetaToCloud('capital_adjustments', localAdjs);
           }
         }
-        if (hasNewLocal) {
-          await syncMetaToCloud('capital_adjustments', mergedAdjs);
-        }
-        set({ capitalAdjustments: mergedAdjs });
-        localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(mergedAdjs));
       }
 
       // 5. Setups
       const setupsCloud = await fetchMetaFromCloud('setups');
       if (setupsCloud !== null && Array.isArray(setupsCloud)) {
-        const localSetups = get().setups;
-        const mergedSetups = [...setupsCloud];
-        let hasNewLocal = false;
-        for (const ls of localSetups) {
-          if (!setupsCloud.some(cs => cs.name === ls.name)) {
-            mergedSetups.push(ls);
-            hasNewLocal = true;
+        if (setupsCloud.length > 0 || isSynced) {
+          set({ setups: setupsCloud });
+          localStorage.setItem(`traders_diary_setups_${userId}`, JSON.stringify(setupsCloud));
+        } else {
+          const localSetups = get().setups;
+          if (localSetups.length > 0) {
+            await syncMetaToCloud('setups', localSetups);
           }
         }
-        if (hasNewLocal) {
-          await syncMetaToCloud('setups', mergedSetups);
-        }
-        set({ setups: mergedSetups });
-        localStorage.setItem(`traders_diary_setups_${userId}`, JSON.stringify(mergedSetups));
       }
 
       // 6. Weekly Retrospectives
       const retrosCloud = await fetchMetaFromCloud('weekly_retrospectives');
       if (retrosCloud !== null) {
-        const localRetros = get().weeklyRetrospectives;
-        const mergedRetros = { ...retrosCloud, ...localRetros };
-        const hasNewLocal = Object.keys(localRetros).some(k => !retrosCloud[k]);
-        if (hasNewLocal) {
-          await syncMetaToCloud('weekly_retrospectives', mergedRetros);
+        if (Object.keys(retrosCloud).length > 0 || isSynced) {
+          set({ weeklyRetrospectives: retrosCloud });
+          localStorage.setItem(`traders_diary_weekly_retrospectives_${userId}`, JSON.stringify(retrosCloud));
+        } else {
+          const localRetros = get().weeklyRetrospectives;
+          if (Object.keys(localRetros).length > 0) {
+            await syncMetaToCloud('weekly_retrospectives', localRetros);
+          }
         }
-        set({ weeklyRetrospectives: mergedRetros });
-        localStorage.setItem(`traders_diary_weekly_retrospectives_${userId}`, JSON.stringify(mergedRetros));
       }
 
       // 7. Broker Accounts
