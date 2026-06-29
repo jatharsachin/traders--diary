@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
-import { X, Save, ShieldAlert, Sparkles } from 'lucide-react';
+import { X, Save, ShieldAlert } from 'lucide-react';
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
 import { getFinancialYear } from '../utils/fyHelper';
 
@@ -82,6 +82,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
 
   const [lotsInput, setLotsInput] = useState<string>('');
   const [lotSizeInput, setLotSizeInput] = useState<string>('65');
+  const [underlyingIndex, setUnderlyingIndex] = useState<string>('NIFTY');
 
   const prevSymbolPrefixRef = useRef('');
 
@@ -131,6 +132,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         const guessedSz = guessLotSize(existing.symbol);
         setLotSizeInput(guessedSz.toString());
         setLotsInput((existing.qty / guessedSz).toString());
+        if (existing.symbol) {
+          const match = existing.symbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+          if (match) {
+            setUnderlyingIndex(match[1]);
+          }
+        }
       }
     } else {
       const draft = localStorage.getItem('traders_diary_draft_trade');
@@ -145,6 +152,10 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
             const guessedSz = guessLotSize(parsed.symbol);
             setLotSizeInput(guessedSz.toString());
             if (parsed.qty) setLotsInput((parsed.qty / guessedSz).toString());
+            const match = parsed.symbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+            if (match) {
+              setUnderlyingIndex(match[1]);
+            }
           }
           return;
         } catch (e) {
@@ -204,6 +215,14 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       setTagsInput('');
       setLotsInput('');
       setLotSizeInput(lastTrade && lastTrade.segment === 'F&O' ? guessLotSize(lastTrade.symbol).toString() : '65');
+      if (lastTrade && lastTrade.segment === 'F&O' && lastTrade.symbol) {
+        const match = lastTrade.symbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+        if (match) {
+          setUnderlyingIndex(match[1]);
+        }
+      } else {
+        setUnderlyingIndex('NIFTY');
+      }
     }
   }, [editTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
 
@@ -288,6 +307,19 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       }
     }
   }, [formData.symbol, formData.segment, isOpen, lotsInput, editTradeId]);
+
+  // Dynamically auto-construct symbol from index, strike price, and option type
+  useEffect(() => {
+    if (formData.segment === 'F&O' && formData.strikePrice > 0 && formData.optionType !== 'None' && isOpen) {
+      const newSymbol = `${underlyingIndex} ${formData.strikePrice} ${formData.optionType}`;
+      if (formData.symbol !== newSymbol) {
+        setFormData(prev => ({
+          ...prev,
+          symbol: newSymbol
+        }));
+      }
+    }
+  }, [underlyingIndex, formData.strikePrice, formData.optionType, formData.segment, isOpen]);
 
   // Real-time auto-calculation of charges & taxes
   useEffect(() => {
@@ -380,23 +412,13 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     });
   };
 
-  // Helper to auto-complete option symbol
-  const handleAutoCompleteSymbol = () => {
-    if (formData.segment === 'F&O' && formData.strikePrice > 0 && formData.optionType !== 'None') {
-      const prefix = formData.symbol.toUpperCase().includes('NIFTY') ? 'NIFTY' : 'BANKNIFTY';
-      setFormData(prev => ({
-        ...prev,
-        symbol: `${prefix} ${formData.strikePrice} ${formData.optionType}`
-      }));
-    }
-  };
-
 
   const handleQuickIndexOption = (index: 'NIFTY' | 'SENSEX', type: 'CE' | 'PE') => {
     const strike = index === 'NIFTY' ? 23000 : 80000;
-    const lotSz = index === 'NIFTY' ? 25 : 10;
+    const lotSz = index === 'NIFTY' ? 65 : 10;
     const sym = `${index} ${strike} ${type}`;
     
+    setUnderlyingIndex(index);
     setFormData((prev) => ({
       ...prev,
       segment: 'F&O',
@@ -592,9 +614,47 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   background: 'rgba(59, 130, 246, 0.04)',
                   border: '1px solid rgba(59, 130, 246, 0.1)',
                   padding: '12px',
-                  borderRadius: '8px'
+                  borderRadius: '8px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '16px',
+                  marginBottom: '16px'
                 }}
               >
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: 'var(--primary)', fontWeight: 600 }}>Underlying Index</label>
+                  <select
+                    value={underlyingIndex}
+                    onChange={(e) => {
+                      const idx = e.target.value;
+                      setUnderlyingIndex(idx);
+                      let defaultLot = 1;
+                      if (idx === 'NIFTY') defaultLot = 65;
+                      else if (idx === 'BANKNIFTY') defaultLot = 15;
+                      else if (idx === 'FINNIFTY') defaultLot = 25;
+                      else if (idx === 'MIDCPNIFTY') defaultLot = 50;
+                      else if (idx === 'SENSEX') defaultLot = 10;
+                      else if (idx === 'BANKEX') defaultLot = 15;
+                      setLotSizeInput(defaultLot.toString());
+                      
+                      const currentLots = parseFloat(lotsInput);
+                      if (!isNaN(currentLots) && currentLots >= 0) {
+                        setFormData(prev => ({ ...prev, qty: Math.round(currentLots * defaultLot) }));
+                      } else if (formData.qty > 0) {
+                        setLotsInput((formData.qty / defaultLot).toString());
+                      }
+                    }}
+                    className="form-select"
+                    style={{ borderColor: 'var(--primary-glow)' }}
+                  >
+                    <option value="NIFTY">NIFTY (Lot: 65)</option>
+                    <option value="BANKNIFTY">BANKNIFTY (Lot: 15)</option>
+                    <option value="FINNIFTY">FINNIFTY (Lot: 25)</option>
+                    <option value="MIDCPNIFTY">MIDCPNIFTY (Lot: 50)</option>
+                    <option value="SENSEX">SENSEX (Lot: 10)</option>
+                    <option value="BANKEX">BANKEX (Lot: 15)</option>
+                  </select>
+                </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: 'var(--primary)' }}>Strike Price</label>
                   <input
@@ -620,26 +680,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                     <option value="CE">CE (Call Option)</option>
                     <option value="PE">PE (Put Option)</option>
                   </select>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                  <button
-                    type="button"
-                    onClick={handleAutoCompleteSymbol}
-                    className="btn btn-secondary"
-                    style={{ 
-                      width: '100%', 
-                      fontSize: '0.75rem', 
-                      padding: '10px 6px',
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '4px',
-                      borderColor: 'var(--primary-glow)'
-                    }}
-                    title="Generate standard symbol name"
-                  >
-                    <Sparkles size={12} color="var(--primary)" />
-                    Auto-Fill
-                  </button>
                 </div>
               </div>
             )}

@@ -24,6 +24,7 @@ export default function App() {
   const [isLoggerOpen, setIsLoggerOpen] = useState(false);
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [lastSeenNotificationCount, setLastSeenNotificationCount] = useState<number>(0);
   const [isRecoveryActive, setIsRecoveryActive] = useState(false);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState<string>('Combined');
@@ -464,7 +465,13 @@ export default function App() {
             {/* Bell Icon & Notification Center */}
             <div style={{ position: 'relative' }}>
               <button 
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                onClick={() => {
+                  const nextState = !isNotifOpen;
+                  setIsNotifOpen(nextState);
+                  if (nextState) {
+                    setLastSeenNotificationCount(notifications.length);
+                  }
+                }}
                 className="btn btn-secondary"
                 style={{ 
                   width: '48px', 
@@ -480,8 +487,8 @@ export default function App() {
                 }}
                 title="Alerts Center"
               >
-                <Bell size={16} color={notifications.length > 0 ? 'var(--color-loss)' : 'var(--text-main)'} />
-                {notifications.length > 0 && (
+                <Bell size={16} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
+                {notifications.length > lastSeenNotificationCount && (
                   <span 
                     style={{ 
                       position: 'absolute', 
@@ -500,7 +507,7 @@ export default function App() {
                       boxShadow: '0 0 8px var(--color-loss)'
                     }}
                   >
-                    {notifications.length}
+                    {notifications.length - lastSeenNotificationCount}
                   </span>
                 )}
               </button>
