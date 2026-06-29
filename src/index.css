@@ -1092,10 +1092,10 @@ h1, h2, h3, h4 {
 }
 
 :root {
-  --bg-sticky: rgba(10, 10, 15, 0.72);
+  --bg-sticky: var(--bg-color);
 }
 :root.light {
-  --bg-sticky: rgba(245, 245, 247, 0.72);
+  --bg-sticky: var(--bg-color);
 }
 
 @media (max-width: 480px) {
