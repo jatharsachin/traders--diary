@@ -983,6 +983,25 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         }
         set({ trades: mergedTrades });
         localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(mergedTrades));
+
+        const hasRecalced = localStorage.getItem(`traders_diary_recalced_charges_v3_${userId}`) === 'true';
+        if (!hasRecalced) {
+          const recalcedTrades = mergedTrades.map(t => {
+            if (t.useManualCharges) return t;
+            const config = get().brokerCharges.find(c => c.broker === t.broker);
+            const calc = computeTradeCalculations(t, config);
+            return {
+              ...t,
+              ...calc
+            };
+          });
+          for (const rt of recalcedTrades) {
+            await syncTradeToCloud('update', rt);
+          }
+          set({ trades: recalcedTrades });
+          localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(recalcedTrades));
+          localStorage.setItem(`traders_diary_recalced_charges_v3_${userId}`, 'true');
+        }
       }
 
       // 2. Base Capital
