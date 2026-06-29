@@ -165,6 +165,47 @@ const DEFAULT_SUBSCRIPTION_EXPENSES: SubscriptionExpense[] = [
   { id: 'sub-2', name: 'Sensibull Options Pro', amount: 800, date: '2026-06-05', paymentSource: 'Broker', brokerAccountId: 'acc-1', notes: 'Options analysis subscription', frequency: 'Monthly' },
 ];
 
+// Helper to determine index-specific option/future expiry days based on NSE/BSE rules
+const checkIfExpiryDay = (symbol: string, dateStr: string): boolean => {
+  const sym = symbol.toUpperCase().trim();
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return false;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+  const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday
+
+  // Midcap Nifty & Bankex expire on Monday weekly/monthly
+  if (sym.includes('MIDCPNIFTY') || sym.includes('BANKEX')) {
+    return dayOfWeek === 1;
+  }
+  // Finnifty expires on Tuesday
+  if (sym.includes('FINNIFTY')) {
+    return dayOfWeek === 2;
+  }
+  // Banknifty: Weekly option contracts expire on Wednesday, Monthly contracts expire on Thursday
+  if (sym.includes('BANKNIFTY')) {
+    return dayOfWeek === 3 || dayOfWeek === 4;
+  }
+  // Nifty weekly & monthly expire on Thursday
+  if (sym.includes('NIFTY')) {
+    return dayOfWeek === 4;
+  }
+  // Sensex expires on Friday weekly
+  if (sym.includes('SENSEX')) {
+    return dayOfWeek === 5;
+  }
+
+  // Stock options expire on the last Thursday of the month
+  if (dayOfWeek === 4) {
+    const nextWeek = new Date(year, month, day + 7);
+    return nextWeek.getMonth() !== month;
+  }
+
+  return false;
+};
+
 // Helper to compute calculated fields for a trade
 const computeTradeCalculations = (
   trade: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'> & {
@@ -181,13 +222,8 @@ const computeTradeCalculations = (
 ) => {
   const { date, entryTime, exitTime, exitDate, segment, product, action, qty, entryPrice, exitPrice, stopLoss } = trade;
 
-  // 1. Expiry Day Detection (Thursday check)
-  const parts = date.split('-');
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
-  const d = new Date(year, month, day);
-  const isExpiryDay = d.getDay() === 4; // 4 = Thursday
+  // 1. Expiry Day Detection based on symbol and index trading calendar rules
+  const isExpiryDay = checkIfExpiryDay(trade.symbol, date);
 
   // 2. Holding Duration Calculation in Minutes
   let durationMinutes = 0;
@@ -984,15 +1020,20 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         set({ trades: mergedTrades });
         localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(mergedTrades));
 
-        const hasRecalced = localStorage.getItem(`traders_diary_recalced_charges_v3_${userId}`) === 'true';
+        const hasRecalced = localStorage.getItem(`traders_diary_recalced_charges_v4_${userId}`) === 'true';
         if (!hasRecalced) {
           const recalcedTrades = mergedTrades.map(t => {
-            if (t.useManualCharges) return t;
             const config = get().brokerCharges.find(c => c.broker === t.broker);
             const calc = computeTradeCalculations(t, config);
             return {
               ...t,
-              ...calc
+              isExpiryDay: calc.isExpiryDay,
+              ...(t.useManualCharges ? {} : {
+                brokerage: calc.brokerage,
+                taxes: calc.taxes,
+                netPnL: calc.netPnL,
+                roi: calc.roi
+              })
             };
           });
           for (const rt of recalcedTrades) {
@@ -1000,7 +1041,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           }
           set({ trades: recalcedTrades });
           localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(recalcedTrades));
-          localStorage.setItem(`traders_diary_recalced_charges_v3_${userId}`, 'true');
+          localStorage.setItem(`traders_diary_recalced_charges_v4_${userId}`, 'true');
         }
       }
 
