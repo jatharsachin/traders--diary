@@ -50,7 +50,7 @@ export function calculateIndianTaxesAndBrokerage(
       } else {
         brokerage = 0; // Default Zerodha Delivery is ₹0
       }
-      exchangeTx = totalTurnover * 0.0000325; // 0.00325%
+      exchangeTx = totalTurnover * 0.0000297; // 0.00297% (Revised Oct 2024)
       stt = totalTurnover * 0.001; // 0.1% on buy and sell
       stampDuty = buyValue * 0.00015; // 0.015% on buy side only
     } else {
@@ -64,13 +64,13 @@ export function calculateIndianTaxesAndBrokerage(
         const sellBroker = Math.min(20, sellValue * 0.0003);
         brokerage = buyBroker + sellBroker;
       }
-      exchangeTx = totalTurnover * 0.0000325; // 0.00325%
+      exchangeTx = totalTurnover * 0.0000297; // 0.00297% (Revised Oct 2024)
       stt = sellValue * 0.00025; // 0.025% on sell side only
       stampDuty = buyValue * 0.00003; // 0.003% on buy side only
     }
   } else if (segment === 'F&O') {
     const isOption = buyPrice < 2000; // Options premium heuristic
-
+ 
     if (isOption) {
       // Options
       if (chargesConfig) {
@@ -78,8 +78,8 @@ export function calculateIndianTaxesAndBrokerage(
       } else {
         brokerage = 40; // Default ₹20 per order = ₹40 round trip
       }
-      exchangeTx = totalTurnover * 0.00053; // 0.053% on premium value
-      stt = sellValue * 0.000625; // 0.0625% on sell side premium
+      exchangeTx = totalTurnover * 0.0003503; // 0.03503% on premium value (Revised Oct 2024)
+      stt = sellValue * 0.001; // 0.1% on sell side premium (Revised Oct 2024)
       stampDuty = buyValue * 0.00003; // 0.003% on buy side
     } else {
       // Futures
@@ -92,8 +92,8 @@ export function calculateIndianTaxesAndBrokerage(
         const sellBroker = Math.min(20, sellValue * 0.0003);
         brokerage = buyBroker + sellBroker;
       }
-      exchangeTx = totalTurnover * 0.000019; // 0.0019%
-      stt = sellValue * 0.000125; // 0.0125% on sell side
+      exchangeTx = totalTurnover * 0.0000173; // 0.00173% (Revised Oct 2024)
+      stt = sellValue * 0.0002; // 0.02% on sell side (Revised Oct 2024)
       stampDuty = buyValue * 0.00002; // 0.002% on buy side
     }
   } else if (segment === 'Commodity') {
@@ -121,7 +121,7 @@ export function calculateIndianTaxesAndBrokerage(
       const sellBroker = Math.min(20, sellValue * 0.0003);
       brokerage = buyBroker + sellBroker;
     }
-    exchangeTx = totalTurnover * 0.000009; // 0.0009%
+    exchangeTx = totalTurnover * 0.0000035; // 0.00035% (Revised Oct 2024)
     stt = 0; 
     stampDuty = buyValue * 0.000001; // 0.0001% buy side
   }
