@@ -90,11 +90,11 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const [manualTaxesText, setManualTaxesText] = useState<string>('0');
 
   const [usePartialExits, setUsePartialExits] = useState(false);
-  const [partialExits, setPartialExits] = useState<{ id: string; qty: number; price: number }[]>([
-    { id: '1', qty: 0, price: 0 }
+  const [partialExits, setPartialExits] = useState<{ id: string; qty: number; price: number; time: string }[]>([
+    { id: '1', qty: 0, price: 0, time: new Date().toTimeString().slice(0, 5) }
   ]);
 
-  // Sync partial exits to total qty and exit price
+  // Sync partial exits to total qty, exit price, and final exit time
   useEffect(() => {
     if (usePartialExits) {
       const validExits = partialExits.filter(e => e.qty > 0 && e.price > 0);
@@ -103,10 +103,18 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         const weightedSum = validExits.reduce((sum, e) => sum + (e.qty * e.price), 0);
         const avgPrice = Math.round((weightedSum / totalQty) * 100) / 100;
         
+        let latestTime = formData.exitTime;
+        const validTimes = validExits.filter(e => e.time);
+        if (validTimes.length > 0) {
+          validTimes.sort((a, b) => a.time.localeCompare(b.time));
+          latestTime = validTimes[validTimes.length - 1].time;
+        }
+
         setFormData(prev => ({
           ...prev,
           qty: totalQty,
-          exitPrice: avgPrice
+          exitPrice: avgPrice,
+          exitTime: latestTime
         }));
 
         if (formData.segment === 'F&O') {
@@ -600,7 +608,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   value={formData.exitTime}
                   onChange={handleChange}
                   className="form-input"
+                  style={usePartialExits ? { background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)', cursor: 'not-allowed' } : {}}
                   required
+                  disabled={usePartialExits}
                 />
               </div>
               {formData.product === 'Delivery' && (
@@ -968,7 +978,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                       setUsePartialExits(active);
                       if (active && partialExits.length === 1 && partialExits[0].qty === 0) {
                         // Pre-populate with current qty & exitPrice to make toggle smooth
-                        setPartialExits([{ id: '1', qty: formData.qty || 0, price: formData.exitPrice || 0 }]);
+                        setPartialExits([{ id: '1', qty: formData.qty || 0, price: formData.exitPrice || 0, time: formData.exitTime || new Date().toTimeString().slice(0, 5) }]);
                       }
                     }}
                     style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: '0.72rem', cursor: 'pointer', padding: 0 }}
@@ -1024,7 +1034,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-main)' }}>Partial Exit Legs</span>
                   <button 
                     type="button" 
-                    onClick={() => setPartialExits([...partialExits, { id: Date.now().toString(), qty: 0, price: 0 }])}
+                    onClick={() => setPartialExits([...partialExits, { id: Date.now().toString(), qty: 0, price: 0, time: new Date().toTimeString().slice(0, 5) }])}
                     className="btn btn-secondary" 
                     style={{ padding: '3px 8px', fontSize: '0.7rem', height: '24px' }}
                   >
@@ -1033,8 +1043,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                 </div>
 
                 {partialExits.map((leg, idx) => (
-                  <div key={leg.id} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div style={{ flex: 1 }}>
+                  <div key={leg.id} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ flex: '1.2' }}>
                       <input 
                         type="number" 
                         placeholder="Qty (Units)" 
@@ -1049,7 +1059,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                         required
                       />
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: '1.2' }}>
                       <input 
                         type="number" 
                         placeholder="Exit Price" 
@@ -1062,6 +1072,20 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                         className="form-input"
                         style={{ height: '30px', fontSize: '0.78rem' }}
                         step="0.05"
+                        required
+                      />
+                    </div>
+                    <div style={{ flex: '1' }}>
+                      <input 
+                        type="time" 
+                        value={leg.time || ''} 
+                        onChange={(e) => {
+                          const updated = [...partialExits];
+                          updated[idx].time = e.target.value;
+                          setPartialExits(updated);
+                        }}
+                        className="form-input"
+                        style={{ height: '30px', fontSize: '0.78rem', padding: '0 4px' }}
                         required
                       />
                     </div>
