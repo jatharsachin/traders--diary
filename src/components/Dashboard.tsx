@@ -109,7 +109,12 @@ export function Dashboard({
 
   const activeBaseCapital = getStartingCapitalForActiveFY();
 
-  const rawTradesByFY = filterTradesByFY(allTrades, selectedFY);
+  const rawTradesByFY = filterTradesByFY(allTrades, selectedFY).filter((t) => {
+    const isImported = t.strategy === 'Auto Imported' || 
+                       t.broker === 'Kotak Neo' || 
+                       (t.notes && t.notes.toLowerCase().includes('imported'));
+    return !isImported;
+  });
   const rawTrades = activeAccountId === 'Combined'
     ? rawTradesByFY
     : rawTradesByFY.filter((t) => t.brokerAccountId === activeAccountId);
@@ -519,64 +524,37 @@ export function Dashboard({
     });
     return (isNegative ? '-' : '') + formatter.format(absVal);
   };
-
-  // 1. Equity Curve Data Preparation
   const getEquityCurveData = () => {
+    let filteredTrades = [...sortedTrades];
+
+    if (timeRange !== 'All') {
+      const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
+      const days = daysMap[timeRange as keyof typeof daysMap];
+      const cutoff = new Date(anchorDate);
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+      filteredTrades = sortedTrades.filter(t => t.date >= cutoffStr);
+    }
+
     let cumulativeTrading = 0;
-    let peakTradingCapital = activeBaseCapital;
-    let peakCombinedCapital = activeBaseCapital + totalInvReturns;
-
-    const curve = sortedTrades.map((t, index) => {
+    const curve = filteredTrades.map((t, index) => {
       cumulativeTrading += t.netPnL;
-      const cumulativeCombined = cumulativeTrading + totalInvReturns;
-
-      const currentTradingCapital = activeBaseCapital + cumulativeTrading;
-      const currentCombinedCapital = activeBaseCapital + cumulativeCombined;
-
-      if (currentTradingCapital > peakTradingCapital) {
-        peakTradingCapital = currentTradingCapital;
-      }
-      if (currentCombinedCapital > peakCombinedCapital) {
-        peakCombinedCapital = currentCombinedCapital;
-      }
-
-      const tradingDrawdownRupees = peakTradingCapital - currentTradingCapital;
-      const tradingDrawdownPct = peakTradingCapital > 0 ? (tradingDrawdownRupees / peakTradingCapital) * 100 : 0;
-
-      const combinedDrawdownRupees = peakCombinedCapital - currentCombinedCapital;
-      const combinedDrawdownPct = peakCombinedCapital > 0 ? (combinedDrawdownRupees / peakCombinedCapital) * 100 : 0;
-
-      const peakTradingPnLVal = peakTradingCapital - activeBaseCapital;
-      const peakCombinedPnLVal = peakCombinedCapital - activeBaseCapital;
-
       return {
         tradeIndex: index + 1,
         date: t.date,
         symbol: t.symbol,
         netPnL: t.netPnL,
-        tradingPnL: Math.round(cumulativeTrading * 100) / 100,
-        combinedPnL: Math.round(cumulativeCombined * 100) / 100,
-        tradingDrawdown: Math.round(tradingDrawdownPct * 100) / 100,
-        combinedDrawdown: Math.round(combinedDrawdownPct * 100) / 100,
-        tradingDrawdownRange: [Math.round(cumulativeTrading * 100) / 100, Math.round(peakTradingPnLVal * 100) / 100],
-        combinedDrawdownRange: [Math.round(cumulativeCombined * 100) / 100, Math.round(peakCombinedPnLVal * 100) / 100],
+        tradingPnL: Math.round(cumulativeTrading * 100) / 100
       };
     });
-
-    const initialCombined = Math.round(totalInvReturns * 100) / 100;
 
     return [
       { 
         tradeIndex: 0, 
-        date: 'Start', 
+        date: filteredTrades[0] ? filteredTrades[0].date : 'Start', 
         symbol: 'Start', 
         netPnL: 0, 
-        tradingPnL: 0, 
-        combinedPnL: initialCombined,
-        tradingDrawdown: 0,
-        combinedDrawdown: 0,
-        tradingDrawdownRange: [0, 0],
-        combinedDrawdownRange: [initialCombined, initialCombined],
+        tradingPnL: 0
       }, 
       ...curve
     ];
@@ -742,6 +720,39 @@ export function Dashboard({
     return Math.min(52, week);
   };
 
+  const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y' | 'All'>('All');
+
+  const getFilterButtonStats = () => {
+    const parseDateOffset = (days: number) => {
+      const d = new Date(anchorDate);
+      d.setDate(d.getDate() - days);
+      return d.toISOString().split('T')[0];
+    };
+
+    const getPnLForDays = (days: number) => {
+      const cutoff = parseDateOffset(days);
+      const filtered = sortedTrades.filter(t => t.date >= cutoff);
+      return filtered.reduce((sum, t) => sum + t.netPnL, 0);
+    };
+
+    const pnlAll = sortedTrades.reduce((sum, t) => sum + t.netPnL, 0);
+    const pnl1M = getPnLForDays(30);
+    const pnl3M = getPnLForDays(90);
+    const pnl6M = getPnLForDays(180);
+    const pnl1Y = getPnLForDays(365);
+
+    const cap = displayBaseCapital || 1;
+
+    return {
+      '1M': { pnl: pnl1M, pct: (pnl1M / cap) * 100 },
+      '3M': { pnl: pnl3M, pct: (pnl3M / cap) * 100 },
+      '6M': { pnl: pnl6M, pct: (pnl6M / cap) * 100 },
+      '1Y': { pnl: pnl1Y, pct: (pnl1Y / cap) * 100 },
+      'All': { pnl: pnlAll, pct: (pnlAll / cap) * 100 },
+    };
+  };
+
+  const buttonStats = getFilterButtonStats();
   const equityData = getEquityCurveData();
   const mistakeData = getMistakeData();
   const emotionStatsData = getEmotionStatsData();
@@ -806,37 +817,24 @@ export function Dashboard({
     return { grade: 'D', color: 'var(--color-loss)', desc: 'Discipline leak! Review trading plan.' };
   };
   const disciplineInfo = getDisciplineGrade(disciplineScore);
-
-  // Tooltips
   const CustomEquityTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       if (data.tradeIndex === 0) return null;
+      
+      const formatDateTooltip = (dateStr: string) => {
+        if (!dateStr || dateStr === 'Start') return 'Start';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      };
+
       return (
-        <div className="glass-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '10px', boxShadow: 'var(--shadow-glow)' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Trade #{data.tradeIndex} - {data.date}</p>
-          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{data.symbol}</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '0.8rem' }}>
-            <span style={{ color: data.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-              P&L: {data.netPnL >= 0 ? '+' : ''}{isPnlVisible ? formatCurrency(data.netPnL) : '••••'}
-            </span>
-            <span style={{ color: '#0a84ff' }}>
-              Trading Cum. P&L: {isPnlVisible ? formatCurrency(data.tradingPnL) : '••••'}
-            </span>
-            <span style={{ color: 'var(--color-loss)' }}>
-              Trading Drawdown: -{Math.abs(data.tradingDrawdown).toFixed(1)}%
-            </span>
-            {showCombined && (
-              <>
-                <span style={{ color: '#e5c158' }}>
-                  Combined Cum. P&L: {isPnlVisible ? formatCurrency(data.combinedPnL) : '••••'}
-                </span>
-                <span style={{ color: 'var(--color-loss)' }}>
-                  Combined Drawdown: -{Math.abs(data.combinedDrawdown).toFixed(1)}%
-                </span>
-              </>
-            )}
-          </div>
+        <div className="glass-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '8px 12px', boxShadow: 'var(--shadow-glow)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDateTooltip(data.date)}</span>
+          <span style={{ fontSize: '0.82rem', fontWeight: 650, color: 'var(--text-main)' }}>
+            Value: {isPnlVisible ? formatCurrency(data.tradingPnL) : '••••'}
+          </span>
         </div>
       );
     }
@@ -1475,6 +1473,259 @@ export function Dashboard({
 
       </div>
 
+      {/* Equity Curve Chart */}
+      <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
+        {/* Header controls layout matching the premium design */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {(['1M', '3M', '6M', '1Y', 'All'] as const).map((range) => {
+              const stat = buttonStats[range];
+              const isSelected = timeRange === range;
+              const isLoss = stat.pnl < 0;
+              const label = range === 'All' ? 'All Time' : range.toLowerCase();
+              const sign = stat.pnl >= 0 ? '+' : '';
+              
+              // Color configuration
+              const activeColor = isLoss ? '#ff453a' : '#76c73c';
+              const activeBg = isLoss ? 'rgba(255, 69, 58, 0.08)' : 'rgba(118, 199, 60, 0.08)';
+              
+              return (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setTimeRange(range)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 650,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    border: isSelected ? `1.5px solid ${activeColor}` : '1.5px solid rgba(255, 255, 255, 0.06)',
+                    background: isSelected ? activeBg : 'rgba(255, 255, 255, 0.02)',
+                    color: isSelected ? activeColor : 'var(--text-dim)',
+                  }}
+                >
+                  {label} <span style={{ marginLeft: '4px', fontSize: '0.72rem', color: isLoss ? '#ff453a' : '#76c73c' }}>{sign}{stat.pct.toFixed(2)}%</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ height: '3px', width: '20px', background: '#76c73c', borderRadius: '2px', display: 'inline-block' }}></span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+              Cumulative Net P&L (Manual Logs)
+            </span>
+          </div>
+        </div>
+
+        <div className="chart-container-large" style={{ height: '280px' }}>
+          <ResponsiveContainer>
+            <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorGreenTrading" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#76c73c" stopOpacity={0.18}/>
+                  <stop offset="95%" stopColor="#76c73c" stopOpacity={0.01}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.02)" />
+              <XAxis 
+                dataKey="date" 
+                stroke="var(--text-dim)" 
+                fontSize={11} 
+                tickLine={false}
+                axisLine={false}
+                minTickGap={50}
+                tickFormatter={(val) => {
+                  if (!val || val === 'Start') return '';
+                  const d = new Date(val);
+                  if (isNaN(d.getTime())) return '';
+                  return d.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+                }}
+              />
+              <YAxis 
+                orientation="right"
+                stroke="var(--text-dim)" 
+                fontSize={11} 
+                tickLine={false} 
+                axisLine={false} 
+                tickFormatter={(value) => {
+                  const absVal = Math.abs(value);
+                  if (absVal >= 100000) {
+                    return `${value >= 0 ? '+' : '-'}${(absVal / 100000).toFixed(1).replace(/\.0$/, '')}L`;
+                  }
+                  return `${value >= 0 ? '+' : ''}${value === 0 ? '0' : Math.round(value).toLocaleString('en-IN')}`;
+                }} 
+              />
+              <Tooltip 
+                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '3 3' }}
+                content={<CustomEquityTooltip />} 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="tradingPnL" 
+                name="Value" 
+                stroke="#76c73c" 
+                strokeWidth={2} 
+                fillOpacity={1} 
+                fill="url(#colorGreenTrading)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* GitHub-style Trading Performance Heatmap */}
+      <div 
+        className="glass-card animate-tab-panel" 
+        style={{ 
+          padding: '20px 24px', 
+          background: 'var(--bg-card)', 
+          border: '1.5px solid var(--border-color)', 
+          borderRadius: '12px', 
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          marginBottom: '24px'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CalendarRange size={20} color="var(--primary)" />
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Trading Performance Heatmap</h3>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: 0 }}>Visual representation of daily net profits, losses, and disciplined streaks</p>
+            </div>
+          </div>
+          
+          {/* Summary Indicators */}
+          <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', fontSize: '0.75rem', fontWeight: 550 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(48, 209, 88, 0.75)', border: '1px solid rgba(48, 209, 88, 0.4)' }}></span>
+              <span style={{ color: 'var(--text-muted)' }}>Green Days: {greenDaysCount}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(255, 69, 58, 0.75)', border: '1px solid rgba(255, 69, 58, 0.4)' }}></span>
+              <span style={{ color: 'var(--text-muted)' }}>Red Days: {redDaysCount}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(59, 130, 246, 0.35)', border: '1px solid rgba(59, 130, 246, 0.4)' }}></span>
+              <span style={{ color: 'var(--text-muted)' }}>No-Trade Days: {noTradeDaysCount}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Calendar Heatmap Grid wrapper */}
+        <div style={{ overflowX: 'auto', paddingBottom: '4px', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: '780px' }}>
+            {/* Column 1: Weekday Labels */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateRows: 'repeat(5, 12px)', 
+              gap: '4px',
+              marginRight: '12px',
+              marginTop: '22px', // offsets down to align with rows (header offset)
+              userSelect: 'none'
+            }}>
+              <div style={{ gridRowStart: 1, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Mon</div>
+              <div style={{ gridRowStart: 2, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Tue</div>
+              <div style={{ gridRowStart: 3, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Wed</div>
+              <div style={{ gridRowStart: 4, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Thu</div>
+              <div style={{ gridRowStart: 5, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Fri</div>
+            </div>
+
+            {/* Months Row Container with Gaps */}
+            <div style={{ display: 'flex', gap: '20px' }}>
+              {monthsData.map((m, mIdx) => (
+                <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* Month name label */}
+                  <div style={{ 
+                    fontSize: '0.68rem', 
+                    color: 'var(--text-dim)', 
+                    textAlign: 'left', 
+                    fontWeight: 600,
+                    userSelect: 'none'
+                  }}>
+                    {m.name}
+                  </div>
+
+                  {/* Monthly grid */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateRows: 'repeat(5, 12px)',
+                    gridAutoFlow: 'column',
+                    gap: '4px'
+                  }}>
+                    {/* Padding cells */}
+                    {Array.from({ length: m.startPad }).map((_, idx) => (
+                      <div 
+                        key={`pad-${idx}`} 
+                        style={{ 
+                          width: '12px', 
+                          height: '12px', 
+                          borderRadius: '2px', 
+                          background: 'transparent' 
+                        }} 
+                      />
+                    ))}
+
+                    {/* Day cells */}
+                    {m.dates.map((dateStr) => {
+                      const stats = dailyStats[dateStr];
+                      const isNoTrade = noTradeDays.includes(dateStr);
+                      let bgColor = 'rgba(120, 120, 120, 0.08)';
+                      let border = '1px solid var(--border-color)';
+                      let title = `${dateStr}: No trades logged`;
+                      
+                      if (stats && stats.count > 0) {
+                        if (stats.pnl > 0) {
+                          const opacity = Math.max(0.2, Math.min(1.0, stats.pnl / maxWin));
+                          bgColor = `rgba(48, 209, 88, ${opacity})`;
+                          border = '1px solid rgba(48, 209, 88, 0.4)';
+                          title = `${dateStr}: ${stats.count} trades | Net PnL: +₹${stats.pnl.toLocaleString('en-IN')}`;
+                        } else if (stats.pnl < 0) {
+                          const opacity = Math.max(0.2, Math.min(1.0, Math.abs(stats.pnl) / maxLoss));
+                          bgColor = `rgba(255, 69, 58, ${opacity})`;
+                          border = '1px solid rgba(255, 69, 58, 0.4)';
+                          title = `${dateStr}: ${stats.count} trades | Net PnL: -₹${Math.abs(stats.pnl).toLocaleString('en-IN')}`;
+                        } else {
+                          bgColor = 'rgba(120, 120, 120, 0.3)';
+                          title = `${dateStr}: ${stats.count} trades | Net PnL: ₹0`;
+                        }
+                      } else if (isNoTrade) {
+                        bgColor = 'rgba(59, 130, 246, 0.25)';
+                        border = '1px solid rgba(59, 130, 246, 0.4)';
+                        title = `${dateStr}: No-Trade Day (Disciplined)`;
+                      }
+                      
+                      return (
+                        <div 
+                          key={dateStr}
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '2px',
+                            background: bgColor,
+                            border: border,
+                            cursor: 'pointer',
+                            transition: 'transform 0.1s ease'
+                          }}
+                          className="heatmap-cell"
+                          title={isPnlVisible ? title : title.replace(/Net PnL: [+-]₹\d+/, 'Net P&L: Hidden')}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
       {/* Card: Broker-wise performance stats */}
       <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
         <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
@@ -1706,247 +1957,9 @@ export function Dashboard({
         )}
       </div>
 
-      {/* GitHub-style Trading Performance Heatmap */}
-      <div 
-        className="glass-card animate-tab-panel" 
-        style={{ 
-          padding: '20px 24px', 
-          background: 'var(--bg-card)', 
-          border: '1.5px solid var(--border-color)', 
-          borderRadius: '12px', 
-          boxShadow: 'var(--shadow-card)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CalendarRange size={20} color="var(--primary)" />
-            <div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Trading Performance Heatmap</h3>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: 0 }}>Visual representation of daily net profits, losses, and disciplined streaks</p>
-            </div>
-          </div>
-          
-          {/* Summary Indicators */}
-          <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', fontSize: '0.75rem', fontWeight: 550 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(48, 209, 88, 0.75)', border: '1px solid rgba(48, 209, 88, 0.4)' }}></span>
-              <span style={{ color: 'var(--text-muted)' }}>Green Days: {greenDaysCount}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(255, 69, 58, 0.75)', border: '1px solid rgba(255, 69, 58, 0.4)' }}></span>
-              <span style={{ color: 'var(--text-muted)' }}>Red Days: {redDaysCount}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(59, 130, 246, 0.35)', border: '1px solid rgba(59, 130, 246, 0.4)' }}></span>
-              <span style={{ color: 'var(--text-muted)' }}>No-Trade Days: {noTradeDaysCount}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Calendar Heatmap Grid wrapper */}
-        <div style={{ overflowX: 'auto', paddingBottom: '4px', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: '780px' }}>
-            {/* Column 1: Weekday Labels */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateRows: 'repeat(5, 12px)', 
-              gap: '4px',
-              marginRight: '12px',
-              marginTop: '22px', // offsets down to align with rows (header offset)
-              userSelect: 'none'
-            }}>
-              <div style={{ gridRowStart: 1, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Mon</div>
-              <div style={{ gridRowStart: 2, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Tue</div>
-              <div style={{ gridRowStart: 3, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Wed</div>
-              <div style={{ gridRowStart: 4, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Thu</div>
-              <div style={{ gridRowStart: 5, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Fri</div>
-            </div>
-
-            {/* Months Row Container with Gaps */}
-            <div style={{ display: 'flex', gap: '20px' }}>
-              {monthsData.map((m, mIdx) => (
-                <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {/* Month name label */}
-                  <div style={{ 
-                    fontSize: '0.68rem', 
-                    color: 'var(--text-dim)', 
-                    textAlign: 'left', 
-                    fontWeight: 600,
-                    userSelect: 'none'
-                  }}>
-                    {m.name}
-                  </div>
-
-                  {/* Monthly grid */}
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateRows: 'repeat(5, 12px)',
-                    gridAutoFlow: 'column',
-                    gap: '4px'
-                  }}>
-                    {/* Padding cells */}
-                    {Array.from({ length: m.startPad }).map((_, idx) => (
-                      <div 
-                        key={`pad-${idx}`} 
-                        style={{ 
-                          width: '12px', 
-                          height: '12px', 
-                          borderRadius: '2px', 
-                          background: 'transparent' 
-                        }} 
-                      />
-                    ))}
-
-                    {/* Day cells */}
-                    {m.dates.map((dateStr) => {
-                      const stats = dailyStats[dateStr];
-                      const isNoTrade = noTradeDays.includes(dateStr);
-                      
-                      let bgColor = 'rgba(120, 120, 120, 0.08)';
-                      let border = '1px solid var(--border-color)';
-                      let title = `${dateStr}: No trades logged`;
-                      
-                      if (stats && stats.count > 0) {
-                        if (stats.pnl > 0) {
-                          const opacity = Math.max(0.2, Math.min(1.0, stats.pnl / maxWin));
-                          bgColor = `rgba(48, 209, 88, ${opacity})`;
-                          border = '1px solid rgba(48, 209, 88, 0.4)';
-                          title = `${dateStr}: ${stats.count} trades | Net PnL: +₹${stats.pnl.toLocaleString('en-IN')}`;
-                        } else if (stats.pnl < 0) {
-                          const opacity = Math.max(0.2, Math.min(1.0, Math.abs(stats.pnl) / maxLoss));
-                          bgColor = `rgba(255, 69, 58, ${opacity})`;
-                          border = '1px solid rgba(255, 69, 58, 0.4)';
-                          title = `${dateStr}: ${stats.count} trades | Net PnL: -₹${Math.abs(stats.pnl).toLocaleString('en-IN')}`;
-                        } else {
-                          bgColor = 'rgba(120, 120, 120, 0.3)';
-                          title = `${dateStr}: ${stats.count} trades | Net PnL: ₹0`;
-                        }
-                      } else if (isNoTrade) {
-                        bgColor = 'rgba(59, 130, 246, 0.25)';
-                        border = '1px solid rgba(59, 130, 246, 0.4)';
-                        title = `${dateStr}: No-Trade Day (Disciplined)`;
-                      }
-                      
-                      return (
-                        <div 
-                          key={dateStr}
-                          style={{
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '2px',
-                            background: bgColor,
-                            border: border,
-                            cursor: 'pointer',
-                            transition: 'transform 0.1s ease'
-                          }}
-                          className="heatmap-cell"
-                          title={isPnlVisible ? title : title.replace(/Net PnL: [+-]₹\d+/, 'Net P&L: Hidden')}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Grid 3: Advanced Analytics Charts */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        
-        {/* Equity Curve Chart */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <TrendingUp size={20} color="var(--primary)" />
-            <div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Cumulative Net P&L Growth Curve</h3>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-                {showCombined 
-                  ? 'Real-time equity growth tracking Trading P&L overlayed with long-term investment performance' 
-                  : 'Growth of net trading capital over completed trade executions'
-                }
-              </p>
-            </div>
-          </div>
-
-          <div className="chart-container-large">
-            <ResponsiveContainer>
-              <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorTrading" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0a84ff" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#0a84ff" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorCombined" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e5c158" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#e5c158" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorDrawdown" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-loss)" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="var(--color-loss)" stopOpacity={0.02}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                <XAxis dataKey="tradeIndex" stroke="var(--text-dim)" fontSize={11} tickLine={false} />
-                <YAxis 
-                  stroke="var(--text-dim)" 
-                  fontSize={11} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickFormatter={(value) => isPnlVisible ? `${value >= 0 ? '+' : ''}₹${Math.round(value).toLocaleString('en-IN')}` : '••••'} 
-                />
-                <Tooltip content={<CustomEquityTooltip />} />
-                <Legend verticalAlign="top" height={36} />
-                <Area 
-                  type="monotone" 
-                  dataKey="tradingPnL" 
-                  name="Trading Account Curve" 
-                  stroke="#0a84ff" 
-                  strokeWidth={2.5} 
-                  fillOpacity={1} 
-                  fill="url(#colorTrading)" 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="tradingDrawdownRange" 
-                  name="Trading Drawdown Exposure (Red)" 
-                  stroke="rgba(255, 69, 58, 0.35)" 
-                  strokeWidth={1} 
-                  strokeDasharray="4 4"
-                  fillOpacity={1} 
-                  fill="url(#colorDrawdown)" 
-                />
-                {showCombined && (
-                  <>
-                    <Area 
-                      type="monotone" 
-                      dataKey="combinedPnL" 
-                      name="Combined Wealth Curve" 
-                      stroke="#e5c158" 
-                      strokeWidth={2.5} 
-                      fillOpacity={1} 
-                      fill="url(#colorCombined)" 
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="combinedDrawdownRange" 
-                      name="Combined Drawdown Exposure (Red)" 
-                      stroke="var(--color-loss)" 
-                      strokeWidth={1.5} 
-                      strokeDasharray="3 3"
-                      fillOpacity={1} 
-                      fill="url(#colorDrawdown)" 
-                    />
-                  </>
-                )}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
         {/* Behavioral Audit Grid (Mistake Cost & Discipline Scorecard) */}
         <div className="grid-2col-equal">
