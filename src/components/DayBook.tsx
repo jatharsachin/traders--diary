@@ -563,8 +563,9 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                 {isPnlVisible ? formatCurrency(openingBalance) : '••••'}
               </td>
             </tr>
+          </tbody>
 
-            {(() => {
+          {(() => {
               if (timelineItems.length === 0) {
                 return (
                   <tbody>
@@ -1057,7 +1058,6 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                 </tbody>
               );
             })()}
-          </tbody>
           <tfoot>
             <tr style={{ borderTop: '2px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}>
               <td style={{ padding: '10px 8px', color: 'var(--text-main)' }}>Summary ({startDate} to {endDate})</td>
