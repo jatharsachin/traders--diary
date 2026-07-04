@@ -563,7 +563,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                           onClick={() => setSelectedRowId(selectedRowId === item.id ? null : item.id)}
                           style={{ 
                             borderBottom: '1px solid var(--border-color)', 
-                            background: selectedRowId === item.id ? 'var(--primary-glow)' : 'transparent',
+                            background: selectedRowId === item.id ? 'var(--primary-glow)' : 'var(--bg-card)',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease'
                           }}
@@ -578,7 +578,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                                 minWidth: '110px', 
                                 whiteSpace: 'nowrap',
                                 borderRight: '1px solid var(--border-color)',
-                                background: 'rgba(255,255,255,0.005)'
+                                background: 'var(--bg-color)'
                               }}
                             >
                               <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.8rem' }}>{group.date}</div>
@@ -723,14 +723,15 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                           >
                             {!isCredit ? (
                               <span style={{ 
-                                color: '#ff453a', 
-                                background: 'rgba(255, 69, 58, 0.08)', 
+                                color: 'var(--color-loss)', 
+                                background: 'var(--color-loss-bg)', 
                                 padding: '3px 8px', 
                                 borderRadius: '6px', 
                                 fontWeight: 650, 
                                 fontFamily: 'var(--font-mono)',
                                 display: 'inline-block',
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap',
+                                border: '1px solid var(--color-loss-border)'
                               }}>
                                 -{isPnlVisible ? formatCurrency(Math.abs(item.amount)) : '••••'}
                               </span>
@@ -745,14 +746,15 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                           >
                             {isCredit ? (
                               <span style={{ 
-                                color: '#30d158', 
-                                background: 'rgba(48, 209, 88, 0.08)', 
+                                color: 'var(--color-win)', 
+                                background: 'var(--color-win-bg)', 
                                 padding: '3px 8px', 
                                 borderRadius: '6px', 
                                 fontWeight: 650, 
                                 fontFamily: 'var(--font-mono)',
                                 display: 'inline-block',
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap',
+                                border: '1px solid var(--color-win-border)'
                               }}>
                                 +{isPnlVisible ? formatCurrency(item.amount) : '••••'}
                               </span>
