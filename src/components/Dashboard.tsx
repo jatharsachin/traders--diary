@@ -158,11 +158,39 @@ export function Dashboard({
   const lossRateRatio = losingTrades.length / (totalTrades || 1);
   const expectancy = (winRateRatio * avgWin) - (lossRateRatio * avgLoss);
 
+  const parseTimeToMinutes = (timeStr: string): number => {
+    if (!timeStr) return 0;
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) {
+      const parts = timeStr.split(':');
+      const h = parseInt(parts[0], 10) || 0;
+      const m = parseInt(parts[1], 10) || 0;
+      return h * 60 + m;
+    }
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3]?.toUpperCase();
+
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  const sortTradesChronologically = (tradesList: typeof trades) => {
+    return [...tradesList].sort((a, b) => {
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+      return parseTimeToMinutes(a.entryTime) - parseTimeToMinutes(b.entryTime);
+    });
+  };
+
   const getMaxDrawdown = () => {
     let peak = 0;
     let maxDD = 0;
     let cumulativePnL = 0;
-    const chronoTrades = [...trades].sort((a, b) => new Date(`${a.date}T${a.entryTime}`).getTime() - new Date(`${b.date}T${b.entryTime}`).getTime());
+    const chronoTrades = sortTradesChronologically(trades);
     chronoTrades.forEach((t) => {
       cumulativePnL += t.netPnL;
       if (cumulativePnL > peak) {
@@ -182,7 +210,7 @@ export function Dashboard({
     let maxLossStreak = 0;
     let currentWinStreak = 0;
     let currentLossStreak = 0;
-    const chronoTrades = [...trades].sort((a, b) => new Date(`${a.date}T${a.entryTime}`).getTime() - new Date(`${b.date}T${b.entryTime}`).getTime());
+    const chronoTrades = sortTradesChronologically(trades);
     chronoTrades.forEach((t) => {
       if (t.netPnL > 0) {
         currentWinStreak++;
@@ -203,11 +231,7 @@ export function Dashboard({
   const { maxWinStreak, maxLossStreak } = getStreakAnalysis();
   
   // Sort trades oldest to newest
-  const sortedTrades = [...trades].sort((a, b) => {
-    const dateA = new Date(`${a.date}T${a.entryTime}`);
-    const dateB = new Date(`${b.date}T${b.entryTime}`);
-    return dateA.getTime() - dateB.getTime();
-  });
+  const sortedTrades = sortTradesChronologically(trades);
 
   // Calculate CAGR & Returns by period
   const getAnchorDate = () => {
@@ -1890,9 +1914,9 @@ export function Dashboard({
                   type="monotone" 
                   dataKey="tradingDrawdownRange" 
                   name="Trading Drawdown Exposure (Red)" 
-                  stroke="var(--color-loss)" 
-                  strokeWidth={1.5} 
-                  strokeDasharray="3 3"
+                  stroke="rgba(255, 69, 58, 0.35)" 
+                  strokeWidth={1} 
+                  strokeDasharray="4 4"
                   fillOpacity={1} 
                   fill="url(#colorDrawdown)" 
                 />
