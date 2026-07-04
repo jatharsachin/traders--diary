@@ -89,6 +89,35 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const [manualBrokerageText, setManualBrokerageText] = useState<string>('0');
   const [manualTaxesText, setManualTaxesText] = useState<string>('0');
 
+  const [usePartialExits, setUsePartialExits] = useState(false);
+  const [partialExits, setPartialExits] = useState<{ id: string; qty: number; price: number }[]>([
+    { id: '1', qty: 0, price: 0 }
+  ]);
+
+  // Sync partial exits to total qty and exit price
+  useEffect(() => {
+    if (usePartialExits) {
+      const validExits = partialExits.filter(e => e.qty > 0 && e.price > 0);
+      if (validExits.length > 0) {
+        const totalQty = validExits.reduce((sum, e) => sum + e.qty, 0);
+        const weightedSum = validExits.reduce((sum, e) => sum + (e.qty * e.price), 0);
+        const avgPrice = Math.round((weightedSum / totalQty) * 100) / 100;
+        
+        setFormData(prev => ({
+          ...prev,
+          qty: totalQty,
+          exitPrice: avgPrice
+        }));
+
+        if (formData.segment === 'F&O') {
+          const lSize = parseFloat(lotSizeInput) || 1;
+          const computedLots = totalQty / lSize;
+          setLotsInput(Number.isInteger(computedLots) ? computedLots.toString() : computedLots.toFixed(2));
+        }
+      }
+    }
+  }, [partialExits, usePartialExits, lotSizeInput, formData.segment]);
+
   // Load existing data if editing
   useEffect(() => {
     if (editTradeId) {
@@ -883,8 +912,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                     value={formData.qty}
                     onChange={handleChange}
                     className="form-input"
-                    style={{ borderColor: 'rgba(191, 87, 242, 0.2)' }}
+                    style={{ borderColor: 'rgba(191, 87, 242, 0.2)', ...(usePartialExits ? { background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)', cursor: 'not-allowed' } : {}) }}
                     required
+                    disabled={usePartialExits}
                   />
                 </div>
               </div>
@@ -909,7 +939,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                     onChange={handleChange}
                     min="1"
                     className="form-input"
+                    style={usePartialExits ? { background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)', cursor: 'not-allowed' } : {}}
                     required
+                    disabled={usePartialExits}
                   />
                 </div>
               )}
@@ -926,18 +958,40 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   required
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Exit Price</label>
-                <input
-                  type="number"
-                  name="exitPrice"
-                  value={formData.exitPrice || ''}
-                  onChange={handleChange}
-                  step="0.05"
-                  placeholder="0.00"
-                  className="form-input"
-                  required
-                />
+              <div className="form-group" style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="form-label">Exit Price</label>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const active = !usePartialExits;
+                      setUsePartialExits(active);
+                      if (active && partialExits.length === 1 && partialExits[0].qty === 0) {
+                        // Pre-populate with current qty & exitPrice to make toggle smooth
+                        setPartialExits([{ id: '1', qty: formData.qty || 0, price: formData.exitPrice || 0 }]);
+                      }
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: '0.72rem', cursor: 'pointer', padding: 0 }}
+                  >
+                    {usePartialExits ? "← Single Exit" : "+ Partial Exits"}
+                  </button>
+                </div>
+                {!usePartialExits ? (
+                  <input
+                    type="number"
+                    name="exitPrice"
+                    value={formData.exitPrice || ''}
+                    onChange={handleChange}
+                    step="0.05"
+                    placeholder="0.00"
+                    className="form-input"
+                    required
+                  />
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', height: '36px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 10px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    Avg: ₹{formData.exitPrice || '0.00'} (Calc)
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Slippage (Pts)</label>
@@ -951,6 +1005,81 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                 />
               </div>
             </div>
+
+            {/* Partial Exits Legs Row list */}
+            {usePartialExits && (
+              <div 
+                className="glass-card" 
+                style={{ 
+                  padding: '12px 16px', 
+                  marginBottom: '16px', 
+                  border: '1px dashed var(--border-color)', 
+                  background: 'rgba(255,255,255,0.01)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-main)' }}>Partial Exit Legs</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setPartialExits([...partialExits, { id: Date.now().toString(), qty: 0, price: 0 }])}
+                    className="btn btn-secondary" 
+                    style={{ padding: '3px 8px', fontSize: '0.7rem', height: '24px' }}
+                  >
+                    + Add Leg
+                  </button>
+                </div>
+
+                {partialExits.map((leg, idx) => (
+                  <div key={leg.id} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <input 
+                        type="number" 
+                        placeholder="Qty (Units)" 
+                        value={leg.qty || ''} 
+                        onChange={(e) => {
+                          const updated = [...partialExits];
+                          updated[idx].qty = parseFloat(e.target.value) || 0;
+                          setPartialExits(updated);
+                        }}
+                        className="form-input"
+                        style={{ height: '30px', fontSize: '0.78rem' }}
+                        required
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <input 
+                        type="number" 
+                        placeholder="Exit Price" 
+                        value={leg.price || ''} 
+                        onChange={(e) => {
+                          const updated = [...partialExits];
+                          updated[idx].price = parseFloat(e.target.value) || 0;
+                          setPartialExits(updated);
+                        }}
+                        className="form-input"
+                        style={{ height: '30px', fontSize: '0.78rem' }}
+                        step="0.05"
+                        required
+                      />
+                    </div>
+                    {partialExits.length > 1 && (
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setPartialExits(partialExits.filter(l => l.id !== leg.id));
+                        }}
+                        style={{ background: 'none', border: 'none', color: 'var(--color-loss)', cursor: 'pointer', fontSize: '0.85rem', padding: '4px' }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Grid 4: Setup & Strategy */}
             <div className="grid-2col-equal-small" style={{ marginBottom: '16px', gap: '16px' }}>
