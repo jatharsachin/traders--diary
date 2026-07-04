@@ -596,7 +596,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                         }}
                         className="group-header-row"
                       >
-                        <td style={{ padding: '14px 10px', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '14px 10px', verticalAlign: 'middle', width: '100px', minWidth: '100px', whiteSpace: 'nowrap' }}>
                           <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.82rem' }}>{group.date}</div>
                         </td>
                         <td style={{ padding: '14px 10px', verticalAlign: 'middle' }}>
@@ -668,7 +668,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                               transition: 'all 0.15s ease'
                             }}
                           >
-                            <td style={{ padding: '10px 10px 10px 24px', verticalAlign: 'middle' }}>
+                            <td style={{ padding: '10px 10px 10px 24px', verticalAlign: 'middle', width: '100px', minWidth: '100px', whiteSpace: 'nowrap' }}>
                               <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>⏱️ {item.time}</div>
                             </td>
                             <td style={{ padding: '10px 10px', verticalAlign: 'middle' }} onClick={(e) => e.stopPropagation()}>
@@ -872,7 +872,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '12px 10px', verticalAlign: 'middle', width: '100px', minWidth: '100px', whiteSpace: 'nowrap' }}>
                           <div style={{ fontWeight: 650, color: 'var(--text-main)', fontSize: '0.8rem' }}>{item.date}</div>
                           <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>⏱️ {item.time}</div>
                         </td>
