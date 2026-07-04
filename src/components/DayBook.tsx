@@ -141,6 +141,12 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       time: t.entryTime,
       type: 'TRADE' as const,
       label: t.action,
+      typeLabel,
+      symbol: t.symbol,
+      qty: t.qty,
+      entryPrice: t.entryPrice,
+      strategy: t.strategy || 'None',
+      mistake: t.mistake || 'None',
       title: `[${typeLabel} Trade] ${t.action} ${t.symbol}`,
       description: t.notes && t.notes.trim() 
         ? t.notes.trim() 
@@ -163,6 +169,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       time: a.time,
       type: a.type === 'DEPOSIT' ? ('DEPOSIT' as const) : ('WITHDRAWAL' as const),
       label: a.type,
+      flowLabel,
+      sourceLabel,
       title: `[${sourceLabel} ${flowLabel}] Capital Flow [${a.broker || 'Other'}]`,
       description: a.notes && a.notes.trim() 
         ? a.notes.trim() 
@@ -170,7 +178,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       amount: a.type === 'DEPOSIT' ? a.amount : -a.amount,
       charges: 0,
       isCredit: a.type === 'DEPOSIT',
-      broker: a.broker,
+      broker: a.broker || 'System',
       rawNotes: a.notes || ''
     };
   });
@@ -508,11 +516,11 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <td style={{ padding: '8px' }}>
-                      <div>{item.date}</div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{item.time}</div>
+                    <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
+                      <div style={{ fontWeight: 650, color: 'var(--text-main)', fontSize: '0.8rem' }}>{item.date}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>⏱️ {item.time}</div>
                     </td>
-                    <td style={{ padding: '8px' }} onClick={(e) => e.stopPropagation()}>
+                    <td style={{ padding: '12px 10px', verticalAlign: 'middle' }} onClick={(e) => e.stopPropagation()}>
                       {editingId === item.id ? (
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                           <input
@@ -543,15 +551,78 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                           </button>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                          <div>
-                            <div style={{ fontWeight: 600, color: item.type === 'TRADE' ? 'var(--text-main)' : 'var(--primary)' }}>
-                              {item.title}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '8px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                            {/* Row 1: Action + Symbol + Type Badge + Broker */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              {item.type === 'TRADE' ? (
+                                <>
+                                  <span style={{ 
+                                    background: item.label === 'BUY' ? 'rgba(48, 209, 88, 0.12)' : 'rgba(255, 69, 58, 0.12)', 
+                                    color: item.label === 'BUY' ? '#30d158' : '#ff453a', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '4px', 
+                                    fontSize: '0.65rem', 
+                                    fontWeight: 700 
+                                  }}>{item.label}</span>
+                                  <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>{item.symbol}</strong>
+                                  <span style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-dim)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.62rem' }}>{item.typeLabel}</span>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', marginLeft: 'auto' }}>via {item.broker}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span style={{ 
+                                    background: item.type === 'DEPOSIT' ? 'rgba(10, 132, 255, 0.12)' : 'rgba(255, 159, 10, 0.12)', 
+                                    color: item.type === 'DEPOSIT' ? '#0a84ff' : '#ff9f0a', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '4px', 
+                                    fontSize: '0.65rem', 
+                                    fontWeight: 700 
+                                  }}>{item.label}</span>
+                                  <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>Capital {item.flowLabel === 'Deposit' ? 'Inflow' : 'Outflow'}</strong>
+                                  <span style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-dim)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.62rem' }}>{item.sourceLabel}</span>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', marginLeft: 'auto' }}>via {item.broker}</span>
+                                </>
+                              )}
                             </div>
-                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              {item.description}
-                            </div>
+
+                            {/* Row 2: Structured Details (For trades) */}
+                            {item.type === 'TRADE' && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+                                  Qty: <strong style={{ color: 'var(--text-main)' }}>{item.qty}</strong> @ <strong style={{ color: 'var(--text-main)' }}>₹{item.entryPrice}</strong>
+                                </span>
+                                <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
+                                <span style={{ background: 'rgba(96, 165, 250, 0.08)', color: '#60a5fa', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
+                                  🎯 {item.strategy}
+                                </span>
+                                {item.mistake && item.mistake !== 'None' && (
+                                  <span style={{ background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
+                                    ⚠️ {item.mistake}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Row 3: Notes description block */}
+                            {item.rawNotes && item.rawNotes.trim() !== '' && (
+                              <div 
+                                style={{ 
+                                  fontSize: '0.72rem', 
+                                  color: 'var(--text-dim)', 
+                                  background: 'rgba(255,255,255,0.015)', 
+                                  padding: '4px 8px', 
+                                  borderRadius: '6px', 
+                                  borderLeft: '2.5px solid var(--primary)', 
+                                  marginTop: '2px', 
+                                  lineHeight: 1.3 
+                                }}
+                              >
+                                {item.rawNotes}
+                              </div>
+                            )}
                           </div>
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -567,7 +638,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              marginLeft: '8px'
+                              alignSelf: 'flex-start',
+                              opacity: 0.5
                             }}
                             title="Edit Notes (Manual Feed)"
                           >
@@ -578,25 +650,47 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                     </td>
                     <td 
                       style={{ 
-                        padding: '8px', 
+                        padding: '12px 10px', 
                         textAlign: 'right', 
-                        fontFamily: 'var(--font-mono)', 
-                        color: !isCredit ? 'var(--color-loss)' : 'var(--text-dim)' 
+                        verticalAlign: 'middle'
                       }}
                     >
-                      {!isCredit ? `-${isPnlVisible ? formatCurrency(Math.abs(item.amount)) : '••••'}` : '-'}
+                      {!isCredit ? (
+                        <span style={{ 
+                          color: '#ff453a', 
+                          background: 'rgba(255, 69, 58, 0.08)', 
+                          padding: '3px 8px', 
+                          borderRadius: '6px', 
+                          fontWeight: 650, 
+                          fontFamily: 'var(--font-mono)',
+                          display: 'inline-block'
+                        }}>
+                          -{isPnlVisible ? formatCurrency(Math.abs(item.amount)) : '••••'}
+                        </span>
+                      ) : '-'}
                     </td>
                     <td 
                       style={{ 
-                        padding: '8px', 
+                        padding: '12px 10px', 
                         textAlign: 'right', 
-                        fontFamily: 'var(--font-mono)', 
-                        color: isCredit ? 'var(--color-win)' : 'var(--text-dim)' 
+                        verticalAlign: 'middle'
                       }}
                     >
-                      {isCredit ? `+${isPnlVisible ? formatCurrency(item.amount) : '••••'}` : '-'}
+                      {isCredit ? (
+                        <span style={{ 
+                          color: '#30d158', 
+                          background: 'rgba(48, 209, 88, 0.08)', 
+                          padding: '3px 8px', 
+                          borderRadius: '6px', 
+                          fontWeight: 650, 
+                          fontFamily: 'var(--font-mono)',
+                          display: 'inline-block'
+                        }}>
+                          +{isPnlVisible ? formatCurrency(item.amount) : '••••'}
+                        </span>
+                      ) : '-'}
                     </td>
-                    <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>
+                    <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', verticalAlign: 'middle' }}>
                       {isPnlVisible ? formatCurrency(runningBal) : '••••'}
                     </td>
                   </tr>
