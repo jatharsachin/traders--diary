@@ -287,13 +287,37 @@ export function Dashboard({
   const heatmapRange = getHeatmapRange();
   const dates = getDatesArray(heatmapRange.start, heatmapRange.end);
 
-  const getStartDayOfWeek = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const day = d.getDay();
-    return day === 0 ? 6 : day - 1;
+  const getMonthsGrouped = (datesList: string[]) => {
+    const monthsMap: Record<string, { name: string; dates: string[]; startPad: number }> = {};
+    
+    datesList.forEach((dateStr) => {
+      const d = new Date(dateStr);
+      const mName = d.toLocaleString('en-IN', { month: 'short' });
+      const year = d.getFullYear();
+      const key = `${mName} ${year}`;
+      
+      if (!monthsMap[key]) {
+        monthsMap[key] = {
+          name: mName,
+          dates: [],
+          startPad: 0
+        };
+      }
+      monthsMap[key].dates.push(dateStr);
+    });
+
+    const list = Object.values(monthsMap);
+    list.forEach((m) => {
+      const firstDate = m.dates[0];
+      const d = new Date(firstDate);
+      const day = d.getDay();
+      m.startPad = day === 0 ? 6 : day - 1;
+    });
+
+    return list;
   };
 
-  const startDayOfWeek = getStartDayOfWeek(heatmapRange.start);
+  const monthsData = getMonthsGrouped(dates);
 
   const heatmapTrades = rawTrades.filter(
     (t) => t.date >= heatmapRange.start && t.date <= heatmapRange.end && (selectedBroker === 'All' ? true : (t.broker || 'Other') === selectedBroker)
@@ -314,28 +338,6 @@ export function Dashboard({
     if (s.pnl > maxWin) maxWin = s.pnl;
     if (Math.abs(s.pnl) > maxLoss) maxLoss = Math.abs(s.pnl);
   });
-
-  const getMonthLabels = (datesList: string[], pad: number) => {
-    const labels: { name: string; colIdx: number }[] = [];
-    let currentMonth = '';
-    const totalDays = datesList.length + pad;
-    const totalWeeks = Math.ceil(totalDays / 7);
-
-    for (let w = 0; w < totalWeeks; w++) {
-      const dateIdx = w * 7 - pad;
-      if (dateIdx >= 0 && dateIdx < datesList.length) {
-        const d = new Date(datesList[dateIdx]);
-        const mName = d.toLocaleString('en-IN', { month: 'short' });
-        if (mName !== currentMonth) {
-          labels.push({ name: mName, colIdx: w });
-          currentMonth = mName;
-        }
-      }
-    }
-    return labels;
-  };
-
-  const monthLabels = getMonthLabels(dates, startDayOfWeek);
 
   let greenDaysCount = 0;
   let redDaysCount = 0;
@@ -1717,104 +1719,106 @@ export function Dashboard({
 
         {/* Calendar Heatmap Grid wrapper */}
         <div style={{ overflowX: 'auto', paddingBottom: '4px', width: '100%' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: '780px' }}>
-            {/* Header: Months labels */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: '780px' }}>
+            {/* Column 1: Weekday Labels */}
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: '28px repeat(53, 1fr)', 
-              gap: '4px', 
-              marginBottom: '6px',
-              fontSize: '0.65rem',
-              color: 'var(--text-dim)',
+              gridTemplateRows: 'repeat(7, 12px)', 
+              gap: '4px',
+              marginRight: '12px',
+              marginTop: '22px', // offsets down to align with rows (header offset)
               userSelect: 'none'
             }}>
-              <div></div> {/* Column 1 offset spacer */}
-              {monthLabels.map((lbl, idx) => (
-                <div 
-                  key={idx} 
-                  style={{ 
-                    gridColumnStart: lbl.colIdx + 2,
-                    textAlign: 'left'
-                  }}
-                >
-                  {lbl.name}
-                </div>
-              ))}
+              <div style={{ gridRowStart: 1, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Mon</div>
+              <div style={{ gridRowStart: 3, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Wed</div>
+              <div style={{ gridRowStart: 5, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Fri</div>
             </div>
 
-            {/* Matrix Grid */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateRows: 'repeat(7, 12px)',
-              gridTemplateColumns: '28px repeat(53, 1fr)',
-              gridAutoFlow: 'column',
-              gap: '4px'
-            }}>
-              {/* Mon, Wed, Fri row indicators in column 1 */}
-              <div style={{ gridRowStart: 1, gridColumnStart: 1, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', userSelect: 'none' }}>Mon</div>
-              <div style={{ gridRowStart: 3, gridColumnStart: 1, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', userSelect: 'none' }}>Wed</div>
-              <div style={{ gridRowStart: 5, gridColumnStart: 1, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', userSelect: 'none' }}>Fri</div>
+            {/* Months Row Container with Gaps */}
+            <div style={{ display: 'flex', gap: '20px' }}>
+              {monthsData.map((m, mIdx) => (
+                <div key={mIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* Month name label */}
+                  <div style={{ 
+                    fontSize: '0.68rem', 
+                    color: 'var(--text-dim)', 
+                    textAlign: 'left', 
+                    fontWeight: 600,
+                    userSelect: 'none'
+                  }}>
+                    {m.name}
+                  </div>
 
-              {/* Start day of week padding */}
-              {Array.from({ length: startDayOfWeek }).map((_, idx) => (
-                <div 
-                  key={`pad-${idx}`} 
-                  style={{ 
-                    width: '12px', 
-                    height: '12px', 
-                    borderRadius: '2px', 
-                    background: 'transparent' 
-                  }} 
-                />
+                  {/* Monthly grid */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateRows: 'repeat(7, 12px)',
+                    gridAutoFlow: 'column',
+                    gap: '4px'
+                  }}>
+                    {/* Padding cells */}
+                    {Array.from({ length: m.startPad }).map((_, idx) => (
+                      <div 
+                        key={`pad-${idx}`} 
+                        style={{ 
+                          width: '12px', 
+                          height: '12px', 
+                          borderRadius: '2px', 
+                          background: 'transparent' 
+                        }} 
+                      />
+                    ))}
+
+                    {/* Day cells */}
+                    {m.dates.map((dateStr) => {
+                      const stats = dailyStats[dateStr];
+                      const isNoTrade = noTradeDays.includes(dateStr);
+                      
+                      let bgColor = 'rgba(120, 120, 120, 0.08)';
+                      let border = '1px solid var(--border-color)';
+                      let title = `${dateStr}: No trades logged`;
+                      
+                      if (stats && stats.count > 0) {
+                        if (stats.pnl > 0) {
+                          const opacity = Math.max(0.2, Math.min(1.0, stats.pnl / maxWin));
+                          bgColor = `rgba(48, 209, 88, ${opacity})`;
+                          border = '1px solid rgba(48, 209, 88, 0.4)';
+                          title = `${dateStr}: ${stats.count} trades | Net PnL: +₹${stats.pnl.toLocaleString('en-IN')}`;
+                        } else if (stats.pnl < 0) {
+                          const opacity = Math.max(0.2, Math.min(1.0, Math.abs(stats.pnl) / maxLoss));
+                          bgColor = `rgba(255, 69, 58, ${opacity})`;
+                          border = '1px solid rgba(255, 69, 58, 0.4)';
+                          title = `${dateStr}: ${stats.count} trades | Net PnL: -₹${Math.abs(stats.pnl).toLocaleString('en-IN')}`;
+                        } else {
+                          bgColor = 'rgba(120, 120, 120, 0.3)';
+                          title = `${dateStr}: ${stats.count} trades | Net PnL: ₹0`;
+                        }
+                      } else if (isNoTrade) {
+                        bgColor = 'rgba(59, 130, 246, 0.25)';
+                        border = '1px solid rgba(59, 130, 246, 0.4)';
+                        title = `${dateStr}: No-Trade Day (Disciplined)`;
+                      }
+                      
+                      return (
+                        <div 
+                          key={dateStr}
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '2px',
+                            background: bgColor,
+                            border: border,
+                            cursor: 'pointer',
+                            transition: 'transform 0.1s ease'
+                          }}
+                          className="heatmap-cell"
+                          title={isPnlVisible ? title : title.replace(/Net PnL: [+-]₹\d+/, 'Net P&L: Hidden')}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
-
-              {/* Actual calendar day cells */}
-              {dates.map((dateStr) => {
-                const stats = dailyStats[dateStr];
-                const isNoTrade = noTradeDays.includes(dateStr);
-                
-                let bgColor = 'rgba(120, 120, 120, 0.08)';
-                let border = '1px solid var(--border-color)';
-                let title = `${dateStr}: No trades logged`;
-                
-                if (stats && stats.count > 0) {
-                  if (stats.pnl > 0) {
-                    const opacity = Math.max(0.2, Math.min(1.0, stats.pnl / maxWin));
-                    bgColor = `rgba(48, 209, 88, ${opacity})`;
-                    border = '1px solid rgba(48, 209, 88, 0.4)';
-                    title = `${dateStr}: ${stats.count} trades | Net PnL: +₹${stats.pnl.toLocaleString('en-IN')}`;
-                  } else if (stats.pnl < 0) {
-                    const opacity = Math.max(0.2, Math.min(1.0, Math.abs(stats.pnl) / maxLoss));
-                    bgColor = `rgba(255, 69, 58, ${opacity})`;
-                    border = '1px solid rgba(255, 69, 58, 0.4)';
-                    title = `${dateStr}: ${stats.count} trades | Net PnL: -₹${Math.abs(stats.pnl).toLocaleString('en-IN')}`;
-                  } else {
-                    bgColor = 'rgba(120, 120, 120, 0.3)';
-                    title = `${dateStr}: ${stats.count} trades | Net PnL: ₹0`;
-                  }
-                } else if (isNoTrade) {
-                  bgColor = 'rgba(59, 130, 246, 0.25)';
-                  border = '1px solid rgba(59, 130, 246, 0.4)';
-                  title = `${dateStr}: No-Trade Day (Disciplined)`;
-                }
-                
-                return (
-                  <div 
-                    key={dateStr}
-                    style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '2px',
-                      background: bgColor,
-                      border: border,
-                      cursor: 'pointer',
-                      transition: 'transform 0.1s ease'
-                    }}
-                    className="heatmap-cell"
-                    title={isPnlVisible ? title : title.replace(/Net PnL: [+-]₹\d+/, 'Net P&L: Hidden')}
-                  />
-                );
-              })}
             </div>
           </div>
         </div>
