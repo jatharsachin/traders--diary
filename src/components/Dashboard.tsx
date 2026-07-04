@@ -245,7 +245,112 @@ export function Dashboard({
     ? optionTrades.reduce((acc, t) => acc + t.durationMinutes, 0) / optionTrades.length
     : 0;
 
-  // Brokerage Leakage
+  // GitHub-style Trading Heatmap calculations
+  const getDatesArray = (startStr: string, endStr: string) => {
+    const datesList: string[] = [];
+    let current = new Date(startStr);
+    const end = new Date(endStr);
+    while (current <= end) {
+      datesList.push(current.toISOString().split('T')[0]);
+      current.setDate(current.getDate() + 1);
+    }
+    return datesList;
+  };
+
+  const getHeatmapRange = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    if (selectedFY === 'All') {
+      const yearAgo = new Date();
+      yearAgo.setDate(yearAgo.getDate() - 365);
+      return {
+        start: yearAgo.toISOString().split('T')[0],
+        end: todayStr
+      };
+    }
+    const match = selectedFY.match(/FY (\d{4})/);
+    if (!match) {
+      const yearAgo = new Date();
+      yearAgo.setDate(yearAgo.getDate() - 365);
+      return {
+        start: yearAgo.toISOString().split('T')[0],
+        end: todayStr
+      };
+    }
+    const startYear = parseInt(match[1], 10);
+    return {
+      start: `${startYear}-04-01`,
+      end: `${startYear + 1}-03-31`
+    };
+  };
+
+  const heatmapRange = getHeatmapRange();
+  const dates = getDatesArray(heatmapRange.start, heatmapRange.end);
+
+  const getStartDayOfWeek = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const day = d.getDay();
+    return day === 0 ? 6 : day - 1;
+  };
+
+  const startDayOfWeek = getStartDayOfWeek(heatmapRange.start);
+
+  const heatmapTrades = rawTrades.filter(
+    (t) => t.date >= heatmapRange.start && t.date <= heatmapRange.end && (selectedBroker === 'All' ? true : (t.broker || 'Other') === selectedBroker)
+  );
+
+  const dailyStats: Record<string, { pnl: number; count: number }> = {};
+  heatmapTrades.forEach((t) => {
+    if (!dailyStats[t.date]) {
+      dailyStats[t.date] = { pnl: 0, count: 0 };
+    }
+    dailyStats[t.date].pnl += t.netPnL;
+    dailyStats[t.date].count += 1;
+  });
+
+  let maxWin = 1;
+  let maxLoss = 1;
+  Object.values(dailyStats).forEach((s) => {
+    if (s.pnl > maxWin) maxWin = s.pnl;
+    if (Math.abs(s.pnl) > maxLoss) maxLoss = Math.abs(s.pnl);
+  });
+
+  const getMonthLabels = (datesList: string[], pad: number) => {
+    const labels: { name: string; colIdx: number }[] = [];
+    let currentMonth = '';
+    const totalDays = datesList.length + pad;
+    const totalWeeks = Math.ceil(totalDays / 7);
+
+    for (let w = 0; w < totalWeeks; w++) {
+      const dateIdx = w * 7 - pad;
+      if (dateIdx >= 0 && dateIdx < datesList.length) {
+        const d = new Date(datesList[dateIdx]);
+        const mName = d.toLocaleString('en-IN', { month: 'short' });
+        if (mName !== currentMonth) {
+          labels.push({ name: mName, colIdx: w });
+          currentMonth = mName;
+        }
+      }
+    }
+    return labels;
+  };
+
+  const monthLabels = getMonthLabels(dates, startDayOfWeek);
+
+  let greenDaysCount = 0;
+  let redDaysCount = 0;
+  let noTradeDaysCount = 0;
+
+  dates.forEach((dateStr) => {
+    const stats = dailyStats[dateStr];
+    if (stats && stats.count > 0) {
+      if (stats.pnl > 0) greenDaysCount++;
+      else if (stats.pnl < 0) redDaysCount++;
+    } else if (noTradeDays.includes(dateStr)) {
+      noTradeDaysCount++;
+    }
+  });
+
   const brokerageLeakage = grossProfit > 0 ? (totalCharges / grossProfit) * 100 : 0;
 
   // Broker-wise Performance statistics calculations
@@ -1568,6 +1673,151 @@ export function Dashboard({
             No trade activity recorded yet in this week range.
           </div>
         )}
+      </div>
+
+      {/* GitHub-style Trading Performance Heatmap */}
+      <div 
+        className="glass-card animate-tab-panel" 
+        style={{ 
+          padding: '20px 24px', 
+          background: 'var(--bg-card)', 
+          border: '1.5px solid var(--border-color)', 
+          borderRadius: '12px', 
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CalendarRange size={20} color="var(--primary)" />
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Trading Performance Heatmap</h3>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: 0 }}>Visual representation of daily net profits, losses, and disciplined streaks</p>
+            </div>
+          </div>
+          
+          {/* Summary Indicators */}
+          <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', fontSize: '0.75rem', fontWeight: 550 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(48, 209, 88, 0.75)', border: '1px solid rgba(48, 209, 88, 0.4)' }}></span>
+              <span style={{ color: 'var(--text-muted)' }}>Green Days: {greenDaysCount}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(255, 69, 58, 0.75)', border: '1px solid rgba(255, 69, 58, 0.4)' }}></span>
+              <span style={{ color: 'var(--text-muted)' }}>Red Days: {redDaysCount}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(59, 130, 246, 0.35)', border: '1px solid rgba(59, 130, 246, 0.4)' }}></span>
+              <span style={{ color: 'var(--text-muted)' }}>No-Trade Days: {noTradeDaysCount}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Calendar Heatmap Grid wrapper */}
+        <div style={{ overflowX: 'auto', paddingBottom: '4px', width: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: '780px' }}>
+            {/* Header: Months labels */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '28px repeat(53, 1fr)', 
+              gap: '4px', 
+              marginBottom: '6px',
+              fontSize: '0.65rem',
+              color: 'var(--text-dim)',
+              userSelect: 'none'
+            }}>
+              <div></div> {/* Column 1 offset spacer */}
+              {monthLabels.map((lbl, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    gridColumnStart: lbl.colIdx + 2,
+                    textAlign: 'left'
+                  }}
+                >
+                  {lbl.name}
+                </div>
+              ))}
+            </div>
+
+            {/* Matrix Grid */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateRows: 'repeat(7, 12px)',
+              gridTemplateColumns: '28px repeat(53, 1fr)',
+              gridAutoFlow: 'column',
+              gap: '4px'
+            }}>
+              {/* Mon, Wed, Fri row indicators in column 1 */}
+              <div style={{ gridRowStart: 1, gridColumnStart: 1, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', userSelect: 'none' }}>Mon</div>
+              <div style={{ gridRowStart: 3, gridColumnStart: 1, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', userSelect: 'none' }}>Wed</div>
+              <div style={{ gridRowStart: 5, gridColumnStart: 1, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', userSelect: 'none' }}>Fri</div>
+
+              {/* Start day of week padding */}
+              {Array.from({ length: startDayOfWeek }).map((_, idx) => (
+                <div 
+                  key={`pad-${idx}`} 
+                  style={{ 
+                    width: '12px', 
+                    height: '12px', 
+                    borderRadius: '2px', 
+                    background: 'transparent' 
+                  }} 
+                />
+              ))}
+
+              {/* Actual calendar day cells */}
+              {dates.map((dateStr) => {
+                const stats = dailyStats[dateStr];
+                const isNoTrade = noTradeDays.includes(dateStr);
+                
+                let bgColor = 'rgba(120, 120, 120, 0.08)';
+                let border = '1px solid var(--border-color)';
+                let title = `${dateStr}: No trades logged`;
+                
+                if (stats && stats.count > 0) {
+                  if (stats.pnl > 0) {
+                    const opacity = Math.max(0.2, Math.min(1.0, stats.pnl / maxWin));
+                    bgColor = `rgba(48, 209, 88, ${opacity})`;
+                    border = '1px solid rgba(48, 209, 88, 0.4)';
+                    title = `${dateStr}: ${stats.count} trades | Net PnL: +₹${stats.pnl.toLocaleString('en-IN')}`;
+                  } else if (stats.pnl < 0) {
+                    const opacity = Math.max(0.2, Math.min(1.0, Math.abs(stats.pnl) / maxLoss));
+                    bgColor = `rgba(255, 69, 58, ${opacity})`;
+                    border = '1px solid rgba(255, 69, 58, 0.4)';
+                    title = `${dateStr}: ${stats.count} trades | Net PnL: -₹${Math.abs(stats.pnl).toLocaleString('en-IN')}`;
+                  } else {
+                    bgColor = 'rgba(120, 120, 120, 0.3)';
+                    title = `${dateStr}: ${stats.count} trades | Net PnL: ₹0`;
+                  }
+                } else if (isNoTrade) {
+                  bgColor = 'rgba(59, 130, 246, 0.25)';
+                  border = '1px solid rgba(59, 130, 246, 0.4)';
+                  title = `${dateStr}: No-Trade Day (Disciplined)`;
+                }
+                
+                return (
+                  <div 
+                    key={dateStr}
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '2px',
+                      background: bgColor,
+                      border: border,
+                      cursor: 'pointer',
+                      transition: 'transform 0.1s ease'
+                    }}
+                    className="heatmap-cell"
+                    title={isPnlVisible ? title : title.replace(/Net PnL: [+-]₹\d+/, 'Net P&L: Hidden')}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Grid 3: Advanced Analytics Charts */}

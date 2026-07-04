@@ -1188,5 +1188,9 @@ h1, h2, h3, h4 {
   100% { transform: scale(0.95); opacity: 0.85; }
 }
 
-
-
+.heatmap-cell:hover {
+  transform: scale(1.4) !important;
+  z-index: 10;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.25);
+  border-color: var(--primary) !important;
+}
