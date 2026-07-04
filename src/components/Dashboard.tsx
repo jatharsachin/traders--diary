@@ -292,6 +292,9 @@ export function Dashboard({
     
     datesList.forEach((dateStr) => {
       const d = new Date(dateStr);
+      const day = d.getDay();
+      if (day === 0 || day === 6) return; // Skip Saturdays and Sundays!
+      
       const mName = d.toLocaleString('en-IN', { month: 'short' });
       const year = d.getFullYear();
       const key = `${mName} ${year}`;
@@ -309,9 +312,11 @@ export function Dashboard({
     const list = Object.values(monthsMap);
     list.forEach((m) => {
       const firstDate = m.dates[0];
-      const d = new Date(firstDate);
-      const day = d.getDay();
-      m.startPad = day === 0 ? 6 : day - 1;
+      if (firstDate) {
+        const d = new Date(firstDate);
+        const day = d.getDay();
+        m.startPad = day - 1; // 0 = Mon, 1 = Tue, 2 = Wed, 3 = Thu, 4 = Fri
+      }
     });
 
     return list;
@@ -1723,15 +1728,17 @@ export function Dashboard({
             {/* Column 1: Weekday Labels */}
             <div style={{ 
               display: 'grid', 
-              gridTemplateRows: 'repeat(7, 12px)', 
+              gridTemplateRows: 'repeat(5, 12px)', 
               gap: '4px',
               marginRight: '12px',
               marginTop: '22px', // offsets down to align with rows (header offset)
               userSelect: 'none'
             }}>
-              <div style={{ gridRowStart: 1, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Mon</div>
-              <div style={{ gridRowStart: 3, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Wed</div>
-              <div style={{ gridRowStart: 5, fontSize: '0.65rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Fri</div>
+              <div style={{ gridRowStart: 1, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Mon</div>
+              <div style={{ gridRowStart: 2, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Tue</div>
+              <div style={{ gridRowStart: 3, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Wed</div>
+              <div style={{ gridRowStart: 4, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Thu</div>
+              <div style={{ gridRowStart: 5, fontSize: '0.62rem', color: 'var(--text-dim)', alignSelf: 'center', height: '12px', display: 'flex', alignItems: 'center' }}>Fri</div>
             </div>
 
             {/* Months Row Container with Gaps */}
@@ -1752,7 +1759,7 @@ export function Dashboard({
                   {/* Monthly grid */}
                   <div style={{ 
                     display: 'grid', 
-                    gridTemplateRows: 'repeat(7, 12px)',
+                    gridTemplateRows: 'repeat(5, 12px)',
                     gridAutoFlow: 'column',
                     gap: '4px'
                   }}>

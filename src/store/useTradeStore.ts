@@ -1009,20 +1009,12 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       // 1. Trades
       const cloudTrades = await fetchTradesFromCloud();
       if (cloudTrades !== null) {
-        const localTrades = get().trades;
-        const mergedTrades = [...cloudTrades];
-        for (const lt of localTrades) {
-          if (!cloudTrades.some(ct => ct.id === lt.id)) {
-            await syncTradeToCloud('insert', lt);
-            mergedTrades.push(lt);
-          }
-        }
-        set({ trades: mergedTrades });
-        localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(mergedTrades));
+        set({ trades: cloudTrades });
+        localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
 
         const hasRecalced = localStorage.getItem(`traders_diary_recalced_charges_v4_${userId}`) === 'true';
         if (!hasRecalced) {
-          const recalcedTrades = mergedTrades.map(t => {
+          const recalcedTrades = cloudTrades.map(t => {
             const config = get().brokerCharges.find(c => c.broker === t.broker);
             const calc = computeTradeCalculations(t, config);
             return {
