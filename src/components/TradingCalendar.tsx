@@ -541,21 +541,37 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     setSelectedMonthNum(null);
   };
 
-  // Calculate 52 weeks of the financial year
+  // Calculate calendar-aligned weeks of the financial year (Sunday to Saturday)
   const getFYWeeks = () => {
     const weeksList = [];
     let currentPtr = new Date(fyStartYear, 3, 1); // April 1st
+    const endPtr = new Date(fyStartYear + 1, 2, 31); // March 31st of next year
     
-    for (let w = 1; w <= 52; w++) {
+    let weekNum = 1;
+    
+    while (currentPtr <= endPtr) {
       const wStart = new Date(currentPtr);
       const wEnd = new Date(currentPtr);
-      wEnd.setDate(currentPtr.getDate() + 6);
+      
+      // Find the next Saturday from wStart
+      // getDay(): 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday
+      const dayOfWeek = currentPtr.getDay();
+      const daysToSaturday = 6 - dayOfWeek; // e.g. for Wednesday (3), 6 - 3 = 3 days to Saturday
+      
+      wEnd.setDate(currentPtr.getDate() + daysToSaturday);
+      
+      // Cap at March 31st if the week extends beyond the FY boundary
+      if (wEnd > endPtr) {
+        wEnd.setTime(endPtr.getTime());
+      }
       wEnd.setHours(23, 59, 59, 999);
       
       // Calculate P&L for this week
+      const wStartStr = wStart.toISOString().split('T')[0];
+      const wEndStr = wEnd.toISOString().split('T')[0];
+      
       const weeklyTrades = trades.filter((t) => {
-        const tDate = new Date(t.date);
-        return tDate >= wStart && tDate <= wEnd;
+        return t.date >= wStartStr && t.date <= wEndStr;
       });
       
       const netPnL = weeklyTrades.reduce((acc, t) => acc + t.netPnL, 0);
@@ -563,9 +579,9 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
       const wTaxes = weeklyTrades.reduce((acc, t) => acc + t.taxes, 0);
       
       weeksList.push({
-        weekNum: w,
-        startDate: wStart.toISOString().split('T')[0],
-        endDate: wEnd.toISOString().split('T')[0],
+        weekNum: weekNum,
+        startDate: wStartStr,
+        endDate: wEndStr,
         formattedRange: `${wStart.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - ${wEnd.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`,
         trades: weeklyTrades,
         netPnL: Math.round(netPnL * 100) / 100,
@@ -573,9 +589,13 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         taxes: Math.round(wTaxes * 100) / 100
       });
       
-      // Advance by 7 days
-      currentPtr.setDate(currentPtr.getDate() + 7);
+      // Advance current pointer to the next Sunday (wEnd Saturday + 1 day)
+      currentPtr = new Date(wEnd);
+      currentPtr.setDate(currentPtr.getDate() + 1);
+      currentPtr.setHours(0, 0, 0, 0);
+      weekNum++;
     }
+    
     return weeksList;
   };
   const fyWeeks = getFYWeeks();
@@ -745,7 +765,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
       const activeWeeks = fyWeeks.filter(w => w.trades.length > 0);
       const weeklyStreaks = getWeeklyStreaks();
       return {
-        total: 52,
+        total: fyWeeks.length,
         traded: activeWeeks.length,
         profit: fyWeeks.filter(w => w.netPnL > 0).length,
         maxStreak: weeklyStreaks.maxStreak,
