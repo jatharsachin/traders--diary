@@ -181,7 +181,6 @@ export function Dashboard({
 
   // Combined calculations using activeBaseCapital
   const displayNetPnL = showCombined ? (totalNetPnL + totalInvReturns) : totalNetPnL;
-  const displayBaseCapital = showCombined ? (activeDeployedCapital + totalInvInvested) : activeDeployedCapital;
 
   const tradingReturnPct = (totalNetPnL / activeDeployedCapital) * 100;
   const combinedReturnPct = (activeDeployedCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (activeDeployedCapital + totalInvInvested)) * 100 : 0;
@@ -303,26 +302,111 @@ export function Dashboard({
   const uniqueMonths = new Set(trades.map(t => t.date.substring(0, 7))).size || 1;
   const avgTradesPerMonth = trades.length / uniqueMonths;
 
-  const getReturnsForPeriod = (days: number) => {
+  const getModifiedDietzReturn = (days: number) => {
     const cutoffDate = new Date(anchorDate);
     cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
-    const periodTrades = sortedTrades.filter((t) => new Date(t.date) >= cutoffDate);
+    const periodTrades = sortedTrades.filter((t) => t.date >= cutoffStr);
     const pnl = periodTrades.reduce((acc, t) => acc + t.netPnL, 0);
-    const pct = (pnl / displayBaseCapital) * 100;
-    return { pnl, pct };
+
+    let startCap = 0;
+    if (activeAccountId !== 'Combined') {
+      const acc = brokerAccounts.find(a => a.id === activeAccountId);
+      startCap = acc ? (Number(acc.startingCapital) || 0) : 0;
+    } else {
+      startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    }
+
+    const priorTradesPnL = activeTrades
+      .filter((t) => t.date < cutoffStr && (activeAccountId === 'Combined' ? true : t.brokerAccountId === activeAccountId))
+      .reduce((acc, t) => acc + t.netPnL, 0);
+
+    const priorAdjustments = capitalAdjustments
+      .filter((a) => a.date < cutoffStr && (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId))
+      .reduce((acc, a) => {
+        if (a.type === 'DEPOSIT') return acc + a.amount;
+        return acc - a.amount;
+      }, 0);
+
+    const beginningCapital = startCap + priorTradesPnL + priorAdjustments;
+
+    const periodAdjustments = capitalAdjustments.filter((a) => {
+      const matchesAccount = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
+      return matchesAccount && a.date >= cutoffStr && a.date <= anchorDate.toISOString().split('T')[0];
+    });
+
+    const totalDays = Math.max(1, days);
+    let weightedCashFlows = 0;
+
+    periodAdjustments.forEach((a) => {
+      const adjDate = new Date(a.date);
+      const daysFromStart = Math.max(0, Math.floor((adjDate.getTime() - cutoffDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const weight = Math.max(0, Math.min(1, (totalDays - daysFromStart) / totalDays));
+      const amount = Number(a.amount) || 0;
+      if (a.type === 'DEPOSIT') {
+        weightedCashFlows += amount * weight;
+      } else {
+        weightedCashFlows -= amount * weight;
+      }
+    });
+
+    const averageDeployedCapital = Math.max(1, beginningCapital + weightedCashFlows);
+    const pct = (pnl / averageDeployedCapital) * 100;
+
+    return { pnl, pct, averageDeployedCapital };
   };
 
-  const m1 = getReturnsForPeriod(30);
-  const m3 = getReturnsForPeriod(90);
+  const m1 = getModifiedDietzReturn(30);
+  const m3 = getModifiedDietzReturn(90);
 
-  const allTimePct = (displayNetPnL / displayBaseCapital) * 100;
+  const getAllTimeModifiedDietzReturn = () => {
+    const firstTradeDate = sortedTrades[0] ? new Date(sortedTrades[0].date) : new Date();
+    const firstAdjustmentDate = capitalAdjustments[0] ? new Date(capitalAdjustments[0].date) : new Date();
+    const startDate = new Date(Math.min(firstTradeDate.getTime(), firstAdjustmentDate.getTime()));
+    
+    const totalDays = Math.max(1, Math.ceil((anchorDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+    let startCap = 0;
+    if (activeAccountId !== 'Combined') {
+      const acc = brokerAccounts.find(a => a.id === activeAccountId);
+      startCap = acc ? (Number(acc.startingCapital) || 0) : 0;
+    } else {
+      startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    }
+
+    const periodAdjustments = capitalAdjustments.filter((a) => {
+      return activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
+    });
+
+    let weightedCashFlows = 0;
+    periodAdjustments.forEach((a) => {
+      const adjDate = new Date(a.date);
+      const daysFromStart = Math.max(0, Math.floor((adjDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const weight = Math.max(0, Math.min(1, (totalDays - daysFromStart) / totalDays));
+      const amount = Number(a.amount) || 0;
+      if (a.type === 'DEPOSIT') {
+        weightedCashFlows += amount * weight;
+      } else {
+        weightedCashFlows -= amount * weight;
+      }
+    });
+
+    const averageDeployedCapital = Math.max(1, startCap + weightedCashFlows);
+    const pct = (displayNetPnL / averageDeployedCapital) * 100;
+
+    return { pct, averageDeployedCapital };
+  };
+
+  const allTimeReturn = getAllTimeModifiedDietzReturn();
+  const allTimePct = allTimeReturn.pct;
+  const allTimeDeployedCapital = allTimeReturn.averageDeployedCapital;
 
   const firstTradeDate = new Date(sortedTrades[0]?.date || new Date());
   const timeDiffMs = anchorDate.getTime() - firstTradeDate.getTime();
   const yearsDiff = timeDiffMs / (1000 * 60 * 60 * 24 * 365.25);
   const cagr = yearsDiff > 0.02
-    ? (Math.pow(Math.max(0.1, (displayBaseCapital + displayNetPnL) / displayBaseCapital), 1 / yearsDiff) - 1) * 100
+    ? (Math.pow(Math.max(0.1, (allTimeDeployedCapital + displayNetPnL) / allTimeDeployedCapital), 1 / yearsDiff) - 1) * 100
     : allTimePct;
 
   // Options Holding Details
@@ -863,32 +947,17 @@ export function Dashboard({
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y' | 'All'>('All');
 
   const getFilterButtonStats = () => {
-    const parseDateOffset = (days: number) => {
-      const d = new Date(anchorDate);
-      d.setDate(d.getDate() - days);
-      return d.toISOString().split('T')[0];
-    };
-
-    const getPnLForDays = (days: number) => {
-      const cutoff = parseDateOffset(days);
-      const filtered = sortedTrades.filter(t => t.date >= cutoff);
-      return filtered.reduce((sum, t) => sum + t.netPnL, 0);
-    };
-
-    const pnlAll = sortedTrades.reduce((sum, t) => sum + t.netPnL, 0);
-    const pnl1M = getPnLForDays(30);
-    const pnl3M = getPnLForDays(90);
-    const pnl6M = getPnLForDays(180);
-    const pnl1Y = getPnLForDays(365);
-
-    const cap = activeDeployedCapital || 1;
+    const stats1M = getModifiedDietzReturn(30);
+    const stats3M = getModifiedDietzReturn(90);
+    const stats6M = getModifiedDietzReturn(180);
+    const stats1Y = getModifiedDietzReturn(365);
 
     return {
-      '1M': { pnl: pnl1M, pct: (pnl1M / cap) * 100 },
-      '3M': { pnl: pnl3M, pct: (pnl3M / cap) * 100 },
-      '6M': { pnl: pnl6M, pct: (pnl6M / cap) * 100 },
-      '1Y': { pnl: pnl1Y, pct: (pnl1Y / cap) * 100 },
-      'All': { pnl: pnlAll, pct: (pnlAll / cap) * 100 },
+      '1M': { pnl: stats1M.pnl, pct: stats1M.pct },
+      '3M': { pnl: stats3M.pnl, pct: stats3M.pct },
+      '6M': { pnl: stats6M.pnl, pct: stats6M.pct },
+      '1Y': { pnl: stats1Y.pnl, pct: stats1Y.pct },
+      'All': { pnl: displayNetPnL, pct: allTimePct }
     };
   };
 
