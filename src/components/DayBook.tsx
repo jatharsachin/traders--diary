@@ -15,7 +15,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     brokerAccounts, 
     isPnlVisible,
     togglePnlVisibility,
-    selectedFY
+    selectedFY,
+    investments: allInvestments
   } = useTradeStore();
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -75,7 +76,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     setEditingId(null);
   };
 
-  // Scoped trades & adjustments
+  // Scoped trades, adjustments, and investments
   const trades = activeAccountId === 'Combined' 
     ? allTrades 
     : allTrades.filter(t => t.brokerAccountId === activeAccountId);
@@ -84,7 +85,11 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     ? allAdjustments 
     : allAdjustments.filter(a => a.brokerAccountId === activeAccountId);
 
-  // Range filtered trades & adjustments
+  const investments = activeAccountId === 'Combined' 
+    ? allInvestments 
+    : allInvestments.filter(i => i.brokerAccountId === activeAccountId);
+
+  // Range filtered trades, adjustments, and investments
   const rangeTrades = trades.filter(t => t.date >= startDate && t.date <= endDate);
   const rangeAdjustments = adjustments.filter(a => a.date >= startDate && a.date <= endDate);
 
@@ -100,7 +105,13 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     const priorAdjustments = adjustments.filter(a => a.date < startDate);
     const priorAdjSum = priorAdjustments.reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
 
-    return startCap + priorPnL + priorAdjSum;
+    const priorInvPurchases = investments.filter(i => i.date < startDate);
+    const priorInvPurchasesSum = priorInvPurchases.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+
+    const priorInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate && i.exitDate < startDate && i.exitPrice);
+    const priorInvExitsSum = priorInvExits.reduce((sum, i) => sum + (i.qty * i.exitPrice!), 0);
+
+    return startCap + priorPnL + priorAdjSum - priorInvPurchasesSum + priorInvExitsSum;
   };
 
   const openingBalance = getOpeningBalance();
@@ -134,7 +145,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       charges: t.brokerage + t.taxes,
       isCredit: t.netPnL >= 0,
       broker: t.broker,
-      rawNotes: t.notes || ''
+      rawNotes: t.notes || '',
+      isInvestment: false
     };
   });
 
@@ -158,12 +170,54 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       charges: 0,
       isCredit: a.type === 'DEPOSIT',
       broker: a.broker || 'System',
-      rawNotes: a.notes || ''
+      rawNotes: a.notes || '',
+      isInvestment: false
     };
   });
 
+  const rangeInvPurchases = investments.filter(i => i.date >= startDate && i.date <= endDate);
+  const rangeInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate && i.exitDate >= startDate && i.exitDate <= endDate && i.exitPrice);
+
+  const invPurchaseItems = rangeInvPurchases.map(i => ({
+    id: `${i.id}-buy`,
+    date: i.date,
+    time: '09:15',
+    type: 'WITHDRAWAL' as const,
+    label: 'WITHDRAWAL' as const,
+    flowLabel: 'Invested',
+    sourceLabel: 'Broker',
+    title: `[Broker Invested] Purchase ${i.qty} units of ${i.symbol} (${i.type})`,
+    description: i.notes && i.notes.trim() 
+      ? i.notes.trim() 
+      : `Purchase of ${i.qty} units of ${i.symbol} @ Buy Avg: ₹${i.buyPrice}`,
+    amount: -i.qty * i.buyPrice,
+    charges: 0,
+    isCredit: false,
+    broker: i.broker || 'System',
+    rawNotes: i.notes || '',
+    isInvestment: true
+  }));
+
+  const invExitItems = rangeInvExits.map(i => ({
+    id: `${i.id}-sell`,
+    date: i.exitDate!,
+    time: '15:30',
+    type: 'DEPOSIT' as const,
+    label: 'DEPOSIT' as const,
+    flowLabel: 'Investment Exit',
+    sourceLabel: 'Broker',
+    title: `[Broker Investment Exit] Sold ${i.qty} units of ${i.symbol} (${i.type})`,
+    description: `Sold ${i.qty} units of ${i.symbol} @ Sell Avg: ₹${i.exitPrice}`,
+    amount: i.qty * i.exitPrice!,
+    charges: 0,
+    isCredit: true,
+    broker: i.broker || 'System',
+    rawNotes: '',
+    isInvestment: true
+  }));
+
   // Chronological sort
-  const timelineItems = [...tradeItems, ...adjItems].sort((a, b) => {
+  const timelineItems = [...tradeItems, ...adjItems, ...invPurchaseItems, ...invExitItems].sort((a, b) => {
     const dComp = a.date.localeCompare(b.date);
     if (dComp !== 0) return dComp;
     return a.time.localeCompare(b.time);
@@ -669,28 +723,30 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                                   )}
                                 </div>
 
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingId(item.id);
-                                    setEditNotesText(item.rawNotes || '');
-                                  }}
-                                  className="btn btn-secondary"
-                                  style={{ 
-                                    padding: '4px', 
-                                    border: 'none', 
-                                    background: 'transparent', 
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    alignSelf: 'flex-start',
-                                    opacity: 0.5
-                                  }}
-                                  title="Edit Notes (Manual Feed)"
-                                >
-                                  <Edit2 size={12} color="var(--primary)" />
-                                </button>
+                                {!item.isInvestment && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingId(item.id);
+                                      setEditNotesText(item.rawNotes || '');
+                                    }}
+                                    className="btn btn-secondary"
+                                    style={{ 
+                                      padding: '4px', 
+                                      border: 'none', 
+                                      background: 'transparent', 
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      alignSelf: 'flex-start',
+                                      opacity: 0.5
+                                    }}
+                                    title="Edit Notes (Manual Feed)"
+                                  >
+                                    <Edit2 size={12} color="var(--primary)" />
+                                  </button>
+                                )}
                               </div>
                             )}
                           </td>

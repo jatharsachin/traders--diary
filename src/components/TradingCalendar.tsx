@@ -79,7 +79,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     togglePnlVisibility, 
     selectedFY,
     capitalAdjustments: allCapitalAdjustments,
-    brokerAccounts
+    brokerAccounts,
+    investments: allInvestments
   } = useTradeStore();
 
   const getCapitalAtDate = (dateLimit: Date): number => {
@@ -117,6 +118,10 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   const trades = activeAccountId === 'Combined'
     ? fyTrades
     : fyTrades.filter(t => t.brokerAccountId === activeAccountId);
+
+  const investments = activeAccountId === 'Combined'
+    ? allInvestments
+    : allInvestments.filter(i => i.brokerAccountId === activeAccountId);
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026
   const [activePnlTab, setActivePnlTab] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
@@ -218,8 +223,10 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
 
     const dailyTrades = trades.filter((t) => t.date === dateStr);
+    const dailyInvPurchases = investments.filter((i) => i.date === dateStr);
+    const dailyInvExits = investments.filter((i) => i.status === 'EXITED' && i.exitDate === dateStr);
 
-    if (dailyTrades.length === 0) return null;
+    if (dailyTrades.length === 0 && dailyInvPurchases.length === 0 && dailyInvExits.length === 0) return null;
 
     const netPnL = dailyTrades.reduce((acc, t) => acc + t.netPnL, 0);
     const grossPnL = dailyTrades.reduce((acc, t) => acc + t.grossPnL, 0);
@@ -232,6 +239,21 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         brokerSummaries[b] = { netPnL: 0, count: 0 };
       }
       brokerSummaries[b].netPnL += t.netPnL;
+      brokerSummaries[b].count += 1;
+    });
+
+    dailyInvPurchases.forEach((i) => {
+      const b = i.broker || 'Other';
+      if (!brokerSummaries[b]) {
+        brokerSummaries[b] = { netPnL: 0, count: 0 };
+      }
+      brokerSummaries[b].count += 1;
+    });
+    dailyInvExits.forEach((i) => {
+      const b = i.broker || 'Other';
+      if (!brokerSummaries[b]) {
+        brokerSummaries[b] = { netPnL: 0, count: 0 };
+      }
       brokerSummaries[b].count += 1;
     });
     
@@ -251,6 +273,9 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     });
     const mainMistake = Object.entries(mistakesCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
 
+    const invested = dailyInvPurchases.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+    const exited = dailyInvExits.reduce((sum, i) => sum + (i.qty * i.exitPrice!), 0);
+
     return {
       netPnL: Math.round(netPnL * 100) / 100,
       grossPnL: Math.round(grossPnL * 100) / 100,
@@ -258,6 +283,9 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
       dominantEmotion,
       mainMistake,
       brokerSummaries,
+      invested,
+      exited,
+      totalInvestmentsCount: dailyInvPurchases.length + dailyInvExits.length
     };
   };
 
@@ -316,10 +344,14 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     
     if (summary) {
       cellClass += ' has-trades';
-      if (summary.netPnL > 0) {
-        cellClass += ' day-win';
-      } else if (summary.netPnL < 0) {
-        cellClass += ' day-loss';
+      if (summary.count > 0) {
+        if (summary.netPnL > 0) {
+          cellClass += ' day-win';
+        } else if (summary.netPnL < 0) {
+          cellClass += ' day-loss';
+        } else {
+          cellClass += ' day-breakeven';
+        }
       } else {
         cellClass += ' day-breakeven';
       }
@@ -344,7 +376,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
           </div>
         )}
 
-        {summary && (() => {
+        {summary && summary.count > 0 && (() => {
           const dayCap = getCapitalAtDate(new Date(year, month, d));
           const dayRoi = (summary.netPnL / dayCap) * 100;
           return (
@@ -369,6 +401,29 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
           );
         })()}
 
+        {summary && summary.invested > 0 && (
+          <div style={{ fontSize: '0.62rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 600 }}>
+            💼 -{(() => {
+              const val = summary.invested;
+              if (val >= 100000) {
+                return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
+              }
+              return Math.round(val).toLocaleString('en-IN');
+            })()}
+          </div>
+        )}
+        {summary && summary.exited > 0 && (
+          <div style={{ fontSize: '0.62rem', color: 'var(--color-win)', marginTop: '2px', fontWeight: 600 }}>
+            💼 +{(() => {
+              const val = summary.exited;
+              if (val >= 100000) {
+                return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
+              }
+              return Math.round(val).toLocaleString('en-IN');
+            })()}
+          </div>
+        )}
+
         {/* Custom tooltip rendered inside the card via absolute positioning */}
         {(summary || holidayName) && (
           <div className="calendar-tooltip glass-card">
@@ -384,42 +439,68 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
               )}
               {summary ? (
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: holidayName ? '4px' : '0' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Net P&L:</span>
-                    <strong style={{ color: summary.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                      {isPnlVisible ? formatCurrency(summary.netPnL) : '••••••'}
-                    </strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Trades Executed:</span>
-                    <span>{summary.count}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Emotion:</span>
-                    <span>{summary.dominantEmotion}</span>
-                  </div>
-                  {summary.mainMistake !== 'None' && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
-                      <span>Main Mistake:</span>
-                      <span>{summary.mainMistake}</span>
+                  {summary.count > 0 && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: holidayName ? '4px' : '0' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Net P&L:</span>
+                        <strong style={{ color: summary.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                          {isPnlVisible ? formatCurrency(summary.netPnL) : '••••••'}
+                        </strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Trades Executed:</span>
+                        <span>{summary.count}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Emotion:</span>
+                        <span>{summary.dominantEmotion}</span>
+                      </div>
+                      {summary.mainMistake !== 'None' && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
+                          <span>Main Mistake:</span>
+                          <span>{summary.mainMistake}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {summary.invested > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: holidayName || summary.count > 0 ? '4px' : '0' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Invested (Buy):</span>
+                      <strong style={{ color: 'var(--primary)' }}>
+                        -{formatCurrency(summary.invested)}
+                      </strong>
+                    </div>
+                  )}
+                  {summary.exited > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: holidayName || summary.count > 0 || summary.invested > 0 ? '4px' : '0' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Invested Exited (Sell):</span>
+                      <strong style={{ color: 'var(--color-win)' }}>
+                        +{formatCurrency(summary.exited)}
+                      </strong>
+                    </div>
+                  )}
+                  {summary.totalInvestmentsCount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Investment Logs:</span>
+                      <span>{summary.totalInvestmentsCount}</span>
                     </div>
                   )}
                   {summary.brokerSummaries && Object.keys(summary.brokerSummaries).length > 1 && (
-                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed var(--border-color)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>Broker-wise P&L:</span>
-                      {Object.entries(summary.brokerSummaries).map(([brokerName, bSum]: any) => (
-                        <div key={brokerName} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>{brokerName}:</span>
-                          <span style={{ color: bSum.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 550 }}>
-                            {isPnlVisible ? `${bSum.netPnL >= 0 ? '+' : ''}${formatCurrency(bSum.netPnL)}` : '••••'} ({bSum.count}t)
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                     <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed var(--border-color)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                       <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>Broker-wise P&L / Activity:</span>
+                       {Object.entries(summary.brokerSummaries).map(([brokerName, bSum]: any) => (
+                         <div key={brokerName} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem' }}>
+                           <span style={{ color: 'var(--text-muted)' }}>{brokerName}:</span>
+                           <span style={{ color: bSum.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 550 }}>
+                             {isPnlVisible ? `${bSum.netPnL >= 0 ? '+' : ''}${formatCurrency(bSum.netPnL)}` : '••••'} ({bSum.count} entries)
+                           </span>
+                         </div>
+                       ))}
+                     </div>
                   )}
                 </>
               ) : (
-                !holidayName && <div style={{ color: 'var(--text-muted)' }}>No trading activity</div>
+                !holidayName && <div style={{ color: 'var(--text-muted)' }}>No activity</div>
               )}
             </div>
           </div>
@@ -831,15 +912,65 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
 
   // Selections & trade logs setup for selected week, month, or day
   const getSelectedTrades = () => {
+    let dayTradesList: any[] = [];
     if (activePnlTab === 'weekly' && selectedWeekNum !== null) {
       const w = fyWeeks.find(week => week.weekNum === selectedWeekNum);
-      return w ? w.trades : [];
-    }
-    if (activePnlTab === 'yearly' && selectedMonthNum !== null) {
+      dayTradesList = w ? w.trades : [];
+    } else if (activePnlTab === 'yearly' && selectedMonthNum !== null) {
       const m = fyMonthsList.find(mon => mon.monthNum === selectedMonthNum);
-      return m ? m.trades : [];
+      dayTradesList = m ? m.trades : [];
+    } else {
+      dayTradesList = selectedDate ? trades.filter((t) => t.date === selectedDate) : [];
     }
-    return selectedDate ? trades.filter((t) => t.date === selectedDate) : [];
+
+    if (selectedDate) {
+      const dailyInvPurchases = investments.filter(i => i.date === selectedDate);
+      const dailyInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate === selectedDate);
+      
+      const purchaseItems = dailyInvPurchases.map(i => ({
+        id: `${i.id}-buy`,
+        entryTime: '09:15',
+        symbol: i.symbol,
+        broker: i.broker || 'System',
+        action: 'BUY',
+        qty: i.qty,
+        entryPrice: i.buyPrice,
+        exitPrice: 0,
+        grossPnL: 0,
+        brokerage: 0,
+        taxes: 0,
+        netPnL: 0,
+        emotion: 'None',
+        mistake: 'None',
+        notes: i.notes || '',
+        isInvestment: true,
+        typeLabel: i.type
+      }));
+
+      const exitItems = dailyInvExits.map(i => ({
+        id: `${i.id}-sell`,
+        entryTime: '15:30',
+        symbol: i.symbol,
+        broker: i.broker || 'System',
+        action: 'SELL',
+        qty: i.qty,
+        entryPrice: i.buyPrice,
+        exitPrice: i.exitPrice!,
+        grossPnL: i.qty * (i.exitPrice! - i.buyPrice),
+        brokerage: 0,
+        taxes: 0,
+        netPnL: i.qty * (i.exitPrice! - i.buyPrice),
+        emotion: 'None',
+        mistake: 'None',
+        notes: `Exit from investment (Purchase Buy Avg: ₹${i.buyPrice})`,
+        isInvestment: true,
+        typeLabel: i.type
+      }));
+
+      return [...dayTradesList, ...purchaseItems, ...exitItems];
+    }
+
+    return dayTradesList;
   };
   const dayTrades = getSelectedTrades();
 
