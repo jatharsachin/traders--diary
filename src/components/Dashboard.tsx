@@ -295,7 +295,14 @@ export function Dashboard({
     : allTimePct;
 
   // Options Holding Details
-  const optionTrades = trades.filter((t) => t.segment === 'F&O' && t.optionType && t.optionType !== 'None');
+  const optionTrades = trades.filter((t) => {
+    if (t.segment !== 'F&O') return false;
+    const hasOptionType = t.optionType && t.optionType !== 'None';
+    const symUpper = (t.symbol || '').toUpperCase();
+    const isCE = symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL');
+    const isPE = symUpper.includes(' PE') || symUpper.endsWith('PE') || symUpper.includes('PUT');
+    return hasOptionType || isCE || isPE;
+  });
   const avgOptionDuration = optionTrades.length > 0
     ? optionTrades.reduce((acc, t) => acc + (t.durationMinutes || 0), 0) / optionTrades.length
     : 0;

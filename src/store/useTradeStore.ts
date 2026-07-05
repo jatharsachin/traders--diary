@@ -450,6 +450,18 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         changed = true;
       }
       
+      // Auto-detect optionType from symbol if it is missing/None for F&O
+      if (t.segment === 'F&O' && (!t.optionType || t.optionType === 'None')) {
+        const symUpper = (t.symbol || '').toUpperCase();
+        if (symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL')) {
+          t.optionType = 'CE';
+          changed = true;
+        } else if (symUpper.includes(' PE') || symUpper.endsWith('PE') || symUpper.includes('PUT')) {
+          t.optionType = 'PE';
+          changed = true;
+        }
+      }
+      
       // Recalculate durationMinutes if missing, NaN, or to update old records
       const config = t.brokerAccountId ? DEFAULT_BROKER_CHARGES.find(c => c.broker === accountsList.find(a => a.id === t.brokerAccountId)?.broker) : undefined;
       const computed = computeTradeCalculations(t, config);
