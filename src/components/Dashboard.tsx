@@ -1265,8 +1265,8 @@ export function Dashboard({
       {/* Grid 1: Key Performance Indicators */}
       <div className="metrics-grid">
         {/* KPI 1: Realized Net P&L */}
-        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '80px', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '16px', flexWrap: 'wrap' }}>
+        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '16px', flexWrap: 'nowrap' }}>
             {/* Left Part: Net P&L Summary */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <div className="metric-title" style={{ margin: 0 }}>
@@ -1290,7 +1290,7 @@ export function Dashboard({
             </div>
 
             {/* Right Part: Detailed Breakdown Items */}
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'nowrap' }}>
               {!showCombined ? (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
