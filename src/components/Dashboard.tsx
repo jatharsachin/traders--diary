@@ -475,6 +475,39 @@ export function Dashboard({
   sortedTrades.forEach((t) => {
     dailyPnL[t.date] = (dailyPnL[t.date] || 0) + t.netPnL;
   });
+
+  // Extreme Days calculation
+  const getExtremeDays = () => {
+    let bestDate = 'No Trades';
+    let bestPnL = 0;
+    let worstDate = 'No Trades';
+    let worstPnL = 0;
+
+    Object.entries(dailyPnL).forEach(([date, pnl]) => {
+      if (pnl > bestPnL) {
+        bestPnL = pnl;
+        bestDate = date;
+      }
+      if (pnl < worstPnL) {
+        worstPnL = pnl;
+        worstDate = date;
+      }
+    });
+
+    const formatDateShort = (dateStr: string) => {
+      if (dateStr === 'No Trades') return 'N/A';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    };
+
+    return {
+      bestDay: { date: formatDateShort(bestDate), pnl: bestPnL },
+      worstDay: { date: formatDateShort(worstDate), pnl: worstPnL }
+    };
+  };
+  const { bestDay, worstDay } = getExtremeDays();
+
   const daysList = Object.values(dailyPnL);
   const winDaysCount = daysList.filter((d) => d > 0).length;
   const winDaysPct = daysList.length > 0 ? (winDaysCount / daysList.length) * 100 : 0;
@@ -1256,48 +1289,68 @@ export function Dashboard({
               </div>
             </div>
 
-            {/* Right Part: Detailed Breakdown Items */}
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 16px', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
-              {!showCombined ? (
-                <>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>GROSS P&L</span>
-                    <strong style={{ fontSize: '0.88rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'}
-                    </strong>
-                  </div>
-                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>BROKERAGE</span>
-                    <strong style={{ fontSize: '0.88rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalBrokerage) : '••••'}
-                    </strong>
-                  </div>
-                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>TAXES & FEES</span>
-                    <strong style={{ fontSize: '0.88rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
-                    </strong>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>TRADING NET</span>
-                    <strong style={{ fontSize: '0.88rem', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'}
-                    </strong>
-                  </div>
-                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>INV. RETURNS</span>
-                    <strong style={{ fontSize: '0.88rem', color: totalInvReturns >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}
-                    </strong>
-                  </div>
-                </>
-              )}
+            {/* Right Part: Detailed Breakdown & Extreme Days */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Financials Pill */}
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+                {!showCombined ? (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>GROSS P&L</span>
+                      <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                        {isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'}
+                      </strong>
+                    </div>
+                    <div style={{ width: '1px', height: '18px', background: 'var(--border-color)' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>BROKERAGE</span>
+                      <strong style={{ fontSize: '0.82rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                        {isPnlVisible ? formatCurrency(totalBrokerage) : '••••'}
+                      </strong>
+                    </div>
+                    <div style={{ width: '1px', height: '18px', background: 'var(--border-color)' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>TAXES & FEES</span>
+                      <strong style={{ fontSize: '0.82rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                        {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
+                      </strong>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>TRADING NET</span>
+                      <strong style={{ fontSize: '0.82rem', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                        {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'}
+                      </strong>
+                    </div>
+                    <div style={{ width: '1px', height: '18px', background: 'var(--border-color)' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>INV. RETURNS</span>
+                      <strong style={{ fontSize: '0.82rem', color: totalInvReturns >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                        {isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}
+                      </strong>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Best/Worst Day Pill */}
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>🟩 BEST DAY</span>
+                  <strong style={{ fontSize: '0.82rem', color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+                    {bestDay.pnl > 0 ? `${bestDay.date} (${isPnlVisible ? formatCurrency(bestDay.pnl) : '••••'})` : 'N/A'}
+                  </strong>
+                </div>
+                <div style={{ width: '1px', height: '18px', background: 'var(--border-color)' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>🟥 WORST DAY</span>
+                  <strong style={{ fontSize: '0.82rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                    {worstDay.pnl < 0 ? `${worstDay.date} (${isPnlVisible ? formatCurrency(worstDay.pnl) : '••••'})` : 'N/A'}
+                  </strong>
+                </div>
+              </div>
             </div>
           </div>
         </div>
