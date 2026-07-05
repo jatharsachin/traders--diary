@@ -834,7 +834,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                   </p>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {['FY 2024-25', 'FY 2025-26', 'FY 2026-27'].map((fy) => {
+                    {['FY 2026-27'].map((fy) => {
                       const isLocked = lockedFYs.includes(fy);
                       return (
                         <div 
@@ -1086,7 +1086,6 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                         className="form-select" 
                         style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px', maxWidth: '120px' }}
                       >
-                        <option value="FY 2025-26">FY 2025-26</option>
                         <option value="FY 2026-27">FY 2026-27</option>
                       </select>
                       
