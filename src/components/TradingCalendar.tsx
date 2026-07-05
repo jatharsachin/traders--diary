@@ -541,7 +541,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     setSelectedMonthNum(null);
   };
 
-  // Calculate calendar-aligned weeks of the financial year (Sunday to Saturday)
+  // Calculate calendar-aligned weeks of the financial year (Monday to Sunday)
   const getFYWeeks = () => {
     const weeksList = [];
     let currentPtr = new Date(fyStartYear, 3, 1); // April 1st
@@ -553,12 +553,13 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
       const wStart = new Date(currentPtr);
       const wEnd = new Date(currentPtr);
       
-      // Find the next Saturday from wStart
+      // Find the next Sunday from wStart
       // getDay(): 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday
       const dayOfWeek = currentPtr.getDay();
-      const daysToSaturday = 6 - dayOfWeek; // e.g. for Wednesday (3), 6 - 3 = 3 days to Saturday
+      // If today is Sunday (0), days to Sunday is 0. Otherwise, it is 7 - dayOfWeek.
+      const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
       
-      wEnd.setDate(currentPtr.getDate() + daysToSaturday);
+      wEnd.setDate(currentPtr.getDate() + daysToSunday);
       
       // Cap at March 31st if the week extends beyond the FY boundary
       if (wEnd > endPtr) {
@@ -578,18 +579,32 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
       const wBrokerage = weeklyTrades.reduce((acc, t) => acc + t.brokerage, 0);
       const wTaxes = weeklyTrades.reduce((acc, t) => acc + t.taxes, 0);
       
+      // Format Range as in the screenshot: "April 01 - 05", "April 06 - 12", "April 27 - May 03"
+      const startMonth = wStart.toLocaleDateString('en-IN', { month: 'long' });
+      const endMonth = wEnd.toLocaleDateString('en-IN', { month: 'long' });
+      const startDay = wStart.toLocaleDateString('en-IN', { day: '2-digit' });
+      const endDay = wEnd.toLocaleDateString('en-IN', { day: '2-digit' });
+      
+      let formattedRange = '';
+      if (startMonth === endMonth) {
+        formattedRange = `${startMonth} ${startDay} - ${endDay}`;
+      } else {
+        const shortEndMonth = wEnd.toLocaleDateString('en-IN', { month: 'short' });
+        formattedRange = `${startMonth} ${startDay} - ${shortEndMonth} ${endDay}`;
+      }
+      
       weeksList.push({
         weekNum: weekNum,
         startDate: wStartStr,
         endDate: wEndStr,
-        formattedRange: `${wStart.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} - ${wEnd.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`,
+        formattedRange,
         trades: weeklyTrades,
         netPnL: Math.round(netPnL * 100) / 100,
         brokerage: Math.round(wBrokerage * 100) / 100,
         taxes: Math.round(wTaxes * 100) / 100
       });
       
-      // Advance current pointer to the next Sunday (wEnd Saturday + 1 day)
+      // Advance current pointer to the next Monday (wEnd Sunday + 1 day)
       currentPtr = new Date(wEnd);
       currentPtr.setDate(currentPtr.getDate() + 1);
       currentPtr.setHours(0, 0, 0, 0);
