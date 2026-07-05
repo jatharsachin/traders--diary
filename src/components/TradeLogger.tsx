@@ -750,7 +750,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                       style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
                     />
                     <label htmlFor="isMultiLeg" style={{ fontSize: '0.8rem', fontWeight: 650, color: 'var(--text-main)', cursor: 'pointer', userSelect: 'none' }}>
-                      🛡️ Hedged Spread Mode (Log Entry & Hedge Leg at once)
+                      🛡️ Hedge Mode
                     </label>
                   </div>
                 )}
@@ -873,7 +873,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                     <div className="glass-card" style={{ padding: '16px', background: formData.action === 'BUY' ? 'rgba(52, 211, 153, 0.04)' : 'rgba(239, 68, 68, 0.04)', border: formData.action === 'BUY' ? '1px solid rgba(52, 211, 153, 0.15)' : '1px solid rgba(239, 68, 68, 0.15)' }}>
                       <h4 style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Leg 1: Selling/Main Leg</span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formData.symbol || 'NIFTY CE'}</span>
                       </h4>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -952,7 +951,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                     <div className="glass-card" style={{ padding: '16px', background: leg2Action === 'BUY' ? 'rgba(52, 211, 153, 0.04)' : 'rgba(239, 68, 68, 0.04)', border: leg2Action === 'BUY' ? '1px solid rgba(52, 211, 153, 0.15)' : '1px solid rgba(239, 68, 68, 0.15)' }}>
                       <h4 style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Leg 2: Hedge Leg</span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{leg2Symbol || 'NIFTY CE'}</span>
                       </h4>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
