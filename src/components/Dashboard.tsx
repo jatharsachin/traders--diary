@@ -36,6 +36,7 @@ export function Dashboard({
   
   const [selectedBroker, setSelectedBroker] = useState<string>('All');
   const [showCombined, setShowCombined] = useState(false);
+  const [selectedChartMonth, setSelectedChartMonth] = useState<string>('');
 
   // 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries
   const getMissingLogDates = (): string[] => {
@@ -247,10 +248,29 @@ export function Dashboard({
   };
   const anchorDate = getAnchorDate();
 
-  const currentMonthPrefix = anchorDate.toISOString().substring(0, 7);
-  const currentMonthTrades = sortedTrades.filter(t => t.date.startsWith(currentMonthPrefix));
-  const currentMonthPnL = currentMonthTrades.reduce((sum, t) => sum + t.netPnL, 0);
-  const currentMonthName = anchorDate.toLocaleDateString('en-IN', { month: 'short' });
+  // Monthly stats for dropdown select
+  const availableMonths = Array.from(new Set(sortedTrades.map(t => t.date.substring(0, 7)))).sort().reverse();
+  const activeChartMonth = selectedChartMonth || (availableMonths[0] || new Date().toISOString().substring(0, 7));
+  const selectedMonthTrades = sortedTrades.filter(t => t.date.startsWith(activeChartMonth));
+  const selectedMonthPnL = selectedMonthTrades.reduce((sum, t) => sum + t.netPnL, 0);
+
+  // Average Trades Volume Calculations
+  const uniqueDays = new Set(trades.map(t => t.date)).size || 1;
+  const avgTradesPerDay = trades.length / uniqueDays;
+
+  // Group by week YYYY-Www
+  const getWeekIdentifier = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const oneJan = new Date(d.getFullYear(), 0, 1);
+    const numberOfDays = Math.floor((d.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
+    const week = Math.ceil((d.getDay() + 1 + numberOfDays) / 7);
+    return `${d.getFullYear()}-W${week}`;
+  };
+  const uniqueWeeks = new Set(trades.map(t => getWeekIdentifier(t.date))).size || 1;
+  const avgTradesPerWeek = trades.length / uniqueWeeks;
+
+  const uniqueMonths = new Set(trades.map(t => t.date.substring(0, 7))).size || 1;
+  const avgTradesPerMonth = trades.length / uniqueMonths;
 
   const getReturnsForPeriod = (days: number) => {
     const cutoffDate = new Date(anchorDate);
@@ -1203,7 +1223,7 @@ export function Dashboard({
       )}
 
       {/* Grid 1: Key Performance Indicators */}
-      <div className="metrics-grid">
+      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
         {/* KPI 1: Realized Net P&L */}
         <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '84px', justifyContent: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '8px' }}>
@@ -1327,6 +1347,22 @@ export function Dashboard({
           </div>
         </div>
 
+        {/* KPI 5: Trade Volume Averages */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <TrendingUp size={16} color="var(--primary)" />
+            <span>Avg Trades (D/W/M)</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.38rem', fontFamily: 'var(--font-mono)' }}>
+              {avgTradesPerDay.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerWeek.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerMonth.toFixed(1)}
+            </div>
+            <div className="metric-subtext">
+              Daily / Weekly / Monthly averages
+            </div>
+          </div>
+        </div>
+
         {/* Metric 1: Profit Factor */}
         <div className="glass-card metric-card">
           <div className="metric-title">
@@ -1394,7 +1430,7 @@ export function Dashboard({
         </div>
 
         {/* Metric 5: Best & Worst Days Card */}
-        <div className="glass-card metric-card">
+        <div className="glass-card metric-card" style={{ gridColumn: 'span 2' }}>
           <div className="metric-title" style={{ color: 'var(--text-muted)' }}>
             <span>🏆 Best / Worst Days</span>
           </div>
@@ -1454,11 +1490,37 @@ export function Dashboard({
             })}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            {/* Live Current Month P&L Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{currentMonthName} P&L:</span>
-              <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: currentMonthPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                {isPnlVisible ? `${currentMonthPnL >= 0 ? '+' : ''}${formatCurrency(currentMonthPnL)}` : '••••'}
+            {/* Live Monthly P&L Badge with Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--border-color)', height: '28px' }}>
+              <select
+                value={activeChartMonth}
+                onChange={(e) => setSelectedChartMonth(e.target.value)}
+                style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                  border: 'none',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  padding: 0
+                }}
+              >
+                {availableMonths.map((m) => {
+                  const parts = m.split('-');
+                  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+                  const monthName = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+                  return (
+                    <option key={m} value={m} style={{ background: 'var(--bg-card)', color: 'var(--text-main)' }}>
+                      {monthName} P&L
+                    </option>
+                  );
+                })}
+              </select>
+              <div style={{ width: '1px', height: '12px', background: 'var(--border-color)' }} />
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: selectedMonthPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? `${selectedMonthPnL >= 0 ? '+' : ''}${formatCurrency(selectedMonthPnL)}` : '••••'}
               </span>
             </div>
 
