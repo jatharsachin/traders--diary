@@ -578,7 +578,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                                 minWidth: '110px', 
                                 whiteSpace: 'nowrap',
                                 borderRight: '1px solid var(--border-color)',
-                                background: 'var(--bg-color)'
+                                background: 'var(--bg-card-hover)'
                               }}
                             >
                               <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.8rem' }}>{group.date}</div>
@@ -624,8 +624,9 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                                     {item.type === 'TRADE' ? (
                                       <>
                                         <span style={{ 
-                                          background: item.label === 'BUY' ? 'rgba(48, 209, 88, 0.12)' : 'rgba(255, 69, 58, 0.12)', 
-                                          color: item.label === 'BUY' ? '#30d158' : '#ff453a', 
+                                          background: item.label === 'BUY' ? 'var(--color-win-bg)' : 'var(--color-loss-bg)', 
+                                          color: item.label === 'BUY' ? 'var(--color-win)' : 'var(--color-loss)', 
+                                          border: item.label === 'BUY' ? '1px solid var(--color-win-border)' : '1px solid var(--color-loss-border)',
                                           padding: '2px 6px', 
                                           borderRadius: '4px', 
                                           fontSize: '0.65rem', 
