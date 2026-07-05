@@ -1304,7 +1304,11 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
       const fetchLatestPriceFromYahoo = async (symbol: string): Promise<number | null> => {
         const cleanSymbol = symbol.trim().toUpperCase();
-        const tickerSymbol = cleanSymbol.replace(/\s+/g, '');
+        let tickerSymbol = cleanSymbol.replace(/\s+/g, '');
+        // Strip -GB suffix for Sovereign Gold Bonds if present
+        if (tickerSymbol.startsWith('SGB') && tickerSymbol.endsWith('-GB')) {
+          tickerSymbol = tickerSymbol.substring(0, tickerSymbol.length - 3);
+        }
         const ticker = tickerSymbol.includes('.') ? tickerSymbol : `${tickerSymbol}.NS`;
 
         const urls = [
