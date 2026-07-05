@@ -114,7 +114,13 @@ export function Dashboard({
   };
 
   const activeBaseCapital = getStartingCapitalForActiveFY();
-  const effectiveBaseCapital = activeBaseCapital || brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0) || capitalAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + a.amount, 0) || 1;
+  
+  // Calculate effectiveBaseCapital with proper individual/combined fallbacks
+  const fallbackCapital = activeAccountId === 'Combined'
+    ? brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + a.startingCapital, 0)
+    : (brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0);
+
+  const effectiveBaseCapital = activeBaseCapital || fallbackCapital || 1;
 
   const rawTradesByFY = filterTradesByFY(activeTrades, selectedFY).filter((t) => {
     const isImported = t.strategy === 'Auto Imported' || 
