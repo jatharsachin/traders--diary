@@ -1312,10 +1312,7 @@ export function Dashboard({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Grid 1.5: Advanced Institutional & Risk Metrics */}
-      <div className="metrics-grid" style={{ marginTop: '16px', marginBottom: '20px' }}>
         {/* Metric 1: Profit Factor */}
         <div className="glass-card metric-card">
           <div className="metric-title">
