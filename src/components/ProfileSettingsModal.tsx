@@ -3,7 +3,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import type { Broker, BrokerChargesConfig } from '../types';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { BROKER_LOGOS, getBankLogoSvg } from '../utils/brandLogos';
-import { syncMetaToCloud } from '../utils/supabaseClient';
+import { syncMetaToCloud, syncTradeToCloud } from '../utils/supabaseClient';
 import { parseKotakNeoText, matchExecutionsIntoTrades } from '../utils/statementParser';
 import { 
   X, User, ShieldAlert, Save, Download, Upload, 
@@ -1007,6 +1007,74 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
             {/* TAB 3: Backup & Spreadsheet */}
             {activeTab === 'backup' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Cloud Database Synchronization */}
+                <div className="glass-card" style={{ padding: '20px' }}>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '10px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Database size={16} color="var(--primary)" />
+                    Cloud Database Synchronization
+                  </h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: '1.4' }}>
+                    Synchronize your local diary data (trades, investments, bank logs, settings, and subscription logs) directly with your online Supabase cloud database.
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-win)', boxShadow: '0 0 8px var(--color-win)' }} />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-main)', fontWeight: 600 }}>Sync Status: Connected to Cloud</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button 
+                      type="button" 
+                      className="btn btn-primary" 
+                      onClick={async () => {
+                        if (window.confirm("Are you sure you want to pull all data from the cloud? This will overwrite your local storage data with the online database (trades, investments, bank logs, and subscription logs).")) {
+                          const success = await useTradeStore.getState().pullTradesFromCloud();
+                          if (success) {
+                            alert("Successfully synchronized and pulled all online data from Supabase cloud database to local diary!");
+                            window.location.reload();
+                          } else {
+                            alert("Failed to sync. Please ensure you are logged in and connected to the internet.");
+                          }
+                        }
+                      }} 
+                      style={{ fontSize: '0.75rem', height: '32px' }}
+                    >
+                      <Download size={13} />
+                      <span>Pull Online Logs to Local</span>
+                    </button>
+
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={async () => {
+                        if (window.confirm("Are you sure you want to push all local data to the cloud? This will overwrite the online database with your current local data.")) {
+                          const state = useTradeStore.getState();
+                          try {
+                            await syncMetaToCloud('investments', state.investments);
+                            await syncMetaToCloud('capital_adjustments', state.capitalAdjustments);
+                            await syncMetaToCloud('setups', state.setups);
+                            await syncMetaToCloud('weekly_retrospectives', state.weeklyRetrospectives);
+                            await syncMetaToCloud('broker_accounts', state.brokerAccounts);
+                            await syncMetaToCloud('bank_accounts', state.bankAccounts);
+                            await syncMetaToCloud('broker_charges', state.brokerCharges);
+                            await syncMetaToCloud('subscription_expenses', state.subscriptionExpenses);
+                            await syncMetaToCloud('bank_transactions', state.bankTransactions);
+                            
+                            for (const t of state.trades) {
+                              await syncTradeToCloud('update', t);
+                            }
+                            alert("Successfully pushed all local logs, trades, and configurations to Supabase cloud database!");
+                          } catch (e: any) {
+                            alert("Sync push failed: " + e.message);
+                          }
+                        }
+                      }} 
+                      style={{ fontSize: '0.75rem', height: '32px', border: '1px solid var(--border-color)' }}
+                    >
+                      <Upload size={13} />
+                      <span>Push Local Logs to Cloud</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="glass-card" style={{ padding: '20px' }}>
                   <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '10px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Database size={16} color="var(--primary)" />
