@@ -585,7 +585,24 @@ export function Dashboard({
   };
   const getEquityCurveData = () => {
     const allFyTrades = [...sortedTrades];
-    let cumulative = effectiveBaseCapital;
+    
+    // Calculate actual current capital exactly like App.tsx
+    const filteredBaseCapital = activeAccountId === 'Combined'
+      ? brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0)
+      : (brokerAccounts.find((a) => a.id === activeAccountId)?.startingCapital || 0);
+
+    const filteredAdjustments = activeAccountId === 'Combined'
+      ? capitalAdjustments
+      : capitalAdjustments.filter((a) => a.brokerAccountId === activeAccountId);
+
+    const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
+    const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
+    
+    const totalNetPnLFy = allFyTrades.reduce((acc, t) => acc + t.netPnL, 0);
+    const actualCurrentCapital = filteredBaseCapital + totalNetPnLFy + totalDeposits - totalWithdrawals;
+    const startingCapital = actualCurrentCapital - totalNetPnLFy;
+
+    let cumulative = startingCapital;
 
     const curvePoints = allFyTrades.map((t, index) => {
       cumulative += t.netPnL;
@@ -604,7 +621,7 @@ export function Dashboard({
         date: new Date().toISOString().split('T')[0],
         symbol: 'Initial Capital',
         netPnL: 0,
-        tradingPnL: Math.round(effectiveBaseCapital * 100) / 100
+        tradingPnL: Math.round(startingCapital * 100) / 100
       }];
     }
 
@@ -615,7 +632,7 @@ export function Dashboard({
           date: allFyTrades[0]?.date || new Date().toISOString().split('T')[0],
           symbol: 'Initial Capital',
           netPnL: 0,
-          tradingPnL: Math.round(effectiveBaseCapital * 100) / 100
+          tradingPnL: Math.round(startingCapital * 100) / 100
         },
         ...curvePoints
       ];
@@ -631,7 +648,7 @@ export function Dashboard({
     const priorPoints = curvePoints.filter(pt => pt.date < cutoffStr);
     const startingCapitalForRange = priorPoints.length > 0 
       ? priorPoints[priorPoints.length - 1].tradingPnL 
-      : effectiveBaseCapital;
+      : startingCapital;
 
     return [
       {
@@ -1448,15 +1465,15 @@ export function Dashboard({
             <span>🏆 Best / Worst Days</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '2px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>🟩 BEST DAY</span>
-              <strong style={{ fontSize: '0.78rem', color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '4px' }}>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>🟩 BEST DAY</span>
+              <strong style={{ fontSize: '0.72rem', color: 'var(--color-win)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
                 {bestDay.pnl > 0 ? `${bestDay.date} (${isPnlVisible ? formatCurrency(bestDay.pnl) : '••••'})` : 'N/A'}
               </strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>🟥 WORST DAY</span>
-              <strong style={{ fontSize: '0.78rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '4px' }}>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>🟥 WORST DAY</span>
+              <strong style={{ fontSize: '0.72rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
                 {worstDay.pnl < 0 ? `${worstDay.date} (${isPnlVisible ? formatCurrency(worstDay.pnl) : '••••'})` : 'N/A'}
               </strong>
             </div>
