@@ -19,7 +19,7 @@ export function Dashboard({
 }) {
   const { 
     trades: allTrades, 
-    investments, 
+    investments: allInvestments, 
     isPnlVisible, 
     togglePnlVisibility, 
     weeklyRetrospectives, 
@@ -29,10 +29,15 @@ export function Dashboard({
     userName,
     userAvatar,
     brokerAccounts,
-    capitalAdjustments,
+    capitalAdjustments: allAdjustments,
     noTradeDays,
     toggleNoTradeDay
   } = useTradeStore();
+
+  const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
+  const activeTrades = allTrades.filter(t => t.brokerAccountId && activeAccountIds.includes(t.brokerAccountId));
+  const capitalAdjustments = allAdjustments.filter(a => !a.brokerAccountId || activeAccountIds.includes(a.brokerAccountId));
+  const investments = allInvestments.filter(i => !i.brokerAccountId || activeAccountIds.includes(i.brokerAccountId));
   
   const [selectedBroker, setSelectedBroker] = useState<string>('All');
   const [showCombined, setShowCombined] = useState(false);
@@ -54,7 +59,7 @@ export function Dashboard({
       const isNseHoliday = !!OFFLINE_NSE_HOLIDAYS[dateStr];
       
       if (!isWeekend && !isNseHoliday) {
-        const hasTrade = allTrades.some(t => t.date === dateStr);
+        const hasTrade = activeTrades.some(t => t.date === dateStr);
         const hasAdjustment = capitalAdjustments.some(a => a.date === dateStr);
         const isNoTradeDay = noTradeDays.includes(dateStr);
         
@@ -94,7 +99,7 @@ export function Dashboard({
     const startYear = parseInt(match[1], 10);
     const startStr = `${startYear}-04-01`;
 
-    const priorTradesPnL = allTrades
+    const priorTradesPnL = activeTrades
       .filter((t) => t.date < startStr && (activeAccountId === 'Combined' ? true : t.brokerAccountId === activeAccountId))
       .reduce((acc, t) => acc + t.netPnL, 0);
 
@@ -111,7 +116,7 @@ export function Dashboard({
   const activeBaseCapital = getStartingCapitalForActiveFY();
   const effectiveBaseCapital = activeBaseCapital || brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0) || capitalAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + a.amount, 0) || 1;
 
-  const rawTradesByFY = filterTradesByFY(allTrades, selectedFY).filter((t) => {
+  const rawTradesByFY = filterTradesByFY(activeTrades, selectedFY).filter((t) => {
     const isImported = t.strategy === 'Auto Imported' || 
                        t.broker === 'Kotak Neo' || 
                        (t.notes && t.notes.toLowerCase().includes('imported'));

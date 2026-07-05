@@ -135,11 +135,11 @@ export default function App() {
 
 
   const { 
-    trades, 
+    trades: allTrades, 
     baseCapital, 
     theme, 
     toggleTheme,
-    capitalAdjustments,
+    capitalAdjustments: allAdjustments,
     sessionUser,
     setSessionUser,
     signOutUser,
@@ -150,9 +150,14 @@ export default function App() {
     brokerAccounts,
     selectedFY,
     setSelectedFY,
-    investments,
+    investments: allInvestments,
     syncAllInvestmentPrices
   } = useTradeStore();
+
+  const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
+  const trades = allTrades.filter(t => t.brokerAccountId && activeAccountIds.includes(t.brokerAccountId));
+  const capitalAdjustments = allAdjustments.filter(a => !a.brokerAccountId || activeAccountIds.includes(a.brokerAccountId));
+  const investments = allInvestments.filter(i => !i.brokerAccountId || activeAccountIds.includes(i.brokerAccountId));
 
   const filteredTrades = activeAccountId === 'Combined'
     ? trades
