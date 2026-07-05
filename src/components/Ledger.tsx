@@ -824,6 +824,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                     <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
                       <th style={{ padding: '8px' }}>Date</th>
                       <th style={{ padding: '8px' }}>Activity / Particulars</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Realized P&L</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Charges</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Net Impact</th>
                     </tr>
@@ -856,7 +857,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                       if (entries.length === 0) {
                         return (
                           <tr>
-                            <td colSpan={4} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
+                            <td colSpan={5} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
                               No activity (trades or capital flows) recorded in this month.
                             </td>
                           </tr>
@@ -865,6 +866,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
                       return entries.map(([day, stats]) => {
                         const netImpact = stats.net + stats.deposits - stats.withdrawals;
+                        const grossPnL = stats.net + stats.charges;
                         const particulars = [];
                         if (stats.count > 0) particulars.push(`${stats.count} Trades`);
                         if (stats.deposits > 0) particulars.push(`Deposit +${formatCurrency(stats.deposits)}`);
@@ -876,6 +878,9 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                             <td style={{ padding: '8px' }}>
                               {particulars.join(' | ')}
                             </td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: stats.count > 0 ? (grossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)') : 'var(--text-muted)' }}>
+                               {stats.count > 0 ? (isPnlVisible ? `${grossPnL >= 0 ? '+' : ''}${formatCurrency(grossPnL)}` : '••••') : '-'}
+                             </td>
                             <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-muted)' }}>
                               {stats.count > 0 ? (isPnlVisible ? formatCurrency(stats.charges) : '••••') : '-'}
                             </td>

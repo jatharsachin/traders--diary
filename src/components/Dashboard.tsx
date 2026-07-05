@@ -1642,6 +1642,7 @@ export function Dashboard({
                 fontSize={11} 
                 tickLine={false} 
                 axisLine={false} 
+                domain={['dataMin - 10000', 'auto']}
                 tickFormatter={(value) => {
                   const absVal = Math.abs(value);
                   if (absVal >= 100000) {
