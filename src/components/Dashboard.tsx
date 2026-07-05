@@ -159,12 +159,32 @@ export function Dashboard({
   const realizedInvReturns = exitedInvestments.reduce((acc, inv) => acc + (((inv.exitPrice || 0) - inv.buyPrice) * inv.qty), 0);
   const totalInvReturns = activeReturns + realizedInvReturns;
 
+  // Get deposits and withdrawals during the selected FY period
+  const currentPeriodAdjustments = capitalAdjustments.filter((a) => {
+    const matchesAccount = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
+    if (!matchesAccount) return false;
+    if (selectedFY === 'All') return true;
+    const match = selectedFY.match(/FY (\d{4})/);
+    if (!match) return true;
+    const startYear = parseInt(match[1], 10);
+    const startStr = `${startYear}-04-01`;
+    const endStr = `${startYear + 1}-03-31`;
+    return a.date >= startStr && a.date <= endStr;
+  });
+
+  const periodDeposits = currentPeriodAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const periodWithdrawals = currentPeriodAdjustments.filter(a => a.type === 'WITHDRAWAL').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const netPeriodAdjustments = periodDeposits - periodWithdrawals;
+
+  // Deployed capital is effectiveBaseCapital (starting capital at start of FY) + net deposits during FY
+  const activeDeployedCapital = Math.max(1, effectiveBaseCapital + netPeriodAdjustments);
+
   // Combined calculations using activeBaseCapital
   const displayNetPnL = showCombined ? (totalNetPnL + totalInvReturns) : totalNetPnL;
-  const displayBaseCapital = showCombined ? (effectiveBaseCapital + totalInvInvested) : effectiveBaseCapital;
+  const displayBaseCapital = showCombined ? (activeDeployedCapital + totalInvInvested) : activeDeployedCapital;
 
-  const tradingReturnPct = (totalNetPnL / effectiveBaseCapital) * 100;
-  const combinedReturnPct = (effectiveBaseCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (effectiveBaseCapital + totalInvInvested)) * 100 : 0;
+  const tradingReturnPct = (totalNetPnL / activeDeployedCapital) * 100;
+  const combinedReturnPct = (activeDeployedCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (activeDeployedCapital + totalInvInvested)) * 100 : 0;
 
   const grossProfit = trades.reduce((acc, t) => (t.netPnL > 0 ? acc + t.netPnL : acc), 0);
   const grossLoss = Math.abs(trades.reduce((acc, t) => (t.netPnL < 0 ? acc + t.netPnL : acc), 0));
@@ -511,7 +531,7 @@ export function Dashboard({
   };
 
   const maxDDRupees = calculateMaxDrawdown();
-  const maxDDPct = (maxDDRupees / effectiveBaseCapital) * 100;
+  const maxDDPct = (maxDDRupees / activeDeployedCapital) * 100;
 
   // Win Days calculation
   const dailyPnL: Record<string, number> = {};
@@ -575,7 +595,7 @@ export function Dashboard({
 
   // Sharpe Ratio
   const calculateSharpeRatio = () => {
-    const dailyReturns = daysList.map((d) => d / effectiveBaseCapital);
+    const dailyReturns = daysList.map((d) => d / activeDeployedCapital);
     if (dailyReturns.length === 0) return 0;
 
     const dailyRf = 0.06 / 252;
@@ -861,7 +881,7 @@ export function Dashboard({
     const pnl6M = getPnLForDays(180);
     const pnl1Y = getPnLForDays(365);
 
-    const cap = effectiveBaseCapital || 1;
+    const cap = activeDeployedCapital || 1;
 
     return {
       '1M': { pnl: pnl1M, pct: (pnl1M / cap) * 100 },
