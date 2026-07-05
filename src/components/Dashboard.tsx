@@ -584,38 +584,64 @@ export function Dashboard({
     return (isNegative ? '-' : '') + formatter.format(absVal);
   };
   const getEquityCurveData = () => {
-    let filteredTrades = [...sortedTrades];
+    const allFyTrades = [...sortedTrades];
+    let cumulative = effectiveBaseCapital;
 
-    if (timeRange !== 'All') {
-      const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
-      const days = daysMap[timeRange as keyof typeof daysMap];
-      const cutoff = new Date(anchorDate);
-      cutoff.setDate(cutoff.getDate() - days);
-      const cutoffStr = cutoff.toISOString().split('T')[0];
-      filteredTrades = sortedTrades.filter(t => t.date >= cutoffStr);
-    }
-
-    let cumulativeTrading = effectiveBaseCapital;
-    const curve = filteredTrades.map((t, index) => {
-      cumulativeTrading += t.netPnL;
+    const curvePoints = allFyTrades.map((t, index) => {
+      cumulative += t.netPnL;
       return {
         tradeIndex: index + 1,
         date: t.date,
         symbol: t.symbol,
         netPnL: t.netPnL,
-        tradingPnL: Math.round(cumulativeTrading * 100) / 100
+        tradingPnL: Math.round(cumulative * 100) / 100
       };
     });
 
-    return [
-      { 
-        tradeIndex: 0, 
-        date: filteredTrades[0] ? filteredTrades[0].date : 'Start', 
-        symbol: 'Start', 
-        netPnL: 0, 
+    if (curvePoints.length === 0) {
+      return [{
+        tradeIndex: 0,
+        date: new Date().toISOString().split('T')[0],
+        symbol: 'Initial Capital',
+        netPnL: 0,
         tradingPnL: Math.round(effectiveBaseCapital * 100) / 100
-      }, 
-      ...curve
+      }];
+    }
+
+    if (timeRange === 'All') {
+      return [
+        {
+          tradeIndex: 0,
+          date: allFyTrades[0]?.date || new Date().toISOString().split('T')[0],
+          symbol: 'Initial Capital',
+          netPnL: 0,
+          tradingPnL: Math.round(effectiveBaseCapital * 100) / 100
+        },
+        ...curvePoints
+      ];
+    }
+
+    const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
+    const days = daysMap[timeRange as keyof typeof daysMap];
+    const cutoff = new Date(anchorDate);
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    const filteredPoints = curvePoints.filter(pt => pt.date >= cutoffStr);
+    const priorPoints = curvePoints.filter(pt => pt.date < cutoffStr);
+    const startingCapitalForRange = priorPoints.length > 0 
+      ? priorPoints[priorPoints.length - 1].tradingPnL 
+      : effectiveBaseCapital;
+
+    return [
+      {
+        tradeIndex: 0,
+        date: cutoffStr,
+        symbol: 'Range Start',
+        netPnL: 0,
+        tradingPnL: Math.round(startingCapitalForRange * 100) / 100
+      },
+      ...filteredPoints
     ];
   };
 
