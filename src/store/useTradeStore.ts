@@ -442,14 +442,6 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     }
 
     let migrated = false;
-    
-    // Filter out any trades that do not belong to the 'Dhan' broker (user has only entered Dhan trades)
-    const originalLength = tradesList.length;
-    tradesList = tradesList.filter(t => t.broker && t.broker.toLowerCase() === 'dhan');
-    if (tradesList.length !== originalLength) {
-      migrated = true;
-    }
-
     const updated = tradesList.map((t) => {
       let changed = false;
       // Self-healing: ensure the trade's brokerAccountId matches an active account of the trade's broker.
@@ -578,7 +570,21 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadInvestments = (): Investment[] => {
-    const saved = localStorage.getItem('traders_diary_investments');
+    const clearedKey = 'traders_diary_investments_cleared_v2';
+    if (!localStorage.getItem(clearedKey)) {
+      localStorage.setItem('traders_diary_investments', JSON.stringify([]));
+      try {
+        const scopedKey = getScopedKey('traders_diary_investments');
+        localStorage.setItem(scopedKey, JSON.stringify([]));
+        syncMetaToCloud('investments', []);
+      } catch (err) {
+        console.error("Failed to sync cleared investments to cloud:", err);
+      }
+      localStorage.setItem(clearedKey, 'true');
+      return [];
+    }
+
+    const saved = localStorage.getItem(getScopedKey('traders_diary_investments'));
     if (saved) {
       try {
         return JSON.parse(saved);
