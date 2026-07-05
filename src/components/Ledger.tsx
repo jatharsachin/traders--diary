@@ -1013,7 +1013,20 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                            </span>
                          ) : 'Unknown Bank'}
                        </td>
-                      <td style={{ padding: '8px', color: 'var(--primary)' }}>{tx.category}</td>
+                      <td style={{ padding: '8px' }}>
+                        <div style={{ color: 'var(--primary)', fontWeight: 550 }}>{tx.category}</div>
+                        {tx.brokerAccountId && (() => {
+                          const brokerAcc = brokerAccounts.find(a => a.id === tx.brokerAccountId);
+                          if (!brokerAcc) return null;
+                          return (
+                            <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>{isInflow ? '📥 from' : '📤 to'}</span> 
+                              <strong>{brokerAcc.broker}</strong> 
+                              <span style={{ opacity: 0.6 }}>({brokerAcc.accountName})</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td style={{ padding: '8px' }}>
                         <span 
                           className="badge" 

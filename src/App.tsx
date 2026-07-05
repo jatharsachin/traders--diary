@@ -570,7 +570,7 @@ export default function App() {
               )}
             </div>
 
-            {/* User account info & logout action */}
+            {/* User account info card */}
             <div 
               onClick={() => setIsProfileSettingsOpen(true)}
               style={{ 
@@ -614,28 +614,33 @@ export default function App() {
               <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
                 {userName || 'Sachin'}
               </strong>
-              <span style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }}></span>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (window.confirm('Are you sure you want to log out of your trading journal?')) {
-                    signOutUser();
-                  }
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--color-loss)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '2px'
-                }}
-                title="Log Out"
-              >
-                <LogOut size={15} />
-              </button>
             </div>
+
+            {/* Standalone Logout Action Button */}
+            <button 
+              onClick={() => {
+                if (window.confirm('Are you sure you want to log out of your trading journal?')) {
+                  signOutUser();
+                }
+              }}
+              className="btn btn-secondary"
+              style={{ 
+                width: '48px', 
+                height: '48px', 
+                padding: 0, 
+                borderRadius: '12px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                color: 'var(--color-loss)',
+                flexShrink: 0
+              }}
+              title="Log Out"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
 
