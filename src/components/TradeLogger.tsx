@@ -84,6 +84,15 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const [lotSizeInput, setLotSizeInput] = useState<string>('65');
   const [underlyingIndex, setUnderlyingIndex] = useState<string>('NIFTY');
 
+  // Spread / Multi-Leg States
+  const [isMultiLeg, setIsMultiLeg] = useState(false);
+  const [leg2Action, setLeg2Action] = useState<TradeAction>('BUY');
+  const [leg2Strike, setLeg2Strike] = useState<number>(0);
+  const [leg2OptionType, setLeg2OptionType] = useState<'CE' | 'PE' | 'None'>('CE');
+  const [leg2EntryPrice, setLeg2EntryPrice] = useState<number>(0);
+  const [leg2ExitPrice, setLeg2ExitPrice] = useState<number>(0);
+  const [leg2Symbol, setLeg2Symbol] = useState<string>('');
+
   const prevSymbolPrefixRef = useRef('');
 
   const [manualBrokerageText, setManualBrokerageText] = useState<string>('0');
@@ -260,6 +269,13 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       } else {
         setUnderlyingIndex('NIFTY');
       }
+      setIsMultiLeg(false);
+      setLeg2Action('BUY');
+      setLeg2Strike(0);
+      setLeg2OptionType('CE');
+      setLeg2EntryPrice(0);
+      setLeg2ExitPrice(0);
+      setLeg2Symbol('');
     }
   }, [editTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
 
@@ -357,6 +373,22 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       }
     }
   }, [underlyingIndex, formData.strikePrice, formData.optionType, formData.segment, isOpen]);
+
+  // Sync Leg 2's Option Type with Leg 1 by default
+  useEffect(() => {
+    if (isMultiLeg) {
+      setLeg2OptionType(formData.optionType);
+    }
+  }, [formData.optionType, isMultiLeg]);
+
+  // Dynamic Leg 2 Symbol Generation
+  useEffect(() => {
+    if (formData.segment === 'F&O' && leg2Strike > 0 && leg2OptionType !== 'None' && isOpen) {
+      setLeg2Symbol(`${underlyingIndex} ${leg2Strike} ${leg2OptionType}`);
+    } else {
+      setLeg2Symbol('');
+    }
+  }, [underlyingIndex, leg2Strike, leg2OptionType, formData.segment, isOpen]);
 
   // Real-time auto-calculation of charges & taxes
   useEffect(() => {
@@ -480,17 +512,40 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     setError('');
 
     // Validations
-    if (!formData.symbol.trim()) {
-      setError('Please enter a valid Trading Symbol.');
-      return;
-    }
-    if (formData.qty <= 0) {
-      setError('Quantity must be greater than zero.');
-      return;
-    }
-    if (formData.entryPrice <= 0 || formData.exitPrice <= 0) {
-      setError('Prices must be greater than zero.');
-      return;
+    if (isMultiLeg) {
+      if (formData.qty <= 0) {
+        setError('Quantity must be greater than zero.');
+        return;
+      }
+      if (formData.entryPrice <= 0 || formData.exitPrice <= 0) {
+        setError('Leg 1 prices must be greater than zero.');
+        return;
+      }
+      if (leg2EntryPrice <= 0 || leg2ExitPrice <= 0) {
+        setError('Leg 2 prices must be greater than zero.');
+        return;
+      }
+      if (!leg2Strike) {
+        setError('Please enter Leg 2 Strike Price.');
+        return;
+      }
+      if (!formData.strikePrice) {
+        setError('Please enter Leg 1 Strike Price.');
+        return;
+      }
+    } else {
+      if (!formData.symbol.trim()) {
+        setError('Please enter a valid Trading Symbol.');
+        return;
+      }
+      if (formData.qty <= 0) {
+        setError('Quantity must be greater than zero.');
+        return;
+      }
+      if (formData.entryPrice <= 0 || formData.exitPrice <= 0) {
+        setError('Prices must be greater than zero.');
+        return;
+      }
     }
 
     // Validate that trade date falls within the selected Financial Year
@@ -513,19 +568,47 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       .filter((tag) => tag.length > 0)
       .map((tag) => (tag.startsWith('#') ? tag : `#${tag}`));
 
-    const finalTradeData = {
-      ...formData,
-      exitDate: formData.product === 'Delivery' ? (formData.exitDate || formData.date) : formData.date,
-      tags: parsedTags,
-    };
+    if (isMultiLeg) {
+      const finalTradeData = {
+        ...formData,
+        exitDate: formData.date,
+        tags: [...parsedTags, '#spread_leg1', '#hedged'],
+      };
 
-    if (editTradeId) {
-      if (!window.confirm('Are you sure you want to update this trade log?')) return;
-      editTrade(editTradeId, finalTradeData);
-    } else {
-      if (!window.confirm('Are you sure you want to log this trade?')) return;
+      const finalTrade2Data = {
+        ...formData,
+        id: crypto.randomUUID ? crypto.randomUUID() : `trade-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        action: leg2Action,
+        strikePrice: leg2Strike,
+        optionType: leg2OptionType,
+        symbol: leg2Symbol,
+        entryPrice: leg2EntryPrice,
+        exitPrice: leg2ExitPrice,
+        exitDate: formData.date,
+        tags: [...parsedTags, '#spread_leg2', '#hedge_leg', '#hedged'],
+        notes: (formData.notes ? formData.notes + ' ' : '') + `(Hedge Leg for ${formData.symbol})`,
+      };
+
+      if (!window.confirm('Are you sure you want to log both spread legs?')) return;
+      
       addTrade(finalTradeData);
+      addTrade(finalTrade2Data);
+    } else {
+      const finalTradeData = {
+        ...formData,
+        exitDate: formData.product === 'Delivery' ? (formData.exitDate || formData.date) : formData.date,
+        tags: parsedTags,
+      };
+
+      if (editTradeId) {
+        if (!window.confirm('Are you sure you want to update this trade log?')) return;
+        editTrade(editTradeId, finalTradeData);
+      } else {
+        if (!window.confirm('Are you sure you want to log this trade?')) return;
+        addTrade(finalTradeData);
+      }
     }
+    
     localStorage.removeItem('traders_diary_draft_trade');
     onClose();
   };
@@ -646,165 +729,454 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
             </div>
 
             {/* Conditionally Render F&O Options Fields */}
+            {/* Conditionally Render F&O Options Fields */}
             {formData.segment === 'F&O' && (
+              <>
+                {/* Spread Mode Toggle (Only for new logs) */}
+                {!editTradeId && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(59, 130, 246, 0.05)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.15)', marginBottom: '16px' }}>
+                    <input 
+                      type="checkbox" 
+                      id="isMultiLeg" 
+                      checked={isMultiLeg} 
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setIsMultiLeg(checked);
+                        if (checked) {
+                          setFormData(prev => ({ ...prev, action: 'SELL' }));
+                          setLeg2Action('BUY');
+                        }
+                      }} 
+                      style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="isMultiLeg" style={{ fontSize: '0.8rem', fontWeight: 650, color: 'var(--text-main)', cursor: 'pointer', userSelect: 'none' }}>
+                      🛡️ Hedged Spread Mode (Log Entry & Hedge Leg at once)
+                    </label>
+                  </div>
+                )}
+
+                {/* Underlying Index Selection */}
+                <div 
+                  className="grid-logger-fo"
+                  style={{ 
+                    background: 'rgba(59, 130, 246, 0.03)',
+                    border: '1px solid rgba(59, 130, 246, 0.08)',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '16px',
+                    marginBottom: '16px'
+                  }}
+                >
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ color: 'var(--primary)', fontWeight: 600 }}>Underlying Index</label>
+                    <select
+                      value={underlyingIndex}
+                      onChange={(e) => {
+                        const idx = e.target.value;
+                        setUnderlyingIndex(idx);
+                        let defaultLot = 1;
+                        if (idx === 'NIFTY') defaultLot = 65;
+                        else if (idx === 'BANKNIFTY') defaultLot = 15;
+                        else if (idx === 'FINNIFTY') defaultLot = 25;
+                        else if (idx === 'MIDCPNIFTY') defaultLot = 50;
+                        else if (idx === 'SENSEX') defaultLot = 10;
+                        else if (idx === 'BANKEX') defaultLot = 15;
+                        setLotSizeInput(defaultLot.toString());
+                        
+                        const currentLots = parseFloat(lotsInput);
+                        if (!isNaN(currentLots) && currentLots >= 0) {
+                          setFormData(prev => ({ ...prev, qty: Math.round(currentLots * defaultLot) }));
+                        } else if (formData.qty > 0) {
+                          setLotsInput((formData.qty / defaultLot).toString());
+                        }
+                      }}
+                      className="form-select"
+                      style={{ borderColor: 'var(--primary-glow)' }}
+                    >
+                      <option value="NIFTY">NIFTY (Lot: 65)</option>
+                      <option value="BANKNIFTY">BANKNIFTY (Lot: 15)</option>
+                      <option value="FINNIFTY">FINNIFTY (Lot: 25)</option>
+                      <option value="MIDCPNIFTY">MIDCPNIFTY (Lot: 50)</option>
+                      <option value="SENSEX">SENSEX (Lot: 10)</option>
+                      <option value="BANKEX">BANKEX (Lot: 15)</option>
+                    </select>
+                  </div>
+
+                  {!isMultiLeg && (
+                    <>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ color: 'var(--primary)' }}>Strike Price</label>
+                        <input
+                          type="number"
+                          name="strikePrice"
+                          value={formData.strikePrice || ''}
+                          onChange={handleChange}
+                          placeholder="e.g. 22400"
+                          className="form-input"
+                          style={{ borderColor: 'var(--primary-glow)' }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ color: 'var(--primary)' }}>Option Type</label>
+                        <select
+                          name="optionType"
+                          value={formData.optionType}
+                          onChange={handleChange}
+                          className="form-select"
+                          style={{ borderColor: 'var(--primary-glow)' }}
+                        >
+                          <option value="None">Futures / None</option>
+                          <option value="CE">CE (Call Option)</option>
+                          <option value="PE">PE (Put Option)</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {isMultiLeg && (
+                    <>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ color: '#bf5af2', fontWeight: 650 }}>Lots</label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={lotsInput}
+                          onChange={(e) => handleLotsChange(e.target.value)}
+                          placeholder="e.g. 2"
+                          className="form-input"
+                          style={{ borderColor: 'rgba(191, 87, 242, 0.2)' }}
+                          required
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ color: '#bf5af2', fontWeight: 650 }}>Total Quantity</label>
+                        <input
+                          type="number"
+                          name="qty"
+                          value={formData.qty}
+                          onChange={handleChange}
+                          className="form-input"
+                          style={{ borderColor: 'rgba(191, 87, 242, 0.2)' }}
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {isMultiLeg && (
+                  /* Two leg side-by-side card layout */
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    {/* Leg 1 Card */}
+                    <div className="glass-card" style={{ padding: '16px', background: formData.action === 'BUY' ? 'rgba(52, 211, 153, 0.04)' : 'rgba(239, 68, 68, 0.04)', border: formData.action === 'BUY' ? '1px solid rgba(52, 211, 153, 0.15)' : '1px solid rgba(239, 68, 68, 0.15)' }}>
+                      <h4 style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Leg 1: Selling/Main Leg</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formData.symbol || 'NIFTY CE'}</span>
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Action</label>
+                            <select
+                              name="action"
+                              value={formData.action}
+                              onChange={handleChange}
+                              className="form-select"
+                              style={{ color: formData.action === 'BUY' ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 600 }}
+                            >
+                              <option value="BUY">BUY / Long</option>
+                              <option value="SELL">SELL / Short</option>
+                            </select>
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Option Type</label>
+                            <select
+                              name="optionType"
+                              value={formData.optionType}
+                              onChange={handleChange}
+                              className="form-select"
+                            >
+                              <option value="CE">CE</option>
+                              <option value="PE">PE</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">Strike Price</label>
+                          <input
+                            type="number"
+                            name="strikePrice"
+                            value={formData.strikePrice || ''}
+                            onChange={handleChange}
+                            placeholder="e.g. 22400"
+                            className="form-input"
+                            required
+                          />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Entry Price</label>
+                            <input
+                              type="number"
+                              name="entryPrice"
+                              value={formData.entryPrice || ''}
+                              onChange={handleChange}
+                              step="0.05"
+                              placeholder="0.00"
+                              className="form-input"
+                              required
+                            />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Exit Price</label>
+                            <input
+                              type="number"
+                              name="exitPrice"
+                              value={formData.exitPrice || ''}
+                              onChange={handleChange}
+                              step="0.05"
+                              placeholder="0.00"
+                              className="form-input"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Leg 2 Card */}
+                    <div className="glass-card" style={{ padding: '16px', background: leg2Action === 'BUY' ? 'rgba(52, 211, 153, 0.04)' : 'rgba(239, 68, 68, 0.04)', border: leg2Action === 'BUY' ? '1px solid rgba(52, 211, 153, 0.15)' : '1px solid rgba(239, 68, 68, 0.15)' }}>
+                      <h4 style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Leg 2: Hedge Leg</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{leg2Symbol || 'NIFTY CE'}</span>
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Action</label>
+                            <select
+                              value={leg2Action}
+                              onChange={(e) => setLeg2Action(e.target.value as TradeAction)}
+                              className="form-select"
+                              style={{ color: leg2Action === 'BUY' ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 600 }}
+                            >
+                              <option value="BUY">BUY / Long</option>
+                              <option value="SELL">SELL / Short</option>
+                            </select>
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Option Type</label>
+                            <select
+                              value={leg2OptionType}
+                              onChange={(e) => setLeg2OptionType(e.target.value as 'CE' | 'PE' | 'None')}
+                              className="form-select"
+                            >
+                              <option value="CE">CE</option>
+                              <option value="PE">PE</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">Strike Price</label>
+                          <input
+                            type="number"
+                            value={leg2Strike || ''}
+                            onChange={(e) => setLeg2Strike(parseFloat(e.target.value) || 0)}
+                            placeholder="e.g. 22500"
+                            className="form-input"
+                            required
+                          />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Entry Price</label>
+                            <input
+                              type="number"
+                              value={leg2EntryPrice || ''}
+                              onChange={(e) => setLeg2EntryPrice(parseFloat(e.target.value) || 0)}
+                              step="0.05"
+                              placeholder="0.00"
+                              className="form-input"
+                              required
+                            />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Exit Price</label>
+                            <input
+                              type="number"
+                              value={leg2ExitPrice || ''}
+                              onChange={(e) => setLeg2ExitPrice(parseFloat(e.target.value) || 0)}
+                              step="0.05"
+                              placeholder="0.00"
+                              className="form-input"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Grid 2: Symbol & Broker & Product & Action */}
+            {!isMultiLeg && (
               <div 
-                className="grid-logger-fo"
                 style={{ 
-                  background: 'rgba(59, 130, 246, 0.04)',
-                  border: '1px solid rgba(59, 130, 246, 0.1)',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '16px',
-                  marginBottom: '16px'
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
+                  gap: '16px', 
+                  marginBottom: '16px' 
                 }}
               >
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: 'var(--primary)', fontWeight: 600 }}>Underlying Index</label>
-                  <select
-                    value={underlyingIndex}
-                    onChange={(e) => {
-                      const idx = e.target.value;
-                      setUnderlyingIndex(idx);
-                      let defaultLot = 1;
-                      if (idx === 'NIFTY') defaultLot = 65;
-                      else if (idx === 'BANKNIFTY') defaultLot = 15;
-                      else if (idx === 'FINNIFTY') defaultLot = 25;
-                      else if (idx === 'MIDCPNIFTY') defaultLot = 50;
-                      else if (idx === 'SENSEX') defaultLot = 10;
-                      else if (idx === 'BANKEX') defaultLot = 15;
-                      setLotSizeInput(defaultLot.toString());
-                      
-                      const currentLots = parseFloat(lotsInput);
-                      if (!isNaN(currentLots) && currentLots >= 0) {
-                        setFormData(prev => ({ ...prev, qty: Math.round(currentLots * defaultLot) }));
-                      } else if (formData.qty > 0) {
-                        setLotsInput((formData.qty / defaultLot).toString());
-                      }
-                    }}
-                    className="form-select"
-                    style={{ borderColor: 'var(--primary-glow)' }}
-                  >
-                    <option value="NIFTY">NIFTY (Lot: 65)</option>
-                    <option value="BANKNIFTY">BANKNIFTY (Lot: 15)</option>
-                    <option value="FINNIFTY">FINNIFTY (Lot: 25)</option>
-                    <option value="MIDCPNIFTY">MIDCPNIFTY (Lot: 50)</option>
-                    <option value="SENSEX">SENSEX (Lot: 10)</option>
-                    <option value="BANKEX">BANKEX (Lot: 15)</option>
-                  </select>
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: 'var(--primary)' }}>Strike Price</label>
+                  <label className="form-label">Symbol / Ticker</label>
                   <input
-                    type="number"
-                    name="strikePrice"
-                    value={formData.strikePrice || ''}
+                    type="text"
+                    name="symbol"
+                    value={formData.symbol}
                     onChange={handleChange}
-                    placeholder="e.g. 22400"
+                    placeholder="e.g. NIFTY 22400 CE"
                     className="form-input"
-                    style={{ borderColor: 'var(--primary-glow)' }}
+                    required
                   />
                 </div>
+
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: 'var(--primary)' }}>Option Type</label>
+                  <label className="form-label">Active Account</label>
                   <select
-                    name="optionType"
-                    value={formData.optionType}
+                    name="brokerAccountId"
+                    value={formData.brokerAccountId}
+                    onChange={(e) => {
+                      const accId = e.target.value;
+                      const matched = brokerAccounts.find(a => a.id === accId);
+                      setFormData(prev => ({
+                        ...prev,
+                        brokerAccountId: accId,
+                        broker: matched ? matched.broker : 'Other'
+                      }));
+                    }}
+                    className="form-select"
+                  >
+                    {brokerAccounts.filter(a => a.active).map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.accountName} ({acc.broker})
+                      </option>
+                    ))}
+                    {formData.brokerAccountId && !brokerAccounts.find(a => a.id === formData.brokerAccountId) && (
+                      <option value={formData.brokerAccountId}>
+                        {formData.broker} Account (Inactive)
+                      </option>
+                    )}
+                    {brokerAccounts.length === 0 && <option value="">Other / Direct</option>}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Product</label>
+                  <select
+                    name="product"
+                    value={formData.product}
                     onChange={handleChange}
                     className="form-select"
-                    style={{ borderColor: 'var(--primary-glow)' }}
                   >
-                    <option value="None">Futures / None</option>
-                    <option value="CE">CE (Call Option)</option>
-                    <option value="PE">PE (Put Option)</option>
+                    <option value="Intraday">Intraday</option>
+                    <option value="Delivery">Delivery</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Action</label>
+                  <select
+                    name="action"
+                    value={formData.action}
+                    onChange={handleChange}
+                    className="form-select"
+                    style={{
+                      color: formData.action === 'BUY' ? 'var(--color-win)' : 'var(--color-loss)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <option value="BUY" style={{ color: 'var(--color-win)' }}>BUY / Long</option>
+                    <option value="SELL" style={{ color: 'var(--color-loss)' }}>SELL / Short</option>
                   </select>
                 </div>
               </div>
             )}
 
-            {/* Grid 2: Symbol & Broker & Product & Action */}
-            <div 
-              style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
-                gap: '16px', 
-                marginBottom: '16px' 
-              }}
-            >
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Symbol / Ticker</label>
-                <input
-                  type="text"
-                  name="symbol"
-                  value={formData.symbol}
-                  onChange={handleChange}
-                  placeholder="e.g. NIFTY 22400 CE"
-                  className="form-input"
-                  required
-                />
-              </div>
+            {isMultiLeg && (
+              /* Shared details for multi-leg mode */
+              <div 
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '1fr 1fr 1fr', 
+                  gap: '16px', 
+                  marginBottom: '16px' 
+                }}
+              >
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Active Account</label>
+                  <select
+                    name="brokerAccountId"
+                    value={formData.brokerAccountId}
+                    onChange={(e) => {
+                      const accId = e.target.value;
+                      const matched = brokerAccounts.find(a => a.id === accId);
+                      setFormData(prev => ({
+                        ...prev,
+                        brokerAccountId: accId,
+                        broker: matched ? matched.broker : 'Other'
+                      }));
+                    }}
+                    className="form-select"
+                  >
+                    {brokerAccounts.filter(a => a.active).map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.accountName} ({acc.broker})
+                      </option>
+                    ))}
+                    {formData.brokerAccountId && !brokerAccounts.find(a => a.id === formData.brokerAccountId) && (
+                      <option value={formData.brokerAccountId}>
+                        {formData.broker} Account (Inactive)
+                      </option>
+                    )}
+                    {brokerAccounts.length === 0 && <option value="">Other / Direct</option>}
+                  </select>
+                </div>
 
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Active Account</label>
-                <select
-                  name="brokerAccountId"
-                  value={formData.brokerAccountId}
-                  onChange={(e) => {
-                    const accId = e.target.value;
-                    const matched = brokerAccounts.find(a => a.id === accId);
-                    setFormData(prev => ({
-                      ...prev,
-                      brokerAccountId: accId,
-                      broker: matched ? matched.broker : 'Other'
-                    }));
-                  }}
-                  className="form-select"
-                >
-                  {brokerAccounts.filter(a => a.active).map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.accountName} ({acc.broker})
-                    </option>
-                  ))}
-                  {formData.brokerAccountId && !brokerAccounts.find(a => a.id === formData.brokerAccountId) && (
-                    <option value={formData.brokerAccountId}>
-                      {formData.broker} Account (Inactive)
-                    </option>
-                  )}
-                  {brokerAccounts.length === 0 && <option value="">Other / Direct</option>}
-                </select>
-              </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Product</label>
+                  <select
+                    name="product"
+                    value={formData.product}
+                    onChange={handleChange}
+                    className="form-select"
+                  >
+                    <option value="Intraday">Intraday</option>
+                    <option value="Delivery">Delivery</option>
+                  </select>
+                </div>
 
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Product</label>
-                <select
-                  name="product"
-                  value={formData.product}
-                  onChange={handleChange}
-                  className="form-select"
-                >
-                  <option value="Intraday">Intraday</option>
-                  <option value="Delivery">Delivery</option>
-                </select>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Slippage (Pts)</label>
+                  <input
+                    type="number"
+                    name="slippagePoints"
+                    value={formData.slippagePoints}
+                    onChange={handleChange}
+                    step="0.05"
+                    className="form-input"
+                  />
+                </div>
               </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Action</label>
-                <select
-                  name="action"
-                  value={formData.action}
-                  onChange={handleChange}
-                  className="form-select"
-                  style={{
-                    color: formData.action === 'BUY' ? 'var(--color-win)' : 'var(--color-loss)',
-                    fontWeight: 600,
-                  }}
-                >
-                  <option value="BUY" style={{ color: 'var(--color-win)' }}>BUY / Long</option>
-                  <option value="SELL" style={{ color: 'var(--color-loss)' }}>SELL / Short</option>
-                </select>
-              </div>
-            </div>
+            )}
 
             {/* Quick Auto-Fill Index Option Tags */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -877,7 +1249,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
             )}
 
             {/* Conditionally Render F&O Lot Calculator */}
-            {formData.segment === 'F&O' && (
+            {formData.segment === 'F&O' && !isMultiLeg && (
               <div 
                 className="grid-logger-fo" 
                 style={{ 
@@ -931,90 +1303,91 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
             )}
 
             {/* Grid 3: Trade Execution Numbers */}
-            <div 
-              style={{ 
-                display: 'grid', 
-                gridTemplateColumns: formData.segment === 'F&O' ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)', 
-                gap: '16px', 
-                marginBottom: '16px' 
-              }}
-            >
-              {formData.segment !== 'F&O' && (
+            {!isMultiLeg && (
+              <div 
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: formData.segment === 'F&O' ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)', 
+                  gap: '16px', 
+                  marginBottom: '16px' 
+                }}
+              >
+                {formData.segment !== 'F&O' && (
+                  <div className="form-group">
+                    <label className="form-label">Qty</label>
+                    <input
+                      type="number"
+                      name="qty"
+                      value={formData.qty}
+                      onChange={handleChange}
+                      min="1"
+                      className="form-input"
+                      style={usePartialExits ? { background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)', cursor: 'not-allowed' } : {}}
+                      required
+                      disabled={usePartialExits}
+                    />
+                  </div>
+                )}
                 <div className="form-group">
-                  <label className="form-label">Qty</label>
+                  <label className="form-label">Entry Price</label>
                   <input
                     type="number"
-                    name="qty"
-                    value={formData.qty}
-                    onChange={handleChange}
-                    min="1"
-                    className="form-input"
-                    style={usePartialExits ? { background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)', cursor: 'not-allowed' } : {}}
-                    required
-                    disabled={usePartialExits}
-                  />
-                </div>
-              )}
-              <div className="form-group">
-                <label className="form-label">Entry Price</label>
-                <input
-                  type="number"
-                  name="entryPrice"
-                  value={formData.entryPrice || ''}
-                  onChange={handleChange}
-                  step="0.05"
-                  placeholder="0.00"
-                  className="form-input"
-                  required
-                />
-              </div>
-              <div className="form-group" style={{ position: 'relative' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label className="form-label">Exit Price</label>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      const active = !usePartialExits;
-                      setUsePartialExits(active);
-                      if (active && partialExits.length === 1 && partialExits[0].qty === 0) {
-                        // Pre-populate with current qty & exitPrice to make toggle smooth
-                        setPartialExits([{ id: '1', qty: formData.qty || 0, price: formData.exitPrice || 0, time: formData.exitTime || new Date().toTimeString().slice(0, 5) }]);
-                      }
-                    }}
-                    style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: '0.72rem', cursor: 'pointer', padding: 0 }}
-                  >
-                    {usePartialExits ? "← Single Exit" : "+ Partial Exits"}
-                  </button>
-                </div>
-                {!usePartialExits ? (
-                  <input
-                    type="number"
-                    name="exitPrice"
-                    value={formData.exitPrice || ''}
+                    name="entryPrice"
+                    value={formData.entryPrice || ''}
                     onChange={handleChange}
                     step="0.05"
                     placeholder="0.00"
                     className="form-input"
                     required
                   />
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', height: '36px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 10px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    Avg: ₹{formData.exitPrice || '0.00'} (Calc)
+                </div>
+                <div className="form-group" style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className="form-label">Exit Price</label>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const active = !usePartialExits;
+                        setUsePartialExits(active);
+                        if (active && partialExits.length === 1 && partialExits[0].qty === 0) {
+                          setPartialExits([{ id: '1', qty: formData.qty || 0, price: formData.exitPrice || 0, time: formData.exitTime || new Date().toTimeString().slice(0, 5) }]);
+                        }
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: '0.72rem', cursor: 'pointer', padding: 0 }}
+                    >
+                      {usePartialExits ? "← Single Exit" : "+ Partial Exits"}
+                    </button>
                   </div>
-                )}
+                  {!usePartialExits ? (
+                    <input
+                      type="number"
+                      name="exitPrice"
+                      value={formData.exitPrice || ''}
+                      onChange={handleChange}
+                      step="0.05"
+                      placeholder="0.00"
+                      className="form-input"
+                      required
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', height: '36px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 10px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      Avg: ₹{formData.exitPrice || '0.00'} (Calc)
+                    </div>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Slippage (Pts)</label>
+                  <input
+                    type="number"
+                    name="slippagePoints"
+                    value={formData.slippagePoints}
+                    onChange={handleChange}
+                    step="0.05"
+                    className="form-input"
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">Slippage (Pts)</label>
-                <input
-                  type="number"
-                  name="slippagePoints"
-                  value={formData.slippagePoints}
-                  onChange={handleChange}
-                  step="0.05"
-                  className="form-input"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Partial Exits Legs Row list */}
             {usePartialExits && (
