@@ -87,9 +87,9 @@ export function Dashboard({
     let startCap = 0;
     if (activeAccountId !== 'Combined') {
       const acc = brokerAccounts.find(a => a.id === activeAccountId);
-      startCap = acc ? acc.startingCapital : 0;
+      startCap = acc ? (Number(acc.startingCapital) || 0) : 0;
     } else {
-      startCap = brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0);
+      startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
     }
 
     if (selectedFY === 'All') return startCap;
@@ -117,10 +117,10 @@ export function Dashboard({
   
   // Calculate effectiveBaseCapital with proper individual/combined fallbacks
   const fallbackCapital = activeAccountId === 'Combined'
-    ? brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + a.startingCapital, 0)
-    : (brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0);
+    ? brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0)
+    : (Number(brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital) || 0);
 
-  const effectiveBaseCapital = activeBaseCapital || fallbackCapital || 1;
+  const effectiveBaseCapital = (Number(activeBaseCapital) || Number(fallbackCapital) || 1);
 
   const rawTradesByFY = filterTradesByFY(activeTrades, selectedFY).filter((t) => {
     const isImported = t.strategy === 'Auto Imported' || 
