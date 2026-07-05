@@ -667,25 +667,92 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       {activeLedgerTab === 'broker' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* Header Month Carry Forward */}
-          <div className="glass-card" style={{ padding: '12px 16px', background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Carry Forward Balance</span>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>
-                {isPnlVisible ? formatCurrency(startingBalanceOfMonth) : '••••'}
-              </h3>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ledger Month</span>
-              <strong style={{ display: 'block', fontSize: '0.85rem', color: 'var(--primary)' }}>
-                {(() => {
-                  const parts = selectedMonthStr.split('-');
-                  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
-                  return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-                })()}
-              </strong>
-            </div>
-          </div>
+          {/* Header Month Carry Forward & Summary Bar */}
+          {(() => {
+            const monthlyTrades = trades.filter(t => t.date.substring(0, 7) === selectedMonthStr);
+            const monthlyAdjustments = capitalAdjustments.filter(a => a.date.substring(0, 7) === selectedMonthStr);
+
+            const monthlyCharges = monthlyTrades.reduce((sum, t) => sum + (t.brokerage + t.taxes), 0);
+            const monthlyNetTrades = monthlyTrades.reduce((sum, t) => sum + t.netPnL, 0);
+            const monthlyGrossPnL = monthlyNetTrades + monthlyCharges;
+
+            const monthlyDeposits = monthlyAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + a.amount, 0);
+            const monthlyWithdrawals = monthlyAdjustments.filter(a => a.type === 'WITHDRAWAL').reduce((sum, a) => sum + a.amount, 0);
+
+            const monthlyNetImpact = monthlyNetTrades + monthlyDeposits - monthlyWithdrawals;
+            const closingBalanceOfMonth = startingBalanceOfMonth + monthlyNetImpact;
+
+            const ledgerMonthLabel = (() => {
+              const parts = selectedMonthStr.split('-');
+              const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+              return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+            })();
+
+            return (
+              <div className="glass-card" style={{ padding: '12px 16px', background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Top Row: Ledger Month Info */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    📊 {ledgerMonthLabel} Monthly Summary
+                  </span>
+                  <span className="badge badge-primary-subtle" style={{ fontSize: '0.65rem', padding: '1px 6px', textTransform: 'none' }}>
+                    {selectedBrokerFilter === 'All' ? 'All Brokers Combined' : selectedBrokerFilter}
+                  </span>
+                </div>
+
+                {/* Bottom Row: 5 Stats Columns */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  {/* Col 1 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Carry Forward</span>
+                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
+                      {isPnlVisible ? formatCurrency(startingBalanceOfMonth) : '••••'}
+                    </strong>
+                  </div>
+
+                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
+
+                  {/* Col 2 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Realized Gross P&L</span>
+                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: monthlyGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                      {isPnlVisible ? `${monthlyGrossPnL >= 0 ? '+' : ''}${formatCurrency(monthlyGrossPnL)}` : '••••'}
+                    </strong>
+                  </div>
+
+                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
+
+                  {/* Col 3 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Charges</span>
+                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: 'var(--color-loss)' }}>
+                      {isPnlVisible ? `-${formatCurrency(monthlyCharges)}` : '-••••'}
+                    </strong>
+                  </div>
+
+                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
+
+                  {/* Col 4 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Net Impact</span>
+                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: monthlyNetImpact >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                      {isPnlVisible ? `${monthlyNetImpact >= 0 ? '+' : ''}${formatCurrency(monthlyNetImpact)}` : '••••'}
+                    </strong>
+                  </div>
+
+                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
+
+                  {/* Col 5 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Closing Balance</span>
+                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: closingBalanceOfMonth >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                      {isPnlVisible ? formatCurrency(closingBalanceOfMonth) : '••••'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Table list */}
           <div className="glass-card" style={{ padding: '20px', overflowX: 'auto' }}>
