@@ -570,7 +570,7 @@ export function Dashboard({
       filteredTrades = sortedTrades.filter(t => t.date >= cutoffStr);
     }
 
-    let cumulativeTrading = 0;
+    let cumulativeTrading = effectiveBaseCapital;
     const curve = filteredTrades.map((t, index) => {
       cumulativeTrading += t.netPnL;
       return {
@@ -588,7 +588,7 @@ export function Dashboard({
         date: filteredTrades[0] ? filteredTrades[0].date : 'Start', 
         symbol: 'Start', 
         netPnL: 0, 
-        tradingPnL: 0
+        tradingPnL: Math.round(effectiveBaseCapital * 100) / 100
       }, 
       ...curve
     ];
@@ -1607,7 +1607,7 @@ export function Dashboard({
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ height: '3px', width: '20px', background: '#76c73c', borderRadius: '2px', display: 'inline-block' }}></span>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-              Cumulative Net P&L (Manual Logs)
+              Capital Equity Curve (Manual Logs)
             </span>
           </div>
         </div>
@@ -1645,9 +1645,9 @@ export function Dashboard({
                 tickFormatter={(value) => {
                   const absVal = Math.abs(value);
                   if (absVal >= 100000) {
-                    return `${value >= 0 ? '+' : '-'}${(absVal / 100000).toFixed(1).replace(/\.0$/, '')}L`;
+                    return `${(value / 100000).toFixed(1).replace(/\.0$/, '')}L`;
                   }
-                  return `${value >= 0 ? '+' : ''}${value === 0 ? '0' : Math.round(value).toLocaleString('en-IN')}`;
+                  return value === 0 ? '0' : Math.round(value).toLocaleString('en-IN');
                 }} 
               />
               <Tooltip 
