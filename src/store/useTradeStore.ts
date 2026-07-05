@@ -444,10 +444,18 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     let migrated = false;
     const updated = tradesList.map((t) => {
       let changed = false;
-      if (!t.brokerAccountId) {
-        const matched = accountsList.find(a => a.broker === t.broker);
-        t.brokerAccountId = matched ? matched.id : (accountsList[0]?.id || 'acc-1');
-        changed = true;
+      // Self-healing: ensure the trade's brokerAccountId matches an active account of the trade's broker.
+      // This fixes cases where imports happened before a broker account was created and were assigned a fallback.
+      const currentAccount = accountsList.find(a => a.id === t.brokerAccountId);
+      if (!t.brokerAccountId || !currentAccount || currentAccount.broker !== t.broker) {
+        const matched = accountsList.find(a => a.broker === t.broker && a.active);
+        if (matched) {
+          t.brokerAccountId = matched.id;
+          changed = true;
+        } else if (!t.brokerAccountId) {
+          t.brokerAccountId = accountsList[0]?.id || 'acc-1';
+          changed = true;
+        }
       }
       
       // Auto-detect optionType from symbol if it is missing/None for F&O
