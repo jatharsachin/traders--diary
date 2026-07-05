@@ -176,28 +176,17 @@ const checkIfExpiryDay = (symbol: string, dateStr: string): boolean => {
   const d = new Date(year, month, day);
   const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday
 
-  // Midcap Nifty & Bankex expire on Monday weekly/monthly
-  if (sym.includes('MIDCPNIFTY') || sym.includes('BANKEX')) {
-    return dayOfWeek === 1;
-  }
-  // Finnifty expires on Tuesday
-  if (sym.includes('FINNIFTY')) {
-    return dayOfWeek === 2;
-  }
-  // Banknifty: Weekly option contracts expire on Wednesday, Monthly contracts expire on Thursday
-  if (sym.includes('BANKNIFTY')) {
-    return dayOfWeek === 3 || dayOfWeek === 4;
-  }
-  // Nifty weekly & monthly expire on Thursday
-  if (sym.includes('NIFTY')) {
-    return dayOfWeek === 4;
-  }
-  // Sensex expires on Friday weekly
-  if (sym.includes('SENSEX')) {
-    return dayOfWeek === 5;
+  // 1. NSE indices (Nifty, Bank Nifty, Finnifty, Midcap Nifty) expire on Tuesday
+  if (sym.includes('NIFTY') || sym.includes('BANKNIFTY') || sym.includes('FINNIFTY') || sym.includes('MIDCPNIFTY')) {
+    return dayOfWeek === 2; // Tuesday
   }
 
-  // Stock options expire on the last Thursday of the month
+  // 2. BSE indices (Sensex, Bankex) expire on Thursday
+  if (sym.includes('SENSEX') || sym.includes('BANKEX')) {
+    return dayOfWeek === 4; // Thursday
+  }
+
+  // 3. Stock options expire on the last Thursday of the month
   if (dayOfWeek === 4) {
     const nextWeek = new Date(year, month, day + 7);
     return nextWeek.getMonth() !== month;
@@ -470,11 +459,12 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         }
       }
       
-      // Recalculate durationMinutes if missing, NaN, or to update old records
+      // Recalculate durationMinutes and expiryDay if missing, NaN, or to update old records
       const config = t.brokerAccountId ? DEFAULT_BROKER_CHARGES.find(c => c.broker === accountsList.find(a => a.id === t.brokerAccountId)?.broker) : undefined;
       const computed = computeTradeCalculations(t, config);
-      if (t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes)) {
+      if (t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes) || t.isExpiryDay !== computed.isExpiryDay) {
         t.durationMinutes = computed.durationMinutes;
+        t.isExpiryDay = computed.isExpiryDay;
         changed = true;
       }
       
