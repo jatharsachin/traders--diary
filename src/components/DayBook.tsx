@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
   CalendarRange, Printer, Eye, EyeOff, Edit2
@@ -28,26 +28,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   const [endDate, setEndDate] = useState<string>(todayStr);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
-  // Whenever selectedFY changes, adapt the start and end dates to fit that FY
-  useEffect(() => {
-    if (selectedFY && selectedFY !== 'All') {
-      const match = selectedFY.match(/FY (\d{4})/);
-      if (match) {
-        const startYear = parseInt(match[1], 10);
-        const endYear = startYear + 1;
-        setStartDate(`${startYear}-04-01`);
-        setEndDate(`${endYear}-03-31`);
-      }
-    } else {
-      const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(today.getDate() - 7);
-      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
-      setStartDate(sevenDaysAgoStr);
-      setEndDate(todayStr);
-    }
-  }, [selectedFY]);
+
 
   const { minDate, maxDate } = (() => {
     if (selectedFY && selectedFY !== 'All') {
