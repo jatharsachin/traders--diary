@@ -494,6 +494,21 @@ h1, h2, h3, h4 {
   grid-column: span 2;
 }
 
+.metric-card-large .metric-title {
+  font-size: 0.88rem;
+  margin-bottom: 6px;
+}
+
+.metric-card-large .metric-value {
+  font-size: 1.95rem;
+  margin-bottom: 6px;
+}
+
+.metric-card-large .metric-subtext {
+  font-size: 0.78rem;
+  font-weight: 550;
+}
+
 @media (max-width: 1024px) {
   .metrics-grid {
     grid-template-columns: repeat(2, 1fr);
