@@ -598,7 +598,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                             ) : (
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '8px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                                  {/* Row 1: Time + Action + Symbol + Type Badge + Broker */}
+                                  {/* Row 1: Unified details on a single line */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 550 }}>⏱️ {item.time}</span>
                                     <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
@@ -615,6 +615,24 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                                         }}>{item.label}</span>
                                         <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>{item.symbol}</strong>
                                         <span style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-dim)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.62rem' }}>{item.typeLabel}</span>
+                                        
+                                        <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+                                        
+                                        <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+                                          Qty: <strong style={{ color: 'var(--text-main)' }}>{item.qty}</strong> @ <strong style={{ color: 'var(--text-main)' }}>₹{item.entryPrice}</strong>
+                                        </span>
+                                        
+                                        <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+                                        
+                                        <span style={{ background: 'rgba(96, 165, 250, 0.08)', color: '#60a5fa', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
+                                          🎯 {item.strategy}
+                                        </span>
+                                        {item.mistake && item.mistake !== 'None' && (
+                                          <span style={{ background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
+                                            ⚠️ {item.mistake}
+                                          </span>
+                                        )}
+                                        
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', marginLeft: 'auto' }}>via {item.broker}</span>
                                       </>
                                     ) : (
@@ -633,24 +651,6 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                                       </>
                                     )}
                                   </div>
-
-                                  {/* Row 2: Structured Details */}
-                                  {item.type === 'TRADE' && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
-                                      <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
-                                        Qty: <strong style={{ color: 'var(--text-main)' }}>{item.qty}</strong> @ <strong style={{ color: 'var(--text-main)' }}>₹{item.entryPrice}</strong>
-                                      </span>
-                                      <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
-                                      <span style={{ background: 'rgba(96, 165, 250, 0.08)', color: '#60a5fa', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
-                                        🎯 {item.strategy}
-                                      </span>
-                                      {item.mistake && item.mistake !== 'None' && (
-                                        <span style={{ background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
-                                          ⚠️ {item.mistake}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
 
                                   {/* Row 3: Notes description block */}
                                   {item.rawNotes && item.rawNotes.trim() !== '' && (
