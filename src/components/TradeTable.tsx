@@ -11,11 +11,65 @@ interface TradeTableProps {
 }
 
 export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
-  const { trades: allTrades, deleteTrade, setups, isPnlVisible, selectedFY, activeBrokers } = useTradeStore();
+  const { 
+    trades: allTrades, 
+    deleteTrade, 
+    setups, 
+    isPnlVisible, 
+    selectedFY, 
+    activeBrokers,
+    investments: allInvestments,
+    brokerAccounts
+  } = useTradeStore();
+
+  const purchaseItems = allInvestments.map(i => ({
+    id: `${i.id}-buy`,
+    date: i.date,
+    exitDate: i.status === 'EXITED' ? i.exitDate : undefined,
+    entryTime: '09:15',
+    exitTime: i.status === 'EXITED' ? '15:30' : '09:15',
+    durationMinutes: 0,
+    symbol: i.symbol,
+    broker: i.broker || 'System',
+    brokerAccountId: i.brokerAccountId,
+    segment: i.type, // e.g. BOND, ETF, EQUITY
+    product: 'Investment',
+    action: 'BUY' as const,
+    qty: i.qty,
+    entryPrice: i.buyPrice,
+    exitPrice: i.status === 'EXITED' ? i.exitPrice! : 0,
+    grossPnL: i.status === 'EXITED' ? i.qty * (i.exitPrice! - i.buyPrice) : 0,
+    brokerage: 0,
+    taxes: 0,
+    netPnL: i.status === 'EXITED' ? i.qty * (i.exitPrice! - i.buyPrice) : 0,
+    strategy: 'None',
+    mistake: 'None',
+    setupType: 'None',
+    notes: i.notes || '',
+    isInvestment: true,
+    emotion: 'Neutral',
+    roi: 0,
+    actualRR: 0,
+    isExpiryDay: false,
+    tags: [] as string[]
+  }));
+
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
-  const trades = activeAccountId === 'Combined' 
+  const fyInvestments = filterTradesByFY(purchaseItems as any, selectedFY) as any[];
+
+  const tradesFiltered = activeAccountId === 'Combined' 
     ? fyTrades 
     : fyTrades.filter(t => t.brokerAccountId === activeAccountId);
+
+  const investmentsFiltered = activeAccountId === 'Combined'
+    ? fyInvestments
+    : fyInvestments.filter(i => {
+        if (i.brokerAccountId === activeAccountId) return true;
+        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+        return activeAcc ? i.broker === activeAcc.broker : false;
+      });
+
+  const trades = [...tradesFiltered, ...investmentsFiltered];
   
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
@@ -65,7 +119,7 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
     const matchesStrategy = selectedStrategy === 'All' || trade.strategy === selectedStrategy;
     const matchesMistake = selectedMistake === 'All' || trade.mistake === selectedMistake;
     const matchesSetupType = selectedSetupType === 'All' || trade.setupType === selectedSetupType;
-    const matchesTag = !selectedTag.trim() || (trade.tags && trade.tags.some(tag => tag.toLowerCase().includes(selectedTag.trim().toLowerCase())));
+    const matchesTag = !selectedTag.trim() || (trade.tags && trade.tags.some((tag: string) => tag.toLowerCase().includes(selectedTag.trim().toLowerCase())));
     const matchesBroker = selectedBroker === 'All' || trade.broker === selectedBroker;
 
     return matchesSearch && matchesSegment && matchesAction && matchesStrategy && matchesMistake && matchesSetupType && matchesTag && matchesBroker;
@@ -356,9 +410,11 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
             {selectedRowId ? (
               (() => {
                 const tr = trades.find(t => t.id === selectedRowId);
-                return tr 
-                  ? `Selected: ${tr.date} - ${tr.symbol} (${tr.action}) | P&L: ${isPnlVisible ? formatCurrency(tr.netPnL) : '••••'}`
-                  : 'Selected Row'
+                if (!tr) return 'Selected Row';
+                if ((tr as any).isInvestment) {
+                  return `Selected Investment: ${tr.date} - ${tr.symbol} (${tr.action}) | Note: Please edit/delete this in the Investments tab.`;
+                }
+                return `Selected: ${tr.date} - ${tr.symbol} (${tr.action}) | P&L: ${isPnlVisible ? formatCurrency(tr.netPnL) : '••••'}`;
               })()
             ) : (
               '💡 Click on any trade row in the list below to select it, then use this toolbar to Edit or Delete.'
@@ -367,49 +423,56 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
         </div>
         
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!selectedRowId}
-            onClick={() => {
-              if (selectedRowId) {
-                onEditTrade(selectedRowId);
-              }
-            }}
-            style={{ 
-              padding: '6px 12px', 
-              fontSize: '0.75rem',
-              height: '30px', 
-              opacity: selectedRowId ? 1 : 0.4, 
-              cursor: selectedRowId ? 'pointer' : 'not-allowed',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <Edit2 size={12} />
-            <span>Edit Log</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-danger"
-            disabled={!selectedRowId}
-            onClick={() => {
-              if (selectedRowId) {
-                if (window.confirm('Are you sure you want to delete this selected trade log?')) {
-                  deleteTrade(selectedRowId);
-                  setSelectedRowId(null);
-                }
-              }
-            }}
-            style={{ 
-              padding: '6px 12px', 
-              fontSize: '0.75rem',
-              height: '30px', 
-              opacity: selectedRowId ? 1 : 0.4, 
-              cursor: selectedRowId ? 'pointer' : 'not-allowed',
-              color: '#fff',
-              background: 'var(--color-loss)',
+          {(() => {
+            const selectedTrade = trades.find(t => t.id === selectedRowId);
+            const isSelectedInvestment = !!(selectedTrade as any)?.isInvestment;
+            return (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!selectedRowId || isSelectedInvestment}
+                  onClick={() => {
+                    if (selectedRowId && !isSelectedInvestment) {
+                      onEditTrade(selectedRowId);
+                    }
+                  }}
+                  title={isSelectedInvestment ? "Investment logs must be edited in the Investments tab" : undefined}
+                  style={{ 
+                    padding: '6px 12px', 
+                    fontSize: '0.75rem',
+                    height: '30px', 
+                    opacity: (selectedRowId && !isSelectedInvestment) ? 1 : 0.4, 
+                    cursor: (selectedRowId && !isSelectedInvestment) ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Edit2 size={12} />
+                  <span>Edit Log</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  disabled={!selectedRowId || isSelectedInvestment}
+                  onClick={() => {
+                    if (selectedRowId && !isSelectedInvestment) {
+                      if (window.confirm('Are you sure you want to delete this selected trade log?')) {
+                        deleteTrade(selectedRowId);
+                        setSelectedRowId(null);
+                      }
+                    }
+                  }}
+                  title={isSelectedInvestment ? "Investment logs must be deleted in the Investments tab" : undefined}
+                  style={{ 
+                    padding: '6px 12px', 
+                    fontSize: '0.75rem',
+                    height: '30px', 
+                    opacity: (selectedRowId && !isSelectedInvestment) ? 1 : 0.4, 
+                    cursor: (selectedRowId && !isSelectedInvestment) ? 'pointer' : 'not-allowed',
+                    color: '#fff',
+                    background: 'var(--color-loss)',
               border: 'none',
               borderRadius: '6px',
               display: 'flex',
@@ -420,6 +483,9 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
             <Trash2 size={12} />
             <span>Delete Log</span>
           </button>
+              </>
+            );
+          })()}
           {selectedRowId && (
             <button
               type="button"
@@ -688,7 +754,7 @@ export function TradeTable({ onEditTrade, activeAccountId }: TradeTableProps) {
                       </div>
                       {trade.tags && trade.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                          {trade.tags.map((t) => (
+                          {trade.tags.map((t: string) => (
                             <span 
                               key={t} 
                               className="badge" 
