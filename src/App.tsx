@@ -176,10 +176,14 @@ export default function App() {
   const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
   const currentCapital = filteredBaseCapital + totalNetPnL + totalDeposits - totalWithdrawals;
 
+  const totalInvInvested = investments
+    .filter(i => i.status === 'ACTIVE' || !(i as any).status)
+    .reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+
   const totalInvCurrent = investments
     .filter(i => i.status === 'ACTIVE' || !(i as any).status)
     .reduce((sum, i) => sum + (i.qty * (i.currentPrice || i.buyPrice)), 0);
-  const combinedWealth = currentCapital + totalInvCurrent;
+  const combinedWealth = currentCapital - totalInvInvested + totalInvCurrent;
 
 
   // Dynamic Alert / Notification Center calculations

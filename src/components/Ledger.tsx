@@ -950,24 +950,31 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   </thead>
                   <tbody>
                     {(() => {
-                      const daysMap: Record<string, { count: number; charges: number; net: number; deposits: number; withdrawals: number }> = {};
+                      const daysMap: Record<string, { count: number; charges: number; tradingNet: number; deposits: number; withdrawals: number; investmentPurchases: number; investmentSales: number }> = {};
                       
-                      const monthlyTrades = trades.filter(t => t.date.substring(0, 7) === selectedMonthStr);
-                      const monthlyAdjustments = capitalAdjustments.filter(a => a.date.substring(0, 7) === selectedMonthStr);
+                      const monthlyItems = detailedLedger.filter(item => item.date.substring(0, 7) === selectedMonthStr);
 
-                      monthlyTrades.forEach(t => {
-                        if (!daysMap[t.date]) daysMap[t.date] = { count: 0, charges: 0, net: 0, deposits: 0, withdrawals: 0 };
-                        daysMap[t.date].count += 1;
-                        daysMap[t.date].charges += (t.brokerage + t.taxes);
-                        daysMap[t.date].net += t.netPnL;
-                      });
-
-                      monthlyAdjustments.forEach(a => {
-                        if (!daysMap[a.date]) daysMap[a.date] = { count: 0, charges: 0, net: 0, deposits: 0, withdrawals: 0 };
-                        if (a.type === 'DEPOSIT') {
-                          daysMap[a.date].deposits += a.amount;
+                      monthlyItems.forEach(item => {
+                        if (!daysMap[item.date]) {
+                          daysMap[item.date] = { count: 0, charges: 0, tradingNet: 0, deposits: 0, withdrawals: 0, investmentPurchases: 0, investmentSales: 0 };
+                        }
+                        if (item.isInvestment) {
+                          if (item.type === 'DEBIT') {
+                            daysMap[item.date].investmentPurchases += Math.abs(item.netPnL);
+                          } else {
+                            daysMap[item.date].investmentSales += item.netPnL;
+                          }
+                        } else if (item.isAdjustment) {
+                          if (item.type === 'CREDIT') {
+                            daysMap[item.date].deposits += item.netPnL;
+                          } else {
+                            daysMap[item.date].withdrawals += Math.abs(item.netPnL);
+                          }
                         } else {
-                          daysMap[a.date].withdrawals += a.amount;
+                          // Trade log
+                          daysMap[item.date].count += 1;
+                          daysMap[item.date].charges += item.charges;
+                          daysMap[item.date].tradingNet += item.netPnL;
                         }
                       });
                       
@@ -984,12 +991,14 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                       }
 
                       return entries.map(([day, stats]) => {
-                        const netImpact = stats.net + stats.deposits - stats.withdrawals;
-                        const grossPnL = stats.net + stats.charges;
+                        const netImpact = stats.tradingNet + stats.deposits - stats.withdrawals - stats.investmentPurchases + stats.investmentSales;
+                        const grossPnL = stats.tradingNet + stats.charges;
                         const particulars = [];
                         if (stats.count > 0) particulars.push(`${stats.count} Trades`);
                         if (stats.deposits > 0) particulars.push(`Deposit +${formatCurrency(stats.deposits)}`);
                         if (stats.withdrawals > 0) particulars.push(`Withdrawal -${formatCurrency(stats.withdrawals)}`);
+                        if (stats.investmentPurchases > 0) particulars.push(`Invested -${formatCurrency(stats.investmentPurchases)}`);
+                        if (stats.investmentSales > 0) particulars.push(`Invested Exited +${formatCurrency(stats.investmentSales)}`);
 
                         return (
                           <tr key={day} style={{ borderBottom: '1px solid var(--border-color)' }}>
