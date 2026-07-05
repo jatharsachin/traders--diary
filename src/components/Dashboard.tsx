@@ -108,6 +108,7 @@ export function Dashboard({
   };
 
   const activeBaseCapital = getStartingCapitalForActiveFY();
+  const effectiveBaseCapital = activeBaseCapital || brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0) || capitalAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + a.amount, 0) || 1;
 
   const rawTradesByFY = filterTradesByFY(allTrades, selectedFY).filter((t) => {
     const isImported = t.strategy === 'Auto Imported' || 
@@ -148,10 +149,10 @@ export function Dashboard({
 
   // Combined calculations using activeBaseCapital
   const displayNetPnL = showCombined ? (totalNetPnL + totalInvReturns) : totalNetPnL;
-  const displayBaseCapital = showCombined ? (activeBaseCapital + totalInvInvested) : activeBaseCapital;
+  const displayBaseCapital = showCombined ? (effectiveBaseCapital + totalInvInvested) : effectiveBaseCapital;
 
-  const tradingReturnPct = activeBaseCapital > 0 ? (totalNetPnL / activeBaseCapital) * 100 : 0;
-  const combinedReturnPct = (activeBaseCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (activeBaseCapital + totalInvInvested)) * 100 : 0;
+  const tradingReturnPct = (totalNetPnL / effectiveBaseCapital) * 100;
+  const combinedReturnPct = (effectiveBaseCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (effectiveBaseCapital + totalInvInvested)) * 100 : 0;
 
   const grossProfit = trades.reduce((acc, t) => (t.netPnL > 0 ? acc + t.netPnL : acc), 0);
   const grossLoss = Math.abs(trades.reduce((acc, t) => (t.netPnL < 0 ? acc + t.netPnL : acc), 0));
@@ -271,7 +272,7 @@ export function Dashboard({
   // Options Holding Details
   const optionTrades = trades.filter((t) => t.segment === 'F&O' && t.optionType && t.optionType !== 'None');
   const avgOptionDuration = optionTrades.length > 0
-    ? optionTrades.reduce((acc, t) => acc + t.durationMinutes, 0) / optionTrades.length
+    ? optionTrades.reduce((acc, t) => acc + (t.durationMinutes || 0), 0) / optionTrades.length
     : 0;
 
   // GitHub-style Trading Heatmap calculations
@@ -467,7 +468,7 @@ export function Dashboard({
   };
 
   const maxDDRupees = calculateMaxDrawdown();
-  const maxDDPct = (maxDDRupees / activeBaseCapital) * 100;
+  const maxDDPct = (maxDDRupees / effectiveBaseCapital) * 100;
 
   // Win Days calculation
   const dailyPnL: Record<string, number> = {};
@@ -498,7 +499,7 @@ export function Dashboard({
 
   // Sharpe Ratio
   const calculateSharpeRatio = () => {
-    const dailyReturns = daysList.map((d) => d / activeBaseCapital);
+    const dailyReturns = daysList.map((d) => d / effectiveBaseCapital);
     if (dailyReturns.length === 0) return 0;
 
     const dailyRf = 0.06 / 252;
