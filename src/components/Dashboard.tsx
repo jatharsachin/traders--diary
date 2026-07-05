@@ -1265,8 +1265,8 @@ export function Dashboard({
       {/* Grid 1: Key Performance Indicators */}
       <div className="metrics-grid">
         {/* KPI 1: Realized Net P&L */}
-        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ justifyContent: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '16px', flexWrap: 'nowrap' }}>
+        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '84px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '16px' }}>
             {/* Left Part: Net P&L Summary */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <div className="metric-title" style={{ margin: 0 }}>
@@ -1290,25 +1290,25 @@ export function Dashboard({
             </div>
 
             {/* Right Part: Detailed Breakdown Items */}
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'nowrap' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', flexShrink: 0 }}>
               {!showCombined ? (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 650, letterSpacing: '0.02em' }}>GROSS P&L:</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>GROSS P&L</span>
                     <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'}
                     </strong>
                   </div>
-                  <div style={{ width: '1px', height: '14px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 650, letterSpacing: '0.02em' }}>BROKERAGE:</span>
+                  <div style={{ width: '1px', height: '18px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>BROKERAGE</span>
                     <strong style={{ fontSize: '0.82rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalBrokerage) : '••••'}
                     </strong>
                   </div>
-                  <div style={{ width: '1px', height: '14px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 650, letterSpacing: '0.02em' }}>TAXES:</span>
+                  <div style={{ width: '1px', height: '18px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>TAXES & FEES</span>
                     <strong style={{ fontSize: '0.82rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
                     </strong>
@@ -1316,15 +1316,15 @@ export function Dashboard({
                 </>
               ) : (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 650, letterSpacing: '0.02em' }}>TRADING NET:</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>TRADING NET</span>
                     <strong style={{ fontSize: '0.82rem', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'}
                     </strong>
                   </div>
-                  <div style={{ width: '1px', height: '14px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 650, letterSpacing: '0.02em' }}>INV. RETURNS:</span>
+                  <div style={{ width: '1px', height: '18px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>INV. RETURNS</span>
                     <strong style={{ fontSize: '0.82rem', color: totalInvReturns >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}
                     </strong>
