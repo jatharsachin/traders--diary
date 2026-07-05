@@ -1222,8 +1222,8 @@ export function Dashboard({
         </div>
       )}
 
-      {/* Grid 1: Key Performance Indicators */}
-      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
+      {/* Grid 1: Key Performance Indicators (Row 1 - 5 Columns) */}
+      <div className="metrics-grid">
         {/* KPI 1: Realized Net P&L */}
         <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '84px', justifyContent: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '8px' }}>
@@ -1346,23 +1346,10 @@ export function Dashboard({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* KPI 5: Trade Volume Averages */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <TrendingUp size={16} color="var(--primary)" />
-            <span>Avg Trades (D/W/M)</span>
-          </div>
-          <div>
-            <div className="metric-value text-white" style={{ fontSize: '1.38rem', fontFamily: 'var(--font-mono)' }}>
-              {avgTradesPerDay.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerWeek.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerMonth.toFixed(1)}
-            </div>
-            <div className="metric-subtext">
-              Daily / Weekly / Monthly averages
-            </div>
-          </div>
-        </div>
-
+      {/* Grid 2: Key Performance Indicators (Row 2 - 6 Columns) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', marginBottom: '16px' }}>
         {/* Metric 1: Profit Factor */}
         <div className="glass-card metric-card">
           <div className="metric-title">
@@ -1430,7 +1417,7 @@ export function Dashboard({
         </div>
 
         {/* Metric 5: Best & Worst Days Card */}
-        <div className="glass-card metric-card" style={{ gridColumn: 'span 2' }}>
+        <div className="glass-card metric-card">
           <div className="metric-title" style={{ color: 'var(--text-muted)' }}>
             <span>🏆 Best / Worst Days</span>
           </div>
@@ -1446,6 +1433,22 @@ export function Dashboard({
               <strong style={{ fontSize: '0.78rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                 {worstDay.pnl < 0 ? `${worstDay.date} (${isPnlVisible ? formatCurrency(worstDay.pnl) : '••••'})` : 'N/A'}
               </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 5: Trade Volume Averages */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <TrendingUp size={16} color="var(--primary)" />
+            <span>Avg Trades (D/W/M)</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.38rem', fontFamily: 'var(--font-mono)' }}>
+              {avgTradesPerDay.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerWeek.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerMonth.toFixed(1)}
+            </div>
+            <div className="metric-subtext">
+              Daily / Weekly / Monthly averages
             </div>
           </div>
         </div>
