@@ -19,12 +19,12 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   } = useTradeStore();
 
   const todayStr = new Date().toISOString().split('T')[0];
-  // Default to past 7 days range
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+  // Default to past 30 days (1 month) range
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+  const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
 
-  const [startDate, setStartDate] = useState<string>(sevenDaysAgoStr);
+  const [startDate, setStartDate] = useState<string>(oneMonthAgoStr);
   const [endDate, setEndDate] = useState<string>(todayStr);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
