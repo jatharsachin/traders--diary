@@ -1197,9 +1197,9 @@ h1, h2, h3, h4 {
 
 /* Zebra striping for premium tables */
 .custom-table tbody tr:nth-child(even) td:not([rowspan]) {
-  background-color: rgba(255, 255, 255, 0.015) !important;
+  background-color: rgba(255, 255, 255, 0.025) !important;
 }
 
 :root.light .custom-table tbody tr:nth-child(even) td:not([rowspan]) {
-  background-color: rgba(0, 0, 0, 0.015) !important;
+  background-color: rgba(0, 0, 0, 0.035) !important;
 }
