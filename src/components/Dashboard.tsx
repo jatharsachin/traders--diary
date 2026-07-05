@@ -1232,31 +1232,72 @@ export function Dashboard({
       {/* Grid 1: Key Performance Indicators */}
       <div className="metrics-grid">
         {/* KPI 1: Realized Net P&L */}
-        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`}>
-          <div className="metric-title">
-            <IndianRupee size={16} style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }} />
-            <span>{showCombined ? 'Combined Wealth P&L' : 'Net Realized P&L'}</span>
-            {showCombined && (
-              <span className="badge badge-win" style={{ fontSize: '0.58rem', padding: '2px 6px', textTransform: 'none', marginLeft: 'auto' }}>
-                Combined
-              </span>
-            )}
-          </div>
-          <div>
-            <div 
-              className="metric-value" 
-              style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}
-            >
-              {isPnlVisible ? formatCurrency(displayNetPnL) : '••••'}
-              <span style={{ fontSize: '0.9rem', fontWeight: 550, marginLeft: '8px', color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                ({displayNetPnL >= 0 ? '+' : ''}{showCombined ? combinedReturnPct.toFixed(1) : tradingReturnPct.toFixed(1)}%)
-              </span>
+        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '80px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '16px', flexWrap: 'wrap' }}>
+            {/* Left Part: Net P&L Summary */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div className="metric-title" style={{ margin: 0 }}>
+                <IndianRupee size={15} style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }} />
+                <span>{showCombined ? 'Combined Wealth P&L' : 'Net Realized P&L'}</span>
+                {showCombined && (
+                  <span className="badge badge-win" style={{ fontSize: '0.55rem', padding: '1px 5px', textTransform: 'none', marginLeft: '6px' }}>
+                    Combined
+                  </span>
+                )}
+              </div>
+              <div 
+                className="metric-value" 
+                style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontSize: '1.95rem', margin: 0, display: 'flex', alignItems: 'baseline', gap: '6px' }}
+              >
+                {isPnlVisible ? formatCurrency(displayNetPnL) : '••••'}
+                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                  ({displayNetPnL >= 0 ? '+' : ''}{showCombined ? combinedReturnPct.toFixed(1) : tradingReturnPct.toFixed(1)}%)
+                </span>
+              </div>
             </div>
-            <div className="metric-subtext">
-              {showCombined 
-                ? `Trading Net: ${isPnlVisible ? formatCurrency(totalNetPnL) : '••••'} | Inv. Returns: ${isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}`
-                : `Gross P&L: ${isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'} | Brokerage: ${isPnlVisible ? formatCurrency(totalBrokerage) : '••••'} | Taxes & Fees: ${isPnlVisible ? formatCurrency(totalTaxes) : '••••'}`
-              }
+
+            {/* Right Part: Detailed Breakdown Items */}
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '6px 16px', borderRadius: '10px', border: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+              {!showCombined ? (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>GROSS P&L</span>
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'}
+                    </strong>
+                  </div>
+                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>BROKERAGE</span>
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalBrokerage) : '••••'}
+                    </strong>
+                  </div>
+                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>TAXES & FEES</span>
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
+                    </strong>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>TRADING NET</span>
+                    <strong style={{ fontSize: '0.88rem', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'}
+                    </strong>
+                  </div>
+                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.02em' }}>INV. RETURNS</span>
+                    <strong style={{ fontSize: '0.88rem', color: totalInvReturns >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}
+                    </strong>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
