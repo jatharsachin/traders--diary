@@ -1350,27 +1350,7 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* Nifty option trader quick warning */}
-      {optionTrades.length > 0 && (
-        <div 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '10px', 
-            background: 'var(--primary-glow)', 
-            border: '1px solid var(--border-color-active)',
-            padding: '14px 20px',
-            borderRadius: '12px',
-            fontSize: '0.85rem',
-            color: 'var(--text-main)'
-          }}
-        >
-          <Clock size={18} color="var(--primary)" />
-          <span>
-            <strong>Options Pulse Audit:</strong> Tracked <strong>{optionTrades.length} index options trades</strong>. Avg holding time is <strong>{avgOptionDuration.toFixed(1)} mins</strong>. Less than 15 minutes is healthy to prevent Theta decay.
-          </span>
-        </div>
-      )}
+
 
       {/* Grid 1: Key Performance Indicators (Row 1 - 5 Columns) */}
       <div className="metrics-grid">
