@@ -718,17 +718,13 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
           
           {/* Header Month Carry Forward & Summary Bar */}
           {(() => {
-            const monthlyTrades = trades.filter(t => t.date.substring(0, 7) === selectedMonthStr);
-            const monthlyAdjustments = capitalAdjustments.filter(a => a.date.substring(0, 7) === selectedMonthStr);
+            const monthlyItems = detailedLedger.filter(item => item.date.substring(0, 7) === selectedMonthStr);
 
-            const monthlyCharges = monthlyTrades.reduce((sum, t) => sum + (t.brokerage + t.taxes), 0);
-            const monthlyNetTrades = monthlyTrades.reduce((sum, t) => sum + t.netPnL, 0);
+            const monthlyCharges = monthlyItems.reduce((sum, item) => !item.isAdjustment && !item.isInvestment ? sum + item.charges : sum, 0);
+            const monthlyNetTrades = monthlyItems.reduce((sum, item) => !item.isAdjustment && !item.isInvestment ? sum + item.netPnL : sum, 0);
             const monthlyGrossPnL = monthlyNetTrades + monthlyCharges;
 
-            const monthlyDeposits = monthlyAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + a.amount, 0);
-            const monthlyWithdrawals = monthlyAdjustments.filter(a => a.type === 'WITHDRAWAL').reduce((sum, a) => sum + a.amount, 0);
-
-            const monthlyNetImpact = monthlyNetTrades + monthlyDeposits - monthlyWithdrawals;
+            const monthlyNetImpact = monthlyItems.reduce((sum, item) => sum + item.netPnL, 0);
             const closingBalanceOfMonth = startingBalanceOfMonth + monthlyNetImpact;
 
             const ledgerMonthLabel = (() => {
