@@ -78,41 +78,10 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     isPnlVisible, 
     togglePnlVisibility, 
     selectedFY,
-    capitalAdjustments: allCapitalAdjustments,
     brokerAccounts,
     investments: allInvestments
   } = useTradeStore();
 
-  const getCapitalAtDate = (dateLimit: Date): number => {
-    let startingCap = 0;
-    if (activeAccountId === 'Combined') {
-      startingCap = brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0);
-    } else {
-      startingCap = brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0;
-    }
-
-    const limitStr = dateLimit.toISOString().split('T')[0];
-
-    const priorAdjustments = allCapitalAdjustments.filter(a => a.date <= limitStr && (
-      activeAccountId === 'Combined' 
-        ? true 
-        : a.brokerAccountId === activeAccountId
-    ));
-    const depositsSum = priorAdjustments
-      .filter(a => a.type === 'DEPOSIT')
-      .reduce((sum, a) => sum + a.amount, 0);
-
-    let cap = startingCap + depositsSum;
-
-    if (cap <= 0) {
-      const overallDeposits = allCapitalAdjustments
-        .filter(a => a.type === 'DEPOSIT' && (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId))
-        .reduce((sum, a) => sum + a.amount, 0);
-      cap = startingCap + overallDeposits;
-    }
-
-    return cap > 0 ? cap : 100000;
-  };
 
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
   const trades = activeAccountId === 'Combined'
@@ -280,6 +249,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
     const invested = dailyInvPurchases.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
     const exited = dailyInvExits.reduce((sum, i) => sum + (i.qty * i.exitPrice!), 0);
 
+    const deployedCapital = dailyTrades.reduce((sum, t) => sum + (t.entryPrice * t.qty), 0);
+
     return {
       netPnL: Math.round(netPnL * 100) / 100,
       grossPnL: Math.round(grossPnL * 100) / 100,
@@ -289,7 +260,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
       brokerSummaries,
       invested,
       exited,
-      totalInvestmentsCount: dailyInvPurchases.length + dailyInvExits.length
+      totalInvestmentsCount: dailyInvPurchases.length + dailyInvExits.length,
+      deployedCapital
     };
   };
 
@@ -381,8 +353,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         )}
 
         {summary && summary.count > 0 && (() => {
-          const dayCap = getCapitalAtDate(new Date(year, month, d));
-          const dayRoi = (summary.netPnL / dayCap) * 100;
+          const dayRoi = summary.deployedCapital > 0 ? (summary.netPnL / summary.deployedCapital) * 100 : 0;
           return (
             <div className="day-pnl">
               {isPnlVisible ? (
@@ -572,9 +543,27 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   };
   const activeFYPnL = getFYPnL();
 
+  const getActiveMonthDeployed = () => {
+    const formattedMonth = (month + 1).toString().padStart(2, '0');
+    const monthPrefix = `${year}-${formattedMonth}-`;
+    const monthlyTrades = trades.filter((t) => t.date.startsWith(monthPrefix));
+    return monthlyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0);
+  };
+
+  const getFYDeployed = () => {
+    const fyTrades = trades.filter((t) => {
+      const tDate = new Date(t.date);
+      return tDate >= fyStart && tDate <= fyEnd;
+    });
+    return fyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0);
+  };
+
+  const activeMonthDeployed = getActiveMonthDeployed();
+  const activeFYDeployed = getFYDeployed();
+
   const headerPnL = activePnlTab === 'monthly' ? activeMonthPnL : activeFYPnL;
-  const headerCap = getCapitalAtDate(activePnlTab === 'monthly' ? new Date(year, month, 1) : fyStart);
-  const headerRoi = (headerPnL / headerCap) * 100;
+  const headerDeployed = activePnlTab === 'monthly' ? activeMonthDeployed : activeFYDeployed;
+  const headerRoi = headerDeployed > 0 ? (headerPnL / headerDeployed) * 100 : 0;
   const headerTitle = activePnlTab === 'monthly' 
     ? `${months[month]} ${year}` 
     : `FY ${fyStartYear}-${String(fyStartYear + 1).slice(-2)}`;
@@ -686,7 +675,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         trades: weeklyTrades,
         netPnL: Math.round(netPnL * 100) / 100,
         brokerage: Math.round(wBrokerage * 100) / 100,
-        taxes: Math.round(wTaxes * 100) / 100
+        taxes: Math.round(wTaxes * 100) / 100,
+        deployedCapital: weeklyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0)
       });
       
       // Advance current pointer to the next Monday (wEnd Sunday + 1 day)
@@ -727,7 +717,8 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         trades: monthlyTrades,
         netPnL: Math.round(netPnL * 100) / 100,
         brokerage: Math.round(mBrokerage * 100) / 100,
-        taxes: Math.round(mTaxes * 100) / 100
+        taxes: Math.round(mTaxes * 100) / 100,
+        deployedCapital: monthlyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0)
       });
     }
     return monthsList;
@@ -1006,8 +997,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   const weeklyCells = fyWeeks.map((w) => {
     const isSelected = selectedWeekNum === w.weekNum;
     const hasTrades = w.trades.length > 0;
-    const weekCap = getCapitalAtDate(new Date(w.startDate));
-    const weekRoi = (w.netPnL / weekCap) * 100;
+    const weekRoi = w.deployedCapital > 0 ? (w.netPnL / w.deployedCapital) * 100 : 0;
     
     let cellClass = 'calendar-day weekly-day';
     if (hasTrades) {
@@ -1114,8 +1104,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
   const yearlyCells = fyMonthsList.map((m) => {
     const isSelected = selectedMonthNum === m.monthNum;
     const hasTrades = m.trades.length > 0;
-    const monthCap = getCapitalAtDate(new Date(m.year, m.monthNum - 1, 1));
-    const monthRoi = (m.netPnL / monthCap) * 100;
+    const monthRoi = m.deployedCapital > 0 ? (m.netPnL / m.deployedCapital) * 100 : 0;
     
     let cellClass = 'calendar-day yearly-day';
     if (hasTrades) {
