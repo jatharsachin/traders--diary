@@ -247,6 +247,11 @@ export function Dashboard({
   };
   const anchorDate = getAnchorDate();
 
+  const currentMonthPrefix = anchorDate.toISOString().substring(0, 7);
+  const currentMonthTrades = sortedTrades.filter(t => t.date.startsWith(currentMonthPrefix));
+  const currentMonthPnL = currentMonthTrades.reduce((sum, t) => sum + t.netPnL, 0);
+  const currentMonthName = anchorDate.toLocaleDateString('en-IN', { month: 'short' });
+
   const getReturnsForPeriod = (days: number) => {
     const cutoffDate = new Date(anchorDate);
     cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -1475,8 +1480,121 @@ export function Dashboard({
         </div>
       </div>
 
+      {/* Equity Curve Chart */}
+      <div className="glass-card" style={{ padding: '24px', marginBottom: '14px' }}>
+        {/* Header controls layout matching the premium design */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {(['1M', '3M', '6M', '1Y', 'All'] as const).map((range) => {
+              const stat = buttonStats[range];
+              const isSelected = timeRange === range;
+              const isLoss = stat.pnl < 0;
+              const label = range === 'All' ? 'All Time' : range.toLowerCase();
+              const sign = stat.pnl >= 0 ? '+' : '';
+              
+              // Color configuration
+              const activeColor = isLoss ? '#ff453a' : '#76c73c';
+              const activeBg = isLoss ? 'rgba(255, 69, 58, 0.08)' : 'rgba(118, 199, 60, 0.08)';
+              
+              return (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setTimeRange(range)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 650,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    border: isSelected ? `1.5px solid ${activeColor}` : '1.5px solid rgba(255, 255, 255, 0.06)',
+                    background: isSelected ? activeBg : 'rgba(255, 255, 255, 0.02)',
+                    color: isSelected ? activeColor : 'var(--text-dim)',
+                  }}
+                >
+                  {label} <span style={{ marginLeft: '4px', fontSize: '0.72rem', color: isLoss ? '#ff453a' : '#76c73c' }}>{sign}{stat.pct.toFixed(2)}%</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Live Current Month P&L Badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{currentMonthName} P&L:</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: currentMonthPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? `${currentMonthPnL >= 0 ? '+' : ''}${formatCurrency(currentMonthPnL)}` : '••••'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ height: '3px', width: '20px', background: '#76c73c', borderRadius: '2px', display: 'inline-block' }}></span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                Capital Equity Curve (Manual Logs)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="chart-container-large" style={{ height: '280px' }}>
+          <ResponsiveContainer>
+            <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorGreenTrading" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#76c73c" stopOpacity={0.18}/>
+                  <stop offset="95%" stopColor="#76c73c" stopOpacity={0.01}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.02)" />
+              <XAxis 
+                dataKey="date" 
+                stroke="var(--text-dim)" 
+                fontSize={11} 
+                tickLine={false}
+                axisLine={false}
+                minTickGap={50}
+                tickFormatter={(val) => {
+                  if (!val || val === 'Start') return '';
+                  const d = new Date(val);
+                  if (isNaN(d.getTime())) return '';
+                  return d.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+                }}
+              />
+              <YAxis 
+                orientation="right"
+                stroke="var(--text-dim)" 
+                fontSize={11} 
+                tickLine={false} 
+                axisLine={false} 
+                domain={['dataMin - 10000', 'auto']}
+                tickFormatter={(value) => {
+                  const absVal = Math.abs(value);
+                  if (absVal >= 100000) {
+                    return `${(value / 100000).toFixed(1).replace(/\.0$/, '')}L`;
+                  }
+                  return value === 0 ? '0' : Math.round(value).toLocaleString('en-IN');
+                }} 
+              />
+              <Tooltip 
+                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '3 3' }}
+                content={<CustomEquityTooltip />} 
+              />
+              <Area 
+                type="monotone" 
+                dataKey="tradingPnL" 
+                name="Value" 
+                stroke="#76c73c" 
+                strokeWidth={2} 
+                fillOpacity={1} 
+                fill="url(#colorGreenTrading)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Grid 2: Return Periods & Consistency Streaks */}
-      <div className="grid-2col-12-1">
+      <div className="grid-2col-12-1" style={{ marginBottom: '14px' }}>
         
         {/* Card 1: Performance Returns Duration */}
         <div className="glass-card" style={{ padding: '24px' }}>
@@ -1564,109 +1682,6 @@ export function Dashboard({
           </div>
         </div>
 
-      </div>
-
-      {/* Equity Curve Chart */}
-      <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
-        {/* Header controls layout matching the premium design */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {(['1M', '3M', '6M', '1Y', 'All'] as const).map((range) => {
-              const stat = buttonStats[range];
-              const isSelected = timeRange === range;
-              const isLoss = stat.pnl < 0;
-              const label = range === 'All' ? 'All Time' : range.toLowerCase();
-              const sign = stat.pnl >= 0 ? '+' : '';
-              
-              // Color configuration
-              const activeColor = isLoss ? '#ff453a' : '#76c73c';
-              const activeBg = isLoss ? 'rgba(255, 69, 58, 0.08)' : 'rgba(118, 199, 60, 0.08)';
-              
-              return (
-                <button
-                  key={range}
-                  type="button"
-                  onClick={() => setTimeRange(range)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    fontSize: '0.75rem',
-                    fontWeight: 650,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    border: isSelected ? `1.5px solid ${activeColor}` : '1.5px solid rgba(255, 255, 255, 0.06)',
-                    background: isSelected ? activeBg : 'rgba(255, 255, 255, 0.02)',
-                    color: isSelected ? activeColor : 'var(--text-dim)',
-                  }}
-                >
-                  {label} <span style={{ marginLeft: '4px', fontSize: '0.72rem', color: isLoss ? '#ff453a' : '#76c73c' }}>{sign}{stat.pct.toFixed(2)}%</span>
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ height: '3px', width: '20px', background: '#76c73c', borderRadius: '2px', display: 'inline-block' }}></span>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-              Capital Equity Curve (Manual Logs)
-            </span>
-          </div>
-        </div>
-
-        <div className="chart-container-large" style={{ height: '280px' }}>
-          <ResponsiveContainer>
-            <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorGreenTrading" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#76c73c" stopOpacity={0.18}/>
-                  <stop offset="95%" stopColor="#76c73c" stopOpacity={0.01}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.02)" />
-              <XAxis 
-                dataKey="date" 
-                stroke="var(--text-dim)" 
-                fontSize={11} 
-                tickLine={false}
-                axisLine={false}
-                minTickGap={50}
-                tickFormatter={(val) => {
-                  if (!val || val === 'Start') return '';
-                  const d = new Date(val);
-                  if (isNaN(d.getTime())) return '';
-                  return d.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
-                }}
-              />
-              <YAxis 
-                orientation="right"
-                stroke="var(--text-dim)" 
-                fontSize={11} 
-                tickLine={false} 
-                axisLine={false} 
-                domain={['dataMin - 10000', 'auto']}
-                tickFormatter={(value) => {
-                  const absVal = Math.abs(value);
-                  if (absVal >= 100000) {
-                    return `${(value / 100000).toFixed(1).replace(/\.0$/, '')}L`;
-                  }
-                  return value === 0 ? '0' : Math.round(value).toLocaleString('en-IN');
-                }} 
-              />
-              <Tooltip 
-                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '3 3' }}
-                content={<CustomEquityTooltip />} 
-              />
-              <Area 
-                type="monotone" 
-                dataKey="tradingPnL" 
-                name="Value" 
-                stroke="#76c73c" 
-                strokeWidth={2} 
-                fillOpacity={1} 
-                fill="url(#colorGreenTrading)" 
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       {/* GitHub-style Trading Performance Heatmap */}
