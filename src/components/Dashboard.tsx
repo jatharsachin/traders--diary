@@ -1082,72 +1082,7 @@ export function Dashboard({
               {selectedFY}
             </div>
           </div>
-
-          {/* Carry-Forward Rollover Button */}
-          {selectedFY !== 'All' && (
-            <button
-              onClick={() => {
-                const match = selectedFY.match(/FY (\d{4})/);
-                if (!match) return;
-                const startYear = parseInt(match[1], 10);
-                const nextYear = startYear + 1;
-                
-                // Calculate ending balance
-                const activeAdjustments = capitalAdjustments
-                  .filter(a => {
-                    const matchFY = selectedFY === 'All' || filterTradesByFY([a as any], selectedFY).length > 0;
-                    const matchAcc = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
-                    return matchFY && matchAcc;
-                  })
-                  .reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
-
-                const endingBalance = activeBaseCapital + totalNetPnL + activeAdjustments;
-
-                if (window.confirm(`Are you sure you want to rollover the carry-forward closing balance of ${selectedFY} (₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}) to the opening balance of FY ${nextYear}? This will log a corresponding deposit adjustment on April 1st, ${nextYear}.`)) {
-                  const nextFYDate = `${nextYear}-04-01`;
-                  // Remove any duplicate rollover
-                  const existing = capitalAdjustments.find(a => 
-                    a.date === nextFYDate && 
-                    a.notes?.startsWith("Rollover Carry-Forward") &&
-                    (activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId)
-                  );
-                  if (existing) {
-                    useTradeStore.getState().deleteCapitalAdjustment(existing.id);
-                  }
-
-                  const targetAccId = activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || '');
-                  const targetBroker = brokerAccounts.find(a => a.id === targetAccId)?.broker || 'Other';
-
-                  useTradeStore.getState().addCapitalAdjustment({
-                    date: nextFYDate,
-                    time: "09:00",
-                    type: 'DEPOSIT',
-                    amount: Math.round(endingBalance * 100) / 100,
-                    notes: `Rollover Carry-Forward from ${selectedFY}`,
-                    broker: targetBroker,
-                    brokerAccountId: targetAccId
-                  });
-                  alert(`Successfully carried forward ₹${endingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} to FY ${nextYear}!`);
-                }
-              }}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.72rem',
-                padding: '6px 12px',
-                border: '1.5px solid var(--border-color)',
-                background: 'var(--bg-card)',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                borderRadius: '8px',
-                fontWeight: 600,
-                height: '42px',
-                display: 'flex',
-                alignItems: 'center'
-              }}
-            >
-              Carry-Forward to FY {parseInt(selectedFY.match(/FY (\d{4})/)?.[1] || '2026') + 1}
-            </button>
-          )}
+          {/* Carry-Forward button removed and shifted to Trader Settings */}
         </div>
       </div>
 

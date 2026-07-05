@@ -414,17 +414,20 @@ export default function App() {
                   value={selectedFY}
                   onChange={(e) => setSelectedFY(e.target.value)}
                   style={{
-                    fontSize: '0.92rem',
-                    fontWeight: 800,
-                    padding: '4px 12px',
-                    background: 'rgba(59, 130, 246, 0.15)',
-                    color: '#3b82f6',
-                    border: '1.5px solid rgba(59, 130, 246, 0.35)',
+                    fontSize: '0.78rem',
+                    fontWeight: 650,
+                    padding: '4px 10px',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    border: '1.5px solid var(--border-color)',
                     borderRadius: '8px',
                     outline: 'none',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    marginLeft: '10px',
+                    height: '28px',
+                    verticalAlign: 'middle'
                   }}
                   className="fy-header-select"
                 >
