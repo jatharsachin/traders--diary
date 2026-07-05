@@ -414,9 +414,9 @@ export default function App() {
                   value={selectedFY}
                   onChange={(e) => setSelectedFY(e.target.value)}
                   style={{
-                    fontSize: '0.78rem',
-                    fontWeight: 650,
-                    padding: '4px 10px',
+                    fontSize: '1.1rem',
+                    fontWeight: 800,
+                    padding: '2px 10px',
                     background: 'var(--bg-card)',
                     color: 'var(--text-main)',
                     border: '1.5px solid var(--border-color)',
@@ -425,8 +425,8 @@ export default function App() {
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                     transition: 'all 0.15s ease',
-                    marginLeft: '10px',
-                    height: '28px',
+                    marginLeft: '8px',
+                    height: '34px',
                     verticalAlign: 'middle'
                   }}
                   className="fy-header-select"
