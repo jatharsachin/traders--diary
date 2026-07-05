@@ -228,20 +228,49 @@ const computeTradeCalculations = (
   // 2. Holding Duration Calculation in Minutes
   let durationMinutes = 0;
   const actualExitDate = exitDate || date;
-  try {
-    const entryDateTimeStr = `${date}T${entryTime}:00`;
-    const exitDateTimeStr = `${actualExitDate}T${exitTime}:00`;
-    const entryDateObj = new Date(entryDateTimeStr);
-    const exitDateObj = new Date(exitDateTimeStr);
+  
+  const getCleanTime = (t: string) => {
+    if (!t) return '00:00';
+    const parts = t.trim().split(':');
+    if (parts.length >= 2) {
+      return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+    }
+    return '00:00';
+  };
+
+  const cleanEntryTime = getCleanTime(entryTime);
+  const cleanExitTime = getCleanTime(exitTime);
+
+  const entryDateTimeStr = `${date}T${cleanEntryTime}:00`;
+  const exitDateTimeStr = `${actualExitDate}T${cleanExitTime}:00`;
+  
+  const entryDateObj = new Date(entryDateTimeStr);
+  const exitDateObj = new Date(exitDateTimeStr);
+  
+  if (!isNaN(entryDateObj.getTime()) && !isNaN(exitDateObj.getTime())) {
     const diffMs = exitDateObj.getTime() - entryDateObj.getTime();
     durationMinutes = Math.max(0, Math.floor(diffMs / (1000 * 60)));
-  } catch (err) {
-    const entryParts = entryTime.split(':');
-    const exitParts = exitTime.split(':');
-    const entryMins = parseInt(entryParts[0], 10) * 60 + parseInt(entryParts[1], 10);
-    const exitMins = parseInt(exitParts[0], 10) * 60 + parseInt(exitParts[1], 10);
-    durationMinutes = exitMins - entryMins;
-    if (durationMinutes < 0) durationMinutes = 0;
+  } else {
+    try {
+      const entryParts = cleanEntryTime.split(':');
+      const exitParts = cleanExitTime.split(':');
+      const entryMins = parseInt(entryParts[0], 10) * 60 + parseInt(entryParts[1], 10);
+      const exitMins = parseInt(exitParts[0], 10) * 60 + parseInt(exitParts[1], 10);
+      
+      let dayDiff = 0;
+      if (actualExitDate && actualExitDate !== date) {
+        const d1 = new Date(date);
+        const d2 = new Date(actualExitDate);
+        if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+          dayDiff = Math.max(0, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+        }
+      }
+      
+      durationMinutes = (dayDiff * 24 * 60) + exitMins - entryMins;
+      if (durationMinutes < 0) durationMinutes = 0;
+    } catch (e) {
+      durationMinutes = 0;
+    }
   } 
 
   // Gross PnL
@@ -414,9 +443,22 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
     let migrated = false;
     const updated = tradesList.map((t) => {
+      let changed = false;
       if (!t.brokerAccountId) {
         const matched = accountsList.find(a => a.broker === t.broker);
         t.brokerAccountId = matched ? matched.id : (accountsList[0]?.id || 'acc-1');
+        changed = true;
+      }
+      
+      // Recalculate durationMinutes if missing, NaN, or to update old records
+      const config = t.brokerAccountId ? DEFAULT_BROKER_CHARGES.find(c => c.broker === accountsList.find(a => a.id === t.brokerAccountId)?.broker) : undefined;
+      const computed = computeTradeCalculations(t, config);
+      if (t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes)) {
+        t.durationMinutes = computed.durationMinutes;
+        changed = true;
+      }
+      
+      if (changed) {
         migrated = true;
       }
       return t;
