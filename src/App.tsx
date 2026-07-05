@@ -174,14 +174,22 @@ export default function App() {
   const totalNetPnL = filteredTrades.reduce((acc, t) => acc + t.netPnL, 0);
   const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
   const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
-  const totalInvPurchasedCost = investments.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
-  const totalInvExitedCredit = investments
+  const filteredInvestments = activeAccountId === 'Combined'
+    ? investments
+    : investments.filter(i => {
+        if (i.brokerAccountId === activeAccountId) return true;
+        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+        return activeAcc ? i.broker === activeAcc.broker : false;
+      });
+
+  const totalInvPurchasedCost = filteredInvestments.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+  const totalInvExitedCredit = filteredInvestments
     .filter(i => i.status === 'EXITED' && i.exitPrice)
     .reduce((sum, i) => sum + (i.qty * i.exitPrice!), 0);
 
   const currentCapital = filteredBaseCapital + totalNetPnL + totalDeposits - totalWithdrawals - totalInvPurchasedCost + totalInvExitedCredit;
 
-  const totalInvCurrent = investments
+  const totalInvCurrent = filteredInvestments
     .filter(i => i.status === 'ACTIVE' || !(i as any).status)
     .reduce((sum, i) => sum + (i.qty * (i.currentPrice || i.buyPrice)), 0);
   const combinedWealth = currentCapital + totalInvCurrent;

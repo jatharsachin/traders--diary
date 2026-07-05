@@ -121,7 +121,11 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
 
   const investments = activeAccountId === 'Combined'
     ? allInvestments
-    : allInvestments.filter(i => i.brokerAccountId === activeAccountId);
+    : allInvestments.filter(i => {
+        if (i.brokerAccountId === activeAccountId) return true;
+        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+        return activeAcc ? i.broker === activeAcc.broker : false;
+      });
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026
   const [activePnlTab, setActivePnlTab] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');

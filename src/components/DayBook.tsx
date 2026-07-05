@@ -87,7 +87,11 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
 
   const investments = activeAccountId === 'Combined' 
     ? allInvestments 
-    : allInvestments.filter(i => i.brokerAccountId === activeAccountId);
+    : allInvestments.filter(i => {
+        if (i.brokerAccountId === activeAccountId) return true;
+        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+        return activeAcc ? i.broker === activeAcc.broker : false;
+      });
 
   // Range filtered trades, adjustments, and investments
   const rangeTrades = trades.filter(t => t.date >= startDate && t.date <= endDate);

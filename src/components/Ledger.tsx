@@ -197,7 +197,12 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const getDetailedLedger = () => {
     const invPurchases = investments
       .filter((i) => {
-        const matchesAccount = activeAccountId !== 'Combined' ? i.brokerAccountId === activeAccountId : (selectedBrokerFilter === 'All' ? true : i.broker === selectedBrokerFilter);
+        const matchesAccount = activeAccountId !== 'Combined' 
+          ? (i.brokerAccountId === activeAccountId || (() => {
+              const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+              return activeAcc ? i.broker === activeAcc.broker : false;
+            })())
+          : (selectedBrokerFilter === 'All' ? true : i.broker === selectedBrokerFilter);
         const matchesFY = (!startLimit || i.date >= startLimit) && (!endLimit || i.date <= endLimit);
         return matchesAccount && matchesFY;
       })
@@ -219,7 +224,12 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     const invExits = investments
       .filter((i) => {
         if (i.status !== 'EXITED' || !i.exitDate || !i.exitPrice) return false;
-        const matchesAccount = activeAccountId !== 'Combined' ? i.brokerAccountId === activeAccountId : (selectedBrokerFilter === 'All' ? true : i.broker === selectedBrokerFilter);
+        const matchesAccount = activeAccountId !== 'Combined' 
+          ? (i.brokerAccountId === activeAccountId || (() => {
+              const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+              return activeAcc ? i.broker === activeAcc.broker : false;
+            })())
+          : (selectedBrokerFilter === 'All' ? true : i.broker === selectedBrokerFilter);
         const matchesFY = (!startLimit || i.exitDate >= startLimit) && (!endLimit || i.exitDate <= endLimit);
         return matchesAccount && matchesFY;
       })
