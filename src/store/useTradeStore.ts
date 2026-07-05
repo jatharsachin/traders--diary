@@ -1308,21 +1308,34 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         const ticker = tickerSymbol.includes('.') ? tickerSymbol : `${tickerSymbol}.NS`;
 
         const urls = [
-          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`,
-          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`
+          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`,
+          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`
         ];
         
         const proxies = [
-          (targetUrl: string) => `https://api.codetabs.com/v1/proxy?url=${encodeURIComponent(targetUrl)}`,
+          (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
           (targetUrl: string) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-          (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+          (targetUrl: string) => `https://api.codetabs.com/v1/proxy?url=${encodeURIComponent(targetUrl)}`
         ];
+
+        const fetchWithTimeout = async (urlStr: string, timeoutMs: number = 3000) => {
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), timeoutMs);
+          try {
+            const response = await fetch(urlStr, { signal: controller.signal });
+            clearTimeout(id);
+            return response;
+          } catch (e) {
+            clearTimeout(id);
+            throw e;
+          }
+        };
 
         for (const url of urls) {
           for (const getProxyUrl of proxies) {
             try {
               const proxyUrl = getProxyUrl(url);
-              const response = await fetch(proxyUrl);
+              const response = await fetchWithTimeout(proxyUrl, 3000);
               if (!response.ok) continue;
               const json = await response.json();
               
@@ -1333,16 +1346,16 @@ export const useTradeStore = create<TradeStore>((set, get) => {
                 data = json;
               }
 
-              // Check quote response format
-              const quotePrice = data?.quoteResponse?.result?.[0]?.regularMarketPrice;
-              if (quotePrice && typeof quotePrice === 'number') {
-                return quotePrice;
-              }
-
               // Check chart response format
               const chartPrice = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
               if (chartPrice && typeof chartPrice === 'number') {
                 return chartPrice;
+              }
+
+              // Check quote response format
+              const quotePrice = data?.quoteResponse?.result?.[0]?.regularMarketPrice;
+              if (quotePrice && typeof quotePrice === 'number') {
+                return quotePrice;
               }
             } catch (e) {
               console.warn(`Proxy fetch failed for ${ticker} on ${url}:`, e);

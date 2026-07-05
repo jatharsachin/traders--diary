@@ -32,7 +32,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     deleteSubscriptionExpense,
     addDirectBankTransaction,
     deleteDirectBankTransaction,
-    editDirectBankTransaction
+    editDirectBankTransaction,
+    investments
   } = useTradeStore();
 
   const [activeLedgerTab, setActiveLedgerTab] = useState<'broker' | 'bank' | 'subscriptions'>('broker');
@@ -161,6 +162,18 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     downloadCSV(`Subscriptions_Log_${selectedFY.replace(/\s+/g, '_')}.csv`, headers, rows);
   };
 
+  // Date limits for current selected Financial Year
+  const getFYDateLimits = () => {
+    if (!selectedFY || selectedFY === 'All') return { startLimit: null, endLimit: null };
+    const match = selectedFY.match(/FY (\d{4})/);
+    if (!match) return { startLimit: null, endLimit: null };
+    const startYear = parseInt(match[1], 10);
+    const startLimit = `${startYear}-04-01`;
+    const endLimit = `${startYear + 1}-03-31`;
+    return { startLimit, endLimit };
+  };
+  const { startLimit, endLimit } = getFYDateLimits();
+
   // Filter Broker Ledger Trades & Adjustments
   let trades = filterTradesByFY(allTrades, selectedFY);
   let capitalAdjustments = filterTradesByFY(allCapitalAdjustments as any, selectedFY) as any as CapitalAdjustment[];
@@ -182,6 +195,49 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   });
 
   const getDetailedLedger = () => {
+    const invPurchases = investments
+      .filter((i) => {
+        const matchesAccount = activeAccountId !== 'Combined' ? i.brokerAccountId === activeAccountId : (selectedBrokerFilter === 'All' ? true : i.broker === selectedBrokerFilter);
+        const matchesFY = (!startLimit || i.date >= startLimit) && (!endLimit || i.date <= endLimit);
+        return matchesAccount && matchesFY;
+      })
+      .map((i) => ({
+        id: `${i.id}-buy`,
+        date: i.date,
+        time: '09:15',
+        particulars: `Purchase Investment: Buy ${i.qty} units of ${i.symbol} (${i.type})`,
+        type: 'DEBIT' as const,
+        grossPnL: -i.qty * i.buyPrice,
+        brokerage: 0,
+        taxes: 0,
+        charges: 0,
+        netPnL: -i.qty * i.buyPrice,
+        isAdjustment: true,
+        isInvestment: true,
+      }));
+
+    const invExits = investments
+      .filter((i) => {
+        if (i.status !== 'EXITED' || !i.exitDate || !i.exitPrice) return false;
+        const matchesAccount = activeAccountId !== 'Combined' ? i.brokerAccountId === activeAccountId : (selectedBrokerFilter === 'All' ? true : i.broker === selectedBrokerFilter);
+        const matchesFY = (!startLimit || i.exitDate >= startLimit) && (!endLimit || i.exitDate <= endLimit);
+        return matchesAccount && matchesFY;
+      })
+      .map((i) => ({
+        id: `${i.id}-sell`,
+        date: i.exitDate!,
+        time: '15:30',
+        particulars: `Exit Investment: Sell ${i.qty} units of ${i.symbol} (${i.type})`,
+        type: 'CREDIT' as const,
+        grossPnL: i.qty * i.exitPrice!,
+        brokerage: 0,
+        taxes: 0,
+        charges: 0,
+        netPnL: i.qty * i.exitPrice!,
+        isAdjustment: true,
+        isInvestment: true,
+      }));
+
     const combined = [
       ...sortedTrades.map((t) => ({
         id: t.id,
@@ -195,6 +251,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         charges: t.brokerage + t.taxes,
         netPnL: t.netPnL,
         isAdjustment: false,
+        isInvestment: false,
       })),
       ...capitalAdjustments.map((a) => ({
         id: a.id,
@@ -210,7 +267,10 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         charges: 0,
         netPnL: a.type === 'DEPOSIT' ? a.amount : -a.amount,
         isAdjustment: true,
+        isInvestment: false,
       })),
+      ...invPurchases,
+      ...invExits,
     ];
 
     return combined.sort((a, b) => {
@@ -221,17 +281,6 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   };
 
   const detailedLedger = getDetailedLedger();
-
-  const getFYDateLimits = () => {
-    if (!selectedFY || selectedFY === 'All') return { startLimit: null, endLimit: null };
-    const match = selectedFY.match(/FY (\d{4})/);
-    if (!match) return { startLimit: null, endLimit: null };
-    const startYear = parseInt(match[1], 10);
-    const startLimit = `${startYear}-04-01`;
-    const endLimit = `${startYear + 1}-03-31`;
-    return { startLimit, endLimit };
-  };
-  const { startLimit, endLimit } = getFYDateLimits();
 
   const getBankOpeningBalance = (bankId: string) => {
     const bank = bankAccounts.find(b => b.id === bankId);
@@ -762,6 +811,9 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     {selectedRowId ? (() => {
                       const selectedItem = detailedLedger.find(item => item.id === selectedRowId);
+                      if (selectedItem?.isInvestment) {
+                        return 'Selected: Investment Log entry (Read-Only in Ledger)';
+                      }
                       if (selectedItem?.isAdjustment) {
                         return 'Selected: Capital Flow Adjustment entry';
                       }
@@ -770,7 +822,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   </span>
                   {selectedRowId && (() => {
                     const selectedItem = detailedLedger.find(item => item.id === selectedRowId);
-                    if (selectedItem?.isAdjustment) {
+                    if (selectedItem?.isAdjustment && !selectedItem?.isInvestment) {
                       return (
                         <button
                           type="button"
@@ -844,7 +896,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                               {isPnlVisible ? formatCurrency(runningBal) : '••••'}
                             </td>
                             <td style={{ padding: '8px', textAlign: 'center' }}>
-                              {isAdjustment && (
+                              {isAdjustment && !item.isInvestment && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
