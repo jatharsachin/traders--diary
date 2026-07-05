@@ -272,9 +272,7 @@ export function Dashboard({
 
   // Calculate CAGR & Returns by period
   const getAnchorDate = () => {
-    if (sortedTrades.length === 0) return new Date();
-    const dates = sortedTrades.map((t) => new Date(t.date).getTime());
-    return new Date(Math.max(...dates));
+    return new Date();
   };
   const anchorDate = getAnchorDate();
 
