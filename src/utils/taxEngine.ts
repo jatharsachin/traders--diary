@@ -21,7 +21,8 @@ export function calculateIndianTaxesAndBrokerage(
   qty: number,
   entryPrice: number,
   exitPrice: number,
-  chargesConfig?: BrokerChargesConfig
+  chargesConfig?: BrokerChargesConfig,
+  isOption?: boolean
 ): TaxResult {
   // Determine buy and sell prices/values based on trade action (BUY = Long, SELL = Short)
   const isLong = action === 'BUY';
@@ -69,17 +70,19 @@ export function calculateIndianTaxesAndBrokerage(
       stampDuty = buyValue * 0.00003; // 0.003% on buy side only
     }
   } else if (segment === 'F&O') {
-    const isOption = buyPrice < 2000; // Options premium heuristic
- 
-    if (isOption) {
+    const isOptionCalculated = isOption !== undefined ? isOption : (buyPrice < 2000); // Options premium heuristic fallback
+
+    if (isOptionCalculated) {
       // Options
       if (chargesConfig) {
         brokerage = chargesConfig.optionsFlatFee * 2; // Flat fee per trade (entry + exit orders)
       } else {
         brokerage = 40; // Default ₹20 per order = ₹40 round trip
       }
-      exchangeTx = totalTurnover * 0.0003503; // 0.03503% on premium value (Revised Oct 2024)
-      stt = sellValue * 0.001; // 0.1% on sell side premium (Revised Oct 2024)
+      // Exchange Tx: NSE revised 0.03503% + IPFT 0.0005% = 0.03553% on premium value
+      exchangeTx = totalTurnover * 0.0003553; 
+      // STT: 0.15% on sell side premium (Revised April 2026)
+      stt = sellValue * 0.0015; 
       stampDuty = buyValue * 0.00003; // 0.003% on buy side
     } else {
       // Futures
@@ -92,8 +95,10 @@ export function calculateIndianTaxesAndBrokerage(
         const sellBroker = Math.min(20, sellValue * 0.0003);
         brokerage = buyBroker + sellBroker;
       }
-      exchangeTx = totalTurnover * 0.0000173; // 0.00173% (Revised Oct 2024)
-      stt = sellValue * 0.0002; // 0.02% on sell side (Revised Oct 2024)
+      // Exchange Tx: NSE revised 0.00173% + IPFT 0.0001% = 0.00183%
+      exchangeTx = totalTurnover * 0.0000183; 
+      // STT: 0.05% on sell side (Revised April 2026)
+      stt = sellValue * 0.0005; 
       stampDuty = buyValue * 0.00002; // 0.002% on buy side
     }
   } else if (segment === 'Commodity') {

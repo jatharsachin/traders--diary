@@ -277,7 +277,8 @@ const computeTradeCalculations = (
     taxes = trade.manualTaxes || 0;
     totalCharges = brokerage + taxes;
   } else {
-    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, chargesConfig);
+    const isOpt = trade.optionType && trade.optionType !== 'None';
+    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, chargesConfig, isOpt);
     brokerage = taxResult.brokerage;
     taxes = taxResult.totalCharges - brokerage;
     totalCharges = taxResult.totalCharges;

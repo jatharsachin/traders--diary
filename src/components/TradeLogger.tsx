@@ -396,7 +396,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       const { segment, product, action, qty, entryPrice, exitPrice } = formData;
       if (qty > 0 && entryPrice > 0 && exitPrice > 0) {
         const config = brokerCharges.find(c => c.broker === formData.broker);
-        const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config);
+        const isOpt = formData.optionType && formData.optionType !== 'None';
+        const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config, isOpt);
         const calcBrokerage = taxResult.brokerage;
         const calcTaxes = Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100;
         setFormData((prev) => ({
