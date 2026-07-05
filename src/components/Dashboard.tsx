@@ -1595,8 +1595,8 @@ export function Dashboard({
               const sign = stat.pnl >= 0 ? '+' : '';
               
               // Color configuration
-              const activeColor = isLoss ? '#ff453a' : '#76c73c';
-              const activeBg = isLoss ? 'rgba(255, 69, 58, 0.08)' : 'rgba(118, 199, 60, 0.08)';
+              const activeColor = isLoss ? 'var(--color-loss)' : 'var(--color-win)';
+              const activeBg = isLoss ? 'var(--color-loss-bg)' : 'var(--color-win-bg)';
               
               return (
                 <button
@@ -1615,7 +1615,7 @@ export function Dashboard({
                     color: isSelected ? activeColor : 'var(--text-dim)',
                   }}
                 >
-                  {label} <span style={{ marginLeft: '4px', fontSize: '0.72rem', color: isLoss ? '#ff453a' : '#76c73c' }}>{sign}{stat.pct.toFixed(2)}%</span>
+                  {label} <span style={{ marginLeft: '4px', fontSize: '0.72rem', color: isLoss ? 'var(--color-loss)' : 'var(--color-win)' }}>{sign}{stat.pct.toFixed(2)}%</span>
                 </button>
               );
             })}
@@ -1656,7 +1656,7 @@ export function Dashboard({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ height: '3px', width: '20px', background: '#76c73c', borderRadius: '2px', display: 'inline-block' }}></span>
+              <span style={{ height: '3px', width: '20px', background: 'var(--color-win)', borderRadius: '2px', display: 'inline-block' }}></span>
               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                 Capital Equity Curve (Manual Logs)
               </span>
@@ -1669,8 +1669,8 @@ export function Dashboard({
             <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorGreenTrading" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#76c73c" stopOpacity={0.18}/>
-                  <stop offset="95%" stopColor="#76c73c" stopOpacity={0.01}/>
+                  <stop offset="5%" stopColor="var(--color-win)" stopOpacity={0.18}/>
+                  <stop offset="95%" stopColor="var(--color-win)" stopOpacity={0.01}/>
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.02)" />
@@ -1711,7 +1711,7 @@ export function Dashboard({
                 type="monotone" 
                 dataKey="tradingPnL" 
                 name="Value" 
-                stroke="#76c73c" 
+                stroke="var(--color-win)" 
                 strokeWidth={2} 
                 fillOpacity={1} 
                 fill="url(#colorGreenTrading)" 
