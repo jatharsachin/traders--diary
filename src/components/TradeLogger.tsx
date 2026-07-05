@@ -174,6 +174,14 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         setManualBrokerageText((existing.manualBrokerage || 0).toString());
         setManualTaxesText((existing.manualTaxes || 0).toString());
 
+        if (existing.partialExits && existing.partialExits.length > 0) {
+          setUsePartialExits(true);
+          setPartialExits(existing.partialExits);
+        } else {
+          setUsePartialExits(false);
+          setPartialExits([{ id: '1', qty: 0, price: 0, time: new Date().toTimeString().slice(0, 5) }]);
+        }
+
         // Set lots and lot size on edit load
         const guessedSz = guessLotSize(existing.symbol);
         setLotSizeInput(guessedSz.toString());
@@ -397,7 +405,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       if (qty > 0 && entryPrice > 0 && exitPrice > 0) {
         const config = brokerCharges.find(c => c.broker === formData.broker);
         const isOpt = formData.optionType && formData.optionType !== 'None';
-        const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config, isOpt);
+        const activeExits = usePartialExits ? partialExits.filter(e => e.qty > 0 && e.price > 0) : undefined;
+        const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config, isOpt, activeExits);
         const calcBrokerage = taxResult.brokerage;
         const calcTaxes = Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100;
         setFormData((prev) => ({
@@ -427,7 +436,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     formData.exitPrice,
     formData.broker,
     brokerCharges,
-    isOpen
+    isOpen,
+    partialExits,
+    usePartialExits
   ]);
 
   // Save draft to localStorage as user types
@@ -599,6 +610,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         ...formData,
         exitDate: formData.product === 'Delivery' ? (formData.exitDate || formData.date) : formData.date,
         tags: parsedTags,
+        partialExits: usePartialExits ? partialExits.filter(e => e.qty > 0 && e.price > 0) : undefined,
       };
 
       if (editTradeId) {

@@ -51,6 +51,9 @@ export interface Trade {
   manualBrokerage?: number;
   manualTaxes?: number;
 
+  // Partial Exit legs details
+  partialExits?: { id: string; qty: number; price: number; time: string }[];
+
   // Capital Gains holding classification
   holdingType?: 'Short Term' | 'Long Term';
 
