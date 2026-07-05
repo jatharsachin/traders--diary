@@ -12,7 +12,7 @@ import { Taxation } from './components/Taxation';
 import { DayBook } from './components/DayBook';
 import { useTradeStore } from './store/useTradeStore';
 import { BROKER_LOGOS } from './utils/brandLogos';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, Sun, Moon, Percent, BookOpen } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
@@ -626,9 +626,9 @@ export default function App() {
                     position: 'absolute', 
                     right: 0, 
                     top: '56px', 
-                    width: '200px', 
+                    width: '180px', 
                     zIndex: 2000, 
-                    padding: '8px',
+                    padding: '6px',
                     boxShadow: 'var(--shadow-glow)',
                     border: '1.5px solid var(--border-color-active)',
                     display: 'flex',
@@ -645,8 +645,8 @@ export default function App() {
                     style={{ 
                       justifyContent: 'flex-start', 
                       border: 'none', 
-                      fontSize: '0.8rem', 
-                      padding: '8px 12px', 
+                      fontSize: '0.78rem', 
+                      padding: '6px 10px', 
                       width: '100%', 
                       gap: '8px',
                       background: 'rgba(255,255,255,0.015)'
@@ -655,32 +655,35 @@ export default function App() {
                     <span>⚙️</span>
                     <strong style={{ color: 'var(--text-main)' }}>Trader Settings</strong>
                   </button>
-
-                  <button
-                    onClick={() => {
-                      setIsProfileMenuOpen(false);
-                      if (window.confirm('Are you sure you want to log out of your trading journal?')) {
-                        signOutUser();
-                      }
-                    }}
-                    className="btn btn-secondary"
-                    style={{ 
-                      justifyContent: 'flex-start', 
-                      border: 'none', 
-                      fontSize: '0.8rem', 
-                      padding: '8px 12px', 
-                      width: '100%', 
-                      gap: '8px',
-                      color: 'var(--color-loss)',
-                      background: 'rgba(255,255,255,0.015)'
-                    }}
-                  >
-                    <span>🚪</span>
-                    <strong>Log Out</strong>
-                  </button>
                 </div>
               )}
             </div>
+
+            {/* Standalone Logout Action Button (kept on top) */}
+            <button 
+              onClick={() => {
+                if (window.confirm('Are you sure you want to log out of your trading journal?')) {
+                  signOutUser();
+                }
+              }}
+              className="btn btn-secondary"
+              style={{ 
+                width: '48px', 
+                height: '48px', 
+                padding: 0, 
+                borderRadius: '12px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                color: 'var(--color-loss)',
+                flexShrink: 0
+              }}
+              title="Log Out"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
 
