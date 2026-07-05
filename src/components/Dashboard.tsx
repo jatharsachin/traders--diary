@@ -894,7 +894,7 @@ export function Dashboard({
   const isCustomAvatar = userAvatar && (userAvatar.startsWith('data:image/') || userAvatar.startsWith('http'));
 
   return (
-    <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       
       {/* 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries */}
       {missingLogDates.length > 0 && (
