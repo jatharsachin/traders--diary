@@ -107,15 +107,13 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
 
   // Combine trades and adjustments into chronological items
   const tradeItems = rangeTrades.map(t => {
-    const isOption = t.optionType === 'CE' || t.optionType === 'PE' || /\b(CE|PE)\b/i.test(t.symbol);
-    const isFuture = ((t.segment as string) === 'F&O' || (t.segment as string) === 'Futures' || /\bFUT\b/i.test(t.symbol)) && !isOption;
+    const isOption = t.optionType === 'CE' || t.optionType === 'PE' || /\b(CE|PE)\b/.test(t.symbol);
+    const isFuture = t.segment === 'F&O' && !isOption;
     const typeLabel = isOption 
       ? 'Options' 
       : isFuture 
         ? 'Futures' 
-        : t.product === 'Intraday' 
-          ? 'Intraday' 
-          : 'Delivery';
+        : 'Equity';
     return {
       id: t.id,
       date: t.date,
