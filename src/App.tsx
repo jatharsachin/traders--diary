@@ -12,7 +12,7 @@ import { Taxation } from './components/Taxation';
 import { DayBook } from './components/DayBook';
 import { useTradeStore } from './store/useTradeStore';
 import { BROKER_LOGOS } from './utils/brandLogos';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, Sun, Moon, Percent, BookOpen } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
@@ -27,6 +27,7 @@ export default function App() {
   const [lastSeenNotificationCount, setLastSeenNotificationCount] = useState<number>(0);
   const [isRecoveryActive, setIsRecoveryActive] = useState(false);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState<string>('Combined');
 
   // Live clock and Nifty live index ticker
@@ -570,77 +571,116 @@ export default function App() {
               )}
             </div>
 
-            {/* User account info card */}
-            <div 
-              onClick={() => setIsProfileSettingsOpen(true)}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '10px', 
-                background: 'var(--bg-card)', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '12px', 
-                padding: '6px 12px',
-                height: '48px',
-                fontSize: '0.92rem',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                whiteSpace: 'nowrap',
-                flexShrink: 0
-              }}
-              title="Open Account & Master Settings"
-            >
-              <span style={{ display: 'flex', alignItems: 'center', width: '38px', height: '38px', justifyContent: 'center' }}>
-                {userAvatar && userAvatar.startsWith('data:image/') ? (
-                  <img 
-                    src={userAvatar} 
-                    alt="Avatar" 
-                    style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} 
-                  />
-                ) : (
-                  <span style={{ fontSize: '1.9rem' }}>
-                    {userAvatar === 'bull' ? '🐂' :
-                     userAvatar === 'bear' ? '🐻' :
-                     userAvatar === 'trader' ? '👨‍💻' :
-                     userAvatar === 'gold' ? '🏆' :
-                     userAvatar === 'coin' ? '🪙' :
-                     userAvatar === 'clock' ? '⏱️' :
-                     userAvatar === 'rocket' ? '🚀' :
-                     userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
-                  </span>
-                )}
-              </span>
-              <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
-                {userName || 'Sachin'}
-              </strong>
-            </div>
+            {/* User account info card container */}
+            <div style={{ position: 'relative' }}>
+              <div 
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '10px', 
+                  background: isProfileMenuOpen ? 'var(--primary-glow)' : 'var(--bg-card)', 
+                  border: isProfileMenuOpen ? '1px solid var(--border-color-active)' : '1.5px solid var(--border-color)', 
+                  borderRadius: '12px', 
+                  padding: '6px 12px',
+                  height: '48px',
+                  fontSize: '0.92rem',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+                title="Account Menu"
+              >
+                <span style={{ display: 'flex', alignItems: 'center', width: '38px', height: '38px', justifyContent: 'center' }}>
+                  {userAvatar && userAvatar.startsWith('data:image/') ? (
+                    <img 
+                      src={userAvatar} 
+                      alt="Avatar" 
+                      style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} 
+                    />
+                  ) : (
+                    <span style={{ fontSize: '1.9rem' }}>
+                      {userAvatar === 'bull' ? '🐂' :
+                       userAvatar === 'bear' ? '🐻' :
+                       userAvatar === 'trader' ? '👨‍💻' :
+                       userAvatar === 'gold' ? '🏆' :
+                       userAvatar === 'coin' ? '🪙' :
+                       userAvatar === 'clock' ? '⏱️' :
+                       userAvatar === 'rocket' ? '🚀' :
+                       userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
+                    </span>
+                  )}
+                </span>
+                <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
+                  {userName || 'Sachin'}
+                </strong>
+              </div>
 
-            {/* Standalone Logout Action Button */}
-            <button 
-              onClick={() => {
-                if (window.confirm('Are you sure you want to log out of your trading journal?')) {
-                  signOutUser();
-                }
-              }}
-              className="btn btn-secondary"
-              style={{ 
-                width: '48px', 
-                height: '48px', 
-                padding: 0, 
-                borderRadius: '12px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'var(--bg-card)',
-                border: '1.5px solid var(--border-color)',
-                color: 'var(--color-loss)',
-                flexShrink: 0
-              }}
-              title="Log Out"
-            >
-              <LogOut size={16} />
-            </button>
+              {/* Glassmorphic Profile Menu Dropdown */}
+              {isProfileMenuOpen && (
+                <div 
+                  className="glass-card animate-tab-panel"
+                  style={{ 
+                    position: 'absolute', 
+                    right: 0, 
+                    top: '56px', 
+                    width: '200px', 
+                    zIndex: 2000, 
+                    padding: '8px',
+                    boxShadow: 'var(--shadow-glow)',
+                    border: '1.5px solid var(--border-color-active)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setIsProfileSettingsOpen(true);
+                      setIsProfileMenuOpen(false);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ 
+                      justifyContent: 'flex-start', 
+                      border: 'none', 
+                      fontSize: '0.8rem', 
+                      padding: '8px 12px', 
+                      width: '100%', 
+                      gap: '8px',
+                      background: 'rgba(255,255,255,0.015)'
+                    }}
+                  >
+                    <span>⚙️</span>
+                    <strong style={{ color: 'var(--text-main)' }}>Trader Settings</strong>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      if (window.confirm('Are you sure you want to log out of your trading journal?')) {
+                        signOutUser();
+                      }
+                    }}
+                    className="btn btn-secondary"
+                    style={{ 
+                      justifyContent: 'flex-start', 
+                      border: 'none', 
+                      fontSize: '0.8rem', 
+                      padding: '8px 12px', 
+                      width: '100%', 
+                      gap: '8px',
+                      color: 'var(--color-loss)',
+                      background: 'rgba(255,255,255,0.015)'
+                    }}
+                  >
+                    <span>🚪</span>
+                    <strong>Log Out</strong>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
