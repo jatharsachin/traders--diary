@@ -1232,7 +1232,7 @@ export function Dashboard({
       {/* Grid 1: Key Performance Indicators */}
       <div className="metrics-grid">
         {/* KPI 1: Realized Net P&L */}
-        <div className={`glass-card metric-card ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`}>
+        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`}>
           <div className="metric-title">
             <IndianRupee size={16} style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }} />
             <span>{showCombined ? 'Combined Wealth P&L' : 'Net Realized P&L'}</span>
