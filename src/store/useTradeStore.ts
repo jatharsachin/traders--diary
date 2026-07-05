@@ -442,6 +442,14 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     }
 
     let migrated = false;
+    
+    // Filter out any trades that do not belong to the 'Dhan' broker (user has only entered Dhan trades)
+    const originalLength = tradesList.length;
+    tradesList = tradesList.filter(t => t.broker && t.broker.toLowerCase() === 'dhan');
+    if (tradesList.length !== originalLength) {
+      migrated = true;
+    }
+
     const updated = tradesList.map((t) => {
       let changed = false;
       // Self-healing: ensure the trade's brokerAccountId matches an active account of the trade's broker.
