@@ -775,7 +775,7 @@ export function Dashboard({
     const pnl6M = getPnLForDays(180);
     const pnl1Y = getPnLForDays(365);
 
-    const cap = displayBaseCapital || 1;
+    const cap = effectiveBaseCapital || 1;
 
     return {
       '1M': { pnl: pnl1M, pct: (pnl1M / cap) * 100 },
