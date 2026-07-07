@@ -551,7 +551,8 @@ export default function App() {
                     border: '1.5px solid var(--border-color-active)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px'
+                    gap: '12px',
+                    background: 'var(--bg-tooltip-opaque)'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
@@ -654,7 +655,8 @@ export default function App() {
                     border: '1.5px solid var(--border-color-active)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '4px'
+                    gap: '4px',
+                    background: 'var(--bg-tooltip-opaque)'
                   }}
                 >
                   <button

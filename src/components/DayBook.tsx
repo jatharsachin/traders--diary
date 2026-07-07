@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  CalendarRange, Printer, Eye, EyeOff, Edit2
+  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown
 } from 'lucide-react';
 
 interface DayBookProps {
@@ -28,6 +28,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   const [startDate, setStartDate] = useState<string>(oneMonthAgoStr);
   const [endDate, setEndDate] = useState<string>(todayStr);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
 
 
@@ -269,7 +270,16 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       groups[item.date].lastRunningBalance = item.runningBalance;
     });
 
-    return Object.values(groups).sort((a, b) => a.date.localeCompare(b.date));
+    const groupsArray = Object.values(groups);
+    if (sortOrder === 'DESC') {
+      const sorted = groupsArray.sort((a, b) => b.date.localeCompare(a.date));
+      sorted.forEach(g => {
+        g.items = [...g.items].reverse();
+      });
+      return sorted;
+    } else {
+      return groupsArray.sort((a, b) => a.date.localeCompare(b.date));
+    }
   })();
 
 
@@ -303,9 +313,11 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    let runningBal = openingBalance;
-    const tableRows = timelineItems.map((item) => {
-      runningBal += item.amount;
+    const sortedTimeline = sortOrder === 'DESC' 
+      ? [...timelineItemsWithBal].reverse() 
+      : timelineItemsWithBal;
+
+    const tableRows = sortedTimeline.map((item) => {
       const isCredit = item.isCredit;
       const amountStr = formatCurrency(Math.abs(item.amount));
       return `
@@ -314,10 +326,24 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
           <td style="padding: 6px;"><strong>${item.title}</strong><div style="font-size:10px; color:#718096">${item.description}</div></td>
           <td style="padding: 6px; text-align: right; color: ${!isCredit ? '#e53e3e' : '#718096'}">${!isCredit ? '-' + amountStr : '-'}</td>
           <td style="padding: 6px; text-align: right; color: ${isCredit ? '#38a169' : '#718096'}">${isCredit ? '+' + amountStr : '-'}</td>
-          <td style="padding: 6px; text-align: right; font-weight: 700;">${formatCurrency(runningBal)}</td>
+          <td style="padding: 6px; text-align: right; font-weight: 700;">${formatCurrency(item.runningBalance)}</td>
         </tr>
       `;
     }).join('');
+
+    const openingBalRow = `
+      <tr style="background:#f7fafc; font-size:11px; font-weight:700;">
+        <td style="padding: 6px;">${startDate}</td>
+        <td style="padding: 6px;">Opening Balance Carry-Forward</td>
+        <td style="text-align: right; padding: 6px;">-</td>
+        <td style="text-align: right; padding: 6px;">-</td>
+        <td style="text-align: right; padding: 6px;">${formatCurrency(openingBalance)}</td>
+      </tr>
+    `;
+
+    const printBodyContent = sortOrder === 'DESC' 
+      ? `${tableRows}${openingBalRow}`
+      : `${openingBalRow}${tableRows}`;
 
     printWindow.document.write(`
       <html>
@@ -374,14 +400,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
               </tr>
             </thead>
             <tbody>
-              <tr style="background:#f7fafc; font-size:11px; font-weight:700;">
-                <td style="padding: 6px;">${startDate}</td>
-                <td style="padding: 6px;">Opening Balance Carry-Forward</td>
-                <td style="text-align: right; padding: 6px;">-</td>
-                <td style="text-align: right; padding: 6px;">-</td>
-                <td style="text-align: right; padding: 6px;">${formatCurrency(openingBalance)}</td>
-              </tr>
-              ${tableRows}
+              ${printBodyContent}
             </tbody>
           </table>
 
@@ -452,6 +471,17 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
             title={isPnlVisible ? "Hide P&L" : "Show P&L"}
           >
             {isPnlVisible ? <EyeOff size={14} /> : <Eye size={14} color="var(--primary)" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC')}
+            className="btn btn-secondary"
+            style={{ fontSize: '0.72rem', padding: '6px 12px', border: '1.5px solid var(--border-color)', background: 'var(--bg-card)', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            title={sortOrder === 'DESC' ? "Sorted: Latest First. Click to sort Earliest First" : "Sorted: Earliest First. Click to sort Latest First"}
+          >
+            <ArrowUpDown size={13} color="var(--primary)" />
+            <span>{sortOrder === 'DESC' ? 'Latest First' : 'Earliest First'}</span>
           </button>
 
           <button
@@ -564,252 +594,257 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
             </tr>
           </thead>
           <tbody>
-            {/* Opening Balance Line */}
-            <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.015)' }}>
-              <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{startDate}</td>
-              <td style={{ padding: '8px', fontWeight: 600, color: 'var(--text-dim)' }}>Opening Balance Carry-Forward</td>
-              <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
-              <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
-              <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                {isPnlVisible ? formatCurrency(openingBalance) : '••••'}
-              </td>
-            </tr>
-          </tbody>
+            {/* Opening Balance Line (Render at top if ASC) */}
+            {sortOrder === 'ASC' && (
+              <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.015)' }}>
+                <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{startDate}</td>
+                <td style={{ padding: '8px', fontWeight: 600, color: 'var(--text-dim)' }}>Opening Balance Carry-Forward</td>
+                <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
+                <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
+                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  {isPnlVisible ? formatCurrency(openingBalance) : '••••'}
+                </td>
+              </tr>
+            )}
 
-          {(() => {
-              if (timelineItems.length === 0) {
-                return (
-                  <tbody>
-                    <tr>
-                      <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                        No trades or capital adjustments recorded in this date range.
-                      </td>
-                    </tr>
-                  </tbody>
-                );
-              }
-
-              return (
-                <tbody>
-                  {groupedTimeline.map((group) => {
-                    return group.items.map((item, idx) => {
-                      const isCredit = item.isCredit;
-                      return (
-                        <tr 
-                          key={item.id}
-                          onClick={() => setSelectedRowId(selectedRowId === item.id ? null : item.id)}
+            {timelineItems.length === 0 ? (
+              <tr>
+                <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-dim)' }}>
+                  No trades or capital adjustments recorded in this date range.
+                </td>
+              </tr>
+            ) : (
+              groupedTimeline.map((group) => {
+                return group.items.map((item, idx) => {
+                  const isCredit = item.isCredit;
+                  return (
+                    <tr 
+                      key={item.id}
+                      onClick={() => setSelectedRowId(selectedRowId === item.id ? null : item.id)}
+                      style={{ 
+                        borderBottom: '1px solid var(--border-color)', 
+                        background: selectedRowId === item.id ? 'var(--primary-glow)' : 'var(--bg-card)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {idx === 0 && (
+                        <td 
+                          rowSpan={group.items.length} 
                           style={{ 
-                            borderBottom: '1px solid var(--border-color)', 
-                            background: selectedRowId === item.id ? 'var(--primary-glow)' : 'var(--bg-card)',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease'
+                            padding: '12px 10px', 
+                            verticalAlign: 'middle', 
+                            width: '110px', 
+                            minWidth: '110px', 
+                            whiteSpace: 'nowrap',
+                            borderRight: '1px solid var(--border-color)',
+                            background: 'var(--bg-card-hover)'
                           }}
                         >
-                          {idx === 0 && (
-                            <td 
-                              rowSpan={group.items.length} 
-                              style={{ 
-                                padding: '12px 10px', 
-                                verticalAlign: 'middle', 
-                                width: '110px', 
-                                minWidth: '110px', 
-                                whiteSpace: 'nowrap',
-                                borderRight: '1px solid var(--border-color)',
-                                background: 'var(--bg-card-hover)'
+                          <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.8rem' }}>{group.date}</div>
+                        </td>
+                      )}
+                      <td style={{ padding: '12px 10px', verticalAlign: 'middle' }} onClick={(e) => e.stopPropagation()}>
+                        {editingId === item.id ? (
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              className="form-input"
+                              value={editNotesText}
+                              onChange={(e) => setEditNotesText(e.target.value)}
+                              style={{ height: '28px', fontSize: '0.72rem', flexGrow: 1 }}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveNotes(item.id, item.type);
+                                if (e.key === 'Escape') setEditingId(null);
                               }}
+                            />
+                            <button 
+                              onClick={() => handleSaveNotes(item.id, item.type)}
+                              className="btn btn-primary"
+                              style={{ padding: '2px 8px', fontSize: '0.68rem', height: '28px' }}
                             >
-                              <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.8rem' }}>{group.date}</div>
-                            </td>
-                          )}
-                          <td style={{ padding: '12px 10px', verticalAlign: 'middle' }} onClick={(e) => e.stopPropagation()}>
-                            {editingId === item.id ? (
-                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                <input
-                                  type="text"
-                                  className="form-input"
-                                  value={editNotesText}
-                                  onChange={(e) => setEditNotesText(e.target.value)}
-                                  style={{ height: '28px', fontSize: '0.72rem', flexGrow: 1 }}
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveNotes(item.id, item.type);
-                                    if (e.key === 'Escape') setEditingId(null);
-                                  }}
-                                />
-                                <button 
-                                  onClick={() => handleSaveNotes(item.id, item.type)}
-                                  className="btn btn-primary"
-                                  style={{ padding: '2px 8px', fontSize: '0.68rem', height: '28px' }}
-                                >
-                                  Save
-                                </button>
-                                <button 
-                                  onClick={() => setEditingId(null)}
-                                  className="btn btn-secondary"
-                                  style={{ padding: '2px 8px', fontSize: '0.68rem', height: '28px' }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '8px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                                  {/* Row 1: Unified details on a single line */}
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 550 }}>⏱️ {item.time}</span>
+                              Save
+                            </button>
+                            <button 
+                              onClick={() => setEditingId(null)}
+                              className="btn btn-secondary"
+                              style={{ padding: '2px 8px', fontSize: '0.68rem', height: '28px' }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '8px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                              {/* Row 1: Unified details on a single line */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 550 }}>⏱️ {item.time}</span>
+                                <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+                                {item.type === 'TRADE' ? (
+                                  <>
+                                    <span style={{ 
+                                      background: item.label === 'BUY' ? 'var(--color-win-bg)' : 'var(--color-loss-bg)', 
+                                      color: item.label === 'BUY' ? 'var(--color-win)' : 'var(--color-loss)', 
+                                      border: item.label === 'BUY' ? '1px solid var(--color-win-border)' : '1px solid var(--color-loss-border)',
+                                      padding: '2px 6px', 
+                                      borderRadius: '4px', 
+                                      fontSize: '0.65rem', 
+                                      fontWeight: 700 
+                                    }}>{item.label}</span>
+                                    <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>{item.symbol}</strong>
+                                    <span style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-dim)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.62rem' }}>{item.typeLabel}</span>
+                                    
                                     <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
-                                    {item.type === 'TRADE' ? (
-                                      <>
-                                        <span style={{ 
-                                          background: item.label === 'BUY' ? 'var(--color-win-bg)' : 'var(--color-loss-bg)', 
-                                          color: item.label === 'BUY' ? 'var(--color-win)' : 'var(--color-loss)', 
-                                          border: item.label === 'BUY' ? '1px solid var(--color-win-border)' : '1px solid var(--color-loss-border)',
-                                          padding: '2px 6px', 
-                                          borderRadius: '4px', 
-                                          fontSize: '0.65rem', 
-                                          fontWeight: 700 
-                                        }}>{item.label}</span>
-                                        <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>{item.symbol}</strong>
-                                        <span style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-dim)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.62rem' }}>{item.typeLabel}</span>
-                                        
-                                        <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
-                                        
-                                        <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
-                                          Qty: <strong style={{ color: 'var(--text-main)' }}>{item.qty}</strong> @ <strong style={{ color: 'var(--text-main)' }}>₹{item.entryPrice}</strong>
-                                        </span>
-                                        
-                                        <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
-                                        
-                                        <span style={{ background: 'rgba(96, 165, 250, 0.08)', color: '#60a5fa', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
-                                          🎯 {item.strategy}
-                                        </span>
-                                        {item.mistake && item.mistake !== 'None' && (
-                                          <span style={{ background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
-                                            ⚠️ {item.mistake}
-                                          </span>
-                                        )}
-                                        
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', marginLeft: 'auto' }}>via {item.broker}</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <span style={{ 
-                                          background: item.type === 'DEPOSIT' ? 'rgba(10, 132, 255, 0.12)' : 'rgba(255, 159, 10, 0.12)', 
-                                          color: item.type === 'DEPOSIT' ? '#0a84ff' : '#ff9f0a', 
-                                          padding: '2px 6px', 
-                                          borderRadius: '4px', 
-                                          fontSize: '0.65rem', 
-                                          fontWeight: 700 
-                                        }}>{item.label}</span>
-                                        <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>Capital {item.flowLabel === 'Deposit' ? 'Inflow' : 'Outflow'}</strong>
-                                        <span style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-dim)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.62rem' }}>{item.sourceLabel}</span>
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', marginLeft: 'auto' }}>via {item.broker}</span>
-                                      </>
+                                    
+                                    <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+                                      Qty: <strong style={{ color: 'var(--text-main)' }}>{item.qty}</strong> @ <strong style={{ color: 'var(--text-main)' }}>₹{item.entryPrice}</strong>
+                                    </span>
+                                    
+                                    <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+                                    
+                                    <span style={{ background: 'rgba(96, 165, 250, 0.08)', color: '#60a5fa', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
+                                      🎯 {item.strategy}
+                                    </span>
+                                    {item.mistake && item.mistake !== 'None' && (
+                                      <span style={{ background: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 550 }}>
+                                        ⚠️ {item.mistake}
+                                      </span>
                                     )}
-                                  </div>
-
-                                  {/* Row 3: Notes description block */}
-                                  {item.rawNotes && item.rawNotes.trim() !== '' && (
-                                    <div 
-                                      style={{ 
-                                        fontSize: '0.72rem', 
-                                        color: 'var(--text-dim)', 
-                                        background: 'rgba(255,255,255,0.015)', 
-                                        padding: '4px 8px', 
-                                        borderRadius: '6px', 
-                                        borderLeft: '2.5px solid var(--primary)', 
-                                        marginTop: '2px', 
-                                        lineHeight: 1.3 
-                                      }}
-                                    >
-                                      {item.rawNotes}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {!item.isInvestment && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingId(item.id);
-                                      setEditNotesText(item.rawNotes || '');
-                                    }}
-                                    className="btn btn-secondary"
-                                    style={{ 
-                                      padding: '4px', 
-                                      border: 'none', 
-                                      background: 'transparent', 
-                                      cursor: 'pointer',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      alignSelf: 'flex-start',
-                                      opacity: 0.5
-                                    }}
-                                    title="Edit Notes (Manual Feed)"
-                                  >
-                                    <Edit2 size={12} color="var(--primary)" />
-                                  </button>
+                                    
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', marginLeft: 'auto' }}>via {item.broker}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span style={{ 
+                                      background: item.type === 'DEPOSIT' ? 'rgba(10, 132, 255, 0.12)' : 'rgba(255, 159, 10, 0.12)', 
+                                      color: item.type === 'DEPOSIT' ? '#0a84ff' : '#ff9f0a', 
+                                      padding: '2px 6px', 
+                                      borderRadius: '4px', 
+                                      fontSize: '0.65rem', 
+                                      fontWeight: 700 
+                                    }}>{item.label}</span>
+                                    <strong style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>Capital {item.flowLabel === 'Deposit' ? 'Inflow' : 'Outflow'}</strong>
+                                    <span style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-dim)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.62rem' }}>{item.sourceLabel}</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', marginLeft: 'auto' }}>via {item.broker}</span>
+                                  </>
                                 )}
                               </div>
+
+                              {/* Row 3: Notes description block */}
+                              {item.rawNotes && item.rawNotes.trim() !== '' && (
+                                <div 
+                                  style={{ 
+                                    fontSize: '0.72rem', 
+                                    color: 'var(--text-dim)', 
+                                    background: 'rgba(255,255,255,0.015)', 
+                                    padding: '4px 8px', 
+                                    borderRadius: '6px', 
+                                    borderLeft: '2.5px solid var(--primary)', 
+                                    marginTop: '2px', 
+                                    lineHeight: 1.3 
+                                  }}
+                                >
+                                  {item.rawNotes}
+                                </div>
+                              )}
+                            </div>
+
+                            {!item.isInvestment && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingId(item.id);
+                                  setEditNotesText(item.rawNotes || '');
+                                }}
+                                className="btn btn-secondary"
+                                style={{ 
+                                  padding: '4px', 
+                                  border: 'none', 
+                                  background: 'transparent', 
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  alignSelf: 'flex-start',
+                                  opacity: 0.5
+                                }}
+                                title="Edit Notes (Manual Feed)"
+                              >
+                                <Edit2 size={12} color="var(--primary)" />
+                              </button>
                             )}
-                          </td>
-                          <td 
-                            style={{ 
-                              padding: '12px 10px', 
-                              textAlign: 'right', 
-                              verticalAlign: 'middle'
-                            }}
-                          >
-                            {!isCredit ? (
-                              <span style={{ 
-                                color: 'var(--color-loss)', 
-                                background: 'var(--color-loss-bg)', 
-                                padding: '3px 8px', 
-                                borderRadius: '6px', 
-                                fontWeight: 650, 
-                                fontFamily: 'var(--font-mono)',
-                                display: 'inline-block',
-                                whiteSpace: 'nowrap',
-                                border: '1px solid var(--color-loss-border)'
-                              }}>
-                                -{isPnlVisible ? formatCurrency(Math.abs(item.amount)) : '••••'}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td 
-                            style={{ 
-                              padding: '12px 10px', 
-                              textAlign: 'right', 
-                              verticalAlign: 'middle'
-                            }}
-                          >
-                            {isCredit ? (
-                              <span style={{ 
-                                color: 'var(--color-win)', 
-                                background: 'var(--color-win-bg)', 
-                                padding: '3px 8px', 
-                                borderRadius: '6px', 
-                                fontWeight: 650, 
-                                fontFamily: 'var(--font-mono)',
-                                display: 'inline-block',
-                                whiteSpace: 'nowrap',
-                                border: '1px solid var(--color-win-border)'
-                              }}>
-                                +{isPnlVisible ? formatCurrency(item.amount) : '••••'}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', verticalAlign: 'middle' }}>
-                            {isPnlVisible ? formatCurrency(item.runningBalance) : '••••'}
-                          </td>
-                        </tr>
-                      );
-                    });
-                  })}
-                </tbody>
-              );
-            })()}
+                          </div>
+                        )}
+                      </td>
+                      <td 
+                        style={{ 
+                          padding: '12px 10px', 
+                          textAlign: 'right', 
+                          verticalAlign: 'middle'
+                        }}
+                      >
+                        {!isCredit ? (
+                          <span style={{ 
+                            color: 'var(--color-loss)', 
+                            background: 'var(--color-loss-bg)', 
+                            padding: '3px 8px', 
+                            borderRadius: '6px', 
+                            fontWeight: 650, 
+                            fontFamily: 'var(--font-mono)',
+                            display: 'inline-block',
+                            whiteSpace: 'nowrap',
+                            border: '1px solid var(--color-loss-border)'
+                          }}>
+                            -{isPnlVisible ? formatCurrency(Math.abs(item.amount)) : '••••'}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td 
+                        style={{ 
+                          padding: '12px 10px', 
+                          textAlign: 'right', 
+                          verticalAlign: 'middle'
+                        }}
+                      >
+                        {isCredit ? (
+                          <span style={{ 
+                            color: 'var(--color-win)', 
+                            background: 'var(--color-win-bg)', 
+                            padding: '3px 8px', 
+                            borderRadius: '6px', 
+                            fontWeight: 650, 
+                            fontFamily: 'var(--font-mono)',
+                            display: 'inline-block',
+                            whiteSpace: 'nowrap',
+                            border: '1px solid var(--color-win-border)'
+                          }}>
+                            +{isPnlVisible ? formatCurrency(item.amount) : '••••'}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', verticalAlign: 'middle' }}>
+                        {isPnlVisible ? formatCurrency(item.runningBalance) : '••••'}
+                      </td>
+                    </tr>
+                  );
+                });
+              })
+            )}
+
+            {/* Opening Balance Line (Render at bottom if DESC) */}
+            {sortOrder === 'DESC' && (
+              <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.015)' }}>
+                <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{startDate}</td>
+                <td style={{ padding: '8px', fontWeight: 600, color: 'var(--text-dim)' }}>Opening Balance Carry-Forward</td>
+                <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
+                <td style={{ padding: '8px', textAlign: 'right' }}>-</td>
+                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  {isPnlVisible ? formatCurrency(openingBalance) : '••••'}
+                </td>
+              </tr>
+            )}
+          </tbody>
           <tfoot>
             <tr style={{ borderTop: '2px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}>
               <td style={{ padding: '10px 8px', color: 'var(--text-main)' }}>Summary ({startDate} to {endDate})</td>

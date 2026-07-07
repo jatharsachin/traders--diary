@@ -1037,7 +1037,7 @@ export function Dashboard({
       };
 
       return (
-        <div className="glass-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '8px 12px', boxShadow: 'var(--shadow-glow)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        <div className="glass-card" style={{ background: 'var(--bg-tooltip-opaque)', border: '1px solid var(--border-color)', padding: '8px 12px', boxShadow: 'var(--shadow-glow)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDateTooltip(data.date)}</span>
           <span style={{ fontSize: '0.82rem', fontWeight: 650, color: 'var(--text-main)' }}>
             Value: {isPnlVisible ? formatCurrency(data.tradingPnL) : '••••'}
@@ -1052,7 +1052,7 @@ export function Dashboard({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="glass-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '10px', boxShadow: 'var(--shadow-glow)' }}>
+        <div className="glass-card" style={{ background: 'var(--bg-tooltip-opaque)', border: '1px solid var(--border-color)', padding: '10px', boxShadow: 'var(--shadow-glow)' }}>
           <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-loss)' }}>{data.name}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px', fontSize: '0.8rem', color: 'var(--text-main)' }}>
             <span>Total Occurrences: {data.count}</span>
