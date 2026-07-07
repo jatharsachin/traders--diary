@@ -1,6 +1,20 @@
 import React, { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { Plus, Trash2, Edit2, ShieldAlert, Award, Star, Compass } from 'lucide-react';
+import { 
+  Plus, Trash2, Edit2, ShieldAlert, Award, Star, Compass, 
+  BarChart2 as LucideBarChart
+} from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Cell,
+  PieChart,
+  Pie
+} from 'recharts';
 
 export function StrategyManager() {
   const { setups, addSetup, editSetup, deleteSetup, trades } = useTradeStore();
@@ -100,6 +114,30 @@ export function StrategyManager() {
   };
 
   const bestStrategy = getBestStrategy();
+
+  // Curated premium HSL colors for Pie chart slices
+  const PIE_COLORS = [
+    '#3b82f6', // blue
+    '#10b981', // emerald
+    '#ec4899', // pink
+    '#f59e0b', // amber
+    '#8b5cf6', // purple
+    '#06b6d4', // cyan
+    '#ef4444', // red
+    '#14b8a6'  // teal
+  ];
+
+  const chartData = setups.map((s) => {
+    const stats = getSetupStats(s.name);
+    return {
+      name: s.name,
+      trades: stats.count,
+      netPnL: stats.netPnL,
+      winRate: stats.winRate
+    };
+  }).filter(d => d.trades > 0);
+
+  const hasChartData = chartData.length > 0;
 
   return (
     <div className="animate-tab-panel grid-2col-2-1">
@@ -341,6 +379,103 @@ export function StrategyManager() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Visual Analytics Charts Section */}
+      <div className="glass-card" style={{ gridColumn: 'span 2', padding: '24px', marginTop: '20px' }}>
+        <h3 style={{ fontSize: '1.05rem', color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <LucideBarChart size={18} color="var(--primary)" />
+          Strategy Performance & Distribution Visualizer
+        </h3>
+        
+        {!hasChartData ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-dim)', border: '1px dashed var(--border-color)', borderRadius: '10px' }}>
+            💡 No trade data recorded for your strategies yet. Add strategy tags when logging your trades in Log Trade or Logs tabs to view visual performance analytics.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+            
+            {/* Chart 1: Net P&L per Strategy */}
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <h4 style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600 }}>
+                Net P&L comparison per Strategy
+              </h4>
+              <div style={{ width: '100%', height: '260px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="var(--text-dim)" 
+                      fontSize={10} 
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      stroke="var(--text-dim)" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      tickFormatter={(value) => {
+                        const absVal = Math.abs(value);
+                        if (absVal >= 100000) return `${(value / 100000).toFixed(1)}L`;
+                        if (absVal >= 1000) return `${(value / 1000).toFixed(0)}k`;
+                        return value;
+                      }}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                      contentStyle={{ background: 'var(--bg-tooltip-opaque)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.78rem' }}
+                      labelStyle={{ color: 'var(--text-main)', fontWeight: 'bold' }}
+                      formatter={(value) => [formatCurrency(Number(value)), 'Net P&L']}
+                    />
+                    <Bar dataKey="netPnL">
+                      {chartData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 2: Trade Distribution */}
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <h4 style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600 }}>
+                Trade Volume Share per Setup
+              </h4>
+              <div style={{ width: '100%', height: '260px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      dataKey="trades"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      labelLine={false}
+                      label={({ name, percent }: any) => (percent !== undefined && percent > 0.05) ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
+                      style={{ fontSize: '0.62rem', fill: 'var(--text-main)', fontWeight: 600 }}
+                    >
+                      {chartData.map((_, index) => (
+                        <Cell 
+                          key={`cell-pie-${index}`} 
+                          fill={PIE_COLORS[index % PIE_COLORS.length]} 
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: 'var(--bg-tooltip-opaque)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.78rem' }}
+                      formatter={(value, name) => [`${value} trades`, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+          </div>
+        )}
       </div>
 
     </div>
