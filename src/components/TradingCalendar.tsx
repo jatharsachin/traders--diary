@@ -1564,7 +1564,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                           )}
                         </div>
                       </td>
-                      <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={t.notes}>
+                      <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '250px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} title={t.notes}>
                         {t.notes || '-'}
                       </td>
                     </tr>

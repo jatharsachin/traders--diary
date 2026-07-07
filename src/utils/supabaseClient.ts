@@ -202,6 +202,38 @@ export async function syncMetaToCloud(key: string, value: any) {
   }
 }
 
+export async function fetchMetaBatchFromCloud(): Promise<Record<string, any> | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await client
+      .from('traders_diary_meta')
+      .select('key, value')
+      .eq('user_id', user.id);
+      
+    if (error) {
+      console.error('Supabase Fetch Meta Batch Error:', error);
+      return null;
+    }
+
+    const batch: Record<string, any> = {};
+    if (data) {
+      data.forEach((row: any) => {
+        batch[row.key] = row.value;
+      });
+    }
+    return batch;
+  } catch (e) {
+    console.error('Network error during Supabase meta batch fetch:', e);
+    return null;
+  }
+}
+
+
 export async function fetchMetaFromCloud(key: string): Promise<any | null> {
   const client = getSupabaseClient();
   if (!client) return null;

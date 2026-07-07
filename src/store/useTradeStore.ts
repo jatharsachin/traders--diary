@@ -6,7 +6,7 @@ import type {
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
 import { 
   syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, 
-  fetchMetaFromCloud, getSupabaseClient 
+  getSupabaseClient, fetchMetaBatchFromCloud
 } from '../utils/supabaseClient';
 import { getFinancialYear } from '../utils/fyHelper';
 
@@ -1068,155 +1068,104 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const userId = get().sessionUser?.id;
       if (!userId) return false;
 
-      const isSynced = localStorage.getItem(`traders_diary_cloud_synced_${userId}`);
-
-      // Mark user as synced
-      localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');
-
       // 1. Trades
       const cloudTrades = await fetchTradesFromCloud();
-      if (cloudTrades !== null) {
-        set({ trades: cloudTrades });
-        localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
-
-        const hasRecalced = localStorage.getItem(`traders_diary_recalced_charges_v4_${userId}`) === 'true';
-        if (!hasRecalced) {
-          const recalcedTrades = cloudTrades.map(t => {
-            const config = get().brokerCharges.find(c => c.broker === t.broker);
-            const calc = computeTradeCalculations(t, config);
-            return {
-              ...t,
-              isExpiryDay: calc.isExpiryDay,
-              ...(t.useManualCharges ? {} : {
-                brokerage: calc.brokerage,
-                taxes: calc.taxes,
-                netPnL: calc.netPnL,
-                roi: calc.roi
-              })
-            };
-          });
-          for (const rt of recalcedTrades) {
-            await syncTradeToCloud('update', rt);
-          }
-          set({ trades: recalcedTrades });
-          localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(recalcedTrades));
-          localStorage.setItem(`traders_diary_recalced_charges_v4_${userId}`, 'true');
-        }
+      if (cloudTrades === null) {
+        console.error("Cloud trades fetch failed. Aborting sync to protect local data.");
+        return false;
       }
 
-      // 2. Base Capital
+      // 2. Metadata Batch
+      const cloudMeta = await fetchMetaBatchFromCloud();
+      if (cloudMeta === null) {
+        console.error("Cloud metadata batch fetch failed. Aborting sync to protect local data.");
+        return false;
+      }
 
-      // 3. Investments
-      const investmentsCloud = await fetchMetaFromCloud('investments');
-      if (investmentsCloud !== null && Array.isArray(investmentsCloud)) {
-        if (investmentsCloud.length > 0 || isSynced) {
-          set({ investments: investmentsCloud });
-          localStorage.setItem(`traders_diary_investments_${userId}`, JSON.stringify(investmentsCloud));
+      // Mark trades local storage and store
+      set({ trades: cloudTrades });
+      localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
+
+      const hasRecalced = localStorage.getItem(`traders_diary_recalced_charges_v4_${userId}`) === 'true';
+      if (!hasRecalced && cloudTrades.length > 0) {
+        const recalcedTrades = cloudTrades.map(t => {
+          const config = get().brokerCharges.find(c => c.broker === t.broker);
+          const calc = computeTradeCalculations(t, config);
+          return {
+            ...t,
+            isExpiryDay: calc.isExpiryDay,
+            ...(t.useManualCharges ? {} : {
+              brokerage: calc.brokerage,
+              taxes: calc.taxes,
+              netPnL: calc.netPnL,
+              roi: calc.roi
+            })
+          };
+        });
+        for (const rt of recalcedTrades) {
+          await syncTradeToCloud('update', rt);
+        }
+        set({ trades: recalcedTrades });
+        localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(recalcedTrades));
+        localStorage.setItem(`traders_diary_recalced_charges_v4_${userId}`, 'true');
+      }
+
+      // Check if this is a brand new user (no trades AND no metadata in cloud)
+      const isBrandNewUser = cloudTrades.length === 0 && Object.keys(cloudMeta).length === 0;
+
+      const processMetaKey = async (key: string, storeSetter: (val: any) => void, localKey: string, defaultValue: any) => {
+        const cloudVal = cloudMeta[key];
+        
+        if (cloudVal !== undefined && cloudVal !== null) {
+          // Cloud has a valid record (even if it's an empty array [] or empty object {})
+          storeSetter(cloudVal);
+          localStorage.setItem(localKey, JSON.stringify(cloudVal));
         } else {
-          const localInvs = get().investments;
-          if (localInvs.length > 0) {
-            await syncMetaToCloud('investments', localInvs);
+          // Cloud has no record for this key.
+          if (isBrandNewUser) {
+            // First time login - upload local guest data if we have any
+            const localVal = get()[key as keyof TradeStore];
+            const isLocalDefault = JSON.stringify(localVal) === JSON.stringify(defaultValue);
+            if (localVal && !isLocalDefault && (Array.isArray(localVal) ? localVal.length > 0 : Object.keys(localVal).length > 0)) {
+              await syncMetaToCloud(key, localVal);
+            }
+          } else {
+            // Existing user - set local state to empty default
+            storeSetter(defaultValue);
+            localStorage.setItem(localKey, JSON.stringify(defaultValue));
           }
         }
-      }
+      };
 
-      // 4. Capital Adjustments
-      const adjustmentsCloud = await fetchMetaFromCloud('capital_adjustments');
-      if (adjustmentsCloud !== null && Array.isArray(adjustmentsCloud)) {
-        if (adjustmentsCloud.length > 0 || isSynced) {
-          set({ capitalAdjustments: adjustmentsCloud });
-          localStorage.setItem(`traders_diary_adjustments_${userId}`, JSON.stringify(adjustmentsCloud));
-        } else {
-          const localAdjs = get().capitalAdjustments;
-          if (localAdjs.length > 0) {
-            await syncMetaToCloud('capital_adjustments', localAdjs);
-          }
-        }
-      }
+      // Setups
+      await processMetaKey('setups', (val) => set({ setups: val }), `traders_diary_setups_${userId}`, DEFAULT_SETUPS);
 
-      // 5. Setups
-      const setupsCloud = await fetchMetaFromCloud('setups');
-      if (setupsCloud !== null && Array.isArray(setupsCloud)) {
-        if (setupsCloud.length > 0 || isSynced) {
-          set({ setups: setupsCloud });
-          localStorage.setItem(`traders_diary_setups_${userId}`, JSON.stringify(setupsCloud));
-        } else {
-          const localSetups = get().setups;
-          if (localSetups.length > 0) {
-            await syncMetaToCloud('setups', localSetups);
-          }
-        }
-      }
+      // Investments
+      await processMetaKey('investments', (val) => set({ investments: val }), `traders_diary_investments_${userId}`, []);
 
-      // 6. Weekly Retrospectives
-      const retrosCloud = await fetchMetaFromCloud('weekly_retrospectives');
-      if (retrosCloud !== null) {
-        if (Object.keys(retrosCloud).length > 0 || isSynced) {
-          set({ weeklyRetrospectives: retrosCloud });
-          localStorage.setItem(`traders_diary_weekly_retrospectives_${userId}`, JSON.stringify(retrosCloud));
-        } else {
-          const localRetros = get().weeklyRetrospectives;
-          if (Object.keys(localRetros).length > 0) {
-            await syncMetaToCloud('weekly_retrospectives', localRetros);
-          }
-        }
-      }
+      // Capital Adjustments
+      await processMetaKey('capital_adjustments', (val) => set({ capitalAdjustments: val }), `traders_diary_adjustments_${userId}`, []);
 
-      // 7. Broker Accounts
-      const accountsCloud = await fetchMetaFromCloud('broker_accounts');
-      if (accountsCloud !== null) {
-        if (Array.isArray(accountsCloud) && (accountsCloud.length > 0 || isSynced)) {
-          set({ brokerAccounts: accountsCloud, baseCapital: updateBaseCapital(accountsCloud) });
-          localStorage.setItem(`traders_diary_broker_accounts_${userId}`, JSON.stringify(accountsCloud));
-        } else if (get().brokerAccounts.length > 0 && !isSynced) {
-          await syncMetaToCloud('broker_accounts', get().brokerAccounts);
-        }
-      }
+      // Weekly Retrospectives
+      await processMetaKey('weekly_retrospectives', (val) => set({ weeklyRetrospectives: val }), `traders_diary_weekly_retrospectives_${userId}`, {});
 
-      // 8. Bank Accounts
-      const banksCloud = await fetchMetaFromCloud('bank_accounts');
-      if (banksCloud !== null) {
-        if (Array.isArray(banksCloud) && (banksCloud.length > 0 || isSynced)) {
-          set({ bankAccounts: banksCloud });
-          localStorage.setItem(`traders_diary_bank_accounts_${userId}`, JSON.stringify(banksCloud));
-        } else if (get().bankAccounts.length > 0 && !isSynced) {
-          await syncMetaToCloud('bank_accounts', get().bankAccounts);
-        }
-      }
+      // Broker Accounts
+      await processMetaKey('broker_accounts', (val) => set({ brokerAccounts: val, baseCapital: updateBaseCapital(val) }), `traders_diary_broker_accounts_${userId}`, DEFAULT_BROKER_ACCOUNTS);
 
-      // 9. Broker Charges
-      const chargesCloud = await fetchMetaFromCloud('broker_charges');
-      if (chargesCloud !== null) {
-        set({ brokerCharges: chargesCloud });
-        localStorage.setItem(`traders_diary_broker_charges_${userId}`, JSON.stringify(chargesCloud));
-      } else if (get().brokerCharges.length > 0 && !isSynced) {
-        await syncMetaToCloud('broker_charges', get().brokerCharges);
-      }
+      // Bank Accounts
+      await processMetaKey('bank_accounts', (val) => set({ bankAccounts: val }), `traders_diary_bank_accounts_${userId}`, DEFAULT_BANK_ACCOUNTS);
 
-      // 10. Expenses
-      const expensesCloud = await fetchMetaFromCloud('subscription_expenses');
-      if (expensesCloud !== null) {
-        if (Array.isArray(expensesCloud) && (expensesCloud.length > 0 || isSynced)) {
-          set({ subscriptionExpenses: expensesCloud });
-          localStorage.setItem(`traders_diary_subscription_expenses_${userId}`, JSON.stringify(expensesCloud));
-        } else if (get().subscriptionExpenses.length > 0 && !isSynced) {
-          await syncMetaToCloud('subscription_expenses', get().subscriptionExpenses);
-        }
-      }
+      // Broker Charges
+      await processMetaKey('broker_charges', (val) => set({ brokerCharges: val }), `traders_diary_broker_charges_${userId}`, DEFAULT_BROKER_CHARGES);
+
+      // Expenses
+      await processMetaKey('subscription_expenses', (val) => set({ subscriptionExpenses: val }), `traders_diary_subscription_expenses_${userId}`, DEFAULT_SUBSCRIPTION_EXPENSES);
+
+      // Bank Transactions
+      await processMetaKey('bank_transactions', (val) => set({ bankTransactions: val }), `traders_diary_bank_transactions_${userId}`, []);
 
       // Mark the sync initialization as completed
       localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');
-
-      // 11. Bank Transactions
-      const bankTxCloud = await fetchMetaFromCloud('bank_transactions');
-      if (bankTxCloud !== null) {
-        if (Array.isArray(bankTxCloud) && (bankTxCloud.length > 0 || isSynced)) {
-          set({ bankTransactions: bankTxCloud });
-          localStorage.setItem(`traders_diary_bank_transactions_${userId}`, JSON.stringify(bankTxCloud));
-        } else if (get().bankTransactions.length > 0 && !isSynced) {
-          await syncMetaToCloud('bank_transactions', get().bankTransactions);
-        }
-      }
 
       return true;
     },

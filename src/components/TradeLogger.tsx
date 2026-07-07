@@ -580,9 +580,20 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       .filter((tag) => tag.length > 0)
       .map((tag) => (tag.startsWith('#') ? tag : `#${tag}`));
 
+    let finalSymbol = formData.symbol;
+    if (formData.segment === 'F&O') {
+      if (formData.strikePrice > 0 && formData.optionType !== 'None') {
+        finalSymbol = `${underlyingIndex} ${formData.strikePrice} ${formData.optionType}`;
+      }
+    }
+
     if (isMultiLeg) {
+      const leg1Symbol = finalSymbol || `${underlyingIndex} ${formData.strikePrice} ${formData.optionType}`;
+      const calculatedLeg2Symbol = leg2Symbol || `${underlyingIndex} ${leg2Strike} ${leg2OptionType}`;
+
       const finalTradeData = {
         ...formData,
+        symbol: leg1Symbol,
         exitDate: formData.date,
         tags: [...parsedTags, '#spread_leg1', '#hedged'],
       };
@@ -593,12 +604,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         action: leg2Action,
         strikePrice: leg2Strike,
         optionType: leg2OptionType,
-        symbol: leg2Symbol,
+        symbol: calculatedLeg2Symbol,
         entryPrice: leg2EntryPrice,
         exitPrice: leg2ExitPrice,
         exitDate: formData.date,
         tags: [...parsedTags, '#spread_leg2', '#hedge_leg', '#hedged'],
-        notes: (formData.notes ? formData.notes + ' ' : '') + `(Hedge Leg for ${formData.symbol})`,
+        notes: (formData.notes ? formData.notes + ' ' : '') + `(Hedge Leg for ${leg1Symbol})`,
       };
 
       if (!window.confirm('Are you sure you want to log both spread legs?')) return;
@@ -608,6 +619,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     } else {
       const finalTradeData = {
         ...formData,
+        symbol: finalSymbol,
         exitDate: formData.product === 'Delivery' ? (formData.exitDate || formData.date) : formData.date,
         tags: parsedTags,
         partialExits: usePartialExits ? partialExits.filter(e => e.qty > 0 && e.price > 0) : undefined,
