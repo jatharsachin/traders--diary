@@ -1265,11 +1265,19 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`
         ];
         
-        const proxies = [
+        const isLocalhost = window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1' || 
+                            window.location.hostname === '';
+
+        const proxies = [];
+        if (!isLocalhost) {
+          proxies.push((targetUrl: string) => `/api/yahoo-proxy?url=${encodeURIComponent(targetUrl)}`);
+        }
+        proxies.push(
           (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
           (targetUrl: string) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
           (targetUrl: string) => `https://api.codetabs.com/v1/proxy?url=${encodeURIComponent(targetUrl)}`
-        ];
+        );
 
         const fetchWithTimeout = async (urlStr: string, timeoutMs: number = 3000) => {
           const controller = new AbortController();
