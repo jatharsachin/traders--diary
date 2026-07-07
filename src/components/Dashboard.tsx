@@ -403,9 +403,10 @@ export function Dashboard({
   const firstTradeDate = new Date(sortedTrades[0]?.date || new Date());
   const timeDiffMs = anchorDate.getTime() - firstTradeDate.getTime();
   const yearsDiff = timeDiffMs / (1000 * 60 * 60 * 24 * 365.25);
-  const cagr = yearsDiff >= 1.0
+  const isExtrapolated = yearsDiff < 1.0;
+  const cagr = yearsDiff > 0.04
     ? (Math.pow(Math.max(0.1, (allTimeDeployedCapital + displayNetPnL) / allTimeDeployedCapital), 1 / yearsDiff) - 1) * 100
-    : null;
+    : allTimePct;
 
   // Options Holding Details
   const optionTrades = trades.filter((t) => {
@@ -1749,12 +1750,19 @@ export function Dashboard({
                 {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'} ({allTimePct.toFixed(1)}%)
               </div>
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Annualized CAGR</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: cagr === null ? 'var(--text-muted)' : cagr >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                {cagr !== null ? `${cagr.toFixed(1)}%` : 'N/A (< 1 Yr)'}
-              </div>
-            </div>
+             <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '62px' }}>
+               <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                 Annualized CAGR {isExtrapolated && <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>(Projected)</span>}
+               </div>
+               <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '2px', color: cagr >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                 {cagr.toFixed(1)}%
+               </div>
+               {isExtrapolated && (
+                 <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                   *Extrapolated run-rate
+                 </div>
+               )}
+             </div>
           </div>
         </div>
 
