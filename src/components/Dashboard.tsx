@@ -403,9 +403,9 @@ export function Dashboard({
   const firstTradeDate = new Date(sortedTrades[0]?.date || new Date());
   const timeDiffMs = anchorDate.getTime() - firstTradeDate.getTime();
   const yearsDiff = timeDiffMs / (1000 * 60 * 60 * 24 * 365.25);
-  const cagr = yearsDiff > 0.02
+  const cagr = yearsDiff >= 1.0
     ? (Math.pow(Math.max(0.1, (allTimeDeployedCapital + displayNetPnL) / allTimeDeployedCapital), 1 / yearsDiff) - 1) * 100
-    : allTimePct;
+    : null;
 
   // Options Holding Details
   const optionTrades = trades.filter((t) => {
@@ -1751,8 +1751,8 @@ export function Dashboard({
             </div>
             <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Annualized CAGR</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: cagr >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                {cagr.toFixed(1)}%
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: cagr === null ? 'var(--text-muted)' : cagr >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {cagr !== null ? `${cagr.toFixed(1)}%` : 'N/A (< 1 Yr)'}
               </div>
             </div>
           </div>
