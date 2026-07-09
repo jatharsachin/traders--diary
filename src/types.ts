@@ -3,7 +3,7 @@ export type Product = 'Intraday' | 'Delivery';
 export type Broker = 'Zerodha' | 'Groww' | 'Angel One' | 'Upstox' | 'Fyers' | 'Dhan' | 'Kotak Neo' | 'Other';
 export type TradeAction = 'BUY' | 'SELL';
 export type Emotion = 'Calm' | 'Greedy' | 'Fearful' | 'Impatient' | 'Revengeful';
-export type Mistake = 'None' | 'Overtrading' | 'FOMO Entry' | 'Moving SL' | 'Early Exit' | 'No Setup';
+export type Mistake = 'None' | 'Overtrading' | 'FOMO Entry' | 'Moving SL' | 'Early Exit' | 'No Setup' | 'Late Exit' | 'Panic Exit' | 'Greed Hold' | 'Manual Intervention' | 'Tech / API Issue';
 
 export interface Trade {
   id: string;

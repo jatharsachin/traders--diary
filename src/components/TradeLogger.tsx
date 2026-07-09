@@ -55,12 +55,12 @@ const guessLotSize = (symbol: string): number => {
 };
 
 const TRADING_RULES = [
-  'Trend Alignment',
-  'Position Sizing OK',
-  'Patience Kept',
-  'Waited for Setup',
-  'Followed Stop Loss Plan',
-  'Clean Execution',
+  'System Executed',
+  'Risk Limit OK',
+  'API & Tech OK',
+  'Exit Plan Followed',
+  'No Manual Override',
+  'Slippage Checked'
 ];
 
 const EMOTIONS: { value: Emotion; label: string; emoji: string }[] = [
@@ -71,13 +71,26 @@ const EMOTIONS: { value: Emotion; label: string; emoji: string }[] = [
   { value: 'Revengeful', label: 'Revenge', emoji: '😡' },
 ];
 
-const MISTAKES: Mistake[] = ['None', 'Overtrading', 'FOMO Entry', 'Moving SL', 'Early Exit', 'No Setup'];
+const MISTAKES: Mistake[] = [
+  'None',
+  'FOMO Entry',
+  'Overtrading',
+  'No Setup',
+  'Moving SL',
+  'Early Exit',
+  'Late Exit',
+  'Panic Exit',
+  'Greed Hold',
+  'Manual Intervention',
+  'Tech / API Issue'
+];
 
 export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: TradeLoggerProps) {
   const { addTrade, editTrade, trades, setups, selectedFY, defaultBroker, brokerAccounts, brokerCharges } = useTradeStore();
   const lastTrade = trades.length > 0 ? trades[trades.length - 1] : undefined;
   const [formData, setFormData] = useState(DEFAULT_FORM_STATE);
   const [tagsInput, setTagsInput] = useState('');
+  const [showTagsField, setShowTagsField] = useState(false);
   const [error, setError] = useState('');
 
   const [lotsInput, setLotsInput] = useState<string>('');
@@ -1704,49 +1717,55 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                 Rule Checklist Compliance
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
-                {TRADING_RULES.map((rule) => {
-                  const isChecked = formData.rulesFollowed.includes(rule);
-                  return (
-                    <button
-                      type="button"
-                      key={rule}
-                      onClick={() => handleRuleToggle(rule)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '8px',
-                        fontSize: '0.78rem',
-                        cursor: 'pointer',
-                        background: isChecked ? 'var(--primary-glow)' : 'var(--bg-card)',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: `1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border-color)'}`,
-                        color: isChecked ? 'var(--text-main)' : 'var(--text-muted)',
-                        fontWeight: isChecked ? 600 : 400,
-                        transition: 'all 0.15s ease',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <span>{rule}</span>
-                      <div 
-                        style={{ 
-                          width: '16px', 
-                          height: '16px', 
-                          borderRadius: '4px', 
-                          border: `1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border-color)'}`,
-                          background: isChecked ? 'var(--primary)' : 'transparent',
+                {(() => {
+                  const renderedRules = Array.from(new Set([
+                    ...TRADING_RULES,
+                    ...(formData.rulesFollowed || [])
+                  ]));
+                  return renderedRules.map((rule) => {
+                    const isChecked = formData.rulesFollowed.includes(rule);
+                    return (
+                      <button
+                        type="button"
+                        key={rule}
+                        onClick={() => handleRuleToggle(rule)}
+                        style={{
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.15s ease'
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          background: isChecked ? 'var(--primary-glow)' : 'var(--bg-card)',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border-color)'}`,
+                          color: isChecked ? 'var(--text-main)' : 'var(--text-muted)',
+                          fontWeight: isChecked ? 600 : 400,
+                          transition: 'all 0.15s ease',
+                          textAlign: 'left'
                         }}
                       >
-                        {isChecked && <Check size={11} color="#ffffff" strokeWidth={3} />}
-                      </div>
-                    </button>
-                  );
-                })}
+                        <span>{rule}</span>
+                        <div 
+                          style={{ 
+                            width: '16px', 
+                            height: '16px', 
+                            borderRadius: '4px', 
+                            border: `1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border-color)'}`,
+                            background: isChecked ? 'var(--primary)' : 'transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {isChecked && <Check size={11} color="#ffffff" strokeWidth={3} />}
+                        </div>
+                      </button>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
@@ -1764,19 +1783,42 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
               />
             </div>
 
-            {/* Custom Tags */}
-            <div className="form-group">
-              <label className="form-label">Custom Tags (comma separated)</label>
-              <input
-                type="text"
-                placeholder="e.g. scalp, expiry, fomo, rangebound"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                className="form-input"
-              />
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px', display: 'block' }}>
-                Separate tags with commas. Hashtag prefix (#) will be added automatically.
-              </span>
+            {/* Collapsible Custom Tags */}
+            <div style={{ marginTop: '12px', marginBottom: '16px' }}>
+              <button
+                type="button"
+                onClick={() => setShowTagsField(!showTagsField)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  fontSize: '0.72rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: 0,
+                  fontWeight: 600
+                }}
+              >
+                {showTagsField ? '[-]' : '[+]'} Show Custom Tags input (never used)
+              </button>
+
+              {showTagsField && (
+                <div className="form-group" style={{ marginTop: '10px' }}>
+                  <label className="form-label">Custom Tags (comma separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. scalp, expiry, fomo, rangebound"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    className="form-input"
+                  />
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px', display: 'block' }}>
+                    Separate tags with commas. Hashtag prefix (#) will be added automatically.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           
