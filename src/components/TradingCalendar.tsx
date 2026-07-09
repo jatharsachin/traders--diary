@@ -356,22 +356,25 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
           const dayRoi = summary.deployedCapital > 0 ? (summary.netPnL / summary.deployedCapital) * 100 : 0;
           return (
             <div className="day-pnl">
-              {isPnlVisible ? (
-                <>
-                  <span className="pnl-desktop">
-                    {summary.netPnL > 0 ? '+' : ''}
-                    {Math.round(summary.netPnL).toLocaleString('en-IN')}
-                    <span style={{ fontSize: '0.62rem', opacity: 0.85, marginLeft: '2.5px' }}>
-                      ({summary.netPnL >= 0 ? '+' : ''}{dayRoi.toFixed(1)}%)
-                    </span>
+              <>
+                <span className="pnl-desktop">
+                  {isPnlVisible ? (summary.netPnL > 0 ? '+' : '') : ''}
+                  {isPnlVisible ? Math.round(summary.netPnL).toLocaleString('en-IN') : '••••'}
+                  <span style={{ fontSize: '0.62rem', opacity: 0.85, marginLeft: '2.5px' }}>
+                    ({summary.netPnL >= 0 ? '+' : ''}{dayRoi.toFixed(1)}%)
                   </span>
-                  <span className="pnl-mobile">
-                    {formatCompactPnLMobile(summary.netPnL)}
-                  </span>
-                </>
-              ) : (
-                '••••'
-              )}
+                </span>
+                <span className="pnl-mobile">
+                  {isPnlVisible ? formatCompactPnLMobile(summary.netPnL) : (
+                    <>
+                      ••••
+                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                        ({summary.netPnL >= 0 ? '+' : ''}{dayRoi.toFixed(1)}%)
+                      </span>
+                    </>
+                  )}
+                </span>
+              </>
             </div>
           );
         })()}
@@ -1038,22 +1041,25 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         <div className="day-pnl">
           {hasTrades ? (
             <>
-              {isPnlVisible ? (
-                <>
-                  <span className="pnl-desktop">
-                    {w.netPnL > 0 ? '+' : ''}
-                    {Math.round(w.netPnL).toLocaleString('en-IN')}
-                    <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
-                      ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
-                    </span>
+              <>
+                <span className="pnl-desktop">
+                  {isPnlVisible ? (w.netPnL > 0 ? '+' : '') : ''}
+                  {isPnlVisible ? Math.round(w.netPnL).toLocaleString('en-IN') : '••••'}
+                  <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                    ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
                   </span>
-                  <span className="pnl-mobile">
-                    {formatCompactPnLMobile(w.netPnL)}
-                  </span>
-                </>
-              ) : (
-                '••••'
-              )}
+                </span>
+                <span className="pnl-mobile">
+                  {isPnlVisible ? formatCompactPnLMobile(w.netPnL) : (
+                    <>
+                      ••••
+                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                        ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
+                      </span>
+                    </>
+                  )}
+                </span>
+              </>
             </>
           ) : (
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>-</span>
@@ -1145,22 +1151,25 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
         <div className="day-pnl">
           {hasTrades ? (
             <>
-              {isPnlVisible ? (
-                <>
-                  <span className="pnl-desktop">
-                    {m.netPnL > 0 ? '+' : ''}
-                    {Math.round(m.netPnL).toLocaleString('en-IN')}
-                    <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
-                      ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
-                    </span>
+              <>
+                <span className="pnl-desktop">
+                  {isPnlVisible ? (m.netPnL > 0 ? '+' : '') : ''}
+                  {isPnlVisible ? Math.round(m.netPnL).toLocaleString('en-IN') : '••••'}
+                  <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                    ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
                   </span>
-                  <span className="pnl-mobile">
-                    {formatCompactPnLMobile(m.netPnL)}
-                  </span>
-                </>
-              ) : (
-                '••••'
-              )}
+                </span>
+                <span className="pnl-mobile">
+                  {isPnlVisible ? formatCompactPnLMobile(m.netPnL) : (
+                    <>
+                      ••••
+                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                        ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
+                      </span>
+                    </>
+                  )}
+                </span>
+              </>
             </>
           ) : (
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>-</span>
@@ -1250,13 +1259,16 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
               }}
               title={headerBadgeTitle}
             >
-              {isPnlVisible ? (
-                <>
-                  {headerPnL >= 0 ? '+' : ''}{formatCurrency(headerPnL)} ({headerPnL >= 0 ? '+' : ''}{headerRoi.toFixed(1)}%)
-                </>
-              ) : (
-                '••••'
-              )}
+              <>
+                {isPnlVisible ? (
+                  <>
+                    {headerPnL >= 0 ? '+' : ''}{formatCurrency(headerPnL)}
+                  </>
+                ) : (
+                  '••••'
+                )}{' '}
+                ({headerPnL >= 0 ? '+' : ''}{headerRoi.toFixed(1)}%)
+              </>
             </span>
           </div>
           <button 
