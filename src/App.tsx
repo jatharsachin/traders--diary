@@ -12,7 +12,7 @@ import { Taxation } from './components/Taxation';
 import { DayBook } from './components/DayBook';
 import { useTradeStore } from './store/useTradeStore';
 import { BROKER_LOGOS } from './utils/brandLogos';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, ChevronUp, ChevronDown } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
@@ -29,6 +29,9 @@ export default function App() {
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState<string>('Combined');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(() => {
+    return localStorage.getItem('isHeaderCollapsed') === 'true';
+  });
 
   // Live clock and Nifty live index ticker
   const [liveTime, setLiveTime] = useState<string>('');
@@ -380,7 +383,7 @@ export default function App() {
   return (
     <div className="app-container">
       <div className="sticky-header-container">
-      {/* Header Bar */}
+      {!isHeaderCollapsed && (
       <header className="app-header" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'stretch' }}>
         {/* Row 1: Identity & App Settings */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '12px' }}>
@@ -682,6 +685,32 @@ export default function App() {
               )}
             </div>
 
+            {/* Collapse Header Toggle Button */}
+            <button 
+              onClick={() => {
+                const newVal = !isHeaderCollapsed;
+                setIsHeaderCollapsed(newVal);
+                localStorage.setItem('isHeaderCollapsed', String(newVal));
+              }}
+              className="btn btn-secondary"
+              style={{ 
+                width: '48px', 
+                height: '48px', 
+                padding: 0, 
+                borderRadius: '12px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                color: 'var(--text-main)',
+                flexShrink: 0
+              }}
+              title="Collapse Header (Zen Mode)"
+            >
+              <ChevronUp size={16} />
+            </button>
+
             {/* Standalone Logout Action Button (kept on top) */}
             <button 
               onClick={() => {
@@ -926,16 +955,19 @@ export default function App() {
             </div>
           </div>
         </header>
+      )}
 
       {/* Tabs Navigation (macOS Segmented control grouped by category) */}
-      <nav style={{ margin: '16px 0 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
+      <nav style={{ margin: '16px 0 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: isHeaderCollapsed ? 'center' : 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '28px', flexWrap: 'wrap' }}>
           {/* Group 1: Journaling & Tracking */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
-              Journal & Tracking
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isHeaderCollapsed ? '0px' : '6px' }}>
+            {!isHeaderCollapsed && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
+                Journal & Tracking
+              </span>
+            )}
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('dashboard')} 
@@ -973,11 +1005,13 @@ export default function App() {
           </div>
 
           {/* Group 2: Portfolio & Capital */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
-              Capital & Assets
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isHeaderCollapsed ? '0px' : '6px' }}>
+            {!isHeaderCollapsed && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
+                Capital & Assets
+              </span>
+            )}
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('ledger')} 
@@ -999,11 +1033,13 @@ export default function App() {
           </div>
 
           {/* Group 3: Setup & Taxes */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ec4899', display: 'inline-block' }}></span>
-              Analysis & Config
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isHeaderCollapsed ? '0px' : '6px' }}>
+            {!isHeaderCollapsed && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ec4899', display: 'inline-block' }}></span>
+                Analysis & Config
+              </span>
+            )}
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('strategies')} 
@@ -1025,8 +1061,75 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', visibility: 'hidden' }}>&nbsp;</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {isHeaderCollapsed && (
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px', 
+                marginRight: '8px',
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '10px',
+                padding: '4px 12px',
+                height: '38px',
+                fontSize: '0.78rem',
+                color: 'var(--text-muted)'
+              }}
+            >
+              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
+                {activeAccountId === 'Combined' 
+                  ? 'Combined Accounts' 
+                  : (brokerAccounts.find(a => a.id === activeAccountId)?.accountName || 'Dhan')}
+              </span>
+              <span style={{ color: 'var(--border-color)' }}>|</span>
+              {(() => {
+                const getTodayNetPnL = () => {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const todayTrades = filteredTrades.filter(t => t.date === todayStr);
+                  if (todayTrades.length === 0) return null;
+                  return todayTrades.reduce((sum, t) => sum + t.netPnL, 0);
+                };
+                const todayPnL = getTodayNetPnL();
+                if (todayPnL === null) return <span style={{ color: 'var(--text-dim)' }}>No Trades Today</span>;
+                const isProfit = todayPnL >= 0;
+                return (
+                  <span style={{ fontWeight: 800, color: isProfit ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                    Today: {isProfit ? '+' : ''}₹{isPnlVisible ? Math.round(todayPnL).toLocaleString('en-IN') : '••••'}
+                  </span>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Collapse Header Toggle Button */}
+          <button 
+            onClick={() => {
+              const newVal = !isHeaderCollapsed;
+              setIsHeaderCollapsed(newVal);
+              localStorage.setItem('isHeaderCollapsed', String(newVal));
+            }}
+            className="btn btn-secondary"
+            style={{ 
+              width: '38px', 
+              height: '38px', 
+              padding: 0, 
+              borderRadius: '10px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              background: isHeaderCollapsed ? 'var(--primary-glow)' : 'var(--bg-card)',
+              border: `1.5px solid ${isHeaderCollapsed ? 'var(--primary)' : 'var(--border-color)'}`,
+              color: isHeaderCollapsed ? 'var(--primary)' : 'var(--text-main)',
+              flexShrink: 0,
+              cursor: 'pointer'
+            }}
+            title={isHeaderCollapsed ? "Expand Header (Normal Mode)" : "Collapse Header (Zen Mode)"}
+          >
+            {isHeaderCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+
           <button 
             className="btn btn-primary" 
             style={{ 
