@@ -58,9 +58,11 @@ function BrokerLogoIcon({ broker }: { broker: Broker }) {
 interface ProfileSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  useTwoRowHeader: boolean;
+  setUseTwoRowHeader: (val: boolean) => void;
 }
 
-export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalProps) {
+export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseTwoRowHeader }: ProfileSettingsModalProps) {
   const { 
     trades, 
     baseCapital, 
@@ -645,6 +647,24 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
                           );
                         })}
                       </div>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '14px' }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={useTwoRowHeader}
+                          onChange={(e) => {
+                            setUseTwoRowHeader(e.target.checked);
+                            localStorage.setItem('traders_diary_two_row_header', e.target.checked ? 'true' : 'false');
+                          }}
+                          style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+                        />
+                        <span>Use Traditional Top Header Layout (Uncheck for Modern Sidebar)</span>
+                      </label>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--text-dim)', margin: '2px 0 0 20px' }}>
+                        Unchecking switches to a modern left sidebar layout that utilizes screen side-space on wide displays.
+                      </p>
                     </div>
 
                     <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '6px 12px', fontSize: '0.75rem' }}>

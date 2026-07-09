@@ -12,7 +12,7 @@ import { Taxation } from './components/Taxation';
 import { DayBook } from './components/DayBook';
 import { useTradeStore } from './store/useTradeStore';
 import { BROKER_LOGOS } from './utils/brandLogos';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
@@ -29,9 +29,14 @@ export default function App() {
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState<string>('Combined');
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(() => {
-    return localStorage.getItem('isHeaderCollapsed') === 'true';
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
+  const [useTwoRowHeader, setUseTwoRowHeader] = useState<boolean>(() => {
+    return localStorage.getItem('traders_diary_two_row_header') === 'true';
   });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('traders_diary_sidebar_collapsed') === 'true';
+  });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
   // Live clock and Nifty live index ticker
   const [liveTime, setLiveTime] = useState<string>('');
@@ -381,266 +386,218 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
-      <div className="sticky-header-container">
-      {!isHeaderCollapsed && (
-      <header className="app-header" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'stretch' }}>
-        {/* Row 1: Identity & App Settings */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-            {/* macOS Traffic Lights */}
-            <div className="mac-traffic-lights">
-              <span className="mac-dot mac-close"></span>
-              <span className="mac-dot mac-minimize"></span>
-              <span className="mac-dot mac-maximize"></span>
-            </div>
+    <div className={useTwoRowHeader ? "app-layout top-nav-layout app-container" : "app-layout sidebar-layout"}>
+      {!useTwoRowHeader && isMobileSidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setIsMobileSidebarOpen(false)} />
+      )}
 
-            <img 
-              src={logoImg} 
-              alt="TradeDiary Pro Logo" 
-              style={{ 
-                width: '40px', 
-                height: '40px', 
-                borderRadius: '10px', 
-                objectFit: 'cover',
-                border: '1.5px solid rgba(255, 255, 255, 0.08)',
-                boxShadow: '0 4px 10px rgba(0, 0, 0, 0.25)' 
-              }} 
-            />
-
-            <div>
-              <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-                {userName || 'Sachin'}'s Trade Diary
-                {isSupabaseConfigured() && (
-                  <span 
-                    className="badge badge-win" 
-                    title="Cloud Status: Connected | Database Sync: Active | SSL Channel: Secured"
-                    style={{ 
-                      fontSize: '0.58rem', 
-                      padding: '2px 6px', 
-                      textTransform: 'none', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '3px',
-                      cursor: 'help',
-                      border: '1px solid rgba(16, 185, 129, 0.4)',
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      boxShadow: '0 0 8px rgba(16, 185, 129, 0.2)'
-                    }}
-                  >
-                    <ShieldCheck size={9} /> Sync Linked
-                  </span>
-                )}
-                <select
-                  value={selectedFY}
-                  onChange={(e) => setSelectedFY(e.target.value)}
-                  style={{
-                    fontSize: '1.1rem',
-                    fontWeight: 800,
-                    padding: '2px 10px',
-                    background: 'var(--bg-card)',
-                    color: 'var(--text-main)',
-                    border: '1.5px solid var(--border-color)',
-                    borderRadius: '8px',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    transition: 'all 0.15s ease',
-                    marginLeft: '8px',
-                    height: '34px',
-                    verticalAlign: 'middle'
-                  }}
-                  className="fy-header-select"
-                >
-                  {FINANCIAL_YEARS.map((fy) => (
-                    <option key={fy} value={fy} style={{ background: 'var(--bg-card)', color: 'var(--text)' }}>
-                      {fy}
-                    </option>
-                  ))}
-                </select>
-              </h1>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
-                Advanced stock & options cognitive audit journal
-              </p>
-            </div>
-          </div>
-
-          {/* Theme, Notification, and User Profile Info */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-            {/* Theme Toggle Button */}
-            <button 
-              onClick={toggleTheme}
-              className="btn btn-secondary"
-              style={{ 
-                width: '48px', 
-                height: '48px', 
-                padding: 0, 
-                borderRadius: '12px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'var(--bg-card)',
-                border: '1.5px solid var(--border-color)'
-              }}
-              title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-            >
-              {theme === 'dark' ? <Sun size={16} color="var(--primary)" /> : <Moon size={16} color="var(--primary)" />}
-            </button>
-
-            {/* Bell Icon & Notification Center */}
-            <div style={{ position: 'relative' }}>
+      {/* Sidebar (Left side menu) */}
+      {!useTwoRowHeader && (
+        <aside className={`app-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileSidebarOpen ? 'mobile-open' : ''}`}>
+          {/* Top brand & toggle row */}
+          <div className="sidebar-brand" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '12px', flexShrink: 0 }}>
+            {isSidebarCollapsed ? (
               <button 
                 onClick={() => {
-                  const nextState = !isNotifOpen;
-                  setIsNotifOpen(nextState);
-                  if (nextState) {
-                    setLastSeenNotificationCount(notifications.length);
-                  }
+                  setIsSidebarCollapsed(false);
+                  localStorage.setItem('traders_diary_sidebar_collapsed', 'false');
                 }}
-                className="btn btn-secondary"
                 style={{ 
-                  width: '48px', 
-                  height: '48px', 
-                  padding: 0, 
-                  borderRadius: '12px', 
+                  background: 'transparent', 
+                  border: 'none', 
+                  cursor: 'pointer', 
+                  color: 'var(--primary)', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  position: 'relative',
-                  background: isNotifOpen ? 'var(--primary-glow)' : 'var(--bg-card)',
-                  border: isNotifOpen ? '1px solid var(--border-color-active)' : '1.5px solid var(--border-color)'
+                  padding: '4px',
+                  width: '100%' 
                 }}
-                title="Alerts Center"
+                title="Expand Sidebar"
               >
-                <Bell size={16} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
-                {notifications.length > lastSeenNotificationCount && (
-                  <span 
-                    style={{ 
-                      position: 'absolute', 
-                      top: '2px', 
-                      right: '2px', 
-                      background: 'var(--color-loss)', 
-                      color: '#fff', 
-                      fontSize: '0.62rem', 
-                      fontWeight: 'bold',
-                      borderRadius: '50%', 
-                      width: '15px', 
-                      height: '15px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      boxShadow: '0 0 8px var(--color-loss)'
-                    }}
-                  >
-                    {notifications.length - lastSeenNotificationCount}
-                  </span>
-                )}
+                <Menu size={18} />
               </button>
-
-              {/* Glassmorphic Dropdown Panel */}
-              {isNotifOpen && (
-                <div 
-                  className="glass-card animate-tab-panel"
-                  style={{ 
-                    position: 'absolute', 
-                    right: 0, 
-                    top: '56px', 
-                    width: '320px', 
-                    maxHeight: '400px', 
-                    overflowY: 'auto',
-                    zIndex: 2000, 
-                    padding: '16px',
-                    boxShadow: 'var(--shadow-glow)',
-                    border: '1.5px solid var(--border-color-active)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                    background: 'var(--bg-tooltip-opaque)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>Alerts & Notifications</span>
-                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
-                  </div>
-
-                  {notifications.length > 0 ? (
-                    notifications.map((n) => (
-                      <div 
-                        key={n.id}
-                        style={{ 
-                          padding: '10px', 
-                          borderRadius: '6px', 
-                          fontSize: '0.75rem', 
-                          borderLeft: `3px solid ${
-                            n.type === 'danger' ? 'var(--color-loss)' : 
-                            n.type === 'warning' ? '#fb923c' : 'var(--primary)'
-                          }`,
-                          background: 'rgba(255, 255, 255, 0.015)',
-                          border: '1px solid var(--border-color)',
-                          borderLeftWidth: '3px'
-                        }}
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <img 
+                    src={logoImg} 
+                    alt="Logo" 
+                    style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1.5px solid rgba(255, 255, 255, 0.08)' }} 
+                  />
+                  <div>
+                    <h1 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, whiteSpace: 'nowrap' }}>TradeDiary Pro</h1>
+                    {isSupabaseConfigured() && (
+                      <span 
+                        className="badge badge-win" 
+                        style={{ fontSize: '0.5rem', padding: '1px 4px', textTransform: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <strong style={{ color: 'var(--text-main)', fontSize: '0.78rem' }}>{n.title}</strong>
-                          <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
-                        </div>
-                        <p style={{ color: 'var(--text-muted)', lineHeight: '1.3' }}>{n.message}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.78rem' }}>
-                      ✓ No active alerts. Trading discipline is healthy!
-                    </div>
-                  )}
+                        <ShieldCheck size={8} /> Sync Linked
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+                <button 
+                  onClick={() => {
+                    setIsSidebarCollapsed(true);
+                    localStorage.setItem('traders_diary_sidebar_collapsed', 'true');
+                  }}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px', display: 'flex', alignItems: 'center' }}
+                  title="Collapse Sidebar"
+                >
+                  <Menu size={16} />
+                </button>
+              </div>
+            )}
+          </div>
 
-            {/* User account info card container */}
-            <div style={{ position: 'relative' }}>
+          {/* Action Log Trade CTA */}
+          <button 
+            className="btn btn-primary" 
+            style={{ 
+              width: isSidebarCollapsed ? '36px' : '100%', 
+              height: '38px', 
+              borderRadius: isSidebarCollapsed ? '50%' : '8px', 
+              fontSize: '0.8rem', 
+              boxShadow: '0 4px 12px var(--primary-glow)',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: isSidebarCollapsed ? '0' : '6px',
+              marginTop: '4px',
+              flexShrink: 0,
+              padding: isSidebarCollapsed ? '0' : '0 12px'
+            }} 
+            onClick={handleNewTrade}
+            title="Log Trade"
+          >
+            <Plus size={14} />
+            {!isSidebarCollapsed && <span>Log Trade</span>}
+          </button>
+
+          {/* Sidebar Menu Groups */}
+          <div className="sidebar-menu">
+            <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginBottom: '4px' }}>
+              Journal & Tracking
+            </span>
+            <button 
+              onClick={() => { setActiveTab('dashboard'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'dashboard' ? 'active' : '')}
+              title="Dashboard"
+            >
+              <LayoutDashboard size={14} color={activeTab === 'dashboard' ? '#fff' : '#38bdf8'} />
+              <span className="hide-collapsed">Dashboard</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('daybook'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'daybook' ? 'active' : '')}
+              title="Day Book"
+            >
+              <BookOpen size={14} color={activeTab === 'daybook' ? '#fff' : '#60a5fa'} />
+              <span className="hide-collapsed">Day Book</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('calendar'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'calendar' ? 'active' : '')}
+              title="Calendar"
+            >
+              <Calendar size={14} color={activeTab === 'calendar' ? '#fff' : '#a855f7'} />
+              <span className="hide-collapsed">Calendar</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('logs'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'logs' ? 'active' : '')}
+              title="Logs"
+            >
+              <History size={14} color={activeTab === 'logs' ? '#fff' : '#34d399'} />
+              <span className="hide-collapsed">Logs</span>
+            </button>
+
+            <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginTop: '12px', marginBottom: '4px' }}>
+              Portfolio & Audit
+            </span>
+            <button 
+              onClick={() => { setActiveTab('ledger'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'ledger' ? 'active' : '')}
+              title="Ledger"
+            >
+              <Receipt size={14} color={activeTab === 'ledger' ? '#fff' : '#f59e0b'} />
+              <span className="hide-collapsed">Ledger</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('account'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'account' ? 'active' : '')}
+              title="Investments"
+            >
+              <Briefcase size={14} color={activeTab === 'account' ? '#fff' : '#3b82f6'} />
+              <span className="hide-collapsed">Investments</span>
+            </button>
+
+            <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginTop: '12px', marginBottom: '4px' }}>
+              Analysis & Config
+            </span>
+            <button 
+              onClick={() => { setActiveTab('strategies'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'strategies' ? 'active' : '')}
+              title="Setups"
+            >
+              <Compass size={14} color={activeTab === 'strategies' ? '#fff' : '#ec4899'} />
+              <span className="hide-collapsed">Setups</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('taxation'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'taxation' ? 'active' : '')}
+              title="Taxation"
+            >
+              <Percent size={14} color={activeTab === 'taxation' ? '#fff' : '#f97316'} />
+              <span className="hide-collapsed">Taxation</span>
+            </button>
+          </div>
+
+          {/* Sidebar Footer */}
+          <div className="sidebar-footer" style={{ flexShrink: 0 }}>
+            {/* Theme Toggle */}
+            <button 
+              onClick={toggleTheme}
+              className="btn btn-secondary"
+              style={{ width: '32px', height: '32px', padding: 0, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? <Sun size={13} color="var(--primary)" /> : <Moon size={13} color="var(--primary)" />}
+            </button>
+
+            {/* Profile trigger */}
+            <div style={{ position: 'relative', flexGrow: isSidebarCollapsed ? 0 : 1, display: 'flex', justifyContent: isSidebarCollapsed ? 'center' : 'flex-end' }}>
               <div 
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: '10px', 
-                  background: isProfileMenuOpen ? 'var(--primary-glow)' : 'var(--bg-card)', 
-                  border: isProfileMenuOpen ? '1px solid var(--border-color-active)' : '1.5px solid var(--border-color)', 
-                  borderRadius: '12px', 
-                  padding: '6px 12px',
-                  height: '48px',
-                  fontSize: '0.92rem',
-                  color: 'var(--text-muted)',
+                  gap: '6px', 
+                  background: isProfileMenuOpen ? 'var(--primary-glow)' : 'transparent', 
+                  borderRadius: '8px', 
+                  padding: '4px',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0
+                  justifyContent: isSidebarCollapsed ? 'center' : 'flex-start'
                 }}
-                title="Account Menu"
+                title="Profile Settings"
               >
-                <span style={{ display: 'flex', alignItems: 'center', width: '38px', height: '38px', justifyContent: 'center' }}>
-                  {userAvatar && userAvatar.startsWith('data:image/') ? (
-                    <img 
-                      src={userAvatar} 
-                      alt="Avatar" 
-                      style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} 
-                    />
-                  ) : (
-                    <span style={{ fontSize: '1.9rem' }}>
-                      {userAvatar === 'bull' ? '🐂' :
-                       userAvatar === 'bear' ? '🐻' :
-                       userAvatar === 'trader' ? '👨‍💻' :
-                       userAvatar === 'gold' ? '🏆' :
-                       userAvatar === 'coin' ? '🪙' :
-                       userAvatar === 'clock' ? '⏱️' :
-                       userAvatar === 'rocket' ? '🚀' :
-                       userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
-                    </span>
-                  )}
-                </span>
-                <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
-                  {userName || 'Sachin'}
-                </strong>
+                {userAvatar && userAvatar.startsWith('data:image/') ? (
+                  <img 
+                    src={userAvatar} 
+                    alt="Avatar" 
+                    style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} 
+                  />
+                ) : (
+                  <span style={{ fontSize: '1.2rem' }}>👨‍💻</span>
+                )}
+                {!isSidebarCollapsed && (
+                  <span style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70px' }}>
+                    {userName || 'Sachin'}
+                  </span>
+                )}
               </div>
 
               {/* Glassmorphic Profile Menu Dropdown */}
@@ -649,11 +606,12 @@ export default function App() {
                   className="glass-card animate-tab-panel"
                   style={{ 
                     position: 'absolute', 
-                    right: 0, 
-                    top: '56px', 
-                    width: '180px', 
+                    left: isSidebarCollapsed ? '40px' : 'auto', 
+                    right: isSidebarCollapsed ? 'auto' : '0px',
+                    bottom: isSidebarCollapsed ? '0px' : '40px', 
+                    width: '150px', 
                     zIndex: 2000, 
-                    padding: '6px',
+                    padding: '4px',
                     boxShadow: 'var(--shadow-glow)',
                     border: '1.5px solid var(--border-color-active)',
                     display: 'flex',
@@ -671,78 +629,362 @@ export default function App() {
                     style={{ 
                       justifyContent: 'flex-start', 
                       border: 'none', 
-                      fontSize: '0.78rem', 
-                      padding: '6px 10px', 
+                      fontSize: '0.72rem', 
+                      padding: '6px 8px', 
                       width: '100%', 
-                      gap: '8px',
-                      background: 'rgba(255,255,255,0.015)'
+                      gap: '6px',
+                      background: 'rgba(255,255,255,0.015)',
+                      cursor: 'pointer'
                     }}
                   >
                     <span>⚙️</span>
-                    <strong style={{ color: 'var(--text-main)' }}>Trader Settings</strong>
+                    <strong style={{ color: 'var(--text-main)' }}>Settings</strong>
                   </button>
                 </div>
               )}
             </div>
-
-            {/* Collapse Header Toggle Button */}
-            <button 
-              onClick={() => {
-                const newVal = !isHeaderCollapsed;
-                setIsHeaderCollapsed(newVal);
-                localStorage.setItem('isHeaderCollapsed', String(newVal));
-              }}
-              className="btn btn-secondary"
-              style={{ 
-                width: '48px', 
-                height: '48px', 
-                padding: 0, 
-                borderRadius: '12px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'var(--bg-card)',
-                border: '1.5px solid var(--border-color)',
-                color: 'var(--text-main)',
-                flexShrink: 0
-              }}
-              title="Collapse Header (Zen Mode)"
-            >
-              <ChevronUp size={16} />
-            </button>
-
-            {/* Standalone Logout Action Button (kept on top) */}
-            <button 
-              onClick={() => {
-                if (window.confirm('Are you sure you want to log out of your trading journal?')) {
-                  signOutUser();
-                }
-              }}
-              className="btn btn-secondary"
-              style={{ 
-                width: '48px', 
-                height: '48px', 
-                padding: 0, 
-                borderRadius: '12px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'var(--bg-card)',
-                border: '1.5px solid var(--border-color)',
-                color: 'var(--color-loss)',
-                flexShrink: 0
-              }}
-              title="Log Out"
-            >
-              <LogOut size={16} />
-            </button>
           </div>
-        </div>
+        </aside>
+      )}
 
-        {/* Row 2: Account Context, Capital, Nifty simulated Ticker & Live Clock */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none', gap: '8px', borderTop: '1.5px solid var(--border-color)', paddingTop: '12px', marginTop: '4px' }}>
-          {/* Global Account Selector Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+      <div className={useTwoRowHeader ? "" : "main-content-wrapper"}>
+        {/* If top navigation layout, render the traditional top header container */}
+        {useTwoRowHeader ? (
+          <div className="sticky-header-container">
+            <header className="app-header" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'stretch' }}>
+          {/* Row 1: Identity & App Settings */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+              {/* macOS Traffic Lights */}
+              <div className="mac-traffic-lights">
+                <span className="mac-dot mac-close"></span>
+                <span className="mac-dot mac-minimize"></span>
+                <span className="mac-dot mac-maximize"></span>
+              </div>
+
+              <img 
+                src={logoImg} 
+                alt="TradeDiary Pro Logo" 
+                style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  borderRadius: '10px', 
+                  objectFit: 'cover',
+                  border: '1.5px solid rgba(255, 255, 255, 0.08)',
+                  boxShadow: '0 4px 10px rgba(0, 0, 0, 0.25)' 
+                }} 
+              />
+
+              <div>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
+                  {userName || 'Sachin'}'s Trade Diary
+                  {isSupabaseConfigured() && (
+                    <span 
+                      className="badge badge-win" 
+                      title="Cloud Status: Connected | Database Sync: Active | SSL Channel: Secured"
+                      style={{ 
+                        fontSize: '0.58rem', 
+                        padding: '2px 6px', 
+                        textTransform: 'none', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '3px',
+                        cursor: 'help',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        background: 'rgba(16, 185, 129, 0.12)',
+                        boxShadow: '0 0 8px rgba(16, 185, 129, 0.2)'
+                      }}
+                    >
+                      <ShieldCheck size={9} /> Sync Linked
+                    </span>
+                  )}
+                  <select
+                    value={selectedFY}
+                    onChange={(e) => setSelectedFY(e.target.value)}
+                    style={{
+                      fontSize: '1.1rem',
+                      fontWeight: 800,
+                      padding: '2px 10px',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      border: '1.5px solid var(--border-color)',
+                      borderRadius: '8px',
+                      outline: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.15s ease',
+                      marginLeft: '8px',
+                      height: '34px',
+                      verticalAlign: 'middle'
+                    }}
+                    className="fy-header-select"
+                  >
+                    {FINANCIAL_YEARS.map((fy) => (
+                      <option key={fy} value={fy} style={{ background: 'var(--bg-card)', color: 'var(--text-main)' }}>
+                        {fy}
+                      </option>
+                    ))}
+                  </select>
+                </h1>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                  Advanced stock & options cognitive audit journal
+                </p>
+              </div>
+            </div>
+
+            {/* Theme, Notification, and User Profile Info */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+              {/* Theme Toggle Button */}
+              <button 
+                onClick={toggleTheme}
+                className="btn btn-secondary"
+                style={{ 
+                  width: '48px', 
+                  height: '48px', 
+                  padding: 0, 
+                  borderRadius: '12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  background: 'var(--bg-card)',
+                  border: '1.5px solid var(--border-color)',
+                  cursor: 'pointer'
+                }}
+                title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+              >
+                {theme === 'dark' ? <Sun size={16} color="var(--primary)" /> : <Moon size={16} color="var(--primary)" />}
+              </button>
+
+              {/* Bell Icon & Notification Center */}
+              <div style={{ position: 'relative' }}>
+                <button 
+                  onClick={() => {
+                    const nextState = !isNotifOpen;
+                    setIsNotifOpen(nextState);
+                    if (nextState) {
+                      setLastSeenNotificationCount(notifications.length);
+                    }
+                  }}
+                  className="btn btn-secondary"
+                  style={{ 
+                    width: '48px', 
+                    height: '48px', 
+                    padding: 0, 
+                    borderRadius: '12px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    position: 'relative',
+                    background: isNotifOpen ? 'var(--primary-glow)' : 'var(--bg-card)',
+                    border: isNotifOpen ? '1px solid var(--border-color-active)' : '1.5px solid var(--border-color)',
+                    cursor: 'pointer'
+                  }}
+                  title="Alerts Center"
+                >
+                  <Bell size={16} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
+                  {notifications.length > lastSeenNotificationCount && (
+                    <span 
+                      style={{ 
+                        position: 'absolute', 
+                        top: '2px', 
+                        right: '2px', 
+                        background: 'var(--color-loss)', 
+                        color: '#fff', 
+                        fontSize: '0.62rem', 
+                        fontWeight: 'bold',
+                        borderRadius: '50%', 
+                        width: '15px', 
+                        height: '15px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        boxShadow: '0 0 8px var(--color-loss)'
+                      }}
+                    >
+                      {notifications.length - lastSeenNotificationCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Glassmorphic Dropdown Panel */}
+                {isNotifOpen && (
+                  <div 
+                    className="glass-card animate-tab-panel"
+                    style={{ 
+                      position: 'absolute', 
+                      right: 0, 
+                      top: '56px', 
+                      width: '320px', 
+                      maxHeight: '400px', 
+                      overflowY: 'auto',
+                      zIndex: 2000, 
+                      padding: '16px',
+                      boxShadow: 'var(--shadow-glow)',
+                      border: '1.5px solid var(--border-color-active)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      background: 'var(--bg-tooltip-opaque)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>Alerts & Notifications</span>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
+                    </div>
+
+                    {notifications.length > 0 ? (
+                      notifications.map((n) => (
+                        <div 
+                          key={n.id}
+                          style={{ 
+                            padding: '10px', 
+                            borderRadius: '6px', 
+                            fontSize: '0.75rem', 
+                            borderLeft: "3px solid " + (n.type === "danger" ? "var(--color-loss)" : n.type === "warning" ? "#fb923c" : "var(--primary)"),
+                            background: 'rgba(255, 255, 255, 0.015)',
+                            border: '1px solid var(--border-color)',
+                            borderLeftWidth: '3px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <strong style={{ color: 'var(--text-main)', fontSize: '0.78rem' }}>{n.title}</strong>
+                            <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
+                          </div>
+                          <p style={{ color: 'var(--text-muted)', lineHeight: '1.3', margin: 0 }}>{n.message}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.78rem' }}>
+                        ✓ No active alerts.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* User account info card container */}
+              <div style={{ position: 'relative' }}>
+                <div 
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px', 
+                    background: isProfileMenuOpen ? 'var(--primary-glow)' : 'var(--bg-card)', 
+                    border: isProfileMenuOpen ? '1px solid var(--border-color-active)' : '1.5px solid var(--border-color)', 
+                    borderRadius: '12px', 
+                    padding: '6px 12px',
+                    height: '48px',
+                    fontSize: '0.92rem',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                  title="Account Menu"
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', width: '38px', height: '38px', justifyContent: 'center' }}>
+                    {userAvatar && userAvatar.startsWith('data:image/') ? (
+                      <img 
+                        src={userAvatar} 
+                        alt="Avatar" 
+                        style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} 
+                      />
+                    ) : (
+                      <span style={{ fontSize: '1.9rem' }}>
+                        {userAvatar === 'bull' ? '🐂' :
+                         userAvatar === 'bear' ? '🐻' :
+                         userAvatar === 'trader' ? '👨‍💻' :
+                         userAvatar === 'gold' ? '🏆' :
+                         userAvatar === 'coin' ? '🪙' :
+                         userAvatar === 'clock' ? '⏱️' :
+                         userAvatar === 'rocket' ? '🚀' :
+                         userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
+                      </span>
+                    )}
+                  </span>
+                  <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
+                    {userName || 'Sachin'}
+                  </strong>
+                </div>
+
+                {/* Glassmorphic Profile Menu Dropdown */}
+                {isProfileMenuOpen && (
+                  <div 
+                    className="glass-card animate-tab-panel"
+                    style={{ 
+                      position: 'absolute', 
+                      right: 0, 
+                      top: '56px', 
+                      width: '180px', 
+                      zIndex: 2000, 
+                      padding: '6px',
+                      boxShadow: 'var(--shadow-glow)',
+                      border: '1.5px solid var(--border-color-active)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      background: 'var(--bg-tooltip-opaque)'
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        setIsProfileSettingsOpen(true);
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ 
+                        justifyContent: 'flex-start', 
+                        border: 'none', 
+                        fontSize: '0.78rem', 
+                        padding: '6px 10px', 
+                        width: '100%', 
+                        gap: '8px',
+                        background: 'rgba(255,255,255,0.015)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>⚙️</span>
+                      <strong style={{ color: 'var(--text-main)' }}>Trader Settings</strong>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Standalone Logout Action Button (kept on top) */}
+              <button 
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to log out of your trading journal?')) {
+                    signOutUser();
+                  }
+                }}
+                className="btn btn-secondary"
+                style={{ 
+                  width: '48px', 
+                  height: '48px', 
+                  padding: 0, 
+                  borderRadius: '12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  background: 'var(--bg-card)',
+                  border: '1.5px solid var(--border-color)',
+                  color: 'var(--color-loss)',
+                  flexShrink: 0,
+                  cursor: 'pointer'
+                }}
+                title="Log Out"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Account Context, Capital, Nifty simulated Ticker & Live Clock */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none', gap: '8px', borderTop: '1.5px solid var(--border-color)', paddingTop: '12px', marginTop: '4px' }}>
+            {/* Global Account Selector Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
               {(() => {
                 const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
                 if (activeAcc) {
@@ -892,7 +1134,7 @@ export default function App() {
                   >
                     {todayPnL === null 
                       ? 'No Trades' 
-                      : `${isProfit ? '+' : ''}₹${isPnlVisible ? Math.round(todayPnL).toLocaleString('en-IN') : '••••'}`
+                      : (isProfit ? '+' : '') + '₹' + (isPnlVisible ? Math.round(todayPnL).toLocaleString('en-IN') : '••••')
                     }
                   </span>
                 </div>
@@ -955,23 +1197,18 @@ export default function App() {
             </div>
           </div>
         </header>
-      )}
-
-      {/* Tabs Navigation (macOS Segmented control grouped by category) */}
-      <nav style={{ margin: '16px 0 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: isHeaderCollapsed ? 'center' : 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
+            <nav style={{ margin: '16px 0 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '28px', flexWrap: 'wrap' }}>
           {/* Group 1: Journaling & Tracking */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: isHeaderCollapsed ? '0px' : '6px' }}>
-            {!isHeaderCollapsed && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
-                Journal & Tracking
-              </span>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
+              Journal & Tracking
+            </span>
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('dashboard')} 
-                className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+                className={"nav-tab " + (activeTab === 'dashboard' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <LayoutDashboard size={13} color="#38bdf8" />
@@ -979,7 +1216,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setActiveTab('daybook')} 
-                className={`nav-tab ${activeTab === 'daybook' ? 'active' : ''}`}
+                className={"nav-tab " + (activeTab === 'daybook' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <BookOpen size={13} color="#60a5fa" />
@@ -987,7 +1224,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setActiveTab('calendar')} 
-                className={`nav-tab ${activeTab === 'calendar' ? 'active' : ''}`}
+                className={"nav-tab " + (activeTab === 'calendar' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Calendar size={13} color="#a855f7" />
@@ -995,7 +1232,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setActiveTab('logs')} 
-                className={`nav-tab ${activeTab === 'logs' ? 'active' : ''}`}
+                className={"nav-tab " + (activeTab === 'logs' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <History size={13} color="#34d399" />
@@ -1004,18 +1241,16 @@ export default function App() {
             </div>
           </div>
 
-          {/* Group 2: Portfolio & Capital */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: isHeaderCollapsed ? '0px' : '6px' }}>
-            {!isHeaderCollapsed && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
-                Capital & Assets
-              </span>
-            )}
+          {/* Group 2: Portfolio & Reports */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
+              Portfolio & Audit
+            </span>
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('ledger')} 
-                className={`nav-tab ${activeTab === 'ledger' ? 'active' : ''}`}
+                className={"nav-tab " + (activeTab === 'ledger' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Receipt size={13} color="#f59e0b" />
@@ -1023,7 +1258,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setActiveTab('account')} 
-                className={`nav-tab ${activeTab === 'account' ? 'active' : ''}`}
+                className={"nav-tab " + (activeTab === 'account' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Briefcase size={13} color="#3b82f6" />
@@ -1033,17 +1268,15 @@ export default function App() {
           </div>
 
           {/* Group 3: Setup & Taxes */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: isHeaderCollapsed ? '0px' : '6px' }}>
-            {!isHeaderCollapsed && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ec4899', display: 'inline-block' }}></span>
-                Analysis & Config
-              </span>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ec4899', display: 'inline-block' }}></span>
+              Analysis & Config
+            </span>
             <div className="nav-tab-container" style={{ margin: 0 }}>
               <button 
                 onClick={() => setActiveTab('strategies')} 
-                className={`nav-tab ${activeTab === 'strategies' ? 'active' : ''}`}
+                className={"nav-tab " + (activeTab === 'strategies' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Compass size={13} color="#ec4899" />
@@ -1051,7 +1284,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setActiveTab('taxation')} 
-                className={`nav-tab ${activeTab === 'taxation' ? 'active' : ''}`}
+                className={"nav-tab " + (activeTab === 'taxation' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Percent size={13} color="#f97316" />
@@ -1061,75 +1294,8 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {isHeaderCollapsed && (
-            <div 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px', 
-                marginRight: '8px',
-                background: 'var(--bg-card)',
-                border: '1.5px solid var(--border-color)',
-                borderRadius: '10px',
-                padding: '4px 12px',
-                height: '38px',
-                fontSize: '0.78rem',
-                color: 'var(--text-muted)'
-              }}
-            >
-              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
-                {activeAccountId === 'Combined' 
-                  ? 'Combined Accounts' 
-                  : (brokerAccounts.find(a => a.id === activeAccountId)?.accountName || 'Dhan')}
-              </span>
-              <span style={{ color: 'var(--border-color)' }}>|</span>
-              {(() => {
-                const getTodayNetPnL = () => {
-                  const todayStr = new Date().toISOString().split('T')[0];
-                  const todayTrades = filteredTrades.filter(t => t.date === todayStr);
-                  if (todayTrades.length === 0) return null;
-                  return todayTrades.reduce((sum, t) => sum + t.netPnL, 0);
-                };
-                const todayPnL = getTodayNetPnL();
-                if (todayPnL === null) return <span style={{ color: 'var(--text-dim)' }}>No Trades Today</span>;
-                const isProfit = todayPnL >= 0;
-                return (
-                  <span style={{ fontWeight: 800, color: isProfit ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                    Today: {isProfit ? '+' : ''}₹{isPnlVisible ? Math.round(todayPnL).toLocaleString('en-IN') : '••••'}
-                  </span>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Collapse Header Toggle Button */}
-          <button 
-            onClick={() => {
-              const newVal = !isHeaderCollapsed;
-              setIsHeaderCollapsed(newVal);
-              localStorage.setItem('isHeaderCollapsed', String(newVal));
-            }}
-            className="btn btn-secondary"
-            style={{ 
-              width: '38px', 
-              height: '38px', 
-              padding: 0, 
-              borderRadius: '10px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              background: isHeaderCollapsed ? 'var(--primary-glow)' : 'var(--bg-card)',
-              border: `1.5px solid ${isHeaderCollapsed ? 'var(--primary)' : 'var(--border-color)'}`,
-              color: isHeaderCollapsed ? 'var(--primary)' : 'var(--text-main)',
-              flexShrink: 0,
-              cursor: 'pointer'
-            }}
-            title={isHeaderCollapsed ? "Expand Header (Normal Mode)" : "Collapse Header (Zen Mode)"}
-          >
-            {isHeaderCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-          </button>
-
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', visibility: 'hidden' }}>&nbsp;</span>
           <button 
             className="btn btn-primary" 
             style={{ 
@@ -1151,14 +1317,326 @@ export default function App() {
           </button>
         </div>
       </nav>
-    </div>
+          </div>
+        ) : (
+          /* If sidebar layout, render the compact Top Status Bar */
+          <header className="main-content-header">
+            {/* Mobile Menu Toggle Button */}
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="show-mobile-only"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1.2px solid var(--border-color)',
+                borderRadius: '8px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'var(--primary)',
+                marginRight: '8px'
+              }}
+              title="Open Menu"
+            >
+              <Menu size={16} />
+            </button>
 
+            {/* Account & Financial Year Selectors */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Account Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {(() => {
+                  const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+                  if (activeAcc) {
+                    return (
+                      <img 
+                        src={BROKER_LOGOS[activeAcc.broker] || BROKER_LOGOS['Other']} 
+                        alt={activeAcc.broker} 
+                        style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1px', border: '1px solid var(--border-color)' }} 
+                      />
+                    );
+                  }
+                  return null;
+                })()}
+                <select
+                  value={activeAccountId}
+                  onChange={(e) => setActiveAccountId(e.target.value)}
+                  className="form-select"
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '0.78rem',
+                    height: '32px',
+                    background: 'var(--bg-card)',
+                    border: '1.2px solid var(--border-color)',
+                    borderRadius: '8px',
+                    color: 'var(--text-main)',
+                    cursor: 'pointer',
+                    minWidth: '130px',
+                    fontWeight: 600
+                  }}
+                >
+                  <option value="Combined">Combined Accounts</option>
+                  {brokerAccounts.filter(a => a.active).map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.accountName} ({acc.broker})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Financial Year Select */}
+              <select
+                value={selectedFY}
+                onChange={(e) => setSelectedFY(e.target.value)}
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-main)',
+                  border: '1.2px solid var(--border-color)',
+                  borderRadius: '8px',
+                  height: '32px',
+                  cursor: 'pointer'
+                }}
+              >
+                {FINANCIAL_YEARS.map((fy) => (
+                  <option key={fy} value={fy}>
+                    {fy}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Metrics: Capital, Wealth, Today's P&L, Nifty, Clock */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {/* Capital */}
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>Capital:</span>
+                <strong style={{ color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                  ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
+                </strong>
+              </div>
+
+              {/* Wealth */}
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>Wealth:</span>
+                <strong style={{ color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+                  ₹{isPnlVisible ? Math.round(combinedWealth).toLocaleString('en-IN') : '••••'}
+                </strong>
+              </div>
+
+              {/* Today's P&L */}
+              {(() => {
+                const getTodayNetPnL = () => {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const todayTrades = filteredTrades.filter(t => t.date === todayStr);
+                  if (todayTrades.length === 0) return null;
+                  return todayTrades.reduce((sum, t) => sum + t.netPnL, 0);
+                };
+                const todayPnL = getTodayNetPnL();
+                const isProfit = todayPnL !== null && todayPnL >= 0;
+
+                return (
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span 
+                      style={{ 
+                        width: '5px', 
+                        height: '5px', 
+                        borderRadius: '50%', 
+                        background: todayPnL === null ? '#888' : isProfit ? 'var(--color-win)' : 'var(--color-loss)',
+                        boxShadow: todayPnL === null ? 'none' : isProfit ? '0 0 6px var(--color-win)' : '0 0 6px var(--color-loss)'
+                      }}
+                    />
+                    <span>Today's P&L:</span>
+                    <strong style={{ color: todayPnL === null ? 'var(--text-dim)' : isProfit ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {todayPnL === null 
+                        ? 'No Trades' 
+                        : (isProfit ? '+' : '') + '₹' + (isPnlVisible ? Math.round(todayPnL).toLocaleString('en-IN') : '••••')
+                      }
+                    </strong>
+                  </div>
+                );
+              })()}
+
+              {/* Nifty */}
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: isMarketOpen() ? 'var(--color-win)' : 'var(--color-loss)' }} />
+                <span>NIFTY:</span>
+                <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                  {niftyPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </strong>
+                <span style={{ color: niftyChange >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  {niftyChange >= 0 ? '+' : ''}{niftyChange.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Clock */}
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255, 255, 255, 0.02)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', fontFamily: 'var(--font-mono)' }}>
+                {liveTime || 'Loading...'}
+              </div>
+
+              {/* Vertical Divider */}
+              <div style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }} />
+
+              {/* Notification Icon */}
+              <div style={{ position: 'relative' }}>
+                <button 
+                  onClick={() => {
+                    const nextState = !isNotifOpen;
+                    setIsNotifOpen(nextState);
+                    if (nextState) {
+                      setLastSeenNotificationCount(notifications.length);
+                    }
+                  }}
+                  className="btn btn-secondary"
+                  style={{ 
+                    width: '32px', 
+                    height: '32px', 
+                    padding: 0, 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    position: 'relative', 
+                    cursor: 'pointer',
+                    background: 'var(--bg-card)',
+                    border: '1.2px solid var(--border-color)'
+                  }}
+                  title="Alerts Center"
+                >
+                  <Bell size={13} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
+                  {notifications.length > lastSeenNotificationCount && (
+                    <span 
+                      style={{ 
+                        position: 'absolute', 
+                        top: '1px', 
+                        right: '1px', 
+                        background: 'var(--color-loss)', 
+                        color: '#fff', 
+                        fontSize: '0.5rem', 
+                        fontWeight: 'bold',
+                        borderRadius: '50%', 
+                        width: '12px', 
+                        height: '12px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {notifications.length - lastSeenNotificationCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Glassmorphic Dropdown Panel */}
+                {isNotifOpen && (
+                  <div 
+                    className="glass-card animate-tab-panel"
+                    style={{ 
+                      position: 'absolute', 
+                      right: '0px', 
+                      top: '38px', 
+                      width: '280px', 
+                      maxHeight: '300px', 
+                      overflowY: 'auto',
+                      zIndex: 2000, 
+                      padding: '12px',
+                      boxShadow: 'var(--shadow-glow)',
+                      border: '1.5px solid var(--border-color-active)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      background: 'var(--bg-tooltip-opaque)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)' }}>Alerts & Notifications</span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
+                    </div>
+
+                    {notifications.length > 0 ? (
+                      notifications.map((n) => (
+                        <div 
+                          key={n.id}
+                          style={{ 
+                            padding: '8px', 
+                            borderRadius: '6px', 
+                            fontSize: '0.72rem', 
+                            borderLeft: "3px solid " + (n.type === "danger" ? "var(--color-loss)" : n.type === "warning" ? "#fb923c" : "var(--primary)"),
+                            background: 'rgba(255, 255, 255, 0.015)',
+                            border: '1px solid var(--border-color)',
+                            borderLeftWidth: '3px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                            <strong style={{ color: 'var(--text-main)', fontSize: '0.75rem' }}>{n.title}</strong>
+                            <span style={{ fontSize: '0.58rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
+                          </div>
+                          <p style={{ color: 'var(--text-muted)', lineHeight: '1.3', margin: 0 }}>{n.message}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+                        ✓ No active alerts.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Logout button */}
+              <button 
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to log out?')) {
+                    signOutUser();
+                  }
+                }}
+                className="btn btn-secondary"
+                style={{ 
+                  width: '32px', 
+                  height: '32px', 
+                  padding: 0, 
+                  borderRadius: '8px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: 'var(--color-loss)',
+                  cursor: 'pointer',
+                  background: 'var(--bg-card)',
+                  border: '1.2px solid var(--border-color)'
+                }}
+                title="Log Out"
+              >
+                <LogOut size={13} />
+              </button>
+            </div>
+          </header>
+        )}
       {/* Main Tab Render Panels */}
       <main style={{ minHeight: '60vh' }}>
-        {activeTab === 'dashboard' && <Dashboard activeAccountId={activeAccountId} onNavigateToTab={setActiveTab} />}
+        {activeTab === 'dashboard' && (
+          <Dashboard 
+            activeAccountId={activeAccountId} 
+            onNavigateToTab={setActiveTab} 
+            onSelectDateFilter={(date) => {
+              setSelectedDateFilter(date);
+              setActiveTab('logs');
+            }}
+          />
+        )}
         {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
         {activeTab === 'calendar' && <TradingCalendar activeAccountId={activeAccountId} />}
-        {activeTab === 'logs' && <TradeTable onEditTrade={handleEditTrade} activeAccountId={activeAccountId} />}
+        {activeTab === 'logs' && (
+          <TradeTable 
+            onEditTrade={handleEditTrade} 
+            activeAccountId={activeAccountId} 
+            initialDateFilter={selectedDateFilter}
+            onClearDateFilter={() => setSelectedDateFilter(null)}
+          />
+        )}
         {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
         {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
         {activeTab === 'strategies' && <StrategyManager />}
@@ -1177,6 +1655,8 @@ export default function App() {
       <ProfileSettingsModal 
         isOpen={isProfileSettingsOpen}
         onClose={() => setIsProfileSettingsOpen(false)}
+        useTwoRowHeader={useTwoRowHeader}
+        setUseTwoRowHeader={setUseTwoRowHeader}
       />
 
       {/* Modern Terminal Footer */}
@@ -1193,5 +1673,6 @@ export default function App() {
         <p>© 2026 {userName || 'Sachin'}'s Trade Diary. Designed for professional stock market audits. All logs are stored locally client-side.</p>
       </footer>
     </div>
+      </div>
   );
 }

@@ -1243,3 +1243,224 @@ h1, h2, h3, h4 {
 :root.light .custom-table tbody tr:nth-child(even) td:not([rowspan]) {
   background-color: rgba(0, 0, 0, 0.035) !important;
 }
+
+/* --- Left Sidebar Navigation Layout --- */
+.app-layout {
+  min-height: 100vh;
+  background: var(--bg-color);
+  color: var(--text-main);
+}
+
+.sidebar-layout {
+  display: flex;
+  flex-direction: row;
+}
+
+.top-nav-layout {
+  display: block;
+}
+
+.app-sidebar {
+  width: 250px;
+  background: var(--bg-card);
+  border-right: 1.5px solid var(--border-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+  z-index: 100;
+  overflow-y: auto;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s ease;
+}
+
+/* Collapsed Sidebar on Desktop */
+.app-sidebar.collapsed {
+  width: 70px;
+  padding: 16px 10px;
+  align-items: center;
+}
+
+.app-sidebar.collapsed .sidebar-brand {
+  justify-content: center;
+  width: 100%;
+}
+
+.app-sidebar.collapsed .sidebar-tab-btn {
+  justify-content: center;
+  padding: 10px;
+  gap: 0;
+}
+
+.app-sidebar.collapsed .sidebar-footer {
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  align-items: center;
+}
+
+.app-sidebar.collapsed .hide-collapsed {
+  display: none !important;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1.5px solid var(--border-color);
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+  margin-top: 12px;
+}
+
+.sidebar-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.sidebar-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-main);
+}
+
+:root.light .sidebar-tab-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.sidebar-tab-btn.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1.5px solid var(--border-color);
+  padding-top: 12px;
+  margin-top: auto;
+}
+
+.main-content-wrapper {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sidebar-layout .main-content-wrapper {
+  padding: 24px;
+}
+
+.main-content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1.5px solid var(--border-color);
+}
+
+/* Sidebar Responsive Fallbacks */
+@media (max-width: 1024px) {
+  .app-sidebar {
+    position: fixed !important;
+    left: -250px !important;
+    top: 0 !important;
+    height: 100vh !important;
+    width: 250px !important;
+    border-right: 1.5px solid var(--border-color) !important;
+    border-bottom: none !important;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: none !important;
+    padding: 20px !important;
+  }
+  
+  .app-sidebar.mobile-open {
+    left: 0 !important;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 95;
+    animation: fadeIn 0.25s ease-out;
+  }
+
+  .sidebar-layout .main-content-wrapper {
+    padding: 16px !important;
+  }
+  
+  /* Make sure collapsed class doesn't interfere on mobile */
+  .app-sidebar.collapsed {
+    width: 250px !important;
+    padding: 20px !important;
+    align-items: stretch !important;
+  }
+  .app-sidebar.collapsed .hide-collapsed {
+    display: block !important;
+  }
+  .app-sidebar.collapsed .sidebar-brand {
+    justify-content: flex-start !important;
+  }
+  .app-sidebar.collapsed .sidebar-tab-btn {
+    justify-content: flex-start !important;
+    padding: 8px 12px !important;
+    gap: 10px !important;
+  }
+  .app-sidebar.collapsed .sidebar-footer {
+    flex-direction: row !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.show-mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 1024px) {
+  .show-mobile-only {
+    display: flex !important;
+  }
+}
+
+
+
