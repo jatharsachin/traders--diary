@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
-import { X, Save, ShieldAlert } from 'lucide-react';
+import { X, Save, ShieldAlert, Check, AlertTriangle } from 'lucide-react';
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
 import { getFinancialYear } from '../utils/fyHelper';
 
@@ -1648,57 +1648,103 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
               </div>
 
               <div className="form-group" style={{ marginTop: '16px' }}>
-                <label className="form-label">Execution Mistake Tag</label>
-                <select
-                  name="mistake"
-                  value={formData.mistake}
-                  onChange={handleChange}
-                  className="form-select"
-                  style={{
-                    color: formData.mistake === 'None' ? 'var(--color-win)' : 'var(--color-loss)',
-                    fontWeight: formData.mistake !== 'None' ? 600 : 400
-                  }}
-                >
-                  {MISTAKES.map((m) => (
-                    <option key={m} value={m} style={{ color: m === 'None' ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                      {m === 'None' ? '✅ No Mistake (Clean Trade)' : `⚠️ ${m}`}
-                    </option>
-                  ))}
-                </select>
+                <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>Execution Mistake Tag</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {MISTAKES.map((m) => {
+                    const isNone = m === 'None';
+                    const isSelected = formData.mistake === m;
+                    return (
+                      <button
+                        type="button"
+                        key={m}
+                        onClick={() => setFormData((prev) => ({ ...prev, mistake: m }))}
+                        className="btn"
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.78rem',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease',
+                          cursor: 'pointer',
+                          background: isSelected 
+                            ? (isNone ? 'var(--color-win-bg)' : 'var(--color-loss-bg)') 
+                            : 'var(--bg-card)',
+                          border: isSelected 
+                            ? `1.5px solid ${isNone ? 'var(--color-win)' : 'var(--color-loss)'}` 
+                            : '1.5px solid var(--border-color)',
+                          color: isSelected 
+                            ? (isNone ? 'var(--color-win)' : 'var(--color-loss)') 
+                            : 'var(--text-dim)',
+                          fontWeight: isSelected ? 600 : 400
+                        }}
+                      >
+                        {isNone ? (
+                          <>
+                            <Check size={12} />
+                            <span>No Mistake (Clean Trade)</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle size={12} />
+                            <span>{m}</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
             {/* Checklist Rules */}
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '0.95rem', marginBottom: '12px' }}>Rule Checklist Compliance</h3>
-              <div className="grid-2col-equal-small" style={{ gap: '10px' }}>
+              <h3 style={{ fontSize: '0.92rem', marginBottom: '12px', color: 'var(--text-main)', fontWeight: 650 }}>
+                Rule Checklist Compliance
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
                 {TRADING_RULES.map((rule) => {
                   const isChecked = formData.rulesFollowed.includes(rule);
                   return (
-                    <label
+                    <button
+                      type="button"
                       key={rule}
+                      onClick={() => handleRuleToggle(rule)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'space-between',
                         gap: '8px',
-                        fontSize: '0.85rem',
+                        fontSize: '0.78rem',
                         cursor: 'pointer',
-                        color: 'var(--text-main)',
                         background: isChecked ? 'var(--primary-glow)' : 'var(--bg-card)',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
                         border: `1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border-color)'}`,
+                        color: isChecked ? 'var(--text-main)' : 'var(--text-muted)',
+                        fontWeight: isChecked ? 600 : 400,
                         transition: 'all 0.15s ease',
+                        textAlign: 'left'
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleRuleToggle(rule)}
-                        style={{ accentColor: 'var(--primary)' }}
-                      />
                       <span>{rule}</span>
-                    </label>
+                      <div 
+                        style={{ 
+                          width: '16px', 
+                          height: '16px', 
+                          borderRadius: '4px', 
+                          border: `1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border-color)'}`,
+                          background: isChecked ? 'var(--primary)' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {isChecked && <Check size={11} color="#ffffff" strokeWidth={3} />}
+                      </div>
+                    </button>
                   );
                 })}
               </div>
