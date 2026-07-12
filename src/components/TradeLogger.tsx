@@ -112,6 +112,21 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const [manualTaxesText, setManualTaxesText] = useState<string>('0');
 
   const [usePartialExits, setUsePartialExits] = useState(false);
+
+  const getFYDateLimits = () => {
+    if (selectedFY && selectedFY !== 'All') {
+      const match = selectedFY.match(/FY (\d{4})/);
+      if (match) {
+        const startYear = parseInt(match[1], 10);
+        return {
+          min: `${startYear}-04-01`,
+          max: `${startYear + 1}-03-31`
+        };
+      }
+    }
+    return { min: undefined, max: undefined };
+  };
+  const fyLimits = getFYDateLimits();
   const [partialExits, setPartialExits] = useState<{ id: string; qty: number; price: number; time: string }[]>([
     { id: '1', qty: 0, price: 0, time: new Date().toTimeString().slice(0, 5) }
   ]);
@@ -702,8 +717,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                 <input
                   type="date"
                   name="date"
-                  min="2026-04-01"
-                  max="2027-03-31"
+                  min={fyLimits.min}
+                  max={fyLimits.max}
                   value={formData.date}
                   onChange={handleChange}
                   className="form-input"
@@ -740,8 +755,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   <input
                     type="date"
                     name="exitDate"
-                    min="2026-04-01"
-                    max="2027-03-31"
+                    min={fyLimits.min}
+                    max={fyLimits.max}
                     value={formData.exitDate || formData.date}
                     onChange={handleChange}
                     className="form-input"

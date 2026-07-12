@@ -1399,26 +1399,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const investments = getOrMigrate('traders_diary_investments', getMockInvestments());
       const weeklyRetrospectives = getOrMigrate('traders_diary_weekly_retrospectives', {});
 
-      // Filter data to only retain current Financial Year (FY 2026-27: 2026-04-01 to 2027-03-31)
-      const isCurrentFY = (dateStr: string) => {
-        return dateStr >= '2026-04-01' && dateStr <= '2027-03-31';
-      };
-
-      const filteredTrades = (trades as any[]).filter((t: any) => isCurrentFY(t.date));
-      const filteredAdjustments = (capitalAdjustments as any[]).filter((a: any) => isCurrentFY(a.date));
-      const filteredBankTx = (bankTransactions as any[]).filter((t: any) => isCurrentFY(t.date));
-
-      if (filteredTrades.length !== trades.length) {
-        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(filteredTrades));
-      }
-      if (filteredAdjustments.length !== capitalAdjustments.length) {
-        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(filteredAdjustments));
-        syncMetaToCloud('capital_adjustments', filteredAdjustments);
-      }
-      if (filteredBankTx.length !== bankTransactions.length) {
-        localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(filteredBankTx));
-        syncMetaToCloud('bank_transactions', filteredBankTx);
-      }
+      
 
       const userName = localStorage.getItem(`traders_diary_user_name_${userId}`) || localStorage.getItem('traders_diary_user_name') || 'Sachin';
       const userAvatar = localStorage.getItem(`traders_diary_user_avatar_${userId}`) || localStorage.getItem('traders_diary_user_avatar') || 'bull';
@@ -1426,10 +1407,10 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const defaultBroker = localStorage.getItem(`traders_diary_default_broker_${userId}`) || localStorage.getItem('traders_diary_default_broker') || 'Zerodha';
 
       set({
-        trades: filteredTrades,
+        trades,
         setups,
         baseCapital,
-        capitalAdjustments: filteredAdjustments,
+        capitalAdjustments,
         investments,
         weeklyRetrospectives,
         userName,
@@ -1440,7 +1421,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         bankAccounts,
         brokerCharges,
         subscriptionExpenses,
-        bankTransactions: filteredBankTx,
+        bankTransactions,
       });
 
       get().pullTradesFromCloud();
