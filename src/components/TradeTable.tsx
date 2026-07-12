@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Trade } from '../types';
 import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings, X, SlidersHorizontal } from 'lucide-react';
-import { filterTradesByFY } from '../utils/fyHelper';
+import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
 
 interface TradeTableProps {
@@ -906,7 +906,7 @@ export function TradeTable({
                         }
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {trade.entryTime} - {trade.exitTime}
+                        {formatTimeToAMPM(trade.entryTime)} - {formatTimeToAMPM(trade.exitTime)}
                       </div>
                       <div 
                         style={{ 

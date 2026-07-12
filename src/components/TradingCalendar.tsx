@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
-import { filterTradesByFY, getCurrentLiveFY } from '../utils/fyHelper';
+import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM } from '../utils/fyHelper';
 
 export const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   // 2025
@@ -1543,7 +1543,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                       className={selectedRowId === t.id ? 'selected-row' : ''}
                       onClick={() => setSelectedRowId(selectedRowId === t.id ? null : t.id)}
                     >
-                      <td style={{ fontWeight: 550, fontSize: '0.78rem' }}>{t.entryTime}</td>
+                      <td style={{ fontWeight: 550, fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{formatTimeToAMPM(t.entryTime)} - {formatTimeToAMPM(t.exitTime)}</td>
                       <td style={{ fontWeight: 600 }}>{t.symbol}</td>
                       <td>
                         <BrokerBadge broker={t.broker} />

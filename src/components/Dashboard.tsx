@@ -6,7 +6,7 @@ import {
   Eye, EyeOff, Save, Award, TrendingDown
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
-import { filterTradesByFY } from '../utils/fyHelper';
+import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { BROKER_LOGOS } from '../utils/brandLogos';
 import { OFFLINE_NSE_HOLIDAYS } from './TradingCalendar';
 
@@ -2069,7 +2069,7 @@ export function Dashboard({
                     <tbody>
                       {dayTrades.map((t, idx) => (
                         <tr key={t.id} style={{ borderBottom: idx === dayTrades.length - 1 && dayInvestments.length === 0 ? 'none' : '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '8px 10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{t.entryTime}</td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', fontSize: '0.7rem' }}>{formatTimeToAMPM(t.entryTime)} - {formatTimeToAMPM(t.exitTime)}</td>
                           <td style={{ padding: '8px 10px', fontWeight: 700 }}>
                             {t.symbol}
                             {t.optionType && t.optionType !== 'None' && (

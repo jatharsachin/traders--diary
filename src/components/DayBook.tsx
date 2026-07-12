@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatTimeToAMPM } from '../utils/fyHelper';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
   CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown
@@ -679,7 +680,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
                               {/* Row 1: Unified details on a single line */}
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 550 }}>⏱️ {item.time}</span>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 550 }}>⏱️ {formatTimeToAMPM(item.time)}</span>
                                 <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
                                 {item.type === 'TRADE' ? (
                                   <>

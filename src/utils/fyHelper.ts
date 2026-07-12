@@ -40,3 +40,22 @@ export function getCurrentLiveFY(): string {
     return `FY ${year - 1}-${year.toString().slice(-2)}`;
   }
 }
+
+export function formatTimeToAMPM(timeStr: string): string {
+  if (!timeStr) return '';
+  const parts = timeStr.trim().split(':');
+  if (parts.length < 2) return timeStr;
+  
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1].padStart(2, '0');
+  
+  if (isNaN(hours)) return timeStr;
+  
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  
+  const formattedHours = hours.toString().padStart(2, '0');
+  
+  return `${formattedHours}:${minutes} ${ampm}`;
+}
