@@ -37,10 +37,10 @@ interface TradeStore {
   setups: Setup[];
   baseCapital: number;
   capitalAdjustments: CapitalAdjustment[];
-  theme: 'light' | 'dark' | 'emerald' | 'cyberpunk' | 'nordic';
+  theme: 'light' | 'dark';
   setBaseCapital: (capital: number) => void;
   toggleTheme: () => void;
-  setTheme: (theme: 'light' | 'dark' | 'emerald' | 'cyberpunk' | 'nordic') => void;
+  setTheme: (theme: 'light' | 'dark') => void;
   addTrade: (tradeData: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>) => void;
   editTrade: (id: string, tradeData: Partial<Trade>) => void;
   deleteTrade: (id: string) => void;
@@ -485,9 +485,9 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return updateBaseCapital(accountsList);
   };
 
-  const loadTheme = (): 'light' | 'dark' | 'emerald' | 'cyberpunk' | 'nordic' => {
+  const loadTheme = (): 'light' | 'dark' => {
     const saved = localStorage.getItem('traders_diary_theme');
-    return (saved && ['light', 'dark', 'emerald', 'cyberpunk', 'nordic'].includes(saved)) ? (saved as any) : 'dark';
+    return (saved && ['light', 'dark'].includes(saved)) ? (saved as any) : 'dark';
   };
 
   const loadSelectedFY = (): string => {
@@ -1040,6 +1040,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       localStorage.setItem(getScopedKey('traders_diary_broker_charges'), JSON.stringify(DEFAULT_BROKER_CHARGES));
       localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(DEFAULT_SUBSCRIPTION_EXPENSES));
       localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify([]));
+      localStorage.setItem(getScopedKey('traders_diary_notradedays'), JSON.stringify([]));
 
       syncMetaToCloud('setups', DEFAULT_SETUPS);
       syncMetaToCloud('capital_adjustments', []);
@@ -1048,6 +1049,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       syncMetaToCloud('broker_charges', DEFAULT_BROKER_CHARGES);
       syncMetaToCloud('subscription_expenses', DEFAULT_SUBSCRIPTION_EXPENSES);
       syncMetaToCloud('bank_transactions', []);
+      syncMetaToCloud('notradedays', []);
 
       return { 
         trades: mock, 
@@ -1060,6 +1062,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         brokerCharges: DEFAULT_BROKER_CHARGES,
         subscriptionExpenses: DEFAULT_SUBSCRIPTION_EXPENSES,
         bankTransactions: [],
+        noTradeDays: [],
         baseCapital: updateBaseCapital(DEFAULT_BROKER_ACCOUNTS)
       };
     }),

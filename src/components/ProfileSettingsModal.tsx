@@ -541,69 +541,64 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                   </h3>
                   
                   <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                      <div className="form-group" style={{ marginBottom: 0, flexGrow: 1 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Display Name</label>
-                        <input 
-                          type="text" 
-                          value={profileNameInput} 
-                          onChange={(e) => setProfileNameInput(e.target.value)} 
-                          className="form-input" 
-                          placeholder="e.g. Sachin"
-                          required 
-                        />
-                      </div>
-                      
-                      {/* Custom profile upload */}
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Upload Photo</label>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={handleCustomPicUpload} 
-                          style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }} 
-                        />
-                        {customPicError && <div style={{ color: 'var(--color-loss)', fontSize: '0.62rem', marginTop: '2px' }}>{customPicError}</div>}
-                      </div>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Avatar Symbol</label>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {(['bull', 'bear', 'trader', 'gold', 'coin', 'clock', 'rocket', 'shield'] as const).map((av) => {
-                          const labelMap = { bull: '🐂', bear: '🐻', trader: '👨‍💻', gold: '🏆', coin: '🪙', clock: '⏱️', rocket: '🚀', shield: '🛡️' };
-                          const isCustom = profileAvatarInput.startsWith('data:image/');
-                          const isSelected = !isCustom && profileAvatarInput === av;
-                          return (
-                            <button
-                              type="button"
-                              key={av}
-                              onClick={() => setProfileAvatarInput(av)}
-                              style={{
-                                padding: '6px 8px',
-                                borderRadius: '6px',
-                                fontSize: '1.1rem',
-                                background: isSelected ? 'var(--primary-glow)' : 'rgba(255,255,255,0.02)',
-                                border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                flex: 1,
-                                minWidth: '40px'
-                              }}
-                            >
-                              <span>{labelMap[av]}</span>
-                            </button>
-                          );
-                        })}
-                        {profileAvatarInput.startsWith('data:image/') && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', border: '1.5px solid var(--primary)', borderRadius: '6px', background: 'var(--primary-glow)' }}>
-                            <img src={profileAvatarInput} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} alt="uploaded" />
-                            <span style={{ fontSize: '0.65rem', color: 'var(--primary)' }}>Custom</span>
+<div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', width: '100%' }}>
+                      {/* Profile Photo Preview */}
+                      <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--primary)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.1)' }}>
+                        {profileAvatarInput && profileAvatarInput.startsWith('data:image/') ? (
+                          <img src={profileAvatarInput} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="profile preview" />
+                        ) : (
+                          <div style={{
+                            width: '100%',
+                            height: '100%',
+                            background: 'linear-gradient(135deg, var(--primary) 0%, rgba(6, 182, 212, 0.4) 100%)',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: '1.6rem'
+                          }}>
+                            {(profileNameInput || 'S').charAt(0).toUpperCase()}
                           </div>
                         )}
+                      </div>
+
+                      <div style={{ display: 'flex', flex: 1, flexDirection: 'column', gap: '10px' }}>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Display Name</label>
+                          <input 
+                            type="text" 
+                            value={profileNameInput} 
+                            onChange={(e) => setProfileNameInput(e.target.value)} 
+                            className="form-input" 
+                            placeholder="e.g. Sachin"
+                            required 
+                          />
+                        </div>
+                        
+                        {/* Custom profile upload */}
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Upload Photo</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleCustomPicUpload} 
+                              style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }} 
+                            />
+                            {profileAvatarInput && profileAvatarInput.startsWith('data:image/') && (
+                              <button 
+                                type="button" 
+                                className="btn btn-secondary" 
+                                style={{ padding: '2px 8px', fontSize: '0.65rem', color: 'var(--color-loss)', cursor: 'pointer' }}
+                                onClick={() => setProfileAvatarInput('bull')}
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          {customPicError && <div style={{ color: 'var(--color-loss)', fontSize: '0.62rem', marginTop: '2px' }}>{customPicError}</div>}
+                        </div>
                       </div>
                     </div>
 
@@ -611,11 +606,8 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                       <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Premium Theme Preset</label>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {[
-                          { id: 'dark', label: 'Obsidian Dark', colors: ['#0b0b0d', '#0a84ff'] },
-                          { id: 'light', label: 'Classic Light', colors: ['#ffffff', '#007aff'] },
-                          { id: 'emerald', label: 'Oceanic Emerald', colors: ['#060d0a', '#10b981'] },
-                          { id: 'cyberpunk', label: 'Cyberpunk Neon', colors: ['#07030f', '#d946ef'] },
-                          { id: 'nordic', label: 'Nordic Frost', colors: ['#0f131a', '#60a5fa'] }
+                          { id: 'dark', label: 'Dark Theme', colors: ['#0b0b0d', '#0a84ff'] },
+                          { id: 'light', label: 'Light Theme', colors: ['#ffffff', '#007aff'] }
                         ].map((t) => {
                           const isSelected = theme === t.id;
                           return (

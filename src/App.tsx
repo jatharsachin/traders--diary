@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Dashboard } from './components/Dashboard';
-import { TradingCalendar } from './components/TradingCalendar';
-import { TradeTable } from './components/TradeTable';
-import { StrategyManager } from './components/StrategyManager';
-import { Ledger } from './components/Ledger';
-import { AccountManager } from './components/AccountManager';
-import { ProfileSettingsModal } from './components/ProfileSettingsModal';
-import { TradeLogger } from './components/TradeLogger';
+import { useState, useEffect, lazy, Suspense } from 'react';
+
+
+
+
+
+
+
+
 import { AuthScreen } from './components/AuthScreen';
-import { Taxation } from './components/Taxation';
-import { DayBook } from './components/DayBook';
-import { Help } from './components/Help';
+
+
+
 import { useTradeStore } from './store/useTradeStore';
 import { BROKER_LOGOS } from './utils/brandLogos';
 import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle } from 'lucide-react';
@@ -19,6 +19,19 @@ import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
 
 type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'help';
+
+
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const TradingCalendar = lazy(() => import('./components/TradingCalendar').then(m => ({ default: m.TradingCalendar })));
+const TradeTable = lazy(() => import('./components/TradeTable').then(m => ({ default: m.TradeTable })));
+const StrategyManager = lazy(() => import('./components/StrategyManager').then(m => ({ default: m.StrategyManager })));
+const Ledger = lazy(() => import('./components/Ledger').then(m => ({ default: m.Ledger })));
+const AccountManager = lazy(() => import('./components/AccountManager').then(m => ({ default: m.AccountManager })));
+const ProfileSettingsModal = lazy(() => import('./components/ProfileSettingsModal').then(m => ({ default: m.ProfileSettingsModal })));
+const TradeLogger = lazy(() => import('./components/TradeLogger').then(m => ({ default: m.TradeLogger })));
+const Taxation = lazy(() => import('./components/Taxation').then(m => ({ default: m.Taxation })));
+const DayBook = lazy(() => import('./components/DayBook').then(m => ({ default: m.DayBook })));
+const Help = lazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -605,7 +618,21 @@ export default function App() {
                     style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} 
                   />
                 ) : (
-                  <span style={{ fontSize: '1.2rem' }}>👨‍💻</span>
+                  <div style={{
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--primary) 0%, rgba(6, 182, 212, 0.4) 100%)',
+                    color: '#fff',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '0.65rem',
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}>
+                    {(userName || 'Sachin').charAt(0).toUpperCase()}
+                  </div>
                 )}
                 {!isSidebarCollapsed && (
                   <span style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70px' }}>
@@ -906,16 +933,21 @@ export default function App() {
                         style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} 
                       />
                     ) : (
-                      <span style={{ fontSize: '1.9rem' }}>
-                        {userAvatar === 'bull' ? '🐂' :
-                         userAvatar === 'bear' ? '🐻' :
-                         userAvatar === 'trader' ? '👨‍💻' :
-                         userAvatar === 'gold' ? '🏆' :
-                         userAvatar === 'coin' ? '🪙' :
-                         userAvatar === 'clock' ? '⏱️' :
-                         userAvatar === 'rocket' ? '🚀' :
-                         userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
-                      </span>
+                      <div style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, var(--primary) 0%, rgba(6, 182, 212, 0.4) 100%)',
+                        color: '#fff',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '1.05rem',
+                        border: '1.2px solid rgba(255, 255, 255, 0.1)'
+                      }}>
+                        {(userName || 'Sachin').charAt(0).toUpperCase()}
+                      </div>
                     )}
                   </span>
                   <strong style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.92rem' }}>
@@ -1639,54 +1671,63 @@ export default function App() {
           </header>
         )}
       {/* Main Tab Render Panels */}
-      <main style={{ minHeight: '60vh' }}>
-        {activeTab === 'dashboard' && (
-          <Dashboard 
-            activeAccountId={activeAccountId} 
-            onNavigateToTab={setActiveTab} 
-            onSelectDateFilter={(date) => {
-              setSelectedDateFilter(date);
-              setActiveTab('logs');
-            }}
-          />
-        )}
-        {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
-        {activeTab === 'calendar' && (
-          <TradingCalendar 
-            activeAccountId={activeAccountId} 
-            onEditTrade={handleEditTrade} 
-          />
-        )}
-        {activeTab === 'logs' && (
-          <TradeTable 
-            onEditTrade={handleEditTrade} 
-            activeAccountId={activeAccountId} 
-            initialDateFilter={selectedDateFilter}
-            onClearDateFilter={() => setSelectedDateFilter(null)}
-          />
-        )}
-        {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
-        {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
-        {activeTab === 'strategies' && <StrategyManager />}
-        {activeTab === 'account' && <AccountManager />}
-        {activeTab === 'help' && <Help />}
+      <main style={{ minHeight: '60vh', position: 'relative' }}>
+        <Suspense fallback={
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '350px', color: 'var(--text-dim)', gap: '12px' }}>
+            <div style={{ border: '3px solid rgba(255,255,255,0.05)', borderTop: '3px solid var(--primary)', borderRadius: '50%', width: '32px', height: '32px', animation: 'spin 0.8s linear infinite' }} />
+            <span style={{ fontSize: '0.78rem', letterSpacing: '0.05em' }}>LOADING PANEL...</span>
+          </div>
+        }>
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+              activeAccountId={activeAccountId} 
+              onNavigateToTab={setActiveTab} 
+              onSelectDateFilter={(date) => {
+                setSelectedDateFilter(date);
+                setActiveTab('logs');
+              }}
+            />
+          )}
+          {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
+          {activeTab === 'calendar' && (
+            <TradingCalendar 
+              activeAccountId={activeAccountId} 
+              onEditTrade={handleEditTrade} 
+            />
+          )}
+          {activeTab === 'logs' && (
+            <TradeTable 
+              onEditTrade={handleEditTrade} 
+              activeAccountId={activeAccountId} 
+              initialDateFilter={selectedDateFilter}
+              onClearDateFilter={() => setSelectedDateFilter(null)}
+            />
+          )}
+          {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
+          {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
+          {activeTab === 'strategies' && <StrategyManager />}
+          {activeTab === 'account' && <AccountManager />}
+          {activeTab === 'help' && <Help />}
+        </Suspense>
       </main>
 
-      {/* Log Form Modal Overlay */}
-      <TradeLogger 
-        isOpen={isLoggerOpen} 
-        onClose={handleCloseLogger} 
-        editTradeId={editTradeId} 
-        activeAccountId={activeAccountId}
-      />
+      <Suspense fallback={null}>
+        {/* Log Form Modal Overlay */}
+        <TradeLogger 
+          isOpen={isLoggerOpen} 
+          onClose={handleCloseLogger} 
+          editTradeId={editTradeId} 
+          activeAccountId={activeAccountId}
+        />
 
-      {/* Profile & Settings Modal Overlay */}
-      <ProfileSettingsModal 
-        isOpen={isProfileSettingsOpen}
-        onClose={() => setIsProfileSettingsOpen(false)}
-        useTwoRowHeader={useTwoRowHeader}
-        setUseTwoRowHeader={setUseTwoRowHeader}
-      />
+        {/* Profile & Settings Modal Overlay */}
+        <ProfileSettingsModal 
+          isOpen={isProfileSettingsOpen}
+          onClose={() => setIsProfileSettingsOpen(false)}
+          useTwoRowHeader={useTwoRowHeader}
+          setUseTwoRowHeader={setUseTwoRowHeader}
+        />
+      </Suspense>
 
       {/* Modern Terminal Footer */}
       <footer 
