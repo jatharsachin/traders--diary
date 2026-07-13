@@ -170,16 +170,38 @@ export async function fetchTradesFromCloud(): Promise<Trade[] | null> {
     const { data: { user } } = await client.auth.getUser();
     if (!user) return null;
 
-    const { data, error } = await client
-      .from('trades')
-      .select('*')
-      .eq('user_id', user.id);
-      
-    if (error) {
-      console.error('Supabase Cloud Fetch Error:', error);
-      return null;
+    let allData: any[] = [];
+    let hasMore = true;
+    let page = 0;
+    const pageSize = 1000;
+
+    while (hasMore) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      const { data, error } = await client
+        .from('trades')
+        .select('*')
+        .eq('user_id', user.id)
+        .range(from, to);
+
+      if (error) {
+        console.error('Supabase Cloud Fetch Error:', error);
+        return null;
+      }
+
+      if (!data || data.length === 0) {
+        hasMore = false;
+      } else {
+        allData = allData.concat(data);
+        if (data.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
     }
-    return (data as any[]).map(parseTradeFromCloud);
+
+    return allData.map(parseTradeFromCloud);
   } catch (e) {
     console.error('Network error during Supabase fetch:', e);
     return null;

@@ -25,6 +25,18 @@ export function calculateIndianTaxesAndBrokerage(
   isOption?: boolean,
   partialExits?: { qty: number; price: number }[]
 ): TaxResult {
+  if (!qty || qty <= 0) {
+    return {
+      brokerage: 0,
+      stt: 0,
+      exchangeTx: 0,
+      sebiFee: 0,
+      stampDuty: 0,
+      gst: 0,
+      totalCharges: 0,
+    };
+  }
+
   // Determine buy and sell prices/values based on trade action (BUY = Long, SELL = Short)
   const isLong = action === 'BUY';
   const buyPrice = isLong ? entryPrice : exitPrice;

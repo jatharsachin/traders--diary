@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
   IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
@@ -15,9 +15,15 @@ const parseLocalDate = (dateStr: string) => {
   if (!dateStr) return new Date();
   const parts = dateStr.split('-');
   if (parts.length >= 3) {
-    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return new Date(y, m, d);
+    }
   }
-  return parseLocalDate(dateStr);
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
 export function Dashboard({ 
@@ -135,19 +141,26 @@ export function Dashboard({
 
   const effectiveBaseCapital = (Number(activeBaseCapital) || Number(fallbackCapital) || 1);
 
-  const rawTradesByFY = filterTradesByFY(activeTrades, selectedFY).filter((t) => {
-    const isImported = t.strategy === 'Auto Imported' || 
-                       t.broker === 'Kotak Neo' || 
-                       (t.notes && t.notes.toLowerCase().includes('imported'));
-    return !isImported;
-  });
-  const rawTrades = activeAccountId === 'Combined'
-    ? rawTradesByFY
-    : rawTradesByFY.filter((t) => t.brokerAccountId === activeAccountId);
+  const rawTradesByFY = useMemo(() => {
+    return filterTradesByFY(activeTrades, selectedFY).filter((t) => {
+      const isImported = t.strategy === 'Auto Imported' || 
+                         t.broker === 'Kotak Neo' || 
+                         (t.notes && t.notes.toLowerCase().includes('imported'));
+      return !isImported;
+    });
+  }, [activeTrades, selectedFY]);
 
-  const trades = selectedBroker === 'All' 
-    ? rawTrades 
-    : rawTrades.filter((t) => (t.broker || 'Other') === selectedBroker);
+  const rawTrades = useMemo(() => {
+    return activeAccountId === 'Combined'
+      ? rawTradesByFY
+      : rawTradesByFY.filter((t) => t.brokerAccountId === activeAccountId);
+  }, [rawTradesByFY, activeAccountId]);
+
+  const trades = useMemo(() => {
+    return selectedBroker === 'All' 
+      ? rawTrades 
+      : rawTrades.filter((t) => (t.broker || 'Other') === selectedBroker);
+  }, [rawTrades, selectedBroker]);
 
   const totalTrades = trades.length;
   const winningTrades = trades.filter((t) => t.netPnL > 0);
@@ -253,7 +266,7 @@ export function Dashboard({
     });
     return maxDD;
   };
-  const maxDrawdown = getMaxDrawdown();
+  const maxDrawdown = useMemo(() => getMaxDrawdown(), [trades]);
 
   const getStreakAnalysis = () => {
     let maxWinStreak = 0;
@@ -278,16 +291,13 @@ export function Dashboard({
     });
     return { maxWinStreak, maxLossStreak };
   };
-  const { maxWinStreak, maxLossStreak } = getStreakAnalysis();
+  const { maxWinStreak, maxLossStreak } = useMemo(() => getStreakAnalysis(), [trades]);
   
   // Sort trades oldest to newest
-  const sortedTrades = sortTradesChronologically(trades);
+  const sortedTrades = useMemo(() => sortTradesChronologically(trades), [trades]);
 
   // Calculate CAGR & Returns by period
-  const getAnchorDate = () => {
-    return new Date();
-  };
-  const anchorDate = getAnchorDate();
+  const anchorDate = useMemo(() => new Date(), []);
 
   // Monthly stats for dropdown select
   const availableMonths = Array.from(new Set(sortedTrades.map(t => t.date.substring(0, 7)))).sort().reverse();
@@ -368,8 +378,8 @@ export function Dashboard({
     return { pnl, pct, averageDeployedCapital };
   };
 
-  const m1 = getModifiedDietzReturn(30);
-  const m3 = getModifiedDietzReturn(90);
+  const m1 = useMemo(() => getModifiedDietzReturn(30), [sortedTrades, capitalAdjustments, activeAccountId, brokerAccounts, activeTrades, anchorDate]);
+  const m3 = useMemo(() => getModifiedDietzReturn(90), [sortedTrades, capitalAdjustments, activeAccountId, brokerAccounts, activeTrades, anchorDate]);
 
   const getAllTimeModifiedDietzReturn = () => {
     const firstTradeDate = sortedTrades[0] ? parseLocalDate(sortedTrades[0].date) : new Date();
@@ -409,30 +419,37 @@ export function Dashboard({
     return { pct, averageDeployedCapital };
   };
 
-  const allTimeReturn = getAllTimeModifiedDietzReturn();
+  const allTimeReturn = useMemo(() => getAllTimeModifiedDietzReturn(), [sortedTrades, capitalAdjustments, activeAccountId, brokerAccounts, anchorDate, displayNetPnL]);
   const allTimePct = allTimeReturn.pct;
   const allTimeDeployedCapital = allTimeReturn.averageDeployedCapital;
 
-  const firstTradeDate = parseLocalDate(sortedTrades[0]?.date || new Date().toISOString().split('T')[0]);
-  const timeDiffMs = anchorDate.getTime() - firstTradeDate.getTime();
+  const firstTradeDate = useMemo(() => parseLocalDate(sortedTrades[0]?.date || new Date().toISOString().split('T')[0]), [sortedTrades]);
+  const timeDiffMs = useMemo(() => anchorDate.getTime() - firstTradeDate.getTime(), [anchorDate, firstTradeDate]);
   const yearsDiff = timeDiffMs / (1000 * 60 * 60 * 24 * 365.25);
   const isExtrapolated = yearsDiff < 1.0;
-  const cagr = yearsDiff > 0.04
-    ? (Math.pow(Math.max(0.1, (allTimeDeployedCapital + displayNetPnL) / allTimeDeployedCapital), 1 / yearsDiff) - 1) * 100
-    : allTimePct;
+  const cagr = useMemo(() => {
+    return yearsDiff > 0.04
+      ? (Math.pow(Math.max(0.1, (allTimeDeployedCapital + displayNetPnL) / allTimeDeployedCapital), 1 / yearsDiff) - 1) * 100
+      : allTimePct;
+  }, [yearsDiff, allTimeDeployedCapital, displayNetPnL, allTimePct]);
 
   // Options Holding Details
-  const optionTrades = trades.filter((t) => {
-    if (t.segment !== 'F&O') return false;
-    const hasOptionType = t.optionType && t.optionType !== 'None';
-    const symUpper = (t.symbol || '').toUpperCase();
-    const isCE = symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL');
-    const isPE = symUpper.includes(' PE') || symUpper.endsWith('PE') || symUpper.includes('PUT');
-    return hasOptionType || isCE || isPE;
-  });
-  const avgOptionDuration = optionTrades.length > 0
-    ? optionTrades.reduce((acc, t) => acc + (t.durationMinutes || 0), 0) / optionTrades.length
-    : 0;
+  const optionTrades = useMemo(() => {
+    return trades.filter((t) => {
+      if (t.segment !== 'F&O') return false;
+      const hasOptionType = t.optionType && t.optionType !== 'None';
+      const symUpper = (t.symbol || '').toUpperCase();
+      const isCE = symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL');
+      const isPE = symUpper.includes(' PE') || symUpper.endsWith('PE') || symUpper.includes('PUT');
+      return hasOptionType || isCE || isPE;
+    });
+  }, [trades]);
+
+  const avgOptionDuration = useMemo(() => {
+    return optionTrades.length > 0
+      ? optionTrades.reduce((acc, t) => acc + (t.durationMinutes || 0), 0) / optionTrades.length
+      : 0;
+  }, [optionTrades]);
 
   // GitHub-style Trading Heatmap calculations
   const getDatesArray = (startStr: string, endStr: string) => {
@@ -609,7 +626,7 @@ export function Dashboard({
     }).sort((a, b) => (b.netPnL + b.investmentPnL) - (a.netPnL + a.investmentPnL));
   };
 
-  const brokerStats = getBrokerwiseStats();
+  const brokerStats = useMemo(() => getBrokerwiseStats(), [rawTrades, investments, brokerAccounts]);
 
   // Max Drawdown & Consistency stats
   const calculateMaxDrawdown = () => {
@@ -626,14 +643,17 @@ export function Dashboard({
     return maxDrawdown;
   };
 
-  const maxDDRupees = calculateMaxDrawdown();
-  const maxDDPct = (maxDDRupees / activeDeployedCapital) * 100;
+  const maxDDRupees = useMemo(() => calculateMaxDrawdown(), [sortedTrades]);
+  const maxDDPct = useMemo(() => (maxDDRupees / activeDeployedCapital) * 100, [maxDDRupees, activeDeployedCapital]);
 
   // Win Days calculation
-  const dailyPnL: Record<string, number> = {};
-  sortedTrades.forEach((t) => {
-    dailyPnL[t.date] = (dailyPnL[t.date] || 0) + t.netPnL;
-  });
+  const dailyPnL = useMemo(() => {
+    const pnlMap: Record<string, number> = {};
+    sortedTrades.forEach((t) => {
+      pnlMap[t.date] = (pnlMap[t.date] || 0) + t.netPnL;
+    });
+    return pnlMap;
+  }, [sortedTrades]);
 
   // Extreme Days calculation
   const getExtremeDays = () => {
@@ -665,29 +685,34 @@ export function Dashboard({
       worstDay: { date: formatDateShort(worstDate), pnl: worstPnL }
     };
   };
-  const { bestDay, worstDay } = getExtremeDays();
+  const { bestDay, worstDay } = useMemo(() => getExtremeDays(), [dailyPnL]);
 
-  const daysList = Object.values(dailyPnL);
-  const winDaysCount = daysList.filter((d) => d > 0).length;
-  const winDaysPct = daysList.length > 0 ? (winDaysCount / daysList.length) * 100 : 0;
+  const daysList = useMemo(() => Object.values(dailyPnL), [dailyPnL]);
+  const winDaysCount = useMemo(() => daysList.filter((d) => d > 0).length, [daysList]);
+  const winDaysPct = useMemo(() => daysList.length > 0 ? (winDaysCount / daysList.length) * 100 : 0, [daysList, winDaysCount]);
 
   // Streaks
-  let maxConsecWins = 0;
-  let maxConsecLosses = 0;
-  let currentWins = 0;
-  let currentLosses = 0;
+  const streaks = useMemo(() => {
+    let maxConsecWins = 0;
+    let maxConsecLosses = 0;
+    let currentWins = 0;
+    let currentLosses = 0;
 
-  sortedTrades.forEach((t) => {
-    if (t.netPnL > 0) {
-      currentWins++;
-      currentLosses = 0;
-      if (currentWins > maxConsecWins) maxConsecWins = currentWins;
-    } else if (t.netPnL < 0) {
-      currentLosses++;
-      currentWins = 0;
-      if (currentLosses > maxConsecLosses) maxConsecLosses = currentLosses;
-    }
-  });
+    sortedTrades.forEach((t) => {
+      if (t.netPnL > 0) {
+        currentWins++;
+        currentLosses = 0;
+        if (currentWins > maxConsecWins) maxConsecWins = currentWins;
+      } else if (t.netPnL < 0) {
+        currentLosses++;
+        currentWins = 0;
+        if (currentLosses > maxConsecLosses) maxConsecLosses = currentLosses;
+      }
+    });
+    return { maxConsecWins, maxConsecLosses };
+  }, [sortedTrades]);
+
+  const { maxConsecWins, maxConsecLosses } = streaks;
 
   // Sharpe Ratio
   const calculateSharpeRatio = () => {
@@ -705,7 +730,7 @@ export function Dashboard({
     return stdDev > 0 ? (meanExcess / stdDev) * Math.sqrt(252) : 0;
   };
 
-  const sharpe = calculateSharpeRatio();
+  const sharpe = useMemo(() => calculateSharpeRatio(), [daysList, activeDeployedCapital]);
 
   const formatCurrency = (val: number) => {
     const isNegative = val < 0;
@@ -881,7 +906,7 @@ export function Dashboard({
   };
 
   const getWeeklySummaryList = () => {
-    const anchor = getAnchorDate();
+    const anchor = anchorDate;
     let currentYear = anchor.getFullYear();
     if (anchor.getMonth() < 3) {
       currentYear -= 1;
@@ -973,18 +998,18 @@ export function Dashboard({
     };
   };
 
-  const buttonStats = getFilterButtonStats();
-  const equityData = getEquityCurveData();
-  const mistakeData = getMistakeData();
-  const emotionStatsData = getEmotionStatsData();
-  const assetAllocationData = getAssetAllocationData();
-  const segmentAllocationData = getSegmentAllocationData();
+  const buttonStats = useMemo(() => getFilterButtonStats(), [sortedTrades, capitalAdjustments, activeAccountId, brokerAccounts, activeTrades, anchorDate, displayNetPnL, allTimePct]);
+  const equityData = useMemo(() => getEquityCurveData(), [sortedTrades, activeAccountId, brokerAccounts, capitalAdjustments, timeRange]);
+  const mistakeData = useMemo(() => getMistakeData(), [trades]);
+  const emotionStatsData = useMemo(() => getEmotionStatsData(), [trades]);
+  const assetAllocationData = useMemo(() => getAssetAllocationData(), [activeInvestments]);
+  const segmentAllocationData = useMemo(() => getSegmentAllocationData(), [trades]);
 
   // Weekly retrospective panel state
   const [selectedRetroWeekId, setSelectedRetroWeekId] = useState<string>('');
   const [retroNotes, setRetroNotes] = useState<string>('');
   
-  const weeklySummaries = getWeeklySummaryList();
+  const weeklySummaries = useMemo(() => getWeeklySummaryList(), [trades, anchorDate]);
   const activeRetroWeek = weeklySummaries.find(w => w.weekId === selectedRetroWeekId);
 
   // Sync retro notes state with store when selected week changes or when store updates

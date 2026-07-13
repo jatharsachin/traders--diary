@@ -291,7 +291,7 @@ const computeTradeCalculations = (
 
   // Risk-to-Reward Ratio
   const riskPoints = Math.abs(entryPrice - stopLoss);
-  const rewardPoints = Math.abs(exitPrice - entryPrice);
+  const rewardPoints = action === 'BUY' ? (exitPrice - entryPrice) : (entryPrice - exitPrice);
   const actualRR = riskPoints > 0 ? rewardPoints / riskPoints : 0;
 
   return {
@@ -328,7 +328,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
   // Load initial data from LocalStorage with Migrations
   const loadBrokerAccounts = (): BrokerAccount[] => {
-    const saved = localStorage.getItem('traders_diary_broker_accounts');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_broker_accounts'));
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as BrokerAccount[];
@@ -341,19 +341,19 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           return a;
         });
         if (changed) {
-          localStorage.setItem('traders_diary_broker_accounts', JSON.stringify(updated));
+          localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
         }
         return updated;
       } catch (e) {
         console.error('Failed to parse broker accounts', e);
       }
     }
-    localStorage.setItem('traders_diary_broker_accounts', JSON.stringify(DEFAULT_BROKER_ACCOUNTS));
+    localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(DEFAULT_BROKER_ACCOUNTS));
     return DEFAULT_BROKER_ACCOUNTS;
   };
 
   const loadBankAccounts = (): BankAccount[] => {
-    const saved = localStorage.getItem('traders_diary_bank_accounts');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_bank_accounts'));
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as BankAccount[];
@@ -366,19 +366,19 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           return b;
         });
         if (changed) {
-          localStorage.setItem('traders_diary_bank_accounts', JSON.stringify(updated));
+          localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
         }
         return updated;
       } catch (e) {
         console.error('Failed to parse bank accounts', e);
       }
     }
-    localStorage.setItem('traders_diary_bank_accounts', JSON.stringify(DEFAULT_BANK_ACCOUNTS));
+    localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(DEFAULT_BANK_ACCOUNTS));
     return DEFAULT_BANK_ACCOUNTS;
   };
 
   const loadBrokerCharges = (): BrokerChargesConfig[] => {
-    const saved = localStorage.getItem('traders_diary_broker_charges');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_broker_charges'));
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -386,12 +386,12 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         console.error('Failed to parse broker charges', e);
       }
     }
-    localStorage.setItem('traders_diary_broker_charges', JSON.stringify(DEFAULT_BROKER_CHARGES));
+    localStorage.setItem(getScopedKey('traders_diary_broker_charges'), JSON.stringify(DEFAULT_BROKER_CHARGES));
     return DEFAULT_BROKER_CHARGES;
   };
 
   const loadSubscriptionExpenses = (): SubscriptionExpense[] => {
-    const saved = localStorage.getItem('traders_diary_subscription_expenses');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_subscription_expenses'));
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -399,12 +399,12 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         console.error('Failed to parse subscription expenses', e);
       }
     }
-    localStorage.setItem('traders_diary_subscription_expenses', JSON.stringify(DEFAULT_SUBSCRIPTION_EXPENSES));
+    localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(DEFAULT_SUBSCRIPTION_EXPENSES));
     return DEFAULT_SUBSCRIPTION_EXPENSES;
   };
 
   const loadBankTransactions = (): BankTransaction[] => {
-    const saved = localStorage.getItem('traders_diary_bank_transactions');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_bank_transactions'));
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -412,7 +412,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         console.error('Failed to parse bank transactions', e);
       }
     }
-    localStorage.setItem('traders_diary_bank_transactions', JSON.stringify([]));
+    localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify([]));
     return [];
   };
 
@@ -729,8 +729,17 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const remainingTrades = state.trades.filter(t => t.date < startStr || t.date > endStr);
       const remainingAdjustments = state.capitalAdjustments.filter(a => a.date < startStr || a.date > endStr);
 
-      localStorage.setItem('traders_diary_trades', JSON.stringify(remainingTrades));
-      localStorage.setItem('traders_diary_adjustments', JSON.stringify(remainingAdjustments));
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(remainingTrades));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(remainingAdjustments));
+
+      // Sync capital adjustments to cloud metadata
+      syncMetaToCloud('capital_adjustments', remainingAdjustments);
+
+      // Async delete trades from cloud
+      const deletedTrades = state.trades.filter(t => t.date >= startStr && t.date <= endStr);
+      deletedTrades.forEach(t => {
+        syncTradeToCloud('delete', { id: t.id });
+      });
 
       return { 
         trades: remainingTrades,
