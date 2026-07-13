@@ -504,20 +504,20 @@ export default function App() {
               <span className="hide-collapsed">Dashboard</span>
             </button>
             <button 
-              onClick={() => { setActiveTab('daybook'); setIsMobileSidebarOpen(false); }} 
-              className={"sidebar-tab-btn " + (activeTab === 'daybook' ? 'active' : '')}
-              title="Day Book"
-            >
-              <BookOpen size={14} color={activeTab === 'daybook' ? '#fff' : '#60a5fa'} />
-              <span className="hide-collapsed">Day Book</span>
-            </button>
-            <button 
               onClick={() => { setActiveTab('calendar'); setIsMobileSidebarOpen(false); }} 
               className={"sidebar-tab-btn " + (activeTab === 'calendar' ? 'active' : '')}
               title="Calendar"
             >
               <Calendar size={14} color={activeTab === 'calendar' ? '#fff' : '#a855f7'} />
               <span className="hide-collapsed">Calendar</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('daybook'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'daybook' ? 'active' : '')}
+              title="Day Book"
+            >
+              <BookOpen size={14} color={activeTab === 'daybook' ? '#fff' : '#60a5fa'} />
+              <span className="hide-collapsed">Day Book</span>
             </button>
             <button 
               onClick={() => { setActiveTab('logs'); setIsMobileSidebarOpen(false); }} 
@@ -1261,20 +1261,20 @@ export default function App() {
                 Dashboard
               </button>
               <button 
-                onClick={() => setActiveTab('daybook')} 
-                className={"nav-tab " + (activeTab === 'daybook' ? 'active' : '')}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <BookOpen size={13} color="#60a5fa" />
-                Day Book
-              </button>
-              <button 
                 onClick={() => setActiveTab('calendar')} 
                 className={"nav-tab " + (activeTab === 'calendar' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Calendar size={13} color="#a855f7" />
                 Calendar
+              </button>
+              <button 
+                onClick={() => setActiveTab('daybook')} 
+                className={"nav-tab " + (activeTab === 'daybook' ? 'active' : '')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <BookOpen size={13} color="#60a5fa" />
+                Day Book
               </button>
               <button 
                 onClick={() => setActiveTab('logs')} 
