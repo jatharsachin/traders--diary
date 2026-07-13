@@ -47,37 +47,37 @@
 }
 
 :root.light {
-  /* Light Theme variables - GREY & WHITE COMBINATION */
-  --bg-color: #e2e5e9; /* Solid grey background */
-  --bg-card: #ffffff;  /* Solid pure white cards */
-  --bg-card-hover: #f5f7fa; /* Very light grey hover state */
-  --border-color: rgba(0, 0, 0, 0.06); /* Clean, soft borders */
-  --border-color-active: #007aff;
+  /* Light Theme variables - Soft, warm eye-friendly off-white & warm gray */
+  --bg-color: #edece8; /* Soft warm grayish-beige paper background */
+  --bg-card: #f9f8f5;  /* Warm alabaster/cream card background (eliminates harsh white glare) */
+  --bg-card-hover: #f1f0ea; /* Slightly darker warm hover tone */
+  --border-color: rgba(43, 44, 46, 0.08); /* Soft warm gray borders */
+  --border-color-active: #0076e3;
   
-  --primary: #007aff; /* Apple Blue (Light) */
-  --primary-hover: #0066cc;
-  --primary-glow: rgba(0, 122, 255, 0.12);
+  --primary: #0076e3; /* Softer pleasant sapphire blue */
+  --primary-hover: #005eb5;
+  --primary-glow: rgba(0, 118, 227, 0.14);
   
-  --text-main: #1d1d1f; /* Near Black - High Contrast readability */
-  --text-muted: #48484a; /* High Contrast secondary text */
-  --text-dim: #86868b;
+  --text-main: #252729; /* Soft charcoal text (reduces contrast fatigue) */
+  --text-muted: #535659; /* Softer secondary text */
+  --text-dim: #7f8285;
   
-  --color-win: #1a7f37; /* High contrast green */
-  --color-win-bg: rgba(26, 127, 55, 0.08);
-  --color-win-border: rgba(26, 127, 55, 0.18);
+  --color-win: #157d38; /* Soft, readable green */
+  --color-win-bg: rgba(21, 125, 56, 0.08);
+  --color-win-border: rgba(21, 125, 56, 0.16);
   
-  --color-loss: #d1242f; /* High contrast red */
-  --color-loss-bg: rgba(209, 36, 47, 0.08);
-  --color-loss-border: rgba(209, 36, 47, 0.18);
+  --color-loss: #cc252e; /* Soft, readable red */
+  --color-loss-bg: rgba(204, 37, 46, 0.08);
+  --color-loss-border: rgba(204, 37, 46, 0.16);
   
   --color-neutral: #6f2cf2;
   --color-neutral-bg: rgba(111, 44, 242, 0.08);
   
   --glass-shine: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.12) 45%, rgba(255, 255, 255, 0.38) 50%, rgba(255, 255, 255, 0.12) 55%, transparent 60%);
   
-  --shadow-glow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.02);
-  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01);
-  --bg-tooltip-opaque: #ffffff;
+  --shadow-glow: 0 10px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.01);
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.02), 0 1px 3px rgba(0, 0, 0, 0.01);
+  --bg-tooltip-opaque: #f9f8f5;
 }
 
 /* Emerald Theme */
