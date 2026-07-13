@@ -1527,7 +1527,7 @@ export function TradingCalendar({
               <table className="custom-table" style={{ fontSize: '0.85rem' }}>
                 <thead>
                   <tr>
-                    <th>Time</th>
+                    <th>Entry/Exit</th>
                     <th>Symbol</th>
                     <th>Broker</th>
                     <th>Action</th>
