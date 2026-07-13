@@ -4,7 +4,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import { 
   Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download
 } from 'lucide-react';
-import { filterTradesByFY } from '../utils/fyHelper';
+import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
 import type { CapitalAdjustment, BankTransaction } from '../types';
 
@@ -219,6 +219,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         netPnL: -i.qty * i.buyPrice,
         isAdjustment: true,
         isInvestment: true,
+        entryTime: undefined,
+        exitTime: undefined,
       }));
 
     const invExits = investments
@@ -246,6 +248,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         netPnL: i.qty * i.exitPrice!,
         isAdjustment: true,
         isInvestment: true,
+        entryTime: undefined,
+        exitTime: undefined,
       }));
 
     const combined = [
@@ -262,6 +266,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         netPnL: t.netPnL,
         isAdjustment: false,
         isInvestment: false,
+        entryTime: t.entryTime,
+        exitTime: t.exitTime,
       })),
       ...capitalAdjustments.map((a) => ({
         id: a.id,
@@ -278,6 +284,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         netPnL: a.type === 'DEPOSIT' ? a.amount : -a.amount,
         isAdjustment: true,
         isInvestment: false,
+        entryTime: undefined,
+        exitTime: undefined,
       })),
       ...invPurchases,
       ...invExits,
@@ -888,7 +896,13 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                               cursor: 'pointer'
                             }}
                           >
-                            <td style={{ padding: '8px' }}>{item.date} <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{item.time}</span></td>
+                            <td style={{ padding: '8px' }}>
+                              {item.date}{' '}
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                                {formatTimeToAMPM(item.entryTime || item.time)}
+                                {!item.isAdjustment && item.exitTime && ` - ${formatTimeToAMPM(item.exitTime)}`}
+                              </span>
+                            </td>
                             <td style={{ padding: '8px', color: isAdjustment ? 'var(--primary)' : 'var(--text-main)' }}>
                               {item.particulars}
                             </td>

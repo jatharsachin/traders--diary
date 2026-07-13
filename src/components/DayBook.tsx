@@ -152,7 +152,9 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       isCredit: t.netPnL >= 0,
       broker: t.broker,
       rawNotes: t.notes || '',
-      isInvestment: false
+      isInvestment: false,
+      entryTime: t.entryTime,
+      exitTime: t.exitTime
     };
   });
 
@@ -177,7 +179,9 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       isCredit: a.type === 'DEPOSIT',
       broker: a.broker || 'System',
       rawNotes: a.notes || '',
-      isInvestment: false
+      isInvestment: false,
+      entryTime: undefined,
+      exitTime: undefined
     };
   });
 
@@ -201,7 +205,9 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     isCredit: false,
     broker: i.broker || 'System',
     rawNotes: i.notes || '',
-    isInvestment: true
+    isInvestment: true,
+    entryTime: undefined,
+    exitTime: undefined
   }));
 
   const invExitItems = rangeInvExits.map(i => ({
@@ -219,7 +225,9 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     isCredit: true,
     broker: i.broker || 'System',
     rawNotes: '',
-    isInvestment: true
+    isInvestment: true,
+    entryTime: undefined,
+    exitTime: undefined
   }));
 
   // Chronological sort
@@ -321,9 +329,12 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     const tableRows = sortedTimeline.map((item) => {
       const isCredit = item.isCredit;
       const amountStr = formatCurrency(Math.abs(item.amount));
+      const displayTime = item.type === 'TRADE' && item.exitTime
+        ? `${formatTimeToAMPM(item.entryTime || item.time)} - ${formatTimeToAMPM(item.exitTime)}`
+        : formatTimeToAMPM(item.time);
       return `
         <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
-          <td style="padding: 6px;">${item.date} <span style="color:#718096">${item.time}</span></td>
+          <td style="padding: 6px;">${item.date} <span style="color:#718096">${displayTime}</span></td>
           <td style="padding: 6px;"><strong>${item.title}</strong><div style="font-size:10px; color:#718096">${item.description}</div></td>
           <td style="padding: 6px; text-align: right; color: ${!isCredit ? '#e53e3e' : '#718096'}">${!isCredit ? '-' + amountStr : '-'}</td>
           <td style="padding: 6px; text-align: right; color: ${isCredit ? '#38a169' : '#718096'}">${isCredit ? '+' + amountStr : '-'}</td>
@@ -680,7 +691,10 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
                               {/* Row 1: Unified details on a single line */}
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 550 }}>⏱️ {formatTimeToAMPM(item.time)}</span>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 550 }}>
+                                  ⏱️ {formatTimeToAMPM(item.entryTime || item.time)}
+                                  {item.type === 'TRADE' && item.exitTime && ` - ${formatTimeToAMPM(item.exitTime)}`}
+                                </span>
                                 <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
                                 {item.type === 'TRADE' ? (
                                   <>
