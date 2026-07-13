@@ -10,14 +10,15 @@ import { TradeLogger } from './components/TradeLogger';
 import { AuthScreen } from './components/AuthScreen';
 import { Taxation } from './components/Taxation';
 import { DayBook } from './components/DayBook';
+import { Help } from './components/Help';
 import { useTradeStore } from './store/useTradeStore';
 import { BROKER_LOGOS } from './utils/brandLogos';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
 
-type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation';
+type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'help';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -552,6 +553,19 @@ export default function App() {
             >
               <Percent size={14} color={activeTab === 'taxation' ? '#fff' : '#f97316'} />
               <span className="hide-collapsed">Taxation</span>
+            </button>
+
+            {/* Support & Info Tab */}
+            <div style={{ padding: '0 12px', marginTop: '12px' }} className="hide-collapsed">
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em' }}>SUPPORT & INFO</span>
+            </div>
+            <button 
+              onClick={() => { setActiveTab('help'); setIsMobileSidebarOpen(false); }}
+              className={"sidebar-tab-btn " + (activeTab === 'help' ? 'active' : '')}
+              title="Help & Guides"
+            >
+              <HelpCircle size={14} color={activeTab === 'help' ? '#fff' : '#06b6d4'} />
+              <span className="hide-collapsed">Help & Guides</span>
             </button>
           </div>
 
@@ -1290,6 +1304,15 @@ export default function App() {
                 <Percent size={13} color="#f97316" />
                 Taxation
               </button>
+
+              <button 
+                onClick={() => setActiveTab('help')}
+                className={"nav-tab " + (activeTab === 'help' ? 'active' : '')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <HelpCircle size={13} color={activeTab === 'help' ? '#fff' : '#06b6d4'} />
+                Help
+              </button>
             </div>
           </div>
         </div>
@@ -1646,6 +1669,7 @@ export default function App() {
         {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
         {activeTab === 'strategies' && <StrategyManager />}
         {activeTab === 'account' && <AccountManager />}
+        {activeTab === 'help' && <Help />}
       </main>
 
       {/* Log Form Modal Overlay */}
