@@ -1,10 +1,12 @@
 import type { Trade } from '../types';
 
 export function getFinancialYear(dateStr: string): string {
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return 'Unknown';
-  const year = date.getFullYear();
-  const month = date.getMonth(); // 0-indexed: 3 = April
+  if (!dateStr || dateStr.length < 10) return 'Unknown';
+  const parts = dateStr.split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1; // 0-indexed: 3 = April
+  if (isNaN(year) || isNaN(month)) return 'Unknown';
+  
   if (month >= 3) {
     return `FY ${year}-${(year + 1).toString().slice(-2)}`;
   } else {

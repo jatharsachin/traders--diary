@@ -512,17 +512,17 @@ export function TradingCalendar({
     const day = today.getDay(); // 0 = Sunday, 1 = Monday, ...
     const diffToMon = today.getDate() - day + (day === 0 ? -6 : 1);
     
-    const monday = new Date(today.setDate(diffToMon));
-    monday.setHours(0, 0, 0, 0);
-
+    const monday = new Date(today);
+    monday.setDate(diffToMon);
+    
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
 
-    const weeklyTrades = trades.filter((t) => {
-      const tDate = new Date(t.date);
-      return tDate >= monday && tDate <= sunday;
-    });
+    const formatD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const monStr = formatD(monday);
+    const sunStr = formatD(sunday);
+
+    const weeklyTrades = trades.filter((t) => t.date >= monStr && t.date <= sunStr);
 
     return weeklyTrades.reduce((acc, t) => acc + t.netPnL, 0);
   };
@@ -537,17 +537,14 @@ export function TradingCalendar({
     if (month < 3) { // Jan, Feb, Mar belong to previous calendar year's FY
       fyStartYear = year - 1;
     }
-    const start = new Date(fyStartYear, 3, 1); // April 1st
-    const end = new Date(fyStartYear + 1, 2, 31, 23, 59, 59, 999); // March 31st next year
-    return { start, end, fyStartYear };
+    const startStr = `${fyStartYear}-04-01`;
+    const endStr = `${fyStartYear + 1}-03-31`;
+    return { startStr, endStr, fyStartYear };
   };
-  const { start: fyStart, end: fyEnd, fyStartYear } = getFYRange();
+  const { startStr: fyStartStr, endStr: fyEndStr, fyStartYear } = getFYRange();
 
   const getFYPnL = () => {
-    const fyTrades = trades.filter((t) => {
-      const tDate = new Date(t.date);
-      return tDate >= fyStart && tDate <= fyEnd;
-    });
+    const fyTrades = trades.filter((t) => t.date >= fyStartStr && t.date <= fyEndStr);
     return fyTrades.reduce((acc, t) => acc + t.netPnL, 0);
   };
   const activeFYPnL = getFYPnL();
@@ -560,10 +557,7 @@ export function TradingCalendar({
   };
 
   const getFYDeployed = () => {
-    const fyTrades = trades.filter((t) => {
-      const tDate = new Date(t.date);
-      return tDate >= fyStart && tDate <= fyEnd;
-    });
+    const fyTrades = trades.filter((t) => t.date >= fyStartStr && t.date <= fyEndStr);
     return fyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0);
   };
 
@@ -706,12 +700,11 @@ export function TradingCalendar({
       const mMonthIndex = (3 + m) % 12;
       const mYear = mMonthIndex < 3 ? fyStartYear + 1 : fyStartYear;
       
-      const mStart = new Date(mYear, mMonthIndex, 1);
-      const mEnd = new Date(mYear, mMonthIndex + 1, 0, 23, 59, 59, 999);
-      
       const monthlyTrades = trades.filter((t) => {
-        const tDate = new Date(t.date);
-        return tDate >= mStart && tDate <= mEnd;
+        const mStartStr = `${mYear}-${String(mMonthIndex + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(mYear, mMonthIndex + 1, 0).getDate();
+        const mEndStr = `${mYear}-${String(mMonthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        return t.date >= mStartStr && t.date <= mEndStr;
       });
       
       const netPnL = monthlyTrades.reduce((acc, t) => acc + t.netPnL, 0);

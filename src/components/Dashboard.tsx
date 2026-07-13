@@ -10,6 +10,16 @@ import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { BROKER_LOGOS } from '../utils/brandLogos';
 import { OFFLINE_NSE_HOLIDAYS } from './TradingCalendar';
 
+
+const parseLocalDate = (dateStr: string) => {
+  if (!dateStr) return new Date();
+  const parts = dateStr.split('-');
+  if (parts.length >= 3) {
+    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  }
+  return parseLocalDate(dateStr);
+};
+
 export function Dashboard({ 
   activeAccountId = 'Combined', 
   onNavigateToTab,
@@ -291,7 +301,7 @@ export function Dashboard({
 
   // Group by week YYYY-Www
   const getWeekIdentifier = (dateStr: string) => {
-    const d = new Date(dateStr);
+    const d = parseLocalDate(dateStr);
     const oneJan = new Date(d.getFullYear(), 0, 1);
     const numberOfDays = Math.floor((d.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
     const week = Math.ceil((d.getDay() + 1 + numberOfDays) / 7);
@@ -341,7 +351,7 @@ export function Dashboard({
     let weightedCashFlows = 0;
 
     periodAdjustments.forEach((a) => {
-      const adjDate = new Date(a.date);
+      const adjDate = parseLocalDate(a.date);
       const daysFromStart = Math.max(0, Math.floor((adjDate.getTime() - cutoffDate.getTime()) / (1000 * 60 * 60 * 24)));
       const weight = Math.max(0, Math.min(1, (totalDays - daysFromStart) / totalDays));
       const amount = Number(a.amount) || 0;
@@ -362,8 +372,8 @@ export function Dashboard({
   const m3 = getModifiedDietzReturn(90);
 
   const getAllTimeModifiedDietzReturn = () => {
-    const firstTradeDate = sortedTrades[0] ? new Date(sortedTrades[0].date) : new Date();
-    const firstAdjustmentDate = capitalAdjustments[0] ? new Date(capitalAdjustments[0].date) : new Date();
+    const firstTradeDate = sortedTrades[0] ? parseLocalDate(sortedTrades[0].date) : new Date();
+    const firstAdjustmentDate = capitalAdjustments[0] ? parseLocalDate(capitalAdjustments[0].date) : new Date();
     const startDate = new Date(Math.min(firstTradeDate.getTime(), firstAdjustmentDate.getTime()));
     
     const totalDays = Math.max(1, Math.ceil((anchorDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
@@ -382,7 +392,7 @@ export function Dashboard({
 
     let weightedCashFlows = 0;
     periodAdjustments.forEach((a) => {
-      const adjDate = new Date(a.date);
+      const adjDate = parseLocalDate(a.date);
       const daysFromStart = Math.max(0, Math.floor((adjDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
       const weight = Math.max(0, Math.min(1, (totalDays - daysFromStart) / totalDays));
       const amount = Number(a.amount) || 0;
@@ -403,7 +413,7 @@ export function Dashboard({
   const allTimePct = allTimeReturn.pct;
   const allTimeDeployedCapital = allTimeReturn.averageDeployedCapital;
 
-  const firstTradeDate = new Date(sortedTrades[0]?.date || new Date());
+  const firstTradeDate = parseLocalDate(sortedTrades[0]?.date || new Date().toISOString().split('T')[0]);
   const timeDiffMs = anchorDate.getTime() - firstTradeDate.getTime();
   const yearsDiff = timeDiffMs / (1000 * 60 * 60 * 24 * 365.25);
   const isExtrapolated = yearsDiff < 1.0;
@@ -470,7 +480,7 @@ export function Dashboard({
     const monthsMap: Record<string, { name: string; dates: string[]; startPad: number }> = {};
     
     datesList.forEach((dateStr) => {
-      const d = new Date(dateStr);
+      const d = parseLocalDate(dateStr);
       const day = d.getDay();
       if (day === 0 || day === 6) return; // Skip Saturdays and Sundays!
       
@@ -492,7 +502,7 @@ export function Dashboard({
     list.forEach((m) => {
       const firstDate = m.dates[0];
       if (firstDate) {
-        const d = new Date(firstDate);
+        const d = parseLocalDate(firstDate);
         const day = d.getDay();
         m.startPad = day - 1; // 0 = Mon, 1 = Tue, 2 = Wed, 3 = Thu, 4 = Fri
       }
@@ -645,7 +655,7 @@ export function Dashboard({
 
     const formatDateShort = (dateStr: string) => {
       if (dateStr === 'No Trades') return 'N/A';
-      const d = new Date(dateStr);
+      const d = parseLocalDate(dateStr);
       if (isNaN(d.getTime())) return dateStr;
       return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
     };
@@ -901,7 +911,7 @@ export function Dashboard({
     
     // Populate trades
     trades.forEach((t) => {
-      const tDate = new Date(t.date);
+      const tDate = parseLocalDate(t.date);
       for (const w of Object.values(weeksMap)) {
         if (tDate >= w.startDate && tDate <= w.endDate) {
           w.trades.push(t);
@@ -1035,7 +1045,7 @@ export function Dashboard({
       
       const formatDateTooltip = (dateStr: string) => {
         if (!dateStr || dateStr === 'Start') return 'Start';
-        const d = new Date(dateStr);
+        const d = parseLocalDate(dateStr);
         if (isNaN(d.getTime())) return dateStr;
         return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
       };
