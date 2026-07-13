@@ -1628,7 +1628,12 @@ export default function App() {
           />
         )}
         {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
-        {activeTab === 'calendar' && <TradingCalendar activeAccountId={activeAccountId} />}
+        {activeTab === 'calendar' && (
+          <TradingCalendar 
+            activeAccountId={activeAccountId} 
+            onEditTrade={handleEditTrade} 
+          />
+        )}
         {activeTab === 'logs' && (
           <TradeTable 
             onEditTrade={handleEditTrade} 

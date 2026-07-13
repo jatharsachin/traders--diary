@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { ChevronLeft, ChevronRight, Info, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2 } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
 import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM } from '../utils/fyHelper';
 
@@ -72,7 +72,13 @@ const formatCompactPnLMobile = (val: number) => {
   return `${val > 0 ? '+' : '-'}${Math.round(absVal)}`;
 };
 
-export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
+export function TradingCalendar({ 
+  activeAccountId = 'Combined',
+  onEditTrade
+}: { 
+  activeAccountId?: string;
+  onEditTrade?: (id: string) => void;
+}) {
   const { 
     trades: allTrades, 
     isPnlVisible, 
@@ -1534,6 +1540,7 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                     <th style={{ textAlign: 'right' }}>Net P&L</th>
                     <th>Setup/Mistake</th>
                     <th>Notes</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1578,6 +1585,30 @@ export function TradingCalendar({ activeAccountId = 'Combined' }: { activeAccoun
                       </td>
                       <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '250px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} title={t.notes}>
                         {t.notes || '-'}
+                      </td>
+                      <td>
+                        {onEditTrade && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditTrade(t.id);
+                            }}
+                            className="btn btn-secondary"
+                            style={{ 
+                              padding: '4px 8px', 
+                              fontSize: '0.72rem', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '4px',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                            title="Edit Trade"
+                          >
+                            <Edit2 size={12} />
+                            <span>Edit</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
