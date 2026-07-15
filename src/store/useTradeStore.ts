@@ -289,8 +289,8 @@ const computeTradeCalculations = (
   const capital = entryPrice * qty;
   const roi = capital > 0 ? (netPnL / capital) * 100 : 0;
 
-  // Risk-to-Reward Ratio
-  const riskPoints = Math.abs(entryPrice - stopLoss);
+  // Risk-to-Reward Ratio (calculated only if a valid stopLoss > 0 is provided)
+  const riskPoints = (stopLoss && stopLoss > 0) ? Math.abs(entryPrice - stopLoss) : 0;
   const rewardPoints = action === 'BUY' ? (exitPrice - entryPrice) : (entryPrice - exitPrice);
   const actualRR = riskPoints > 0 ? rewardPoints / riskPoints : 0;
 
@@ -623,7 +623,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadLockedFYs = (): string[] => {
-    const saved = localStorage.getItem('traders_diary_locked_fys');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_locked_fys'));
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -703,7 +703,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const nextLocked = isLocked 
         ? state.lockedFYs.filter(f => f !== fy)
         : [...state.lockedFYs, fy];
-      localStorage.setItem('traders_diary_locked_fys', JSON.stringify(nextLocked));
+      localStorage.setItem(getScopedKey('traders_diary_locked_fys'), JSON.stringify(nextLocked));
       return { lockedFYs: nextLocked };
     }),
     clearFYData: (fy) => set((state) => {
@@ -1382,6 +1382,13 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const activeBrokers = getOrMigrate('traders_diary_active_brokers', ['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other']);
       const defaultBroker = localStorage.getItem(`traders_diary_default_broker_${userId}`) || localStorage.getItem('traders_diary_default_broker') || 'Zerodha';
 
+      const lockedFYs = getOrMigrate('traders_diary_locked_fys', ['FY 2024-25', 'FY 2025-26']);
+      const theme = localStorage.getItem(`traders_diary_theme_${userId}`) || localStorage.getItem('traders_diary_theme') || 'dark';
+      const isPnlVisible = localStorage.getItem(`traders_diary_pnl_visibility_${userId}`) !== null 
+        ? JSON.parse(localStorage.getItem(`traders_diary_pnl_visibility_${userId}`)!) 
+        : (localStorage.getItem('traders_diary_pnl_visibility') !== null ? JSON.parse(localStorage.getItem('traders_diary_pnl_visibility')!) : true);
+      const noTradeDays = getOrMigrate('traders_diary_notradedays', []);
+
       set({
         trades,
         setups,
@@ -1398,6 +1405,10 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         brokerCharges,
         subscriptionExpenses,
         bankTransactions,
+        lockedFYs,
+        theme: theme as 'light' | 'dark',
+        isPnlVisible,
+        noTradeDays
       });
 
       get().pullTradesFromCloud();
@@ -1851,7 +1862,10 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           investments: [],
           weeklyRetrospectives: {},
           selectedFY: getCurrentLiveFY(),
-          noTradeDays: []
+          noTradeDays: loadNoTradeDays(),
+          lockedFYs: loadLockedFYs(),
+          theme: loadTheme(),
+          isPnlVisible: loadPnlVisibility()
         });
         return { error: null };
       } catch (e: any) {

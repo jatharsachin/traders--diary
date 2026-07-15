@@ -26,7 +26,7 @@ export function calculateIndianTaxesAndBrokerage(
   partialExits?: { qty: number; price: number }[],
   strategy?: string
 ): TaxResult {
-  if (!qty || qty <= 0) {
+  if (!qty || qty <= 0 || isNaN(qty) || isNaN(entryPrice) || isNaN(exitPrice)) {
     return {
       brokerage: 0,
       stt: 0,
@@ -43,8 +43,8 @@ export function calculateIndianTaxesAndBrokerage(
   const buyPrice = isLong ? entryPrice : exitPrice;
   const sellPrice = isLong ? exitPrice : entryPrice;
 
-  const buyValue = qty * buyPrice;
-  const sellValue = qty * sellPrice;
+  const buyValue = qty * (buyPrice || 0);
+  const sellValue = qty * (sellPrice || 0);
   const totalTurnover = buyValue + sellValue;
 
   let brokerage = 0;
@@ -79,7 +79,7 @@ export function calculateIndianTaxesAndBrokerage(
         brokerage = 0; // Default Zerodha Delivery is ₹0
       }
       exchangeTx = totalTurnover * 0.0000297; // 0.00297% (Revised Oct 2024)
-      stt = totalTurnover * 0.001; // 0.1% on buy and sell
+      stt = buyValue * 0.001; // 0.1% on buy-side only (Revised Budget Rules)
       stampDuty = buyValue * 0.00015; // 0.015% on buy side only
     } else {
       // Intraday (MIS)
@@ -93,7 +93,7 @@ export function calculateIndianTaxesAndBrokerage(
         brokerage = buyBroker + sellBroker;
       }
       exchangeTx = totalTurnover * 0.0000297; // 0.00297% (Revised Oct 2024)
-      stt = sellValue * 0.00025; // 0.025% on sell side only
+      stt = sellValue * 0.000125; // 0.0125% on sell side only (Revised Budget Rules)
       stampDuty = buyValue * 0.00003; // 0.003% on buy side only
     }
   } else if (segment === 'F&O') {
@@ -110,8 +110,7 @@ export function calculateIndianTaxesAndBrokerage(
       }
       // Exchange Tx: NSE revised 0.03503% + IPFT 0.0005% = 0.03553% on premium value
       exchangeTx = totalTurnover * 0.0003553; 
-      // STT: 0.15% on sell side premium (Revised April 2026)
-      stt = sellValue * 0.0015; 
+      stt = sellValue * 0.001; // 0.1% on sell side premium (Revised Budget Rules)
       stampDuty = buyValue * 0.00003; // 0.003% on buy side
     } else {
       // Futures
