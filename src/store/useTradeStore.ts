@@ -272,9 +272,7 @@ const computeTradeCalculations = (
   let taxes = 0;
   let totalCharges = 0;
 
-  const isVaccumGrid = trade.strategy?.toLowerCase().trim() === 'vaccum grid';
-
-  if (trade.useManualCharges && !isVaccumGrid) {
+  if (trade.useManualCharges) {
     brokerage = trade.manualBrokerage || 0;
     taxes = trade.manualTaxes || 0;
     totalCharges = brokerage + taxes;
@@ -465,25 +463,11 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       // Recalculate durationMinutes and expiryDay if missing, NaN, or to update old records
       const config = t.brokerAccountId ? DEFAULT_BROKER_CHARGES.find(c => c.broker === accountsList.find(a => a.id === t.brokerAccountId)?.broker) : undefined;
       const computed = computeTradeCalculations(t, config);
-      const isVaccumGrid = t.strategy?.toLowerCase().trim() === 'vaccum grid';
-      const needsRecalc = isVaccumGrid && (t.brokerage !== computed.brokerage || t.netPnL !== computed.netPnL);
 
-      if (needsRecalc || t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes) || t.isExpiryDay !== computed.isExpiryDay) {
+      if (t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes) || t.isExpiryDay !== computed.isExpiryDay) {
         t.durationMinutes = computed.durationMinutes;
         t.isExpiryDay = computed.isExpiryDay;
-        t.grossPnL = computed.grossPnL;
-        t.brokerage = computed.brokerage;
-        t.taxes = computed.taxes;
-        t.netPnL = computed.netPnL;
-        t.roi = computed.roi;
-        t.actualRR = computed.actualRR;
-        if (isVaccumGrid) {
-          t.useManualCharges = false;
-        }
         changed = true;
-        
-        // Async background sync of updated trade to the cloud database
-        syncTradeToCloud('update', t).catch(err => console.error("Failed to sync migrated trade:", err));
       }
       
       if (changed) {
@@ -1115,29 +1099,6 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       set({ trades: cloudTrades });
       localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
 
-      const hasRecalced = localStorage.getItem(`traders_diary_recalced_charges_v4_${userId}`) === 'true';
-      if (!hasRecalced && cloudTrades.length > 0) {
-        const recalcedTrades = cloudTrades.map(t => {
-          const config = get().brokerCharges.find(c => c.broker === t.broker);
-          const calc = computeTradeCalculations(t, config);
-          return {
-            ...t,
-            isExpiryDay: calc.isExpiryDay,
-            ...(t.useManualCharges ? {} : {
-              brokerage: calc.brokerage,
-              taxes: calc.taxes,
-              netPnL: calc.netPnL,
-              roi: calc.roi
-            })
-          };
-        });
-        for (const rt of recalcedTrades) {
-          await syncTradeToCloud('update', rt);
-        }
-        set({ trades: recalcedTrades });
-        localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(recalcedTrades));
-        localStorage.setItem(`traders_diary_recalced_charges_v4_${userId}`, 'true');
-      }
 
       // Check if this is a brand new user (no trades AND no metadata in cloud)
       const isBrandNewUser = cloudTrades.length === 0 && Object.keys(cloudMeta).length === 0;
