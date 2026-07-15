@@ -272,7 +272,9 @@ const computeTradeCalculations = (
   let taxes = 0;
   let totalCharges = 0;
 
-  if (trade.useManualCharges) {
+  const isVaccumGrid = trade.strategy?.toLowerCase().trim() === 'vaccum grid';
+
+  if (trade.useManualCharges && !isVaccumGrid) {
     brokerage = trade.manualBrokerage || 0;
     taxes = trade.manualTaxes || 0;
     totalCharges = brokerage + taxes;
@@ -475,7 +477,13 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         t.netPnL = computed.netPnL;
         t.roi = computed.roi;
         t.actualRR = computed.actualRR;
+        if (isVaccumGrid) {
+          t.useManualCharges = false;
+        }
         changed = true;
+        
+        // Async background sync of updated trade to the cloud database
+        syncTradeToCloud('update', t).catch(err => console.error("Failed to sync migrated trade:", err));
       }
       
       if (changed) {
