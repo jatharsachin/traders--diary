@@ -1081,77 +1081,32 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         return false;
       }
 
-      // Sync Trades: Local-first priority
-      const localTrades = get().trades || [];
-      if (localTrades.length === 0) {
-        // New device or empty local state: pull from cloud
-        set({ trades: cloudTrades });
-        localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
-      } else {
-        // Local has trades: treat local as source of truth and sync to cloud
-        const cloudTradeIds = new Set(cloudTrades.map(ct => ct.id));
-        const cloudTradeMap = new Map(cloudTrades.map(ct => [ct.id, ct]));
-        const localTradeIds = new Set(localTrades.map(lt => lt.id));
+      // Sync Trades: Cloud-first priority (Cloud updates local database)
+      set({ trades: cloudTrades });
+      localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
 
-        // 1. Delete from cloud if deleted locally
-        const toDelete = cloudTrades.filter(ct => !localTradeIds.has(ct.id));
-        for (const t of toDelete) {
-          await syncTradeToCloud('delete', t);
-        }
-
-        // 2. Insert to cloud if new locally
-        const toInsert = localTrades.filter(lt => !cloudTradeIds.has(lt.id));
-        for (const t of toInsert) {
-          await syncTradeToCloud('insert', t);
-        }
-
-        // 3. Update in cloud if modified locally (compare values)
-        const toUpdate = localTrades.filter(lt => {
-          const ct = cloudTradeMap.get(lt.id);
-          if (!ct) return false;
-          return lt.date !== ct.date ||
-                 lt.symbol !== ct.symbol ||
-                 lt.segment !== ct.segment ||
-                 lt.product !== ct.product ||
-                 lt.action !== ct.action ||
-                 lt.qty !== ct.qty ||
-                 lt.entryPrice !== ct.entryPrice ||
-                 lt.exitPrice !== ct.exitPrice ||
-                 lt.grossPnL !== ct.grossPnL ||
-                 lt.brokerage !== ct.brokerage ||
-                 lt.taxes !== ct.taxes ||
-                 lt.netPnL !== ct.netPnL ||
-                 lt.strategy !== ct.strategy ||
-                 JSON.stringify(lt.partialExits) !== JSON.stringify(ct.partialExits);
-        });
-        for (const t of toUpdate) {
-          await syncTradeToCloud('update', t);
-        }
-      }
-
-      // Helper function for metadata keys using local-first priority
+      // Helper function for metadata keys using cloud-first priority
       const processMetaKey = async (key: string, storeSetter: (val: any) => void, localKey: string, defaultValue: any) => {
         const cloudVal = cloudMeta[key];
-        const localValStr = localStorage.getItem(localKey);
-        const localVal = localValStr ? JSON.parse(localValStr) : null;
-
-        // Check if local has actual, custom user data
-        const isLocalDefaultOrEmpty = !localVal ||
-          JSON.stringify(localVal) === JSON.stringify(defaultValue) ||
-          (Array.isArray(localVal) && localVal.length === 0) ||
-          (typeof localVal === 'object' && Object.keys(localVal).length === 0);
-
-        if (!isLocalDefaultOrEmpty) {
-          // Local has actual data: sync up to cloud, do not overwrite local
-          await syncMetaToCloud(key, localVal);
-          storeSetter(localVal);
+        
+        if (cloudVal !== undefined && cloudVal !== null) {
+          // Cloud has data: use it to overwrite local data (priority)
+          storeSetter(cloudVal);
+          localStorage.setItem(localKey, JSON.stringify(cloudVal));
         } else {
-          // Local is empty/default: sync down from cloud if cloud has data
-          if (cloudVal !== undefined && cloudVal !== null) {
-            storeSetter(cloudVal);
-            localStorage.setItem(localKey, JSON.stringify(cloudVal));
+          // Cloud is empty/new: push local data to cloud if it has custom values
+          const localValStr = localStorage.getItem(localKey);
+          const localVal = localValStr ? JSON.parse(localValStr) : null;
+          
+          const isLocalDefaultOrEmpty = !localVal ||
+            JSON.stringify(localVal) === JSON.stringify(defaultValue) ||
+            (Array.isArray(localVal) && localVal.length === 0) ||
+            (typeof localVal === 'object' && Object.keys(localVal).length === 0);
+
+          if (localVal && !isLocalDefaultOrEmpty) {
+            await syncMetaToCloud(key, localVal);
+            storeSetter(localVal);
           } else {
-            // Both are empty/default
             storeSetter(defaultValue);
             localStorage.setItem(localKey, JSON.stringify(defaultValue));
           }
