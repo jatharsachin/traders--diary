@@ -23,7 +23,8 @@ export function calculateIndianTaxesAndBrokerage(
   exitPrice: number,
   chargesConfig?: BrokerChargesConfig,
   isOption?: boolean,
-  partialExits?: { qty: number; price: number }[]
+  partialExits?: { qty: number; price: number }[],
+  strategy?: string
 ): TaxResult {
   if (!qty || qty <= 0) {
     return {
@@ -157,6 +158,11 @@ export function calculateIndianTaxesAndBrokerage(
     exchangeTx = totalTurnover * 0.0000035; // 0.00035% (Revised Oct 2024)
     stt = 0; 
     stampDuty = buyValue * 0.000001; // 0.0001% buy side
+  }
+
+  const isVaccumGrid = strategy?.toLowerCase().trim() === 'vaccum grid';
+  if (isVaccumGrid) {
+    brokerage = 20 * (1 + exitLegsCount);
   }
 
   // 3. SEBI Turnover Fee (Rs 10 / Crore = 0.000001 of turnover)

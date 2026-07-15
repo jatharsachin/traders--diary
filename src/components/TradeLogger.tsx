@@ -429,12 +429,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   // Real-time auto-calculation of charges & taxes
   useEffect(() => {
     if (!formData.useManualCharges && isOpen) {
-      const { segment, product, action, qty, entryPrice, exitPrice } = formData;
+      const { segment, product, action, qty, entryPrice, exitPrice, strategy } = formData;
       if (qty > 0 && entryPrice > 0 && exitPrice > 0) {
         const config = brokerCharges.find(c => c.broker === formData.broker);
         const isOpt = formData.optionType && formData.optionType !== 'None';
         const activeExits = usePartialExits ? partialExits.filter(e => e.qty > 0 && e.price > 0) : undefined;
-        const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config, isOpt, activeExits);
+        const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config, isOpt, activeExits, strategy);
         const calcBrokerage = taxResult.brokerage;
         const calcTaxes = Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100;
         setFormData((prev) => ({

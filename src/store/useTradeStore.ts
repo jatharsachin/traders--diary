@@ -278,7 +278,7 @@ const computeTradeCalculations = (
     totalCharges = brokerage + taxes;
   } else {
     const isOpt = trade.optionType && trade.optionType !== 'None';
-    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, chargesConfig, isOpt, trade.partialExits);
+    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, chargesConfig, isOpt, trade.partialExits, trade.strategy);
     brokerage = taxResult.brokerage;
     taxes = taxResult.totalCharges - brokerage;
     totalCharges = taxResult.totalCharges;
@@ -463,9 +463,18 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       // Recalculate durationMinutes and expiryDay if missing, NaN, or to update old records
       const config = t.brokerAccountId ? DEFAULT_BROKER_CHARGES.find(c => c.broker === accountsList.find(a => a.id === t.brokerAccountId)?.broker) : undefined;
       const computed = computeTradeCalculations(t, config);
-      if (t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes) || t.isExpiryDay !== computed.isExpiryDay) {
+      const isVaccumGrid = t.strategy?.toLowerCase().trim() === 'vaccum grid';
+      const needsRecalc = isVaccumGrid && (t.brokerage !== computed.brokerage || t.netPnL !== computed.netPnL);
+
+      if (needsRecalc || t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes) || t.isExpiryDay !== computed.isExpiryDay) {
         t.durationMinutes = computed.durationMinutes;
         t.isExpiryDay = computed.isExpiryDay;
+        t.grossPnL = computed.grossPnL;
+        t.brokerage = computed.brokerage;
+        t.taxes = computed.taxes;
+        t.netPnL = computed.netPnL;
+        t.roi = computed.roi;
+        t.actualRR = computed.actualRR;
         changed = true;
       }
       

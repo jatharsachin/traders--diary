@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
   IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
@@ -2017,7 +2018,7 @@ export function Dashboard({
         const totalTradesCount = dayTrades.length;
         const isNoTradeDay = noTradeDays.includes(selectedHeatmapDate);
         
-        return (
+        return createPortal(
           <div 
             className="sidebar-backdrop" 
             onClick={() => setSelectedHeatmapDate(null)}
@@ -2170,7 +2171,8 @@ export function Dashboard({
                 )}
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
 

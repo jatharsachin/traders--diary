@@ -738,10 +738,10 @@ h1, h2, h3, h4 {
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(0px);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 60px 20px;
+  padding: 20px;
   overflow-y: auto;
   animation: iosOverlayFadeIn 0.42s var(--transition-ios-ease) forwards;
 }
