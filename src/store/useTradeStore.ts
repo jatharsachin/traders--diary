@@ -562,19 +562,6 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadInvestments = (): Investment[] => {
-    const clearedKey = 'traders_diary_investments_cleared_v2';
-    if (!localStorage.getItem(clearedKey)) {
-      localStorage.setItem('traders_diary_investments', JSON.stringify([]));
-      try {
-        const scopedKey = getScopedKey('traders_diary_investments');
-        localStorage.setItem(scopedKey, JSON.stringify([]));
-        syncMetaToCloud('investments', []);
-      } catch (err) {
-        console.error("Failed to sync cleared investments to cloud:", err);
-      }
-      localStorage.setItem(clearedKey, 'true');
-      return [];
-    }
 
     const saved = localStorage.getItem(getScopedKey('traders_diary_investments'));
     if (saved) {
@@ -1081,46 +1068,90 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const userId = get().sessionUser?.id;
       if (!userId) return false;
 
-      // 1. Trades
+      // 1. Fetch from cloud
       const cloudTrades = await fetchTradesFromCloud();
       if (cloudTrades === null) {
         console.error("Cloud trades fetch failed. Aborting sync to protect local data.");
         return false;
       }
 
-      // 2. Metadata Batch
       const cloudMeta = await fetchMetaBatchFromCloud();
       if (cloudMeta === null) {
         console.error("Cloud metadata batch fetch failed. Aborting sync to protect local data.");
         return false;
       }
 
-      // Mark trades local storage and store
-      set({ trades: cloudTrades });
-      localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
+      // Sync Trades: Local-first priority
+      const localTrades = get().trades || [];
+      if (localTrades.length === 0) {
+        // New device or empty local state: pull from cloud
+        set({ trades: cloudTrades });
+        localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
+      } else {
+        // Local has trades: treat local as source of truth and sync to cloud
+        const cloudTradeIds = new Set(cloudTrades.map(ct => ct.id));
+        const cloudTradeMap = new Map(cloudTrades.map(ct => [ct.id, ct]));
+        const localTradeIds = new Set(localTrades.map(lt => lt.id));
 
+        // 1. Delete from cloud if deleted locally
+        const toDelete = cloudTrades.filter(ct => !localTradeIds.has(ct.id));
+        for (const t of toDelete) {
+          await syncTradeToCloud('delete', t);
+        }
 
-      // Check if this is a brand new user (no trades AND no metadata in cloud)
-      const isBrandNewUser = cloudTrades.length === 0 && Object.keys(cloudMeta).length === 0;
+        // 2. Insert to cloud if new locally
+        const toInsert = localTrades.filter(lt => !cloudTradeIds.has(lt.id));
+        for (const t of toInsert) {
+          await syncTradeToCloud('insert', t);
+        }
 
+        // 3. Update in cloud if modified locally (compare values)
+        const toUpdate = localTrades.filter(lt => {
+          const ct = cloudTradeMap.get(lt.id);
+          if (!ct) return false;
+          return lt.date !== ct.date ||
+                 lt.symbol !== ct.symbol ||
+                 lt.segment !== ct.segment ||
+                 lt.product !== ct.product ||
+                 lt.action !== ct.action ||
+                 lt.qty !== ct.qty ||
+                 lt.entryPrice !== ct.entryPrice ||
+                 lt.exitPrice !== ct.exitPrice ||
+                 lt.grossPnL !== ct.grossPnL ||
+                 lt.brokerage !== ct.brokerage ||
+                 lt.taxes !== ct.taxes ||
+                 lt.netPnL !== ct.netPnL ||
+                 lt.strategy !== ct.strategy ||
+                 JSON.stringify(lt.partialExits) !== JSON.stringify(ct.partialExits);
+        });
+        for (const t of toUpdate) {
+          await syncTradeToCloud('update', t);
+        }
+      }
+
+      // Helper function for metadata keys using local-first priority
       const processMetaKey = async (key: string, storeSetter: (val: any) => void, localKey: string, defaultValue: any) => {
         const cloudVal = cloudMeta[key];
-        
-        if (cloudVal !== undefined && cloudVal !== null) {
-          // Cloud has a valid record (even if it's an empty array [] or empty object {})
-          storeSetter(cloudVal);
-          localStorage.setItem(localKey, JSON.stringify(cloudVal));
+        const localValStr = localStorage.getItem(localKey);
+        const localVal = localValStr ? JSON.parse(localValStr) : null;
+
+        // Check if local has actual, custom user data
+        const isLocalDefaultOrEmpty = !localVal ||
+          JSON.stringify(localVal) === JSON.stringify(defaultValue) ||
+          (Array.isArray(localVal) && localVal.length === 0) ||
+          (typeof localVal === 'object' && Object.keys(localVal).length === 0);
+
+        if (!isLocalDefaultOrEmpty) {
+          // Local has actual data: sync up to cloud, do not overwrite local
+          await syncMetaToCloud(key, localVal);
+          storeSetter(localVal);
         } else {
-          // Cloud has no record for this key.
-          if (isBrandNewUser) {
-            // First time login - upload local guest data if we have any
-            const localVal = get()[key as keyof TradeStore];
-            const isLocalDefault = JSON.stringify(localVal) === JSON.stringify(defaultValue);
-            if (localVal && !isLocalDefault && (Array.isArray(localVal) ? localVal.length > 0 : Object.keys(localVal).length > 0)) {
-              await syncMetaToCloud(key, localVal);
-            }
+          // Local is empty/default: sync down from cloud if cloud has data
+          if (cloudVal !== undefined && cloudVal !== null) {
+            storeSetter(cloudVal);
+            localStorage.setItem(localKey, JSON.stringify(cloudVal));
           } else {
-            // Existing user - set local state to empty default
+            // Both are empty/default
             storeSetter(defaultValue);
             localStorage.setItem(localKey, JSON.stringify(defaultValue));
           }

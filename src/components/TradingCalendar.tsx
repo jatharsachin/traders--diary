@@ -109,6 +109,7 @@ export function TradingCalendar({
   const [selectedMonthNum, setSelectedMonthNum] = useState<number | null>(null);
   const [onlineHolidays, setOnlineHolidays] = useState<Record<string, string>>({});
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [calendarViewMode, setCalendarViewMode] = useState<'tile' | 'row'>('tile');
 
   // Synchronize currentDate with selectedFY boundaries
   useEffect(() => {
@@ -653,6 +654,7 @@ export function TradingCalendar({
       });
       
       const netPnL = weeklyTrades.reduce((acc, t) => acc + t.netPnL, 0);
+      const grossPnL = weeklyTrades.reduce((acc, t) => acc + t.grossPnL, 0);
       const wBrokerage = weeklyTrades.reduce((acc, t) => acc + t.brokerage, 0);
       const wTaxes = weeklyTrades.reduce((acc, t) => acc + t.taxes, 0);
       
@@ -677,6 +679,7 @@ export function TradingCalendar({
         formattedRange,
         trades: weeklyTrades,
         netPnL: Math.round(netPnL * 100) / 100,
+        grossPnL: Math.round(grossPnL * 100) / 100,
         brokerage: Math.round(wBrokerage * 100) / 100,
         taxes: Math.round(wTaxes * 100) / 100,
         deployedCapital: weeklyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0)
@@ -708,6 +711,7 @@ export function TradingCalendar({
       });
       
       const netPnL = monthlyTrades.reduce((acc, t) => acc + t.netPnL, 0);
+      const grossPnL = monthlyTrades.reduce((acc, t) => acc + t.grossPnL, 0);
       const mBrokerage = monthlyTrades.reduce((acc, t) => acc + t.brokerage, 0);
       const mTaxes = monthlyTrades.reduce((acc, t) => acc + t.taxes, 0);
       
@@ -718,6 +722,7 @@ export function TradingCalendar({
         name: months[mMonthIndex],
         trades: monthlyTrades,
         netPnL: Math.round(netPnL * 100) / 100,
+        grossPnL: Math.round(grossPnL * 100) / 100,
         brokerage: Math.round(mBrokerage * 100) / 100,
         taxes: Math.round(mTaxes * 100) / 100,
         deployedCapital: monthlyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0)
@@ -1211,6 +1216,132 @@ export function TradingCalendar({
     );
   });
 
+  const renderRowViewTable = () => {
+    let rows: any[] = [];
+
+    if (activePnlTab === 'monthly') {
+      // Days of the month
+      for (let d = 1; d <= daysInMonth; d++) {
+        const summary = getDayTradesSummary(d);
+        if (summary && (summary.count > 0 || summary.invested > 0 || summary.exited > 0)) {
+          const formattedDay = d.toString().padStart(2, '0');
+          const formattedMonth = (month + 1).toString().padStart(2, '0');
+          const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
+          rows.push({
+            id: dateStr,
+            name: `${months[month].slice(0, 3)} ${d}, ${year}`,
+            tradeCount: summary.count,
+            grossPnL: summary.grossPnL,
+            netPnL: summary.netPnL,
+            charges: summary.grossPnL - summary.netPnL,
+            isSelected: selectedDate === dateStr,
+            onClick: () => setSelectedDate(selectedDate === dateStr ? null : dateStr)
+          });
+        }
+      }
+    } else if (activePnlTab === 'weekly') {
+      // Weeks of the year
+      fyWeeks.forEach((w) => {
+        if (w.trades.length > 0) {
+          rows.push({
+            id: w.weekNum,
+            name: `Week ${w.weekNum} (${w.formattedRange})`,
+            tradeCount: w.trades.length,
+            grossPnL: w.grossPnL,
+            netPnL: w.netPnL,
+            charges: w.grossPnL - w.netPnL,
+            isSelected: selectedWeekNum === w.weekNum,
+            onClick: () => setSelectedWeekNum(selectedWeekNum === w.weekNum ? null : w.weekNum)
+          });
+        }
+      });
+    } else if (activePnlTab === 'yearly') {
+      // Months of the year
+      fyMonthsList.forEach((m) => {
+        if (m.trades.length > 0) {
+          rows.push({
+            id: m.monthNum,
+            name: `${m.name} ${m.year}`,
+            tradeCount: m.trades.length,
+            grossPnL: m.grossPnL,
+            netPnL: m.netPnL,
+            charges: m.grossPnL - m.netPnL,
+            isSelected: selectedMonthNum === m.monthNum,
+            onClick: () => setSelectedMonthNum(selectedMonthNum === m.monthNum ? null : m.monthNum)
+          });
+        }
+      });
+    }
+
+    if (rows.length === 0) {
+      return (
+        <div 
+          style={{ 
+            textAlign: 'center', 
+            padding: '40px', 
+            color: 'var(--text-muted)', 
+            border: '1px dashed var(--border-color)', 
+            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.01)'
+          }}
+        >
+          No trading activity recorded for this period.
+        </div>
+      );
+    }
+
+    return (
+      <div className="table-container" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+        <table className="custom-table" style={{ width: '100%', fontSize: '0.85rem' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Name</th>
+              <th style={{ textAlign: 'center' }}>No. of Trades</th>
+              <th style={{ textAlign: 'right' }}>Overall P&L</th>
+              <th style={{ textAlign: 'right' }}>Net P&L</th>
+              <th style={{ textAlign: 'right' }}>Charges</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr 
+                key={row.id} 
+                onClick={row.onClick}
+                style={{ 
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease'
+                }}
+                className={row.isSelected ? 'selected-row' : ''}
+              >
+                <td style={{ fontWeight: 600 }}>{row.name}</td>
+                <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)' }}>{row.tradeCount}</td>
+                <td style={{ 
+                  textAlign: 'right', 
+                  fontFamily: 'var(--font-mono)', 
+                  fontWeight: 600,
+                  color: !isPnlVisible ? 'var(--text-dim)' : row.grossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
+                }}>
+                  {isPnlVisible ? `${row.grossPnL >= 0 ? '+' : ''}${formatCurrency(row.grossPnL)}` : '••••'}
+                </td>
+                <td style={{ 
+                  textAlign: 'right', 
+                  fontFamily: 'var(--font-mono)', 
+                  fontWeight: 700,
+                  color: !isPnlVisible ? 'var(--text-dim)' : row.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
+                }}>
+                  {isPnlVisible ? `${row.netPnL >= 0 ? '+' : ''}${formatCurrency(row.netPnL)}` : '••••'}
+                </td>
+                <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                  {formatCurrency(row.charges)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div className="glass-card animate-tab-panel" style={{ padding: '24px' }}>
       <div 
@@ -1330,6 +1461,54 @@ export function TradingCalendar({
             ))}
           </div>
 
+          {/* View Mode Toggle: Tile View vs Row View */}
+          <div 
+            style={{ 
+              display: 'flex', 
+              background: 'rgba(255,255,255,0.06)', 
+              borderRadius: '8px', 
+              padding: '3px', 
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            <button
+              onClick={() => setCalendarViewMode('tile')}
+              style={{
+                border: 'none',
+                borderRadius: '6px',
+                padding: '6px 14px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s var(--transition-ios-ease)',
+                background: calendarViewMode === 'tile' ? 'var(--primary)' : 'transparent',
+                color: calendarViewMode === 'tile' ? '#fff' : 'var(--text-dim)',
+                outline: 'none',
+              }}
+              title="Calendar Grid View"
+            >
+              Tile View
+            </button>
+            <button
+              onClick={() => setCalendarViewMode('row')}
+              style={{
+                border: 'none',
+                borderRadius: '6px',
+                padding: '6px 14px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s var(--transition-ios-ease)',
+                background: calendarViewMode === 'row' ? 'var(--primary)' : 'transparent',
+                color: calendarViewMode === 'row' ? '#fff' : 'var(--text-dim)',
+                outline: 'none',
+              }}
+              title="List Row View"
+            >
+              Row View
+            </button>
+          </div>
+
           {/* PnL Value display with Eye toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button 
@@ -1438,33 +1617,41 @@ export function TradingCalendar({
         ))}
       </div>
 
-      {/* Weekday headers */}
-      {activePnlTab === 'monthly' && (
-        <div className="calendar-weekdays">
-          {weekdays.map((wd) => (
-            <div key={wd} className="weekday-header">
-              {wd}
+      {calendarViewMode === 'tile' ? (
+        <>
+          {/* Weekday headers */}
+          {activePnlTab === 'monthly' && (
+            <div className="calendar-weekdays">
+              {weekdays.map((wd) => (
+                <div key={wd} className="weekday-header">
+                  {wd}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* Calendar grids */}
-      {activePnlTab === 'monthly' && (
-        <div className="calendar-grid">
-          {calendarCells}
-        </div>
-      )}
+          {/* Calendar grids */}
+          {activePnlTab === 'monthly' && (
+            <div className="calendar-grid">
+              {calendarCells}
+            </div>
+          )}
 
-      {activePnlTab === 'weekly' && (
-        <div className="weekly-grid">
-          {weeklyCells}
-        </div>
-      )}
+          {activePnlTab === 'weekly' && (
+            <div className="weekly-grid">
+              {weeklyCells}
+            </div>
+          )}
 
-      {activePnlTab === 'yearly' && (
-        <div className="yearly-grid">
-          {yearlyCells}
+          {activePnlTab === 'yearly' && (
+            <div className="yearly-grid">
+              {yearlyCells}
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ animation: 'fadeIn var(--transition-normal)' }}>
+          {renderRowViewTable()}
         </div>
       )}
 
