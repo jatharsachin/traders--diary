@@ -345,19 +345,21 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_broker_accounts'));
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as BrokerAccount[];
-        let changed = false;
-        const updated = parsed.map(a => {
-          if (a.accountName === 'Wife') {
-            a.accountName = 'Rupali';
-            changed = true;
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          let changed = false;
+          const updated = parsed.map(a => {
+            if (a && a.accountName === 'Wife') {
+              a.accountName = 'Rupali';
+              changed = true;
+            }
+            return a;
+          }).filter(Boolean) as BrokerAccount[];
+          if (changed) {
+            localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
           }
-          return a;
-        });
-        if (changed) {
-          localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
+          return updated;
         }
-        return updated;
       } catch (e) {
         console.error('Failed to parse broker accounts', e);
       }
@@ -370,19 +372,21 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_bank_accounts'));
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as BankAccount[];
-        let changed = false;
-        const updated = parsed.map(b => {
-          if (b.accountHolderName === 'Wife') {
-            b.accountHolderName = 'Rupali';
-            changed = true;
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          let changed = false;
+          const updated = parsed.map(b => {
+            if (b && b.accountHolderName === 'Wife') {
+              b.accountHolderName = 'Rupali';
+              changed = true;
+            }
+            return b;
+          }).filter(Boolean) as BankAccount[];
+          if (changed) {
+            localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
           }
-          return b;
-        });
-        if (changed) {
-          localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
+          return updated;
         }
-        return updated;
       } catch (e) {
         console.error('Failed to parse bank accounts', e);
       }
@@ -395,7 +399,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_broker_charges'));
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {
         console.error('Failed to parse broker charges', e);
       }
@@ -408,7 +413,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_subscription_expenses'));
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse subscription expenses', e);
       }
@@ -421,7 +427,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_bank_transactions'));
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse bank transactions', e);
       }
@@ -435,34 +442,33 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     let tradesList: Trade[] = [];
     if (saved) {
       try {
-        tradesList = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          tradesList = parsed;
+        }
       } catch (e) {
         console.error('Failed to parse trades', e);
         tradesList = [];
       }
     }
-    if (tradesList.length === 0 && !saved) {
-      tradesList = []; 
-    }
 
     let migrated = false;
-    const updated = tradesList.map((t) => {
+    const safeAccounts = Array.isArray(accountsList) && accountsList.length > 0 ? accountsList : DEFAULT_BROKER_ACCOUNTS;
+    const updated = (tradesList || []).map((t) => {
+      if (!t) return null;
       let changed = false;
-      // Self-healing: ensure the trade's brokerAccountId matches an active account of the trade's broker.
-      // This fixes cases where imports happened before a broker account was created and were assigned a fallback.
-      const currentAccount = accountsList.find(a => a.id === t.brokerAccountId);
+      const currentAccount = safeAccounts.find(a => a.id === t.brokerAccountId);
       if (!t.brokerAccountId || !currentAccount || currentAccount.broker !== t.broker) {
-        const matched = accountsList.find(a => a.broker === t.broker && a.active);
+        const matched = safeAccounts.find(a => a.broker === t.broker && a.active);
         if (matched) {
           t.brokerAccountId = matched.id;
           changed = true;
         } else if (!t.brokerAccountId) {
-          t.brokerAccountId = accountsList[0]?.id || 'acc-1';
+          t.brokerAccountId = safeAccounts[0]?.id || 'acc-1';
           changed = true;
         }
       }
       
-      // Auto-detect optionType from symbol if it is missing/None for F&O
       if (t.segment === 'F&O' && (!t.optionType || t.optionType === 'None')) {
         const symUpper = (t.symbol || '').toUpperCase();
         if (symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL')) {
@@ -474,8 +480,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         }
       }
       
-      // Recalculate durationMinutes and expiryDay if missing, NaN, or to update old records
-      const config = t.brokerAccountId ? DEFAULT_BROKER_CHARGES.find(c => c.broker === accountsList.find(a => a.id === t.brokerAccountId)?.broker) : undefined;
+      const config = t.brokerAccountId ? DEFAULT_BROKER_CHARGES.find(c => c.broker === safeAccounts.find(a => a.id === t.brokerAccountId)?.broker) : undefined;
       const computed = computeTradeCalculations(t, config);
 
       if (t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes) || t.isExpiryDay !== computed.isExpiryDay) {
@@ -488,7 +493,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         migrated = true;
       }
       return t;
-    });
+    }).filter(Boolean) as Trade[];
 
     if (migrated || !saved) {
       localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updated));
@@ -515,55 +520,61 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     let adjList: CapitalAdjustment[] = [];
     if (saved) {
       try {
-        adjList = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          adjList = parsed;
+        }
       } catch (e) {
         console.error('Failed to parse adjustments', e);
       }
     }
 
     let migrated = false;
+    const safeAccounts = Array.isArray(accountsList) && accountsList.length > 0 ? accountsList : DEFAULT_BROKER_ACCOUNTS;
+    const safeBanks = Array.isArray(banksList) && banksList.length > 0 ? banksList : DEFAULT_BANK_ACCOUNTS;
 
-    // Migrate adjustments to new schema
-    const updated = adjList.map((a) => {
+    const updated = (adjList || []).map((a) => {
+      if (!a) return null;
       if (!a.brokerAccountId) {
-        const matched = accountsList.find(acc => acc.broker === a.broker);
-        a.brokerAccountId = matched ? matched.id : (accountsList[0]?.id || 'acc-1');
+        const matched = safeAccounts.find(acc => acc.broker === a.broker);
+        a.brokerAccountId = matched ? matched.id : (safeAccounts[0]?.id || 'acc-1');
         migrated = true;
       }
       if (!a.bankAccountId) {
-        a.bankAccountId = banksList[0]?.id || 'bank-1';
+        a.bankAccountId = safeBanks[0]?.id || 'bank-1';
         migrated = true;
       }
       return a;
-    });
+    }).filter(Boolean) as CapitalAdjustment[];
 
-    // Auto-heal missing double-entry adjustments from bank transactions
     const bankTxSaved = localStorage.getItem(getScopedKey('traders_diary_bank_transactions'));
     if (bankTxSaved) {
       try {
-        const bankTxs: BankTransaction[] = JSON.parse(bankTxSaved);
-        bankTxs.forEach(tx => {
-          if ((tx.category === 'Broker Pay-in' || tx.category === 'Broker Pay-out') && tx.brokerAccountId) {
-            const exists = updated.some(a => a.id === `adj-${tx.id}`);
-            if (!exists) {
-              const matchedAcc = accountsList.find(a => a.id === tx.brokerAccountId);
-              const adjType = (tx.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
-              const newAdj: CapitalAdjustment = {
-                id: `adj-${tx.id}`,
-                date: tx.date,
-                time: tx.time,
-                type: adjType,
-                amount: tx.amount,
-                notes: tx.notes || 'Auto-generated transfer entry',
-                broker: matchedAcc ? matchedAcc.broker : 'Other',
-                brokerAccountId: tx.brokerAccountId,
-                bankAccountId: tx.bankAccountId
-              };
-              updated.push(newAdj);
-              migrated = true;
+        const bankTxs = JSON.parse(bankTxSaved);
+        if (Array.isArray(bankTxs)) {
+          bankTxs.forEach(tx => {
+            if (tx && (tx.category === 'Broker Pay-in' || tx.category === 'Broker Pay-out') && tx.brokerAccountId) {
+              const exists = updated.some(a => a.id === `adj-${tx.id}`);
+              if (!exists) {
+                const matchedAcc = safeAccounts.find(a => a.id === tx.brokerAccountId);
+                const adjType = (tx.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
+                const newAdj: CapitalAdjustment = {
+                  id: `adj-${tx.id}`,
+                  date: tx.date,
+                  time: tx.time,
+                  type: adjType,
+                  amount: tx.amount,
+                  notes: tx.notes || 'Auto-generated transfer entry',
+                  broker: matchedAcc ? matchedAcc.broker : 'Other',
+                  brokerAccountId: tx.brokerAccountId,
+                  bankAccountId: tx.bankAccountId
+                };
+                updated.push(newAdj);
+                migrated = true;
+              }
             }
-          }
-        });
+          });
+        }
       } catch (e) {
         console.error('Failed to parse bank transactions for auto-heal', e);
       }
@@ -576,11 +587,11 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadInvestments = (): Investment[] => {
-
     const saved = localStorage.getItem(getScopedKey('traders_diary_investments'));
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse investments', e);
       }
@@ -620,7 +631,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_active_brokers'));
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse active brokers', e);
       }
@@ -640,7 +652,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_locked_fys'));
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse locked FYs', e);
       }
@@ -652,7 +665,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_notradedays'));
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse no trade days', e);
       }
@@ -664,7 +678,14 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_telegram_config'));
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            botToken: parsed.botToken || '',
+            chatId: parsed.chatId || '',
+            autoNotifyAt330PM: Boolean(parsed.autoNotifyAt330PM)
+          };
+        }
       } catch (e) {
         console.error('Failed to parse telegram config', e);
       }
