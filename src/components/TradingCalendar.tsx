@@ -72,6 +72,18 @@ const formatCompactPnLMobile = (val: number) => {
   return `${val > 0 ? '+' : '-'}${Math.round(absVal)}`;
 };
 
+const formatInvAmountDisplay = (val: number, isPnlVisible: boolean) => {
+  if (!isPnlVisible) return '••••';
+  const absVal = Math.abs(val);
+  if (absVal >= 100000) {
+    return `₹${(absVal / 100000).toFixed(2).replace(/\.00$/, '')}L`;
+  }
+  if (absVal >= 1000) {
+    return `₹${(absVal / 1000).toFixed(1)}k`;
+  }
+  return `₹${Math.round(absVal).toLocaleString('en-IN')}`;
+};
+
 export function TradingCalendar({ 
   activeAccountId = 'Combined',
   onEditTrade
@@ -372,11 +384,11 @@ export function TradingCalendar({
           </div>
         )}
 
-        {summary && summary.count > 0 && (() => {
-          const dayRoi = summary.deployedCapital > 0 ? (summary.netPnL / summary.deployedCapital) * 100 : 0;
-          return (
-            <div className="day-pnl">
-              <>
+        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', marginTop: 'auto' }}>
+          {summary && summary.count > 0 && (() => {
+            const dayRoi = summary.deployedCapital > 0 ? (summary.netPnL / summary.deployedCapital) * 100 : 0;
+            return (
+              <div>
                 <span className="pnl-desktop">
                   {isPnlVisible ? (summary.netPnL > 0 ? '+' : '') : ''}
                   {isPnlVisible ? Math.round(summary.netPnL).toLocaleString('en-IN') : '••••'}
@@ -394,33 +406,56 @@ export function TradingCalendar({
                     </>
                   )}
                 </span>
-              </>
-            </div>
-          );
-        })()}
+              </div>
+            );
+          })()}
 
-        {summary && summary.invested > 0 && (
-          <div style={{ fontSize: '0.62rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 600 }}>
-            💼 -{(() => {
-              const val = summary.invested;
-              if (val >= 100000) {
-                return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
-              }
-              return Math.round(val).toLocaleString('en-IN');
-            })()}
-          </div>
-        )}
-        {summary && summary.exited > 0 && (
-          <div style={{ fontSize: '0.62rem', color: 'var(--color-win)', marginTop: '2px', fontWeight: 600 }}>
-            💼 +{(() => {
-              const val = summary.exited;
-              if (val >= 100000) {
-                return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
-              }
-              return Math.round(val).toLocaleString('en-IN');
-            })()}
-          </div>
-        )}
+          {summary && summary.invested > 0 && (
+            <div 
+              style={{ 
+                fontSize: summary.count > 0 ? '0.72rem' : '0.88rem', 
+                color: 'var(--primary)', 
+                fontWeight: 750,
+                fontFamily: 'var(--font-mono)',
+                background: 'rgba(10, 132, 255, 0.14)',
+                border: '1px solid rgba(10, 132, 255, 0.3)',
+                padding: '1px 6px',
+                borderRadius: '5px',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px'
+              }}
+              title={`Invested Purchase (Buy): ${formatCurrency(summary.invested)}`}
+            >
+              <span>💼</span>
+              <span>-{formatInvAmountDisplay(summary.invested, isPnlVisible)}</span>
+            </div>
+          )}
+
+          {summary && summary.exited > 0 && (
+            <div 
+              style={{ 
+                fontSize: summary.count > 0 ? '0.72rem' : '0.88rem', 
+                color: 'var(--color-win)', 
+                fontWeight: 750,
+                fontFamily: 'var(--font-mono)',
+                background: 'rgba(48, 209, 88, 0.14)',
+                border: '1px solid rgba(48, 209, 88, 0.3)',
+                padding: '1px 6px',
+                borderRadius: '5px',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px'
+              }}
+              title={`Investment Exit (Sell): ${formatCurrency(summary.exited)}`}
+            >
+              <span>💼</span>
+              <span>+{formatInvAmountDisplay(summary.exited, isPnlVisible)}</span>
+            </div>
+          )}
+        </div>
 
         {/* Custom tooltip rendered inside the card via absolute positioning */}
         {(summary || holidayName || isNoTradeDay) && (
@@ -1080,7 +1115,7 @@ export function TradingCalendar({
         key={`week-${w.weekNum}`} 
         className={cellClass} 
         onClick={() => setSelectedWeekNum(w.weekNum === selectedWeekNum ? null : w.weekNum)}
-        style={{ minHeight: '85px' }}
+        style={{ minHeight: '95px' }}
       >
         <span className="day-number" style={{ fontSize: '0.8rem' }}>W{w.weekNum}</span>
         
@@ -1096,57 +1131,85 @@ export function TradingCalendar({
           {w.formattedRange}
         </div>
 
-        <div className="day-pnl">
-          {hasTrades ? (
-            <>
-              <>
-                <span className="pnl-desktop">
-                  {isPnlVisible ? (w.netPnL > 0 ? '+' : '') : ''}
-                  {isPnlVisible ? Math.round(w.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
-                    ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
-                  </span>
+        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', marginTop: 'auto' }}>
+          {hasTrades && (
+            <div>
+              <span className="pnl-desktop">
+                {isPnlVisible ? (w.netPnL > 0 ? '+' : '') : ''}
+                {isPnlVisible ? Math.round(w.netPnL).toLocaleString('en-IN') : '••••'}
+                <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                  ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
                 </span>
-                <span className="pnl-mobile">
-                  {isPnlVisible ? formatCompactPnLMobile(w.netPnL) : (
-                    <>
-                      ••••
-                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
-                        ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
-                      </span>
-                    </>
-                  )}
-                </span>
-              </>
-            </>
-          ) : (
+              </span>
+              <span className="pnl-mobile">
+                {isPnlVisible ? formatCompactPnLMobile(w.netPnL) : (
+                  <>
+                    ••••
+                    <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                      ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
+                    </span>
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+
+          {w.invested > 0 && (
+            <div 
+              style={{ 
+                fontSize: hasTrades ? '0.78rem' : '0.92rem', 
+                color: 'var(--primary)', 
+                fontWeight: 750,
+                fontFamily: 'var(--font-mono)',
+                background: 'rgba(10, 132, 255, 0.14)',
+                border: '1px solid rgba(10, 132, 255, 0.3)',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title={`Weekly Investment Purchase (Buy): ${formatCurrency(w.invested)}`}
+            >
+              <span>💼</span>
+              <span>-{formatInvAmountDisplay(w.invested, isPnlVisible)}</span>
+            </div>
+          )}
+
+          {w.exited > 0 && (
+            <div 
+              style={{ 
+                fontSize: hasTrades ? '0.78rem' : '0.92rem', 
+                color: 'var(--color-win)', 
+                fontWeight: 750,
+                fontFamily: 'var(--font-mono)',
+                background: 'rgba(48, 209, 88, 0.14)',
+                border: '1px solid rgba(48, 209, 88, 0.3)',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title={`Weekly Investment Exit (Sell): ${formatCurrency(w.exited)}`}
+            >
+              <span>💼</span>
+              <span>+{formatInvAmountDisplay(w.exited, isPnlVisible)}</span>
+            </div>
+          )}
+
+          {w.noTradeCount > 0 && !hasTrades && w.invested === 0 && w.exited === 0 && (
+            <div style={{ fontSize: '0.68rem', color: '#60a5fa', fontWeight: 600 }}>
+              🛡️ {w.noTradeCount} No-Trade Day{w.noTradeCount > 1 ? 's' : ''}
+            </div>
+          )}
+
+          {!hasTrades && w.invested === 0 && w.exited === 0 && w.noTradeCount === 0 && (
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>-</span>
           )}
         </div>
-
-        {w.invested > 0 && (
-          <div style={{ fontSize: '0.62rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 600 }}>
-            💼 -{(() => {
-              const val = w.invested;
-              if (val >= 100000) return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
-              return Math.round(val).toLocaleString('en-IN');
-            })()}
-          </div>
-        )}
-        {w.exited > 0 && (
-          <div style={{ fontSize: '0.62rem', color: 'var(--color-win)', marginTop: '2px', fontWeight: 600 }}>
-            💼 +{(() => {
-              const val = w.exited;
-              if (val >= 100000) return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
-              return Math.round(val).toLocaleString('en-IN');
-            })()}
-          </div>
-        )}
-        {w.noTradeCount > 0 && (
-          <div style={{ fontSize: '0.62rem', color: '#60a5fa', marginTop: '2px', fontWeight: 600 }}>
-            🛡️ {w.noTradeCount} No-Trade Day{w.noTradeCount > 1 ? 's' : ''}
-          </div>
-        )}
 
         {/* Tooltip for week */}
         <div className="calendar-tooltip glass-card">
@@ -1251,57 +1314,85 @@ export function TradingCalendar({
           {m.year}
         </div>
 
-        <div className="day-pnl">
-          {hasTrades ? (
-            <>
-              <>
-                <span className="pnl-desktop">
-                  {isPnlVisible ? (m.netPnL > 0 ? '+' : '') : ''}
-                  {isPnlVisible ? Math.round(m.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
-                    ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
-                  </span>
+        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', marginTop: 'auto' }}>
+          {hasTrades && (
+            <div>
+              <span className="pnl-desktop">
+                {isPnlVisible ? (m.netPnL > 0 ? '+' : '') : ''}
+                {isPnlVisible ? Math.round(m.netPnL).toLocaleString('en-IN') : '••••'}
+                <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                  ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
                 </span>
-                <span className="pnl-mobile">
-                  {isPnlVisible ? formatCompactPnLMobile(m.netPnL) : (
-                    <>
-                      ••••
-                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
-                        ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
-                      </span>
-                    </>
-                  )}
-                </span>
-              </>
-            </>
-          ) : (
+              </span>
+              <span className="pnl-mobile">
+                {isPnlVisible ? formatCompactPnLMobile(m.netPnL) : (
+                  <>
+                    ••••
+                    <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                      ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
+                    </span>
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+
+          {m.invested > 0 && (
+            <div 
+              style={{ 
+                fontSize: hasTrades ? '0.78rem' : '0.92rem', 
+                color: 'var(--primary)', 
+                fontWeight: 750,
+                fontFamily: 'var(--font-mono)',
+                background: 'rgba(10, 132, 255, 0.14)',
+                border: '1px solid rgba(10, 132, 255, 0.3)',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title={`Monthly Investment Purchase (Buy): ${formatCurrency(m.invested)}`}
+            >
+              <span>💼</span>
+              <span>-{formatInvAmountDisplay(m.invested, isPnlVisible)}</span>
+            </div>
+          )}
+
+          {m.exited > 0 && (
+            <div 
+              style={{ 
+                fontSize: hasTrades ? '0.78rem' : '0.92rem', 
+                color: 'var(--color-win)', 
+                fontWeight: 750,
+                fontFamily: 'var(--font-mono)',
+                background: 'rgba(48, 209, 88, 0.14)',
+                border: '1px solid rgba(48, 209, 88, 0.3)',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+              title={`Monthly Investment Exit (Sell): ${formatCurrency(m.exited)}`}
+            >
+              <span>💼</span>
+              <span>+{formatInvAmountDisplay(m.exited, isPnlVisible)}</span>
+            </div>
+          )}
+
+          {m.noTradeCount > 0 && !hasTrades && m.invested === 0 && m.exited === 0 && (
+            <div style={{ fontSize: '0.68rem', color: '#60a5fa', fontWeight: 600 }}>
+              🛡️ {m.noTradeCount} No-Trade Day{m.noTradeCount > 1 ? 's' : ''}
+            </div>
+          )}
+
+          {!hasTrades && m.invested === 0 && m.exited === 0 && m.noTradeCount === 0 && (
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>-</span>
           )}
         </div>
-
-        {m.invested > 0 && (
-          <div style={{ fontSize: '0.62rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 600 }}>
-            💼 -{(() => {
-              const val = m.invested;
-              if (val >= 100000) return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
-              return Math.round(val).toLocaleString('en-IN');
-            })()}
-          </div>
-        )}
-        {m.exited > 0 && (
-          <div style={{ fontSize: '0.62rem', color: 'var(--color-win)', marginTop: '2px', fontWeight: 600 }}>
-            💼 +{(() => {
-              const val = m.exited;
-              if (val >= 100000) return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
-              return Math.round(val).toLocaleString('en-IN');
-            })()}
-          </div>
-        )}
-        {m.noTradeCount > 0 && (
-          <div style={{ fontSize: '0.62rem', color: '#60a5fa', marginTop: '2px', fontWeight: 600 }}>
-            🛡️ {m.noTradeCount} No-Trade Day{m.noTradeCount > 1 ? 's' : ''}
-          </div>
-        )}
 
         {/* Tooltip for month */}
         <div className="calendar-tooltip glass-card">
