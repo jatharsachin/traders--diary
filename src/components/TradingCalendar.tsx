@@ -85,7 +85,9 @@ export function TradingCalendar({
     togglePnlVisibility, 
     selectedFY,
     brokerAccounts,
-    investments: allInvestments
+    investments: allInvestments,
+    noTradeDays,
+    toggleNoTradeDay
   } = useTradeStore();
 
 
@@ -306,6 +308,7 @@ export function TradingCalendar({
     const formattedMonth = (month + 1).toString().padStart(2, '0');
     const cellDateStr = `${year}-${formattedMonth}-${formattedDay}`;
     const isSelected = selectedDate === cellDateStr;
+    const isNoTradeDay = noTradeDays.includes(cellDateStr);
     
     // Check if weekend
     const cellDate = new Date(year, month, d);
@@ -323,6 +326,10 @@ export function TradingCalendar({
     
     if (holidayName) {
       cellClass += ' day-holiday';
+    }
+
+    if (isNoTradeDay && (!summary || summary.count === 0)) {
+      cellClass += ' day-no-trade';
     }
     
     if (summary) {
@@ -349,13 +356,19 @@ export function TradingCalendar({
         key={`day-${d}`} 
         className={cellClass} 
         onClick={() => setSelectedDate(cellDateStr)}
-        title={holidayName ? `Holiday: ${holidayName}` : undefined}
+        title={holidayName ? `Holiday: ${holidayName}` : isNoTradeDay ? 'Disciplined No-Trade Day' : undefined}
       >
         <span className="day-number">{d}</span>
         
         {holidayName && (
           <div className="day-holiday-label" title={holidayName}>
             🎉 {holidayName}
+          </div>
+        )}
+
+        {isNoTradeDay && (!summary || summary.count === 0) && (
+          <div style={{ fontSize: '0.62rem', color: '#60a5fa', marginTop: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '2px', alignSelf: 'flex-start' }}>
+            🛡️ <span className="pnl-desktop">No Trade Day</span>
           </div>
         )}
 
@@ -410,12 +423,18 @@ export function TradingCalendar({
         )}
 
         {/* Custom tooltip rendered inside the card via absolute positioning */}
-        {(summary || holidayName) && (
+        {(summary || holidayName || isNoTradeDay) && (
           <div className="calendar-tooltip glass-card">
             <h4 style={{ fontSize: '0.8rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '6px' }}>
               Summary of {d} {months[month]} {year}
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.75rem' }}>
+              {isNoTradeDay && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#60a5fa', fontWeight: 650 }}>
+                  <span>Disciplined Status:</span>
+                  <span style={{ textAlign: 'right' }}>🛡️ No-Trade Day</span>
+                </div>
+              )}
               {holidayName && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-neutral)', fontWeight: 650 }}>
                   <span>Holiday:</span>
@@ -652,6 +671,12 @@ export function TradingCalendar({
       const weeklyTrades = trades.filter((t) => {
         return t.date >= wStartStr && t.date <= wEndStr;
       });
+
+      const weeklyInvPurchases = investments.filter((i) => i.date >= wStartStr && i.date <= wEndStr);
+      const weeklyInvExits = investments.filter((i) => i.status === 'EXITED' && i.exitDate && i.exitDate >= wStartStr && i.exitDate <= wEndStr);
+      const wInvested = weeklyInvPurchases.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+      const wExited = weeklyInvExits.reduce((sum, i) => sum + (i.qty * (i.exitPrice || 0)), 0);
+      const wNoTradeCount = noTradeDays.filter((d) => d >= wStartStr && d <= wEndStr).length;
       
       const netPnL = weeklyTrades.reduce((acc, t) => acc + t.netPnL, 0);
       const grossPnL = weeklyTrades.reduce((acc, t) => acc + t.grossPnL, 0);
@@ -682,7 +707,11 @@ export function TradingCalendar({
         grossPnL: Math.round(grossPnL * 100) / 100,
         brokerage: Math.round(wBrokerage * 100) / 100,
         taxes: Math.round(wTaxes * 100) / 100,
-        deployedCapital: weeklyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0)
+        deployedCapital: weeklyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0),
+        invested: wInvested,
+        exited: wExited,
+        totalInvestmentsCount: weeklyInvPurchases.length + weeklyInvExits.length,
+        noTradeCount: wNoTradeCount
       });
       
       // Advance current pointer to the next Monday (wEnd Sunday + 1 day)
@@ -703,12 +732,19 @@ export function TradingCalendar({
       const mMonthIndex = (3 + m) % 12;
       const mYear = mMonthIndex < 3 ? fyStartYear + 1 : fyStartYear;
       
+      const mStartStr = `${mYear}-${String(mMonthIndex + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(mYear, mMonthIndex + 1, 0).getDate();
+      const mEndStr = `${mYear}-${String(mMonthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      
       const monthlyTrades = trades.filter((t) => {
-        const mStartStr = `${mYear}-${String(mMonthIndex + 1).padStart(2, '0')}-01`;
-        const lastDay = new Date(mYear, mMonthIndex + 1, 0).getDate();
-        const mEndStr = `${mYear}-${String(mMonthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         return t.date >= mStartStr && t.date <= mEndStr;
       });
+
+      const monthlyInvPurchases = investments.filter((i) => i.date >= mStartStr && i.date <= mEndStr);
+      const monthlyInvExits = investments.filter((i) => i.status === 'EXITED' && i.exitDate && i.exitDate >= mStartStr && i.exitDate <= mEndStr);
+      const mInvested = monthlyInvPurchases.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+      const mExited = monthlyInvExits.reduce((sum, i) => sum + (i.qty * (i.exitPrice || 0)), 0);
+      const mNoTradeCount = noTradeDays.filter((d) => d >= mStartStr && d <= mEndStr).length;
       
       const netPnL = monthlyTrades.reduce((acc, t) => acc + t.netPnL, 0);
       const grossPnL = monthlyTrades.reduce((acc, t) => acc + t.grossPnL, 0);
@@ -725,7 +761,11 @@ export function TradingCalendar({
         grossPnL: Math.round(grossPnL * 100) / 100,
         brokerage: Math.round(mBrokerage * 100) / 100,
         taxes: Math.round(mTaxes * 100) / 100,
-        deployedCapital: monthlyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0)
+        deployedCapital: monthlyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0),
+        invested: mInvested,
+        exited: mExited,
+        totalInvestmentsCount: monthlyInvPurchases.length + monthlyInvExits.length,
+        noTradeCount: mNoTradeCount
       });
     }
     return monthsList;
@@ -915,64 +955,75 @@ export function TradingCalendar({
   // Selections & trade logs setup for selected week, month, or day
   const getSelectedTrades = () => {
     let dayTradesList: any[] = [];
+    let periodInvPurchases: any[] = [];
+    let periodInvExits: any[] = [];
+
     if (activePnlTab === 'weekly' && selectedWeekNum !== null) {
       const w = fyWeeks.find(week => week.weekNum === selectedWeekNum);
       dayTradesList = w ? w.trades : [];
+      if (w) {
+        periodInvPurchases = investments.filter(i => i.date >= w.startDate && i.date <= w.endDate);
+        periodInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate && i.exitDate >= w.startDate && i.exitDate <= w.endDate);
+      }
     } else if (activePnlTab === 'yearly' && selectedMonthNum !== null) {
       const m = fyMonthsList.find(mon => mon.monthNum === selectedMonthNum);
       dayTradesList = m ? m.trades : [];
-    } else {
-      dayTradesList = selectedDate ? trades.filter((t) => t.date === selectedDate) : [];
+      if (m) {
+        const mStartStr = `${m.year}-${String(m.monthIndex + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(m.year, m.monthIndex + 1, 0).getDate();
+        const mEndStr = `${m.year}-${String(m.monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        periodInvPurchases = investments.filter(i => i.date >= mStartStr && i.date <= mEndStr);
+        periodInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate && i.exitDate >= mStartStr && i.exitDate <= mEndStr);
+      }
+    } else if (selectedDate) {
+      dayTradesList = trades.filter((t) => t.date === selectedDate);
+      periodInvPurchases = investments.filter(i => i.date === selectedDate);
+      periodInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate === selectedDate);
     }
 
-    if (selectedDate) {
-      const dailyInvPurchases = investments.filter(i => i.date === selectedDate);
-      const dailyInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate === selectedDate);
-      
-      const purchaseItems = dailyInvPurchases.map(i => ({
-        id: `${i.id}-buy`,
-        entryTime: '09:15',
-        symbol: i.symbol,
-        broker: i.broker || 'System',
-        action: 'BUY',
-        qty: i.qty,
-        entryPrice: i.buyPrice,
-        exitPrice: 0,
-        grossPnL: 0,
-        brokerage: 0,
-        taxes: 0,
-        netPnL: 0,
-        emotion: 'None',
-        mistake: 'None',
-        notes: i.notes || '',
-        isInvestment: true,
-        typeLabel: i.type
-      }));
+    const purchaseItems = periodInvPurchases.map(i => ({
+      id: `${i.id}-buy`,
+      entryTime: '09:15',
+      exitTime: '15:30',
+      symbol: i.symbol,
+      broker: i.broker || 'System',
+      action: 'BUY',
+      qty: i.qty,
+      entryPrice: i.buyPrice,
+      exitPrice: 0,
+      grossPnL: 0,
+      brokerage: 0,
+      taxes: 0,
+      netPnL: 0,
+      emotion: 'None',
+      mistake: 'None',
+      notes: i.notes ? `Investment Purchase: ${i.notes}` : `Investment Purchase (${i.type})`,
+      isInvestment: true,
+      typeLabel: i.type
+    }));
 
-      const exitItems = dailyInvExits.map(i => ({
-        id: `${i.id}-sell`,
-        entryTime: '15:30',
-        symbol: i.symbol,
-        broker: i.broker || 'System',
-        action: 'SELL',
-        qty: i.qty,
-        entryPrice: i.buyPrice,
-        exitPrice: i.exitPrice!,
-        grossPnL: i.qty * (i.exitPrice! - i.buyPrice),
-        brokerage: 0,
-        taxes: 0,
-        netPnL: i.qty * (i.exitPrice! - i.buyPrice),
-        emotion: 'None',
-        mistake: 'None',
-        notes: `Exit from investment (Purchase Buy Avg: ₹${i.buyPrice})`,
-        isInvestment: true,
-        typeLabel: i.type
-      }));
+    const exitItems = periodInvExits.map(i => ({
+      id: `${i.id}-sell`,
+      entryTime: '09:15',
+      exitTime: '15:30',
+      symbol: i.symbol,
+      broker: i.broker || 'System',
+      action: 'SELL',
+      qty: i.qty,
+      entryPrice: i.buyPrice,
+      exitPrice: i.exitPrice!,
+      grossPnL: i.qty * (i.exitPrice! - i.buyPrice),
+      brokerage: 0,
+      taxes: 0,
+      netPnL: i.qty * (i.exitPrice! - i.buyPrice),
+      emotion: 'None',
+      mistake: 'None',
+      notes: `Exit from investment (Purchase Buy Avg: ₹${i.buyPrice})`,
+      isInvestment: true,
+      typeLabel: i.type
+    }));
 
-      return [...dayTradesList, ...purchaseItems, ...exitItems];
-    }
-
-    return dayTradesList;
+    return [...dayTradesList, ...purchaseItems, ...exitItems];
   };
   const dayTrades = getSelectedTrades();
 
@@ -1016,7 +1067,10 @@ export function TradingCalendar({
       } else {
         cellClass += ' day-breakeven';
       }
+    } else if (w.noTradeCount > 0) {
+      cellClass += ' day-no-trade';
     }
+
     if (isSelected) {
       cellClass += ' selected';
     }
@@ -1070,6 +1124,30 @@ export function TradingCalendar({
           )}
         </div>
 
+        {w.invested > 0 && (
+          <div style={{ fontSize: '0.62rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 600 }}>
+            💼 -{(() => {
+              const val = w.invested;
+              if (val >= 100000) return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
+              return Math.round(val).toLocaleString('en-IN');
+            })()}
+          </div>
+        )}
+        {w.exited > 0 && (
+          <div style={{ fontSize: '0.62rem', color: 'var(--color-win)', marginTop: '2px', fontWeight: 600 }}>
+            💼 +{(() => {
+              const val = w.exited;
+              if (val >= 100000) return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
+              return Math.round(val).toLocaleString('en-IN');
+            })()}
+          </div>
+        )}
+        {w.noTradeCount > 0 && (
+          <div style={{ fontSize: '0.62rem', color: '#60a5fa', marginTop: '2px', fontWeight: 600 }}>
+            🛡️ {w.noTradeCount} No-Trade Day{w.noTradeCount > 1 ? 's' : ''}
+          </div>
+        )}
+
         {/* Tooltip for week */}
         <div className="calendar-tooltip glass-card">
           <h4 style={{ fontSize: '0.8rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '6px' }}>
@@ -1104,6 +1182,24 @@ export function TradingCalendar({
             ) : (
               <div style={{ color: 'var(--text-muted)', marginTop: '4px' }}>No trading activity</div>
             )}
+            {w.invested > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Invested (Buy):</span>
+                <strong style={{ color: 'var(--primary)' }}>-{formatCurrency(w.invested)}</strong>
+              </div>
+            )}
+            {w.exited > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Invested Exited (Sell):</span>
+                <strong style={{ color: 'var(--color-win)' }}>+{formatCurrency(w.exited)}</strong>
+              </div>
+            )}
+            {w.noTradeCount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#60a5fa', marginTop: '2px' }}>
+                <span>Disciplined Days:</span>
+                <span>🛡️ {w.noTradeCount} No-Trade Day{w.noTradeCount > 1 ? 's' : ''}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1126,7 +1222,10 @@ export function TradingCalendar({
       } else {
         cellClass += ' day-breakeven';
       }
+    } else if (m.noTradeCount > 0) {
+      cellClass += ' day-no-trade';
     }
+
     if (isSelected) {
       cellClass += ' selected';
     }
@@ -1180,6 +1279,30 @@ export function TradingCalendar({
           )}
         </div>
 
+        {m.invested > 0 && (
+          <div style={{ fontSize: '0.62rem', color: 'var(--primary)', marginTop: '2px', fontWeight: 600 }}>
+            💼 -{(() => {
+              const val = m.invested;
+              if (val >= 100000) return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
+              return Math.round(val).toLocaleString('en-IN');
+            })()}
+          </div>
+        )}
+        {m.exited > 0 && (
+          <div style={{ fontSize: '0.62rem', color: 'var(--color-win)', marginTop: '2px', fontWeight: 600 }}>
+            💼 +{(() => {
+              const val = m.exited;
+              if (val >= 100000) return `${(val / 100000).toFixed(2).replace(/\.00$/, '')}L`;
+              return Math.round(val).toLocaleString('en-IN');
+            })()}
+          </div>
+        )}
+        {m.noTradeCount > 0 && (
+          <div style={{ fontSize: '0.62rem', color: '#60a5fa', marginTop: '2px', fontWeight: 600 }}>
+            🛡️ {m.noTradeCount} No-Trade Day{m.noTradeCount > 1 ? 's' : ''}
+          </div>
+        )}
+
         {/* Tooltip for month */}
         <div className="calendar-tooltip glass-card">
           <h4 style={{ fontSize: '0.8rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '6px' }}>
@@ -1209,6 +1332,24 @@ export function TradingCalendar({
               </>
             ) : (
               <div style={{ color: 'var(--text-muted)', marginTop: '4px' }}>No trading activity</div>
+            )}
+            {m.invested > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Invested (Buy):</span>
+                <strong style={{ color: 'var(--primary)' }}>-{formatCurrency(m.invested)}</strong>
+              </div>
+            )}
+            {m.exited > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Invested Exited (Sell):</span>
+                <strong style={{ color: 'var(--color-win)' }}>+{formatCurrency(m.exited)}</strong>
+              </div>
+            )}
+            {m.noTradeCount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#60a5fa', marginTop: '2px' }}>
+                <span>Disciplined Days:</span>
+                <span>🛡️ {m.noTradeCount} No-Trade Day{m.noTradeCount > 1 ? 's' : ''}</span>
+              </div>
             )}
           </div>
         </div>
@@ -1812,6 +1953,30 @@ export function TradingCalendar({
               {activePnlTab === 'yearly' && "No trades logged in this month. Click on months highlighted with Green/Red background to view trade details."}
             </div>
           )}
+
+          {selectedDate && activePnlTab === 'monthly' && (
+            <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-start' }}>
+              <button
+                onClick={() => toggleNoTradeDay(selectedDate)}
+                className="btn btn-secondary"
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '0.78rem',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: noTradeDays.includes(selectedDate) ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                  borderColor: noTradeDays.includes(selectedDate) ? '#60a5fa' : 'var(--border-color)',
+                  color: noTradeDays.includes(selectedDate) ? '#60a5fa' : 'var(--text-muted)',
+                  cursor: 'pointer'
+                }}
+              >
+                <span>🛡️</span>
+                <span>{noTradeDays.includes(selectedDate) ? 'Marked as Disciplined No-Trade Day (Click to unmark)' : 'Mark Date as No-Trade Day'}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1946,6 +2111,14 @@ export function TradingCalendar({
         .calendar-day.day-breakeven {
           background-color: rgba(120, 120, 120, 0.04);
           border-color: var(--border-color);
+        }
+        .calendar-day.day-no-trade {
+          background-color: rgba(59, 130, 246, 0.14) !important;
+          border-color: rgba(59, 130, 246, 0.38) !important;
+        }
+        .calendar-day.day-no-trade:hover {
+          background-color: rgba(59, 130, 246, 0.22) !important;
+          border-color: #60a5fa !important;
         }
         .calendar-day.selected {
           border-color: var(--primary) !important;
