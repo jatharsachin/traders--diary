@@ -1,3 +1,4 @@
+import { create } from 'zustand';
 import type { 
   Trade, Setup, Broker, CapitalAdjustment, Investment, BrokerAccount, BankAccount, 
   SubscriptionExpense, BankTransaction, BrokerChargesConfig, TelegramConfig 
