@@ -429,7 +429,7 @@ export default function App() {
                 }}
                 title="Expand Sidebar"
               >
-                <Menu size={18} />
+                <Menu size={22} />
               </button>
             ) : (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
@@ -446,7 +446,7 @@ export default function App() {
                         className="badge badge-win" 
                         style={{ fontSize: '0.5rem', padding: '1px 4px', textTransform: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
                       >
-                        <ShieldCheck size={8} /> Sync Linked
+                        <ShieldCheck size={11} /> Sync Linked
                       </span>
                     )}
                   </div>
@@ -459,7 +459,7 @@ export default function App() {
                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px', display: 'flex', alignItems: 'center' }}
                   title="Collapse Sidebar"
                 >
-                  <Menu size={16} />
+                  <Menu size={22} />
                 </button>
               </div>
             )}
@@ -486,7 +486,7 @@ export default function App() {
             onClick={handleNewTrade}
             title="Log Trade"
           >
-            <Plus size={14} />
+            <Plus size={17} />
             {!isSidebarCollapsed && <span>Log Trade</span>}
           </button>
 
@@ -500,7 +500,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'dashboard' ? 'active' : '')}
               title="Dashboard"
             >
-              <LayoutDashboard size={14} color={activeTab === 'dashboard' ? '#fff' : '#38bdf8'} />
+              <LayoutDashboard size={17} color={activeTab === 'dashboard' ? '#fff' : '#38bdf8'} />
               <span className="hide-collapsed">Dashboard</span>
             </button>
             <button 
@@ -508,7 +508,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'calendar' ? 'active' : '')}
               title="Calendar"
             >
-              <Calendar size={14} color={activeTab === 'calendar' ? '#fff' : '#a855f7'} />
+              <Calendar size={17} color={activeTab === 'calendar' ? '#fff' : '#a855f7'} />
               <span className="hide-collapsed">Calendar</span>
             </button>
             <button 
@@ -516,7 +516,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'daybook' ? 'active' : '')}
               title="Day Book"
             >
-              <BookOpen size={14} color={activeTab === 'daybook' ? '#fff' : '#60a5fa'} />
+              <BookOpen size={17} color={activeTab === 'daybook' ? '#fff' : '#60a5fa'} />
               <span className="hide-collapsed">Day Book</span>
             </button>
             <button 
@@ -524,7 +524,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'logs' ? 'active' : '')}
               title="Logs"
             >
-              <History size={14} color={activeTab === 'logs' ? '#fff' : '#34d399'} />
+              <History size={17} color={activeTab === 'logs' ? '#fff' : '#34d399'} />
               <span className="hide-collapsed">Logs</span>
             </button>
 
@@ -536,7 +536,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'ledger' ? 'active' : '')}
               title="Ledger"
             >
-              <Receipt size={14} color={activeTab === 'ledger' ? '#fff' : '#f59e0b'} />
+              <Receipt size={17} color={activeTab === 'ledger' ? '#fff' : '#f59e0b'} />
               <span className="hide-collapsed">Ledger</span>
             </button>
             <button 
@@ -544,7 +544,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'account' ? 'active' : '')}
               title="Investments"
             >
-              <Briefcase size={14} color={activeTab === 'account' ? '#fff' : '#3b82f6'} />
+              <Briefcase size={17} color={activeTab === 'account' ? '#fff' : '#3b82f6'} />
               <span className="hide-collapsed">Investments</span>
             </button>
 
@@ -556,7 +556,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'strategies' ? 'active' : '')}
               title="Setups"
             >
-              <Compass size={14} color={activeTab === 'strategies' ? '#fff' : '#ec4899'} />
+              <Compass size={17} color={activeTab === 'strategies' ? '#fff' : '#ec4899'} />
               <span className="hide-collapsed">Setups</span>
             </button>
             <button 
@@ -564,7 +564,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'taxation' ? 'active' : '')}
               title="Taxation"
             >
-              <Percent size={14} color={activeTab === 'taxation' ? '#fff' : '#f97316'} />
+              <Percent size={17} color={activeTab === 'taxation' ? '#fff' : '#f97316'} />
               <span className="hide-collapsed">Taxation</span>
             </button>
 
@@ -577,7 +577,7 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'help' ? 'active' : '')}
               title="Help & Guides"
             >
-              <HelpCircle size={14} color={activeTab === 'help' ? '#fff' : '#06b6d4'} />
+              <HelpCircle size={17} color={activeTab === 'help' ? '#fff' : '#06b6d4'} />
               <span className="hide-collapsed">Help & Guides</span>
             </button>
           </div>
@@ -822,7 +822,7 @@ export default function App() {
                   }}
                   title="Alerts Center"
                 >
-                  <Bell size={16} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
+                  <Bell size={18} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
                   {notifications.length > lastSeenNotificationCount && (
                     <span 
                       style={{ 
@@ -1022,7 +1022,7 @@ export default function App() {
                 }}
                 title="Log Out"
               >
-                <LogOut size={16} />
+                <LogOut size={18} />
               </button>
             </div>
           </div>
@@ -1257,7 +1257,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'dashboard' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <LayoutDashboard size={13} color="#38bdf8" />
+                <LayoutDashboard size={15} color="#38bdf8" />
                 Dashboard
               </button>
               <button 
@@ -1265,7 +1265,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'calendar' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <Calendar size={13} color="#a855f7" />
+                <Calendar size={15} color="#a855f7" />
                 Calendar
               </button>
               <button 
@@ -1273,7 +1273,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'daybook' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <BookOpen size={13} color="#60a5fa" />
+                <BookOpen size={15} color="#60a5fa" />
                 Day Book
               </button>
               <button 
@@ -1281,7 +1281,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'logs' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <History size={13} color="#34d399" />
+                <History size={15} color="#34d399" />
                 Logs
               </button>
             </div>
@@ -1299,7 +1299,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'ledger' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <Receipt size={13} color="#f59e0b" />
+                <Receipt size={15} color="#f59e0b" />
                 Ledger
               </button>
               <button 
@@ -1307,7 +1307,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'account' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <Briefcase size={13} color="#3b82f6" />
+                <Briefcase size={15} color="#3b82f6" />
                 Investments
               </button>
             </div>
@@ -1325,7 +1325,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'strategies' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <Compass size={13} color="#ec4899" />
+                <Compass size={15} color="#ec4899" />
                 Setups
               </button>
               <button 
@@ -1333,7 +1333,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'taxation' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <Percent size={13} color="#f97316" />
+                <Percent size={15} color="#f97316" />
                 Taxation
               </button>
 
@@ -1342,7 +1342,7 @@ export default function App() {
                 className={"nav-tab " + (activeTab === 'help' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                <HelpCircle size={13} color={activeTab === 'help' ? '#fff' : '#06b6d4'} />
+                <HelpCircle size={15} color={activeTab === 'help' ? '#fff' : '#06b6d4'} />
                 Help
               </button>
             </div>
@@ -1367,7 +1367,7 @@ export default function App() {
             }} 
             onClick={handleNewTrade}
           >
-            <Plus size={15} />
+            <Plus size={17} />
             <span>Log Trade</span>
           </button>
         </div>
@@ -1562,7 +1562,7 @@ export default function App() {
                   }}
                   title="Alerts Center"
                 >
-                  <Bell size={13} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
+                  <Bell size={15} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
                   {notifications.length > lastSeenNotificationCount && (
                     <span 
                       style={{ 
@@ -1665,7 +1665,7 @@ export default function App() {
                 }}
                 title="Log Out"
               >
-                <LogOut size={13} />
+                <LogOut size={15} />
               </button>
             </div>
           </header>

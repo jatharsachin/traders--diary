@@ -176,14 +176,14 @@ const checkIfExpiryDay = (symbol: string, dateStr: string): boolean => {
   const d = new Date(year, month, day);
   const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday
 
-  // 1. NSE indices (Nifty, Bank Nifty, Finnifty, Midcap Nifty) expire on Tuesday
+  // 1. NSE indices (Nifty, Bank Nifty, Finnifty, Midcap Nifty) expire on Thursday (or Tuesday for historical)
   if (sym.includes('NIFTY') || sym.includes('BANKNIFTY') || sym.includes('FINNIFTY') || sym.includes('MIDCPNIFTY')) {
-    return dayOfWeek === 2; // Tuesday
+    return dayOfWeek === 4 || dayOfWeek === 2;
   }
 
-  // 2. BSE indices (Sensex, Bankex) expire on Thursday
+  // 2. BSE indices (Sensex, Bankex) expire on Thursday or Friday
   if (sym.includes('SENSEX') || sym.includes('BANKEX')) {
-    return dayOfWeek === 4; // Thursday
+    return dayOfWeek === 4 || dayOfWeek === 5;
   }
 
   // 3. Stock options expire on the last Thursday of the month
@@ -575,12 +575,12 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadPnlVisibility = (): boolean => {
-    const saved = localStorage.getItem('traders_diary_pnl_visibility');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_pnl_visibility'));
     return saved !== null ? JSON.parse(saved) : true;
   };
 
   const loadWeeklyRetrospectives = (): Record<string, string> => {
-    const saved = localStorage.getItem('traders_diary_weekly_retrospectives');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_weekly_retrospectives'));
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -595,15 +595,15 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadUserName = (): string => {
-    return localStorage.getItem('traders_diary_user_name') || 'Sachin';
+    return localStorage.getItem(getScopedKey('traders_diary_user_name')) || 'Sachin';
   };
 
   const loadUserAvatar = (): string => {
-    return localStorage.getItem('traders_diary_user_avatar') || 'bull';
+    return localStorage.getItem(getScopedKey('traders_diary_user_avatar')) || 'bull';
   };
 
   const loadActiveBrokers = (): Broker[] => {
-    const saved = localStorage.getItem('traders_diary_active_brokers');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_active_brokers'));
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -615,7 +615,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadDefaultBroker = (): Broker => {
-    const saved = localStorage.getItem('traders_diary_default_broker');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_default_broker'));
     if (saved && ['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other'].includes(saved)) {
       return saved as Broker;
     }
@@ -686,7 +686,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       };
     }),
     setSelectedFY: (fy) => {
-      localStorage.setItem('traders_diary_selected_fy', fy);
+      localStorage.setItem(getScopedKey('traders_diary_selected_fy'), fy);
       set({ selectedFY: fy });
     },
     toggleNoTradeDay: (date) => set((state) => {
@@ -910,7 +910,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
         // Upsert renamed trades to Supabase
         const matching = updatedTrades.filter(t => t.strategy === updatedSetup.name);
-        matching.forEach(t => syncTradeToCloud('insert', t));
+        matching.forEach(t => syncTradeToCloud('update', t));
       }
 
       return { 
@@ -1022,9 +1022,10 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       return {};
     }),
 
-    resetToMockData: () => set(() => {
+    resetToMockData: () => set((state) => {
+      const isUserLoggedIn = !!state.sessionUser?.id;
       const mock: Trade[] = []; // Clear trades by default or reset
-      const mockInv = getMockInvestments();
+      const mockInv: Investment[] = [];
       localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(mock));
       localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(DEFAULT_SETUPS));
       localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify([]));
@@ -1039,14 +1040,19 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify([]));
       localStorage.setItem(getScopedKey('traders_diary_notradedays'), JSON.stringify([]));
 
-      syncMetaToCloud('setups', DEFAULT_SETUPS);
-      syncMetaToCloud('capital_adjustments', []);
-      syncMetaToCloud('broker_accounts', DEFAULT_BROKER_ACCOUNTS);
-      syncMetaToCloud('bank_accounts', DEFAULT_BANK_ACCOUNTS);
-      syncMetaToCloud('broker_charges', DEFAULT_BROKER_CHARGES);
-      syncMetaToCloud('subscription_expenses', DEFAULT_SUBSCRIPTION_EXPENSES);
-      syncMetaToCloud('bank_transactions', []);
-      syncMetaToCloud('notradedays', []);
+      // CRITICAL DATA SAFETY FIX:
+      // Only sync mock defaults if user is NOT logged in (Guest mode).
+      // If user is logged in, resetting local cache should NEVER overwrite online Supabase database.
+      if (!isUserLoggedIn) {
+        syncMetaToCloud('setups', DEFAULT_SETUPS);
+        syncMetaToCloud('capital_adjustments', []);
+        syncMetaToCloud('broker_accounts', DEFAULT_BROKER_ACCOUNTS);
+        syncMetaToCloud('bank_accounts', DEFAULT_BANK_ACCOUNTS);
+        syncMetaToCloud('broker_charges', DEFAULT_BROKER_CHARGES);
+        syncMetaToCloud('subscription_expenses', DEFAULT_SUBSCRIPTION_EXPENSES);
+        syncMetaToCloud('bank_transactions', []);
+        syncMetaToCloud('notradedays', []);
+      }
 
       return { 
         trades: mock, 
@@ -1139,6 +1145,9 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
       // Bank Transactions
       await processMetaKey('bank_transactions', (val) => set({ bankTransactions: val }), `traders_diary_bank_transactions_${userId}`, []);
+
+      // No Trade Days
+      await processMetaKey('notradedays', (val) => set({ noTradeDays: val }), `traders_diary_notradedays_${userId}`, []);
 
       // Mark the sync initialization as completed
       localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');

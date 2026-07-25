@@ -79,7 +79,7 @@ export function calculateIndianTaxesAndBrokerage(
         brokerage = 0; // Default Zerodha Delivery is ₹0
       }
       exchangeTx = totalTurnover * 0.0000297; // 0.00297% (Revised Oct 2024)
-      stt = buyValue * 0.001; // 0.1% on buy-side only (Revised Budget Rules)
+      stt = totalTurnover * 0.001; // 0.1% on both Buy & Sell side for Delivery
       stampDuty = buyValue * 0.00015; // 0.015% on buy side only
     } else {
       // Intraday (MIS)
@@ -93,7 +93,7 @@ export function calculateIndianTaxesAndBrokerage(
         brokerage = buyBroker + sellBroker;
       }
       exchangeTx = totalTurnover * 0.0000297; // 0.00297% (Revised Oct 2024)
-      stt = sellValue * 0.000125; // 0.0125% on sell side only (Revised Budget Rules)
+      stt = sellValue * 0.000125; // 0.0125% on sell side for Intraday (Revised Oct 2024 Budget)
       stampDuty = buyValue * 0.00003; // 0.003% on buy side only
     }
   } else if (segment === 'F&O') {
@@ -110,7 +110,7 @@ export function calculateIndianTaxesAndBrokerage(
       }
       // Exchange Tx: NSE revised 0.03503% + IPFT 0.0005% = 0.03553% on premium value
       exchangeTx = totalTurnover * 0.0003553; 
-      stt = sellValue * 0.001; // 0.1% on sell side premium (Revised Budget Rules)
+      stt = sellValue * 0.001; // 0.1% on sell side premium (Revised Oct 2024 Budget)
       stampDuty = buyValue * 0.00003; // 0.003% on buy side
     } else {
       // Futures
@@ -125,8 +125,8 @@ export function calculateIndianTaxesAndBrokerage(
       }
       // Exchange Tx: NSE revised 0.00173% + IPFT 0.0001% = 0.00183%
       exchangeTx = totalTurnover * 0.0000183; 
-      // STT: 0.05% on sell side (Revised April 2026)
-      stt = sellValue * 0.0005; 
+      // STT: 0.02% on sell side (Revised Oct 2024 Budget)
+      stt = sellValue * 0.0002; 
       stampDuty = buyValue * 0.00002; // 0.002% on buy side
     }
   } else if (segment === 'Commodity') {

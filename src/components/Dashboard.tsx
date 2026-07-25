@@ -66,14 +66,24 @@ export function Dashboard({
   // 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries
   const getMissingLogDates = (): string[] => {
     const dates: string[] = [];
-    let checkDate = new Date();
+    const now = new Date();
+    // Create a local midnight Date object
+    let checkDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     // Start checking from yesterday
     checkDate.setDate(checkDate.getDate() - 1);
     
+    // Helper to format local YYYY-MM-DD
+    const formatLocalYYYYMMDD = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     // Check up to 5 market days
     while (dates.length < 5) {
       const dayOfWeek = checkDate.getDay(); // 0 = Sun, 6 = Sat
-      const dateStr = checkDate.toISOString().split('T')[0];
+      const dateStr = formatLocalYYYYMMDD(checkDate);
       
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isNseHoliday = !!OFFLINE_NSE_HOLIDAYS[dateStr];
@@ -90,7 +100,7 @@ export function Dashboard({
       
       checkDate.setDate(checkDate.getDate() - 1);
       // Safety limit: don't loop back indefinitely (max 30 days history check)
-      const diffTime = Math.abs(new Date().getTime() - checkDate.getTime());
+      const diffTime = Math.abs(now.getTime() - checkDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       if (diffDays > 30) {
         break;
@@ -1125,7 +1135,7 @@ export function Dashboard({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-loss)' }}>
-            <AlertTriangle size={18} />
+            <AlertTriangle size={22} />
             <h3 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0 }}>Coach Reminder: Missing Log Entries</h3>
           </div>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
@@ -1133,7 +1143,7 @@ export function Dashboard({
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
             {missingLogDates.map(date => {
-              const formattedDate = new Date(date).toLocaleDateString('en-IN', {
+              const formattedDate = parseLocalDate(date).toLocaleDateString('en-IN', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'short',
@@ -1307,7 +1317,7 @@ export function Dashboard({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Briefcase size={16} color="var(--primary)" />
+          <Briefcase size={18} color="var(--primary)" />
           <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
             {showCombined ? 'Combined Wealth View (Trading + Delivery Investments)' : 'Active Trading Account View'}
           </span>
@@ -1466,7 +1476,7 @@ export function Dashboard({
         {/* KPI 2: Success Rate */}
         <div className="glass-card metric-card">
           <div className="metric-title">
-            <Percent size={16} color="var(--primary)" />
+            <Percent size={18} color="var(--primary)" />
             <span>Success Rate</span>
           </div>
           <div>
@@ -1482,7 +1492,7 @@ export function Dashboard({
         {/* KPI 3: Options Scalping Stats */}
         <div className="glass-card metric-card">
           <div className="metric-title">
-            <Clock size={16} color="#fb7185" />
+            <Clock size={18} color="#fb7185" />
             <span>Avg hold time / Leakage</span>
           </div>
           <div>
@@ -1500,7 +1510,7 @@ export function Dashboard({
         {/* KPI 4: Sharpe & Risk Ratio */}
         <div className="glass-card metric-card">
           <div className="metric-title">
-            <Scale size={16} color="#fb923c" />
+            <Scale size={18} color="#fb923c" />
             <span>Sharpe & Drawdown</span>
           </div>
           <div>
@@ -1521,7 +1531,7 @@ export function Dashboard({
         {/* Metric 1: Profit Factor */}
         <div className="glass-card metric-card">
           <div className="metric-title">
-            <Scale size={16} color="var(--primary)" />
+            <Scale size={18} color="var(--primary)" />
             <span>Profit Factor</span>
           </div>
           <div>
@@ -1537,7 +1547,7 @@ export function Dashboard({
         {/* Metric 2: Expectancy */}
         <div className="glass-card metric-card">
           <div className="metric-title">
-            <Award size={16} color="#34d399" />
+            <Award size={18} color="#34d399" />
             <span>Expectancy</span>
           </div>
           <div>
@@ -1553,7 +1563,7 @@ export function Dashboard({
         {/* Metric 3: Max Drawdown */}
         <div className="glass-card metric-card">
           <div className="metric-title">
-            <TrendingDown size={16} color="var(--color-loss)" />
+            <TrendingDown size={18} color="var(--color-loss)" />
             <span>Peak Drawdown</span>
           </div>
           <div>
@@ -1569,7 +1579,7 @@ export function Dashboard({
         {/* Metric 4: Max Win/Loss Streak */}
         <div className="glass-card metric-card">
           <div className="metric-title">
-            <Flame size={16} color="#fb923c" />
+            <Flame size={18} color="#fb923c" />
             <span>Streak Analysis</span>
           </div>
           <div>
@@ -1608,7 +1618,7 @@ export function Dashboard({
         {/* KPI 5: Trade Volume Averages */}
         <div className="glass-card metric-card">
           <div className="metric-title">
-            <TrendingUp size={16} color="var(--primary)" />
+            <TrendingUp size={18} color="var(--primary)" />
             <span>Avg Trades (D/W/M)</span>
           </div>
           <div>
@@ -1767,7 +1777,7 @@ export function Dashboard({
         {/* Card 1: Performance Returns Duration */}
         <div className="glass-card" style={{ padding: '24px' }}>
           <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CalendarRange size={16} color="var(--primary)" />
+            <CalendarRange size={18} color="var(--primary)" />
             Returns Breakdown
           </h3>
           <div className="grid-2col-equal-small" style={{ gap: '16px' }}>
@@ -1809,7 +1819,7 @@ export function Dashboard({
         <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ShieldCheck size={16} color="var(--color-win)" />
+              <ShieldCheck size={18} color="var(--color-win)" />
               Consistency Audit
             </h3>
             
@@ -1832,7 +1842,7 @@ export function Dashboard({
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Flame size={12} color="var(--color-win)" /> Max Win Streak: <strong>{maxConsecWins}</strong>
+                <Flame size={14} color="var(--color-win)" /> Max Win Streak: <strong>{maxConsecWins}</strong>
               </span>
               <span>Max Loss Streak: <strong>{maxConsecLosses}</strong></span>
             </div>
@@ -1876,7 +1886,7 @@ export function Dashboard({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CalendarRange size={20} color="var(--primary)" />
+            <CalendarRange size={22} color="var(--primary)" />
             <div>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Trading Performance Heatmap</h3>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: 0 }}>Visual representation of daily net profits, losses, and disciplined streaks</p>
@@ -2179,7 +2189,7 @@ export function Dashboard({
       {/* Card: Broker-wise performance stats */}
       <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
         <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-          <Briefcase size={20} color="var(--primary)" />
+          <Briefcase size={22} color="var(--primary)" />
           Broker-Wise Performance Summary ({selectedFY})
         </h3>
         <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
@@ -2272,7 +2282,7 @@ export function Dashboard({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CalendarRange size={20} color="var(--primary)" />
+              <CalendarRange size={22} color="var(--primary)" />
               Weekly Performance Retrospective & Coach
             </h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px' }}>
@@ -2373,7 +2383,7 @@ export function Dashboard({
                   gap: '8px'
                 }}
               >
-                <Sparkles size={16} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <Sparkles size={18} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
                 <div>
                   <strong style={{ display: 'block', marginBottom: '3px', color: 'var(--primary)' }}>Discipline Coach Tip:</strong>
                   {getCoachTip(activeRetroWeek.mistakeCost, activeRetroWeek.dominantEmotion)}
@@ -2394,7 +2404,7 @@ export function Dashboard({
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button className="btn btn-primary" onClick={handleSaveRetro} style={{ height: '32px', fontSize: '0.78rem' }}>
-                  <Save size={13} />
+                  <Save size={15} />
                   <span>Save Retrospective</span>
                 </button>
               </div>
@@ -2417,7 +2427,7 @@ export function Dashboard({
           {/* Chart: Mistake Cost Analysis */}
           <div className="glass-card" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <AlertTriangle size={20} color="var(--color-loss)" />
+              <AlertTriangle size={22} color="var(--color-loss)" />
               <div>
                 <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Mistake Financial Leakage Analysis</h3>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
@@ -2458,7 +2468,7 @@ export function Dashboard({
           <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <Sparkles size={20} color="var(--primary)" />
+                <Sparkles size={22} color="var(--primary)" />
                 <div>
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Cognitive Discipline Audit</h3>
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
@@ -2563,7 +2573,7 @@ export function Dashboard({
           {/* Emotions P&L Impact */}
           <div className="glass-card" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TrendingUp size={20} color="var(--primary)" />
+              <TrendingUp size={22} color="var(--primary)" />
               Psychological Mood P&L Impact
             </h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
@@ -2633,7 +2643,7 @@ export function Dashboard({
           {/* Asset Allocation or Segment Allocation */}
           <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Briefcase size={20} color="var(--primary)" />
+              <Briefcase size={22} color="var(--primary)" />
               {showCombined ? 'Asset Allocation' : 'Trading Volume Allocation'}
             </h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
