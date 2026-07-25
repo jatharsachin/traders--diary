@@ -1706,7 +1706,7 @@ export default function App() {
           {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
           {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
           {activeTab === 'strategies' && <StrategyManager />}
-          {activeTab === 'account' && <AccountManager />}
+          {activeTab === 'account' && <AccountManager activeAccountId={activeAccountId} />}
           {activeTab === 'help' && <Help />}
         </Suspense>
       </main>

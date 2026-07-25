@@ -8,7 +8,11 @@ import {
 import logoImg from '../assets/tradediary_logo.png';
 import { BROKER_LOGOS } from '../utils/brandLogos';
 
-export function AccountManager() {
+interface AccountManagerProps {
+  activeAccountId?: string;
+}
+
+export function AccountManager({ activeAccountId }: AccountManagerProps) {
   const { 
     trades, 
     baseCapital, 
@@ -48,17 +52,42 @@ export function AccountManager() {
   // Sub-navigation tab for ledger view
   const [ledgerSubTab, setLedgerSubTab] = useState<'active' | 'exited'>('active');
 
+  // Filtered store data based on activeAccountId
+  const filteredTrades = activeAccountId && activeAccountId !== 'Combined'
+    ? trades.filter((t) => t.brokerAccountId === activeAccountId)
+    : trades;
 
+  const filteredAdjustments = activeAccountId && activeAccountId !== 'Combined'
+    ? capitalAdjustments.filter((a) => !a.brokerAccountId || a.brokerAccountId === activeAccountId)
+    : capitalAdjustments;
+
+  const filteredBaseCapital = activeAccountId && activeAccountId !== 'Combined'
+    ? (brokerAccounts.find((a) => a.id === activeAccountId)?.startingCapital || 0)
+    : baseCapital;
+
+  const filteredInvestments = activeAccountId && activeAccountId !== 'Combined'
+    ? investments.filter(i => {
+        if (i.brokerAccountId === activeAccountId) return true;
+        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
+        return activeAcc ? i.broker === activeAcc.broker : false;
+      })
+    : investments;
 
   // Calculations: Trading Portfolio
-  const totalTradingNetPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
-  const totalDeposits = capitalAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
-  const totalWithdrawals = capitalAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
-  const currentCapital = baseCapital + totalTradingNetPnL + totalDeposits - totalWithdrawals;
+  const totalTradingNetPnL = filteredTrades.reduce((acc, t) => acc + t.netPnL, 0);
+  const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
+  const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
+
+  const totalInvPurchasedCost = filteredInvestments.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+  const totalInvExitedCredit = filteredInvestments
+    .filter(i => i.status === 'EXITED' && i.exitPrice)
+    .reduce((sum, i) => sum + (i.qty * i.exitPrice!), 0);
+
+  const currentCapital = filteredBaseCapital + totalTradingNetPnL + totalDeposits - totalWithdrawals - totalInvPurchasedCost + totalInvExitedCredit;
 
   // Calculations: Investments Ledger
-  const activeInvestments = investments.filter(inv => inv.status !== 'EXITED');
-  const exitedInvestments = investments.filter(inv => inv.status === 'EXITED');
+  const activeInvestments = filteredInvestments.filter(inv => inv.status !== 'EXITED');
+  const exitedInvestments = filteredInvestments.filter(inv => inv.status === 'EXITED');
 
   const totalInvInvested = activeInvestments.reduce((acc, inv) => acc + (inv.buyPrice * inv.qty), 0);
   const totalInvCurrent = activeInvestments.reduce((acc, inv) => acc + (inv.currentPrice * inv.qty), 0);
@@ -70,14 +99,8 @@ export function AccountManager() {
   // Calculations: Combined Wealth Portfolio
   const combinedWealth = currentCapital + totalInvCurrent;
 
-
-
-
-
   // Live Price Sync logic
   const [syncPricesLoading, setSyncPricesLoading] = useState(false);
-
-
 
   const handleSyncAllPrices = async () => {
     const activeInvs = investments.filter((i) => i.status === 'ACTIVE');
@@ -128,7 +151,8 @@ export function AccountManager() {
       date: invDate || new Date().toISOString().split('T')[0],
       notes: invNotes.trim(),
       status: 'ACTIVE' as const,
-      broker: invBroker as any
+      broker: invBroker as any,
+      brokerAccountId: activeAccountId !== 'Combined' ? activeAccountId : undefined
     };
 
     if (editInvId) {
@@ -218,6 +242,13 @@ export function AccountManager() {
     setIsExitFormOpen(false);
   };
 
+  const pieChartData = [
+    { name: 'Trading Cash', value: Math.max(0, currentCapital), color: '#10b981' },
+    { name: 'ETFs', value: activeInvestments.filter(i => i.type === 'ETF').reduce((acc, i) => acc + (i.currentPrice * i.qty), 0), color: '#007aff' },
+    { name: 'Bonds', value: activeInvestments.filter(i => i.type === 'BOND').reduce((acc, i) => acc + (i.currentPrice * i.qty), 0), color: '#8b5cf6' },
+    { name: 'Stocks', value: activeInvestments.filter(i => i.type === 'EQUITY').reduce((acc, i) => acc + (i.currentPrice * i.qty), 0), color: '#ff9500' }
+  ].filter(item => item.value > 0);
+
   return (
     <div className="animate-tab-panel grid-2col-12-2" style={{ alignItems: 'start', gap: '24px' }}>
       
@@ -259,15 +290,11 @@ export function AccountManager() {
             Asset Allocation Ratio
           </h3>
           <div style={{ height: '140px' }}>
-            {activeInvestments.length > 0 ? (
+            {pieChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={[
-                      { name: 'ETFs', value: activeInvestments.filter(i => i.type === 'ETF').reduce((acc, i) => acc + (i.currentPrice * i.qty), 0) },
-                      { name: 'Bonds', value: activeInvestments.filter(i => i.type === 'BOND').reduce((acc, i) => acc + (i.currentPrice * i.qty), 0) },
-                      { name: 'Stocks', value: activeInvestments.filter(i => i.type === 'EQUITY').reduce((acc, i) => acc + (i.currentPrice * i.qty), 0) }
-                    ].filter(item => item.value > 0)}
+                    data={pieChartData}
                     cx="50%"
                     cy="45%"
                     innerRadius={30}
@@ -275,12 +302,11 @@ export function AccountManager() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {[1, 2, 3].map((_entry, index) => {
-                      const COLORS = ['#007aff', '#34c759', '#ff9500'];
-                      return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />;
-                    })}
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
                   </Pie>
-                  <Tooltip formatter={(value: any) => `₹${value.toLocaleString('en-IN')}`} />
+                  <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
                   <Legend iconSize={6} iconType="circle" wrapperStyle={{ fontSize: '0.68rem' }} />
                 </PieChart>
               </ResponsiveContainer>

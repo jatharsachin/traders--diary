@@ -99,7 +99,7 @@ export function TradingCalendar({
     : allInvestments.filter(i => {
         if (i.brokerAccountId === activeAccountId) return true;
         const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-        return activeAcc ? i.broker === activeAcc.broker : false;
+        return activeAcc ? (i.broker?.toLowerCase() === activeAcc.broker.toLowerCase()) : false;
       });
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026
