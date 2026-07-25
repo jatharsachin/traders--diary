@@ -155,3 +155,9 @@ export interface BrokerChargesConfig {
   futuresRatePct: number;  // e.g. 0.03%
   futuresMaxFee: number;    // e.g. ₹20
 }
+
+export interface TelegramConfig {
+  botToken: string;
+  chatId: string;
+  autoNotifyAt330PM: boolean;
+}

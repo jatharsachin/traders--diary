@@ -4,7 +4,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import { 
   IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
   ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
-  Eye, EyeOff, Save, Award, TrendingDown
+  Eye, EyeOff, Save, Award, TrendingDown, Send
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
@@ -51,7 +51,8 @@ export function Dashboard({
     brokerAccounts,
     capitalAdjustments: allAdjustments,
     noTradeDays,
-    toggleNoTradeDay
+    toggleNoTradeDay,
+    sendDailySummaryToTelegram
   } = useTradeStore();
 
   const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
@@ -1300,7 +1301,35 @@ export function Dashboard({
               {selectedFY}
             </div>
           </div>
-          {/* Carry-Forward button removed and shifted to Trader Settings */}
+
+          <button
+            onClick={async () => {
+              const res = await sendDailySummaryToTelegram();
+              if (res.success) {
+                alert("Today's trading summary report successfully sent to Telegram! 🚀");
+              } else {
+                alert(res.error || "Failed to send to Telegram. Please configure Bot Token & Chat ID in Settings.");
+              }
+            }}
+            className="btn btn-secondary"
+            style={{
+              padding: '8px 14px',
+              fontSize: '0.78rem',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              borderColor: '#0088cc',
+              color: '#0088cc',
+              background: 'rgba(0, 136, 204, 0.12)',
+              fontWeight: 650,
+              cursor: 'pointer'
+            }}
+            title="Send Today's PnL & Trade Summary to Telegram"
+          >
+            <Send size={14} color="#0088cc" />
+            <span>Telegram Summary</span>
+          </button>
         </div>
       </div>
 

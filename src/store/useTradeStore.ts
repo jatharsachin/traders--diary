@@ -1,9 +1,9 @@
-import { create } from 'zustand';
 import type { 
   Trade, Setup, Broker, CapitalAdjustment, Investment, BrokerAccount, BankAccount, 
-  SubscriptionExpense, BankTransaction, BrokerChargesConfig 
+  SubscriptionExpense, BankTransaction, BrokerChargesConfig, TelegramConfig 
 } from '../types';
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
+import { formatDailyTelegramReport, sendTelegramMessage } from '../utils/telegramNotifier';
 import { 
   syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, 
   getSupabaseClient, fetchMetaBatchFromCloud
@@ -128,6 +128,11 @@ interface TradeStore {
   addDirectBankTransaction: (tx: Omit<BankTransaction, 'id'>) => void;
   deleteDirectBankTransaction: (id: string) => void;
   editDirectBankTransaction: (id: string, txData: Partial<BankTransaction>) => void;
+
+  // Telegram Notification Config
+  telegramConfig: TelegramConfig;
+  setTelegramConfig: (newConfig: Partial<TelegramConfig>) => void;
+  sendDailySummaryToTelegram: (targetDate?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const DEFAULT_SETUPS: Setup[] = [
@@ -655,6 +660,18 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return [];
   };
 
+  const loadTelegramConfig = (): TelegramConfig => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_telegram_config'));
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse telegram config', e);
+      }
+    }
+    return { botToken: '', chatId: '', autoNotifyAt330PM: false };
+  };
+
   // Seed default collections first to make sure they exist
   const initialAccounts = loadBrokerAccounts();
   const initialBanks = loadBankAccounts();
@@ -681,10 +698,31 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     selectedFY: loadSelectedFY(),
     lockedFYs: loadLockedFYs(),
     noTradeDays: loadNoTradeDays(),
+    telegramConfig: loadTelegramConfig(),
     userName: loadUserName(),
     userAvatar: loadUserAvatar(),
     activeBrokers: loadActiveBrokers(),
     defaultBroker: loadDefaultBroker(),
+
+    setTelegramConfig: (newConfig: Partial<TelegramConfig>) => set((state: any) => {
+      const updated = { ...state.telegramConfig, ...newConfig };
+      localStorage.setItem(getScopedKey('traders_diary_telegram_config'), JSON.stringify(updated));
+      syncMetaToCloud('telegramconfig', updated);
+      return { telegramConfig: updated };
+    }),
+
+    sendDailySummaryToTelegram: async (targetDate?: string) => {
+      const { trades, noTradeDays, telegramConfig } = get();
+      const { botToken, chatId } = telegramConfig;
+      if (!botToken || !chatId) {
+        return { success: false, error: 'Telegram Bot Token & Chat ID are not configured. Please set them in Settings.' };
+      }
+      const dateStr = targetDate || new Date().toISOString().split('T')[0];
+      const todayTrades = trades.filter((t) => t.date === dateStr);
+      const isNoTrade = noTradeDays.includes(dateStr);
+      const reportText = formatDailyTelegramReport(dateStr, todayTrades, isNoTrade);
+      return sendTelegramMessage(botToken, chatId, reportText);
+    },
 
     setSessionUser: (user) => set((state) => {
       const shouldResetFY = !state.sessionUser && user;

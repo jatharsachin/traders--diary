@@ -155,6 +155,30 @@ export default function App() {
     };
   }, []);
 
+  // 3:30 PM Telegram Daily Market Close Auto-Notifier
+  useEffect(() => {
+    const check330PM = () => {
+      const { telegramConfig, sendDailySummaryToTelegram } = useTradeStore.getState();
+      if (!telegramConfig.autoNotifyAt330PM || !telegramConfig.botToken || !telegramConfig.chatId) return;
+
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const todayStr = now.toISOString().split('T')[0];
+
+      const lastSentKey = `telegram_sent_${todayStr}`;
+      const alreadySent = localStorage.getItem(lastSentKey);
+
+      if (hours === 15 && minutes === 30 && !alreadySent) {
+        localStorage.setItem(lastSentKey, 'true');
+        sendDailySummaryToTelegram(todayStr).catch((err) => console.error('Auto Telegram Summary failed:', err));
+      }
+    };
+
+    const timer = setInterval(check330PM, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
 
   const { 
     trades: allTrades, 

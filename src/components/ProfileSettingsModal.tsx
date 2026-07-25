@@ -8,8 +8,9 @@ import { parseKotakNeoText, matchExecutionsIntoTrades } from '../utils/statement
 import { 
   X, User, ShieldAlert, Save, Download, Upload, 
   Database, Trash2, IndianRupee, Settings, Plus,
-  Percent, HelpCircle
+  Percent, HelpCircle, Send, CheckCircle, AlertCircle
 } from 'lucide-react';
+import { testTelegramConnection } from '../utils/telegramNotifier';
 
 function BankLogoBadge({ bankName }: { bankName: string }) {
   const localLogo = getBankLogoSvg(bankName);
@@ -96,10 +97,19 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
     weeklyRetrospectives,
     bankTransactions,
     subscriptionExpenses,
-    noTradeDays
+    noTradeDays,
+    telegramConfig,
+    setTelegramConfig,
+    sendDailySummaryToTelegram
   } = useTradeStore();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'charges' | 'backup' | 'danger'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'telegram' | 'charges' | 'backup' | 'danger'>('profile');
+
+  // Telegram Settings State
+  const [botTokenInput, setBotTokenInput] = useState(telegramConfig.botToken || '');
+  const [chatIdInput, setChatIdInput] = useState(telegramConfig.chatId || '');
+  const [autoNotifyInput, setAutoNotifyInput] = useState(telegramConfig.autoNotifyAt330PM || false);
+  const [telegramStatus, setTelegramStatus] = useState<{ loading: boolean; success?: boolean; msg?: string }>({ loading: false });
 
   // Profile forms
   const [profileNameInput, setProfileNameInput] = useState(userName);
@@ -494,6 +504,15 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
             >
               <User size={14} color="#3b82f6" />
               <span>Profile & Accounts</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('telegram')} 
+              className={`btn ${activeTab === 'telegram' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ border: 'none', justifyContent: 'flex-start', fontSize: '0.8rem', padding: '8px 12px', gap: '8px' }}
+            >
+              <Send size={14} color="#0088cc" />
+              <span>Telegram Bot Summary</span>
             </button>
 
             <button 
@@ -897,6 +916,153 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: Telegram Bot Integration */}
+            {activeTab === 'telegram' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                  <h3 style={{ fontSize: '0.98rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Send size={18} color="#0088cc" />
+                    <span>Telegram Daily Market Close Bot (3:30 PM Report)</span>
+                  </h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.4' }}>
+                    Receive automated 3:30 PM daily P&L summaries, trade counts, win rate, and brokerage breakdown directly to your personal Telegram or Telegram Group.
+                  </p>
+
+                  {/* 3-Step Guide */}
+                  <div style={{ background: 'rgba(0, 136, 204, 0.08)', border: '1px solid rgba(0, 136, 204, 0.25)', borderRadius: '8px', padding: '12px 14px', marginBottom: '18px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <strong style={{ color: '#0088cc', display: 'block', marginBottom: '6px' }}>⚡ Quick 2-Minute Telegram Setup:</strong>
+                    <ol style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <li>Open Telegram & search for <strong>@BotFather</strong> to create a new bot (run <code>/newbot</code>) and copy your <strong>HTTP API Token</strong>.</li>
+                      <li>Start a chat with your bot (or add it to your channel/group).</li>
+                      <li>Search for <strong>@userinfobot</strong> or <strong>@raw_data_bot</strong> in Telegram to get your <strong>Chat ID</strong> (numerical ID like <code>123456789</code>).</li>
+                    </ol>
+                  </div>
+
+                  {/* Telegram Form */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
+                        Telegram Bot API Token:
+                      </label>
+                      <input 
+                        type="password" 
+                        value={botTokenInput} 
+                        onChange={(e) => setBotTokenInput(e.target.value)} 
+                        placeholder="e.g. 123456789:ABCdefGHIjklMNOpqrSTUvwxYZ"
+                        className="form-input" 
+                        style={{ width: '100%', fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
+                        Your Telegram Chat ID / Channel ID:
+                      </label>
+                      <input 
+                        type="text" 
+                        value={chatIdInput} 
+                        onChange={(e) => setChatIdInput(e.target.value)} 
+                        placeholder="e.g. 987654321"
+                        className="form-input" 
+                        style={{ width: '100%', fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                      <input 
+                        type="checkbox" 
+                        id="autoTelegramCheckbox" 
+                        checked={autoNotifyInput} 
+                        onChange={(e) => setAutoNotifyInput(e.target.checked)} 
+                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="autoTelegramCheckbox" style={{ fontSize: '0.78rem', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 600 }}>
+                        Auto-send summary report at 3:30 PM IST daily
+                      </label>
+                    </div>
+
+                    {/* Test Status Alert */}
+                    {telegramStatus.msg && (
+                      <div style={{ 
+                        fontSize: '0.75rem', 
+                        padding: '8px 12px', 
+                        borderRadius: '6px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '6px',
+                        background: telegramStatus.success ? 'rgba(48, 209, 88, 0.12)' : 'rgba(255, 69, 58, 0.12)',
+                        border: `1px solid ${telegramStatus.success ? 'rgba(48, 209, 88, 0.3)' : 'rgba(255, 69, 58, 0.3)'}`,
+                        color: telegramStatus.success ? 'var(--color-win)' : 'var(--color-loss)'
+                      }}>
+                        {telegramStatus.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                        <span>{telegramStatus.msg}</span>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        disabled={telegramStatus.loading}
+                        onClick={async () => {
+                          if (!botTokenInput || !chatIdInput) {
+                            setTelegramStatus({ loading: false, success: false, msg: 'Please enter Bot Token & Chat ID.' });
+                            return;
+                          }
+                          setTelegramStatus({ loading: true });
+                          const res = await testTelegramConnection(botTokenInput, chatIdInput);
+                          if (res.success) {
+                            setTelegramStatus({ loading: false, success: true, msg: 'Test message sent! Check your Telegram app.' });
+                          } else {
+                            setTelegramStatus({ loading: false, success: false, msg: res.error || 'Failed to send message.' });
+                          }
+                        }}
+                        style={{ fontSize: '0.78rem', padding: '8px 14px' }}
+                      >
+                        <Send size={14} />
+                        <span>{telegramStatus.loading ? 'Sending...' : 'Test Connection'}</span>
+                      </button>
+
+                      <button 
+                        type="button" 
+                        className="btn btn-primary" 
+                        onClick={() => {
+                          setTelegramConfig({
+                            botToken: botTokenInput.trim(),
+                            chatId: chatIdInput.trim(),
+                            autoNotifyAt330PM: autoNotifyInput
+                          });
+                          setTelegramStatus({ loading: false, success: true, msg: 'Telegram Bot settings saved successfully!' });
+                        }}
+                        style={{ fontSize: '0.78rem', padding: '8px 14px' }}
+                      >
+                        <Save size={14} />
+                        <span>Save Config</span>
+                      </button>
+
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        onClick={async () => {
+                          setTelegramStatus({ loading: true });
+                          const res = await sendDailySummaryToTelegram();
+                          if (res.success) {
+                            setTelegramStatus({ loading: false, success: true, msg: "Today's summary report sent to Telegram!" });
+                          } else {
+                            setTelegramStatus({ loading: false, success: false, msg: res.error || 'Failed to send summary.' });
+                          }
+                        }}
+                        style={{ fontSize: '0.78rem', padding: '8px 14px', background: 'rgba(0, 136, 204, 0.15)', borderColor: '#0088cc', color: '#0088cc' }}
+                      >
+                        <span>📲 Send Today's Summary Now</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

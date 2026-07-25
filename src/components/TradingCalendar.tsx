@@ -675,7 +675,7 @@ export function TradingCalendar({
 
   // Calculate calendar-aligned weeks of the financial year (Monday to Sunday)
   const getFYWeeks = () => {
-    const weeksList = [];
+    const weeksList: any[] = [];
     let currentPtr = new Date(fyStartYear, 3, 1); // April 1st
     const endPtr = new Date(fyStartYear + 1, 2, 31); // March 31st of next year
     
@@ -762,7 +762,7 @@ export function TradingCalendar({
 
   // Calculate 12 months of the financial year
   const getFYMonths = () => {
-    const monthsList = [];
+    const monthsList: any[] = [];
     for (let m = 0; m < 12; m++) {
       const mMonthIndex = (3 + m) % 12;
       const mYear = mMonthIndex < 3 ? fyStartYear + 1 : fyStartYear;
