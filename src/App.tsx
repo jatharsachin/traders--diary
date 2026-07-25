@@ -21,17 +21,38 @@ import { FINANCIAL_YEARS } from './utils/fyHelper';
 type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'help';
 
 
-const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
-const TradingCalendar = lazy(() => import('./components/TradingCalendar').then(m => ({ default: m.TradingCalendar })));
-const TradeTable = lazy(() => import('./components/TradeTable').then(m => ({ default: m.TradeTable })));
-const StrategyManager = lazy(() => import('./components/StrategyManager').then(m => ({ default: m.StrategyManager })));
-const Ledger = lazy(() => import('./components/Ledger').then(m => ({ default: m.Ledger })));
-const AccountManager = lazy(() => import('./components/AccountManager').then(m => ({ default: m.AccountManager })));
-const ProfileSettingsModal = lazy(() => import('./components/ProfileSettingsModal').then(m => ({ default: m.ProfileSettingsModal })));
-const TradeLogger = lazy(() => import('./components/TradeLogger').then(m => ({ default: m.TradeLogger })));
-const Taxation = lazy(() => import('./components/Taxation').then(m => ({ default: m.Taxation })));
-const DayBook = lazy(() => import('./components/DayBook').then(m => ({ default: m.DayBook })));
-const Help = lazy(() => import('./components/Help').then(m => ({ default: m.Help })));
+const safeLazy = (importFn: () => Promise<any>) =>
+  lazy(() =>
+    importFn().catch(() => {
+      return new Promise((resolve) => setTimeout(resolve, 500))
+        .then(importFn)
+        .catch((err) => {
+          console.error('Lazy chunk import failed:', err);
+          return {
+            default: () => (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <p style={{ fontSize: '0.9rem', marginBottom: '12px' }}>Failed to load module offline or due to connection refresh.</p>
+                <button className="btn btn-primary" onClick={() => window.location.reload()}>
+                  Reload Page
+                </button>
+              </div>
+            ),
+          };
+        });
+    })
+  );
+
+const Dashboard = safeLazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const TradingCalendar = safeLazy(() => import('./components/TradingCalendar').then(m => ({ default: m.TradingCalendar })));
+const TradeTable = safeLazy(() => import('./components/TradeTable').then(m => ({ default: m.TradeTable })));
+const StrategyManager = safeLazy(() => import('./components/StrategyManager').then(m => ({ default: m.StrategyManager })));
+const Ledger = safeLazy(() => import('./components/Ledger').then(m => ({ default: m.Ledger })));
+const AccountManager = safeLazy(() => import('./components/AccountManager').then(m => ({ default: m.AccountManager })));
+const ProfileSettingsModal = safeLazy(() => import('./components/ProfileSettingsModal').then(m => ({ default: m.ProfileSettingsModal })));
+const TradeLogger = safeLazy(() => import('./components/TradeLogger').then(m => ({ default: m.TradeLogger })));
+const Taxation = safeLazy(() => import('./components/Taxation').then(m => ({ default: m.Taxation })));
+const DayBook = safeLazy(() => import('./components/DayBook').then(m => ({ default: m.DayBook })));
+const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
