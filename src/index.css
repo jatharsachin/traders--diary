@@ -264,6 +264,8 @@ body {
   position: relative;
   overflow: hidden;
   /* Keep standard card containers stable and prevent wobbly shifting on hover */
+  transform: translateZ(0);
+  backface-visibility: hidden;
   transition: 
     background-color var(--transition-glass), 
     border-color var(--transition-glass),

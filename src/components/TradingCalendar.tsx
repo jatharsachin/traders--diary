@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2 } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
@@ -758,7 +758,7 @@ export function TradingCalendar({
     
     return weeksList;
   };
-  const fyWeeks = getFYWeeks();
+  const fyWeeks = useMemo(() => getFYWeeks(), [trades, investments, noTradeDays, fyStartYear]);
 
   // Calculate 12 months of the financial year
   const getFYMonths = () => {
@@ -805,7 +805,7 @@ export function TradingCalendar({
     }
     return monthsList;
   };
-  const fyMonthsList = getFYMonths();
+  const fyMonthsList = useMemo(() => getFYMonths(), [trades, investments, noTradeDays, fyStartYear]);
 
   // Weekly Streaks calculation
   const getWeeklyStreaks = () => {
