@@ -97,7 +97,7 @@ export function calculateIndianTaxesAndBrokerage(
       stampDuty = buyValue * 0.00003; // 0.003% on buy side only
     }
   } else if (segment === 'F&O') {
-    const isOptionCalculated = isOption !== undefined ? isOption : (buyPrice < 2000); // Options premium heuristic fallback
+    const isOptionCalculated = isOption !== undefined ? isOption : false; // Explicit options flag check (prevents low-price Futures misclassification)
 
     if (isOptionCalculated) {
       // Options

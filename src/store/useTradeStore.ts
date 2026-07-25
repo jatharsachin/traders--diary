@@ -262,10 +262,19 @@ const computeTradeCalculations = (
     }
   } 
 
-  // Gross PnL
+  // Gross PnL (accounting for partial exit legs if present)
+  let effectiveExitPrice = exitPrice;
+  if (trade.partialExits && trade.partialExits.length > 0) {
+    const totalPartialQty = trade.partialExits.reduce((sum, leg) => sum + leg.qty, 0);
+    const totalPartialVal = trade.partialExits.reduce((sum, leg) => sum + (leg.qty * leg.price), 0);
+    if (totalPartialQty > 0) {
+      effectiveExitPrice = totalPartialVal / totalPartialQty;
+    }
+  }
+
   const grossPnL = action === 'BUY' 
-    ? (exitPrice - entryPrice) * qty 
-    : (entryPrice - exitPrice) * qty;
+    ? (effectiveExitPrice - entryPrice) * qty 
+    : (entryPrice - effectiveExitPrice) * qty;
 
   // Taxes & Brokerage
   let brokerage = 0;
@@ -277,8 +286,8 @@ const computeTradeCalculations = (
     taxes = trade.manualTaxes || 0;
     totalCharges = brokerage + taxes;
   } else {
-    const isOpt = trade.optionType && trade.optionType !== 'None';
-    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, chargesConfig, isOpt, trade.partialExits, trade.strategy);
+    const isOpt = segment === 'F&O' && ((trade.optionType && trade.optionType !== 'None') || (trade.symbol?.toUpperCase().includes('CE') || trade.symbol?.toUpperCase().includes('PE')));
+    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, effectiveExitPrice, chargesConfig, isOpt, trade.partialExits, trade.strategy);
     brokerage = taxResult.brokerage;
     taxes = taxResult.totalCharges - brokerage;
     totalCharges = taxResult.totalCharges;
@@ -291,7 +300,7 @@ const computeTradeCalculations = (
 
   // Risk-to-Reward Ratio (calculated only if a valid stopLoss > 0 is provided)
   const riskPoints = (stopLoss && stopLoss > 0) ? Math.abs(entryPrice - stopLoss) : 0;
-  const rewardPoints = action === 'BUY' ? (exitPrice - entryPrice) : (entryPrice - exitPrice);
+  const rewardPoints = action === 'BUY' ? (effectiveExitPrice - entryPrice) : (entryPrice - effectiveExitPrice);
   const actualRR = riskPoints > 0 ? rewardPoints / riskPoints : 0;
 
   return {
