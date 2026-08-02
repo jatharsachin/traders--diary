@@ -14,7 +14,7 @@
 5. **`StrategyManager.tsx`**: Setups, rules checklist, strategy-wise performance analytics.
 6. **`Ledger.tsx`**: Capital deposits/withdrawals, bank transactions, expenses, investment portfolio tracker.
 7. **`AccountManager.tsx`**: Multi-broker account management (Zerodha, Groww, Angel One, Upstox, Fyers, Dhan, Kotak Neo), bank accounts & custom broker charges configs.
-8. **`TradeLogger.tsx`**: Comprehensive trade entry modal (Options CE/PE, partial exit legs, SL/Target, emotions, mistakes).
+8. **`TradeLogger.tsx`**: Comprehensive trade entry modal (Options CE/PE, partial exit legs, SL/Target, emotions, mistakes, **Multi-Select Execution Mistake Tags**).
 9. **`Taxation.tsx`**: Indian tax calculation engine (STCG, LTCG, F&O income, STT, SEBI, GST, stamp duty).
 10. **`ProfileSettingsModal.tsx`**: User profile, Financial Year locking, **Telegram Bot Configuration & 3:30 PM Auto-Notifier**, backup/restore, cloud settings.
 
@@ -26,6 +26,8 @@
 - `brandLogos.ts`: Visual logos for Indian stock brokers and banks.
 
 ## 4. Audited & Verified Edge Cases
+- **Multi-Select Execution Mistake Tags**: `TradeLogger.tsx` supports selecting multiple execution mistakes per trade (e.g. FOMO Entry + Panic Exit). Uses `getTradeMistakes()` and `formatTradeMistakes()` for 100% backward compatibility with single-string trades.
+- **Data Integrity Assurance**: Existing trade logs, capital adjustments, and broker accounts are never overwritten, deleted, or reset. Zero auto-generated mock trades.
 - **Telegram 3:30 PM Auto-Scheduler**: Checks local IST time every 30s in `App.tsx` and sends automatic daily summary to user's Telegram if `autoNotifyAt330PM` is enabled.
 - **F&O Heuristic Fallback**: Fixed `isOption` calculation in `taxEngine.ts` to prevent low-priced Stock Futures from being misclassified as Options.
 - **Partial Exits RR & PnL**: Weighted average exit price calculated across partial exit legs for accurate net PnL, ROI, and Risk-to-Reward (RR) ratio.
