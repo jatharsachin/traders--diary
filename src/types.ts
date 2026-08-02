@@ -157,12 +157,6 @@ export interface BrokerChargesConfig {
   futuresMaxFee: number;    // e.g. ₹20
 }
 
-export interface TelegramConfig {
-  botToken: string;
-  chatId: string;
-  autoNotifyAt330PM: boolean;
-}
-
 export function getTradeMistakes(t: { mistake?: string; mistakes?: (Mistake | string)[] }): Mistake[] {
   if (!t) return [];
   if (t.mistakes && Array.isArray(t.mistakes) && t.mistakes.length > 0) {

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download
+  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download, ArrowUpDown
 } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
@@ -90,6 +90,21 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const [subNotes, setSubNotes] = useState('');
   const [selectedBankTxId, setSelectedBankTxId] = useState<string | null>(null);
   const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
+
+  type SubSortField = 'date' | 'name' | 'frequency' | 'paidSource' | 'amount' | 'notes';
+  type SortDirection = 'asc' | 'desc';
+
+  const [subSortField, setSubSortField] = useState<SubSortField>('date');
+  const [subSortDirection, setSubSortDirection] = useState<SortDirection>('desc');
+
+  const handleSubSort = (field: SubSortField) => {
+    if (subSortField === field) {
+      setSubSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSubSortField(field);
+      setSubSortDirection(field === 'date' || field === 'amount' ? 'desc' : 'asc');
+    }
+  };
 
   const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
     const content = [
@@ -326,6 +341,49 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     if (!startLimit || !endLimit) return true;
     return sub.date >= startLimit && sub.date <= endLimit;
   });
+
+  const sortedSubscriptionExpenses = useMemo(() => {
+    return [...activeSubscriptionExpenses].sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      if (subSortField === 'date') {
+        valA = a.date || '';
+        valB = b.date || '';
+      } else if (subSortField === 'name') {
+        valA = (a.name || '').toLowerCase();
+        valB = (b.name || '').toLowerCase();
+      } else if (subSortField === 'frequency') {
+        valA = (a.frequency || '').toLowerCase();
+        valB = (b.frequency || '').toLowerCase();
+      } else if (subSortField === 'paidSource') {
+        if (a.paymentSource === 'Bank') {
+          const bank = bankAccounts.find((bk) => bk.id === a.bankAccountId);
+          valA = `Bank: ${bank ? bank.bankName : ''}`.toLowerCase();
+        } else {
+          const acc = brokerAccounts.find((acc) => acc.id === a.brokerAccountId);
+          valA = `Broker: ${acc ? `${acc.broker} (${acc.accountName})` : ''}`.toLowerCase();
+        }
+        if (b.paymentSource === 'Bank') {
+          const bank = bankAccounts.find((bk) => bk.id === b.bankAccountId);
+          valB = `Bank: ${bank ? bank.bankName : ''}`.toLowerCase();
+        } else {
+          const acc = brokerAccounts.find((acc) => acc.id === b.brokerAccountId);
+          valB = `Broker: ${acc ? `${acc.broker} (${acc.accountName})` : ''}`.toLowerCase();
+        }
+      } else if (subSortField === 'amount') {
+        valA = a.amount || 0;
+        valB = b.amount || 0;
+      } else if (subSortField === 'notes') {
+        valA = (a.notes || '').toLowerCase();
+        valB = (b.notes || '').toLowerCase();
+      }
+
+      if (valA < valB) return subSortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return subSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [activeSubscriptionExpenses, subSortField, subSortDirection, bankAccounts, brokerAccounts]);
 
   // Find unique months in records for pagination
   const monthsWithData = Array.from(new Set(detailedLedger.map(item => item.date.substring(0, 7)))).sort();
@@ -1277,17 +1335,71 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
               <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)' }}>
-                  <th style={{ padding: '8px' }}>Date</th>
-                  <th style={{ padding: '8px' }}>Subscription Name</th>
-                  <th style={{ padding: '8px' }}>Frequency</th>
-                  <th style={{ padding: '8px' }}>Paid Source</th>
-                  <th style={{ padding: '8px', textAlign: 'right' }}>Amount (₹)</th>
-                  <th style={{ padding: '8px' }}>Notes</th>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', userSelect: 'none' }}>
+                  <th 
+                    onClick={() => handleSubSort('date')} 
+                    style={{ padding: '8px 10px', cursor: 'pointer', color: subSortField === 'date' ? 'var(--primary)' : 'var(--text-main)' }}
+                    title="Click to sort by Date"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>DATE</span>
+                      <ArrowUpDown size={11} color={subSortField === 'date' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSubSort('name')} 
+                    style={{ padding: '8px 10px', cursor: 'pointer', color: subSortField === 'name' ? 'var(--primary)' : 'var(--text-main)' }}
+                    title="Click to sort by Subscription Name"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>SUBSCRIPTION NAME</span>
+                      <ArrowUpDown size={11} color={subSortField === 'name' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSubSort('frequency')} 
+                    style={{ padding: '8px 10px', cursor: 'pointer', color: subSortField === 'frequency' ? 'var(--primary)' : 'var(--text-main)' }}
+                    title="Click to sort by Frequency"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>FREQUENCY</span>
+                      <ArrowUpDown size={11} color={subSortField === 'frequency' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSubSort('paidSource')} 
+                    style={{ padding: '8px 10px', cursor: 'pointer', color: subSortField === 'paidSource' ? 'var(--primary)' : 'var(--text-main)' }}
+                    title="Click to sort by Paid Source"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>PAID SOURCE</span>
+                      <ArrowUpDown size={11} color={subSortField === 'paidSource' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSubSort('amount')} 
+                    style={{ padding: '8px 10px', textAlign: 'right', cursor: 'pointer', color: subSortField === 'amount' ? 'var(--primary)' : 'var(--text-main)' }}
+                    title="Click to sort by Amount"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                      <span>AMOUNT (₹)</span>
+                      <ArrowUpDown size={11} color={subSortField === 'amount' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSubSort('notes')} 
+                    style={{ padding: '8px 10px', cursor: 'pointer', color: subSortField === 'notes' ? 'var(--primary)' : 'var(--text-main)' }}
+                    title="Click to sort by Notes"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>NOTES</span>
+                      <ArrowUpDown size={11} color={subSortField === 'notes' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {activeSubscriptionExpenses.map((sub) => {
+                {sortedSubscriptionExpenses.map((sub) => {
                   let sourceLabel = '';
                   if (sub.paymentSource === 'Bank') {
                     const bank = bankAccounts.find(b => b.id === sub.bankAccountId);

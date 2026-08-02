@@ -5,7 +5,7 @@ import { getTradeMistakes } from '../types';
 import { 
   IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
   ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
-  Eye, EyeOff, Save, Award, TrendingDown, Send
+  Eye, EyeOff, Save, Award, TrendingDown
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
@@ -593,8 +593,8 @@ export function Dashboard({
     
     rawTrades.forEach((t) => {
       const b = t.broker || 'Other';
-      const acc = brokerAccounts.find(a => a.id === t.brokerAccountId);
-      const accName = acc ? acc.accountName : 'Default User';
+      const acc = brokerAccounts.find(a => a.id === t.brokerAccountId) || brokerAccounts.find(a => a.broker === b);
+      const accName = acc ? acc.accountName : (userName || 'Primary');
       const key = `${b} (${accName})`;
       if (!brokerMap[key]) {
         brokerMap[key] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0, investmentPnL: 0, activeInvestmentValue: 0 };
@@ -611,8 +611,8 @@ export function Dashboard({
 
     investments.forEach((inv) => {
       const b = inv.broker || 'Other';
-      const acc = brokerAccounts.find(a => a.id === inv.brokerAccountId);
-      const accName = acc ? acc.accountName : 'Default User';
+      const acc = brokerAccounts.find(a => a.id === inv.brokerAccountId) || brokerAccounts.find(a => a.broker === b);
+      const accName = acc ? acc.accountName : (userName || 'Primary');
       const key = `${b} (${accName})`;
       if (!brokerMap[key]) {
         brokerMap[key] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0, investmentPnL: 0, activeInvestmentValue: 0 };
@@ -1303,35 +1303,6 @@ export function Dashboard({
               {selectedFY}
             </div>
           </div>
-
-          <button
-            onClick={async () => {
-              const res = await sendDailySummaryToTelegram();
-              if (res.success) {
-                alert("Today's trading summary report successfully sent to Telegram! 🚀");
-              } else {
-                alert(res.error || "Failed to send to Telegram. Please configure Bot Token & Chat ID in Settings.");
-              }
-            }}
-            className="btn btn-secondary"
-            style={{
-              padding: '8px 14px',
-              fontSize: '0.78rem',
-              borderRadius: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              borderColor: '#0088cc',
-              color: '#0088cc',
-              background: 'rgba(0, 136, 204, 0.12)',
-              fontWeight: 650,
-              cursor: 'pointer'
-            }}
-            title="Send Today's PnL & Trade Summary to Telegram"
-          >
-            <Send size={14} color="#0088cc" />
-            <span>Telegram Summary</span>
-          </button>
         </div>
       </div>
 
