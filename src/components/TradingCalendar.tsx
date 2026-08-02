@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { getTradeMistakes } from '../types';
-import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
 import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM } from '../utils/fyHelper';
+import { WeeklyJournalModal } from './WeeklyJournalModal';
 
 export const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   // 2025
@@ -125,6 +126,7 @@ export function TradingCalendar({
   const [onlineHolidays, setOnlineHolidays] = useState<Record<string, string>>({});
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [calendarViewMode, setCalendarViewMode] = useState<'tile' | 'row'>('tile');
+  const [isJournalOpen, setIsJournalOpen] = useState(false);
 
   // Synchronize currentDate with selectedFY boundaries
   useEffect(() => {
@@ -1684,6 +1686,26 @@ export function TradingCalendar({
           >
             <ChevronRight size={16} />
           </button>
+
+          <button 
+            onClick={() => setIsJournalOpen(true)}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'rgba(59, 130, 246, 0.1)',
+              color: 'var(--primary)',
+              marginLeft: '4px'
+            }}
+            title="Write / Edit Weekly Journal Reflection"
+          >
+            <BookOpen size={14} color="var(--primary)" />
+            <span>Weekly Journal</span>
+          </button>
         </div>
       </div>
 
@@ -2371,6 +2393,12 @@ export function TradingCalendar({
           }
         }
       `}</style>
+
+      <WeeklyJournalModal 
+        isOpen={isJournalOpen} 
+        onClose={() => setIsJournalOpen(false)} 
+      />
+
     </div>
   );
 }

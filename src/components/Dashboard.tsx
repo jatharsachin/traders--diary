@@ -5,12 +5,14 @@ import { getTradeMistakes } from '../types';
 import { 
   IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
   ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
-  Eye, EyeOff, Save, Award, TrendingDown
+  Eye, EyeOff, Save, Award, TrendingDown, BookOpen
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { BROKER_LOGOS } from '../utils/brandLogos';
 import { OFFLINE_NSE_HOLIDAYS } from './TradingCalendar';
+import { ExecutiveReportModal } from './ExecutiveReportModal';
+import { WeeklyJournalModal } from './WeeklyJournalModal';
 
 
 const parseLocalDate = (dateStr: string) => {
@@ -64,6 +66,8 @@ export function Dashboard({
   const [selectedBroker, setSelectedBroker] = useState<string>('All');
   const [showCombined, setShowCombined] = useState(false);
   const [selectedChartMonth, setSelectedChartMonth] = useState<string>('');
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
 
   // 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries
   const getMissingLogDates = (): string[] => {
@@ -1423,6 +1427,42 @@ export function Dashboard({
             {showCombined ? <ToggleRight size={18} color="var(--primary)" /> : <ToggleLeft size={18} />}
             <span>Combined View</span>
           </button>
+
+          <button 
+            onClick={() => setIsJournalModalOpen(true)}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'rgba(59, 130, 246, 0.1)',
+              color: 'var(--primary)'
+            }}
+            title="Open Guided Weekly Reflection Journal"
+          >
+            <BookOpen size={15} color="var(--primary)" />
+            <span>Weekly Journal</span>
+          </button>
+
+          <button 
+            onClick={() => setIsReportModalOpen(true)}
+            className="btn btn-primary"
+            style={{ 
+              padding: '6px 14px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              fontWeight: 650
+            }}
+            title="Generate & Export Executive Performance Card / PDF Report"
+          >
+            <Award size={15} />
+            <span>Executive Report</span>
+          </button>
         </div>
       </div>
 
@@ -2749,6 +2789,17 @@ export function Dashboard({
         </div>
 
       </div>
+
+      {/* Category 5 Modals */}
+      <ExecutiveReportModal 
+        isOpen={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+      />
+
+      <WeeklyJournalModal 
+        isOpen={isJournalModalOpen} 
+        onClose={() => setIsJournalModalOpen(false)} 
+      />
 
     </div>
   );
