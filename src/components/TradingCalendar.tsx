@@ -1523,8 +1523,13 @@ export function TradingCalendar({
       );
     }
 
+    const totalTradeCount = rows.reduce((sum, r) => sum + r.tradeCount, 0);
+    const totalGrossPnL = rows.reduce((sum, r) => sum + r.grossPnL, 0);
+    const totalNetPnL = rows.reduce((sum, r) => sum + r.netPnL, 0);
+    const totalCharges = rows.reduce((sum, r) => sum + r.charges, 0);
+
     return (
-      <div className="table-container" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+      <div className="table-container" style={{ maxHeight: '450px', overflowY: 'auto' }}>
         <table className="custom-table" style={{ width: '100%', fontSize: '0.85rem' }}>
           <thead>
             <tr>
@@ -1570,6 +1575,43 @@ export function TradingCalendar({
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr 
+              style={{ 
+                borderTop: '2px solid var(--border-color)', 
+                background: 'rgba(255, 255, 255, 0.03)', 
+                fontWeight: 700 
+              }}
+            >
+              <td style={{ fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                Total Summary
+              </td>
+              <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.9rem', color: 'var(--primary)' }}>
+                {totalTradeCount}
+              </td>
+              <td style={{ 
+                textAlign: 'right', 
+                fontFamily: 'var(--font-mono)', 
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                color: !isPnlVisible ? 'var(--text-dim)' : totalGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
+              }}>
+                {isPnlVisible ? `${totalGrossPnL >= 0 ? '+' : ''}${formatCurrency(totalGrossPnL)}` : '••••'}
+              </td>
+              <td style={{ 
+                textAlign: 'right', 
+                fontFamily: 'var(--font-mono)', 
+                fontWeight: 850,
+                fontSize: '0.95rem',
+                color: !isPnlVisible ? 'var(--text-dim)' : totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
+              }}>
+                {isPnlVisible ? `${totalNetPnL >= 0 ? '+' : ''}${formatCurrency(totalNetPnL)}` : '••••'}
+              </td>
+              <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                {formatCurrency(totalCharges)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     );
