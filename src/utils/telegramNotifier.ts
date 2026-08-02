@@ -1,11 +1,12 @@
 import type { Trade } from '../types';
+import { getTradeMistakes } from '../types';
 
 export function formatDailyTelegramReport(
   dateStr: string,
   todayTrades: Trade[],
   isNoTradeDay: boolean = false
 ): string {
-  const formattedDate = new Date(dateStr).toLocaleDateString('en-IN', {
+  const formattedDate = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -14,24 +15,27 @@ export function formatDailyTelegramReport(
 
   if (isNoTradeDay || todayTrades.length === 0) {
     return (
-      `📊 *TRADERS DIARY - DAILY SUMMARY REPORT*\n` +
+      `📊 *TRADERS DIARY - DAILY MARKET CLOSE REPORT*\n` +
       `📅 *Date:* ${formattedDate}\n\n` +
-      `🛡️ *Status:* Disciplined No-Trade Day\n` +
-      `📝 *Summary:* No trades logged for today. Zero losses, capital preserved!\n\n` +
-      `💪 _"Patience and discipline are the hallmark of profitable trading."_`
+      `🛡️ *DISCIPLINED NO-TRADE DAY*\n` +
+      `• *Status:* No trades taken today.\n` +
+      `• *P&L:* ₹0.00\n` +
+      `• *Capital Preserved:* 100%\n\n` +
+      `💡 _"Patience is key. Preserving capital on unclear market days is a huge win!"_`
     );
   }
 
-  const grossPnL = todayTrades.reduce((sum, t) => sum + t.grossPnL, 0);
-  const brokerage = todayTrades.reduce((sum, t) => sum + t.brokerage, 0);
-  const taxes = todayTrades.reduce((sum, t) => sum + t.taxes, 0);
-  const totalCharges = brokerage + taxes;
-  const netPnL = todayTrades.reduce((sum, t) => sum + t.netPnL, 0);
-
+  const totalTrades = todayTrades.length;
   const wins = todayTrades.filter((t) => t.netPnL > 0).length;
   const losses = todayTrades.filter((t) => t.netPnL < 0).length;
   const breakevens = todayTrades.filter((t) => t.netPnL === 0).length;
-  const totalTrades = todayTrades.length;
+
+  const grossPnL = todayTrades.reduce((sum, t) => sum + t.grossPnL, 0);
+  const netPnL = todayTrades.reduce((sum, t) => sum + t.netPnL, 0);
+  const brokerage = todayTrades.reduce((sum, t) => sum + t.brokerage, 0);
+  const taxes = todayTrades.reduce((sum, t) => sum + t.taxes, 0);
+  const totalCharges = brokerage + taxes;
+
   const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0';
 
   const pnlEmoji = netPnL >= 0 ? '🚀 📈' : '⚠️ 📉';
@@ -39,7 +43,7 @@ export function formatDailyTelegramReport(
 
   // Collect top emotions and mistakes
   const emotionsList = Array.from(new Set(todayTrades.map((t) => t.emotion))).filter(Boolean).join(', ');
-  const mistakesList = Array.from(new Set(todayTrades.map((t) => t.mistake))).filter((m) => m && m !== 'None').join(', ');
+  const mistakesList = Array.from(new Set(todayTrades.flatMap((t) => getTradeMistakes(t)))).join(', ');
 
   return (
     `📊 *TRADERS DIARY - DAILY SUMMARY REPORT*\n` +

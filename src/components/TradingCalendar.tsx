@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
+import { getTradeMistakes } from '../types';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2 } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
 import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM } from '../utils/fyHelper';
@@ -261,9 +262,9 @@ export function TradingCalendar({
     // Find main mistake
     const mistakesCount: Record<string, number> = {};
     dailyTrades.forEach((t) => {
-      if (t.mistake !== 'None') {
-        mistakesCount[t.mistake] = (mistakesCount[t.mistake] || 0) + 1;
-      }
+      getTradeMistakes(t).forEach((m) => {
+        mistakesCount[m] = (mistakesCount[m] || 0) + 1;
+      });
     });
     const mainMistake = Object.entries(mistakesCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
 

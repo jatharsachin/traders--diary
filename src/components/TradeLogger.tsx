@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
+import { getTradeMistakes, formatTradeMistakes } from '../types';
 import { X, Save, ShieldAlert, Check, AlertTriangle } from 'lucide-react';
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
 import { getFinancialYear } from '../utils/fyHelper';
@@ -89,9 +90,29 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const { addTrade, editTrade, trades, setups, selectedFY, defaultBroker, brokerAccounts, brokerCharges } = useTradeStore();
   const lastTrade = trades.length > 0 ? trades[trades.length - 1] : undefined;
   const [formData, setFormData] = useState(DEFAULT_FORM_STATE);
+  const [selectedMistakes, setSelectedMistakes] = useState<Mistake[]>([]);
   const [tagsInput, setTagsInput] = useState('');
   const [showTagsField, setShowTagsField] = useState(false);
   const [error, setError] = useState('');
+
+  const toggleMistakeTag = (m: Mistake) => {
+    if (m === 'None') {
+      setSelectedMistakes([]);
+      setFormData((prev) => ({ ...prev, mistake: 'None' }));
+      return;
+    }
+    setSelectedMistakes((prev) => {
+      let next: Mistake[];
+      if (prev.includes(m)) {
+        next = prev.filter((item) => item !== m);
+      } else {
+        next = [...prev.filter((item) => item !== 'None'), m];
+      }
+      const combinedStr = next.length > 0 ? next.join(', ') : 'None';
+      setFormData((p) => ({ ...p, mistake: combinedStr as any }));
+      return next;
+    });
+  };
 
   const [lotsInput, setLotsInput] = useState<string>('');
   const [lotSizeInput, setLotSizeInput] = useState<string>('65');
@@ -168,6 +189,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     if (editTradeId) {
       const existing = trades.find((t) => t.id === editTradeId);
       if (existing) {
+        setSelectedMistakes(getTradeMistakes(existing));
         setFormData({
           date: existing.date,
           entryTime: existing.entryTime,
@@ -226,6 +248,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       if (draft) {
         try {
           const parsed = JSON.parse(draft);
+          setSelectedMistakes(getTradeMistakes(parsed));
           setFormData(parsed);
           setTagsInput(parsed.tagsInput || '');
           setManualBrokerageText((parsed.manualBrokerage || 0).toString());
@@ -265,6 +288,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       const initialAccId = matchedAcc ? matchedAcc.id : '';
       const initialDate = getDefaultDateForFY(selectedFY);
 
+      setSelectedMistakes([]);
       setFormData({
         ...DEFAULT_FORM_STATE,
         broker: initialBroker,
@@ -615,12 +639,17 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       }
     }
 
+    const cleanMistakes = selectedMistakes.filter(m => m !== 'None');
+    const finalMistakeStr = cleanMistakes.length > 0 ? cleanMistakes.join(', ') : 'None';
+
     if (isMultiLeg) {
       const leg1Symbol = finalSymbol || `${underlyingIndex} ${formData.strikePrice} ${formData.optionType}`;
       const calculatedLeg2Symbol = leg2Symbol || `${underlyingIndex} ${leg2Strike} ${leg2OptionType}`;
 
       const finalTradeData = {
         ...formData,
+        mistake: finalMistakeStr,
+        mistakes: cleanMistakes,
         symbol: leg1Symbol,
         exitDate: formData.date,
         tags: [...parsedTags, '#spread_leg1', '#hedged'],
@@ -628,6 +657,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
 
       const finalTrade2Data = {
         ...formData,
+        mistake: finalMistakeStr,
+        mistakes: cleanMistakes,
         id: crypto.randomUUID ? crypto.randomUUID() : `trade-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         action: leg2Action,
         strikePrice: leg2Strike,
@@ -647,6 +678,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     } else {
       const finalTradeData = {
         ...formData,
+        mistake: finalMistakeStr,
+        mistakes: cleanMistakes,
         symbol: finalSymbol,
         exitDate: formData.product === 'Delivery' ? (formData.exitDate || formData.date) : formData.date,
         tags: parsedTags,
@@ -1676,16 +1709,25 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
               </div>
 
               <div className="form-group" style={{ marginTop: '16px' }}>
-                <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>Execution Mistake Tag</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Execution Mistake Tag(s)</label>
+                  {selectedMistakes.length > 0 && (
+                    <span style={{ fontSize: '0.72rem', color: '#ff6b6b', fontWeight: 650, background: 'rgba(255, 69, 58, 0.1)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(255, 69, 58, 0.25)' }}>
+                      {selectedMistakes.length} tag{selectedMistakes.length > 1 ? 's' : ''} selected
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {MISTAKES.map((m) => {
                     const isNone = m === 'None';
-                    const isSelected = formData.mistake === m;
+                    const isSelected = isNone 
+                      ? selectedMistakes.length === 0 
+                      : selectedMistakes.includes(m);
                     return (
                       <button
                         type="button"
                         key={m}
-                        onClick={() => setFormData((prev) => ({ ...prev, mistake: m }))}
+                        onClick={() => toggleMistakeTag(m)}
                         className="btn"
                         style={{
                           padding: '6px 12px',
@@ -1697,28 +1739,24 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                           transition: 'all 0.15s ease',
                           cursor: 'pointer',
                           background: isSelected 
-                            ? (isNone ? 'var(--color-win-bg)' : 'var(--color-loss-bg)') 
+                            ? (isNone ? 'var(--color-win-bg)' : 'rgba(255, 69, 58, 0.18)') 
                             : 'var(--bg-card)',
                           border: isSelected 
                             ? `1.5px solid ${isNone ? 'var(--color-win)' : 'var(--color-loss)'}` 
                             : '1.5px solid var(--border-color)',
                           color: isSelected 
-                            ? (isNone ? 'var(--color-win)' : 'var(--color-loss)') 
+                            ? (isNone ? 'var(--color-win)' : '#ff6b6b') 
                             : 'var(--text-dim)',
-                          fontWeight: isSelected ? 600 : 400
+                          fontWeight: isSelected ? 650 : 400,
+                          boxShadow: isSelected ? (isNone ? '0 0 8px rgba(16, 185, 129, 0.2)' : '0 0 8px rgba(255, 69, 58, 0.25)') : 'none'
                         }}
                       >
-                        {isNone ? (
-                          <>
-                            <Check size={12} />
-                            <span>No Mistake (Clean Trade)</span>
-                          </>
+                        {isSelected ? (
+                          <Check size={12} color={isNone ? 'var(--color-win)' : '#ff6b6b'} />
                         ) : (
-                          <>
-                            <AlertTriangle size={12} />
-                            <span>{m}</span>
-                          </>
+                          isNone ? <Check size={12} /> : <AlertTriangle size={12} />
                         )}
+                        <span>{isNone ? 'No Mistake (Clean Trade)' : m}</span>
                       </button>
                     );
                   })}

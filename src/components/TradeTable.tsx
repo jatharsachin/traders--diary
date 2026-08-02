@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import type { Trade } from '../types';
+import type { Trade, Mistake } from '../types';
+import { getTradeMistakes } from '../types';
 import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings, X, SlidersHorizontal } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
@@ -125,7 +126,7 @@ export function TradeTable({
     const matchesSegment = selectedSegment === 'All' || trade.segment === selectedSegment;
     const matchesAction = selectedAction === 'All' || trade.action === selectedAction;
     const matchesStrategy = selectedStrategy === 'All' || trade.strategy === selectedStrategy;
-    const matchesMistake = selectedMistake === 'All' || trade.mistake === selectedMistake;
+    const matchesMistake = selectedMistake === 'All' || getTradeMistakes(trade).includes(selectedMistake as Mistake);
     const matchesSetupType = selectedSetupType === 'All' || trade.setupType === selectedSetupType;
     const matchesTag = !selectedTag.trim() || (trade.tags && trade.tags.some((tag: string) => tag.toLowerCase().includes(selectedTag.trim().toLowerCase())));
     const matchesBroker = selectedBroker === 'All' || trade.broker === selectedBroker;
@@ -1016,19 +1017,28 @@ export function TradeTable({
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <span style={{ fontSize: '0.75rem' }}>Mood: {trade.emotion}</span>
-                        {trade.mistake !== 'None' ? (
-                          <span 
-                            style={{ 
-                              fontSize: '0.7rem', 
-                              color: 'var(--color-loss)', 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              gap: '2px' 
-                            }}
-                          >
-                            <ShieldAlert size={10} />
-                            {trade.mistake}
-                          </span>
+                        {getTradeMistakes(trade).length > 0 ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                            {getTradeMistakes(trade).map((m) => (
+                              <span 
+                                key={m}
+                                style={{ 
+                                  fontSize: '0.68rem', 
+                                  color: 'var(--color-loss)', 
+                                  background: 'rgba(255, 69, 58, 0.1)',
+                                  border: '1px solid rgba(255, 69, 58, 0.25)',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '3px' 
+                                }}
+                              >
+                                <ShieldAlert size={9} />
+                                {m}
+                              </span>
+                            ))}
+                          </div>
                         ) : (
                           <span 
                             style={{ 

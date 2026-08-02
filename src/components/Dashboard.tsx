@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
+import { getTradeMistakes } from '../types';
 import { 
   IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
   ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
@@ -838,15 +839,16 @@ export function Dashboard({
     const mistakeMap: Record<string, { count: number; loss: number }> = {};
 
     trades.forEach((t) => {
-      if (t.mistake && t.mistake !== 'None') {
-        if (!mistakeMap[t.mistake]) {
-          mistakeMap[t.mistake] = { count: 0, loss: 0 };
+      const mList = getTradeMistakes(t);
+      mList.forEach((m) => {
+        if (!mistakeMap[m]) {
+          mistakeMap[m] = { count: 0, loss: 0 };
         }
-        mistakeMap[t.mistake].count += 1;
+        mistakeMap[m].count += 1;
         if (t.netPnL < 0) {
-          mistakeMap[t.mistake].loss += Math.abs(t.netPnL);
+          mistakeMap[m].loss += Math.abs(t.netPnL);
         }
-      }
+      });
     });
 
     return Object.entries(mistakeMap).map(([name, data]) => ({

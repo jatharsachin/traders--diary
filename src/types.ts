@@ -24,7 +24,8 @@ export interface Trade {
   strategy: string;
   rulesFollowed: string[];
   emotion: Emotion;
-  mistake: Mistake;
+  mistake: Mistake | string;
+  mistakes?: (Mistake | string)[];
   notes: string;
   chartUrl?: string;
   
@@ -160,4 +161,24 @@ export interface TelegramConfig {
   botToken: string;
   chatId: string;
   autoNotifyAt330PM: boolean;
+}
+
+export function getTradeMistakes(t: { mistake?: string; mistakes?: (Mistake | string)[] }): Mistake[] {
+  if (!t) return [];
+  if (t.mistakes && Array.isArray(t.mistakes) && t.mistakes.length > 0) {
+    return t.mistakes.filter((m) => m && m !== 'None') as Mistake[];
+  }
+  if (t.mistake && t.mistake !== 'None') {
+    if (t.mistake.includes(',')) {
+      return t.mistake.split(',').map((s) => s.trim()).filter(Boolean) as Mistake[];
+    }
+    return [t.mistake as Mistake];
+  }
+  return [];
+}
+
+export function formatTradeMistakes(t: { mistake?: string; mistakes?: (Mistake | string)[] }): string {
+  const list = getTradeMistakes(t);
+  if (list.length === 0) return 'No Mistake';
+  return list.join(', ');
 }
