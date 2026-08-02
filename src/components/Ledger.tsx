@@ -385,6 +385,10 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     });
   }, [activeSubscriptionExpenses, subSortField, subSortDirection, bankAccounts, brokerAccounts]);
 
+  const totalSubscriptionPaid = useMemo(() => {
+    return activeSubscriptionExpenses.reduce((sum, s) => sum + (s.amount || 0), 0);
+  }, [activeSubscriptionExpenses]);
+
   // Find unique months in records for pagination
   const monthsWithData = Array.from(new Set(detailedLedger.map(item => item.date.substring(0, 7)))).sort();
   const currentMonthStr = new Date().toISOString().substring(0, 7);
@@ -1275,6 +1279,61 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       {activeLedgerTab === 'subscriptions' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
+          {/* Subscription Summary Stats Cards */}
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            <div 
+              className="glass-card" 
+              style={{ 
+                padding: '12px 16px', 
+                borderRadius: '10px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                background: 'rgba(239, 68, 68, 0.06)', 
+                border: '1.5px solid rgba(239, 68, 68, 0.25)', 
+                minWidth: '240px' 
+              }}
+            >
+              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--color-loss)' }}>
+                <Receipt size={20} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+                  Total Subscription Charges ({selectedFY})
+                </span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 850, color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                  {isPnlVisible ? formatCurrency(totalSubscriptionPaid) : '••••'}
+                </span>
+              </div>
+            </div>
+
+            <div 
+              className="glass-card" 
+              style={{ 
+                padding: '12px 16px', 
+                borderRadius: '10px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                background: 'rgba(59, 130, 246, 0.06)', 
+                border: '1.5px solid rgba(59, 130, 246, 0.25)', 
+                minWidth: '210px' 
+              }}
+            >
+              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--primary)' }}>
+                <Layers size={20} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+                  Total Subscriptions Logged
+                </span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 850, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
+                  {activeSubscriptionExpenses.length} Record{activeSubscriptionExpenses.length === 1 ? '' : 's'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div className="glass-card" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div>
@@ -1440,6 +1499,19 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   </tr>
                 )}
               </tbody>
+              {activeSubscriptionExpenses.length > 0 && (
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', fontWeight: 700 }}>
+                    <td colSpan={4} style={{ padding: '10px 8px', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      Total Subscription Charges ({selectedFY})
+                    </td>
+                    <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', fontSize: '0.88rem' }}>
+                      {isPnlVisible ? formatCurrency(totalSubscriptionPaid) : '••••'}
+                    </td>
+                    <td style={{ padding: '10px 8px' }}></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
 
