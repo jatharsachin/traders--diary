@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Save, Star, Calendar, CheckCircle2, AlertTriangle, Target, BookOpen } from 'lucide-react';
 import { useTradeStore } from '../store/useTradeStore';
 import { filterTradesByFY } from '../utils/fyHelper';
@@ -127,8 +128,8 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId }: WeeklyJou
 
   if (!isOpen) return null;
 
-  return (
-    <div className="modal-overlay" style={{ zIndex: 3000 }}>
+  return createPortal(
+    <div className="modal-overlay" style={{ zIndex: 9999 }}>
       <div 
         className="modal-content glass-card animate-scale-up" 
         style={{ 
@@ -347,6 +348,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId }: WeeklyJou
         </form>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

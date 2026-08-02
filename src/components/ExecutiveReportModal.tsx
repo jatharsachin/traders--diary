@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Download, Printer, Eye, EyeOff, ShieldCheck, Sparkles, Award } from 'lucide-react';
 import { useTradeStore } from '../store/useTradeStore';
 import { filterTradesByFY } from '../utils/fyHelper';
@@ -151,8 +152,8 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
 
   if (!isOpen) return null;
 
-  return (
-    <div className="modal-overlay" style={{ zIndex: 3000 }}>
+  return createPortal(
+    <div className="modal-overlay" style={{ zIndex: 9999 }}>
       <div 
         className="modal-content glass-card animate-scale-up" 
         style={{ 
@@ -484,6 +485,7 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
