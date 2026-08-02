@@ -53,7 +53,7 @@ export function Dashboard({
     capitalAdjustments: allAdjustments,
     noTradeDays,
     toggleNoTradeDay,
-    sendDailySummaryToTelegram
+    subscriptionExpenses
   } = useTradeStore();
 
   const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
@@ -186,6 +186,32 @@ export function Dashboard({
   const totalBrokerage = trades.reduce((acc, t) => acc + t.brokerage, 0);
   const totalTaxes = trades.reduce((acc, t) => acc + t.taxes, 0);
   const totalNetPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
+
+  const activeFYSubExpenses = useMemo(() => {
+    return subscriptionExpenses.filter((sub) => {
+      if (selectedFY !== 'All') {
+        const match = selectedFY.match(/FY (\d{4})/);
+        if (match) {
+          const startYear = parseInt(match[1], 10);
+          const startStr = `${startYear}-04-01`;
+          const endStr = `${startYear + 1}-03-31`;
+          if (sub.date < startStr || sub.date > endStr) return false;
+        }
+      }
+      if (activeAccountId !== 'Combined') {
+        if (sub.paymentSource === 'Broker' && sub.brokerAccountId !== activeAccountId) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [subscriptionExpenses, selectedFY, activeAccountId]);
+
+  const totalSubExpenses = useMemo(() => {
+    return activeFYSubExpenses.reduce((sum, s) => sum + (s.amount || 0), 0);
+  }, [activeFYSubExpenses]);
+
+  const netBottomLinePnL = totalNetPnL - totalSubExpenses;
 
   // Investment stats (filtering by status to support exits)
   const activeInvestments = investments.filter(inv => inv.status !== 'EXITED');
@@ -1427,6 +1453,18 @@ export function Dashboard({
                   ({displayNetPnL >= 0 ? '+' : ''}{showCombined ? combinedReturnPct.toFixed(1) : tradingReturnPct.toFixed(1)}%)
                 </span>
               </div>
+
+              {totalSubExpenses > 0 && !showCombined && (
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Net Bottom-Line:</span>
+                  <strong style={{ color: netBottomLinePnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                    {isPnlVisible ? formatCurrency(netBottomLinePnL) : '••••'}
+                  </strong>
+                  <span style={{ fontSize: '0.62rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
+                    (after {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'} subs)
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Right Part: Detailed Breakdown Items */}
@@ -1453,6 +1491,17 @@ export function Dashboard({
                       {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
                     </strong>
                   </div>
+                  {totalSubExpenses > 0 && (
+                    <>
+                      <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                        <span style={{ fontSize: '0.58rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBSCRIPTIONS</span>
+                        <strong style={{ fontSize: '0.76rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                          {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'}
+                        </strong>
+                      </div>
+                    </>
+                  )}
                 </>
               ) : (
                 <>
@@ -1469,6 +1518,17 @@ export function Dashboard({
                       {isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}
                     </strong>
                   </div>
+                  {totalSubExpenses > 0 && (
+                    <>
+                      <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                        <span style={{ fontSize: '0.58rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBSCRIPTIONS</span>
+                        <strong style={{ fontSize: '0.76rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                          {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'}
+                        </strong>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
