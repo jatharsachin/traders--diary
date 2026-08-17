@@ -189,6 +189,14 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     if (editTradeId) {
       const existing = trades.find((t) => t.id === editTradeId);
       if (existing) {
+        const initialManualBrokerage = existing.manualBrokerage !== undefined && existing.manualBrokerage > 0
+          ? existing.manualBrokerage
+          : (existing.brokerage !== undefined ? existing.brokerage : 0);
+
+        const initialManualTaxes = existing.manualTaxes !== undefined && existing.manualTaxes > 0
+          ? existing.manualTaxes
+          : (existing.taxes !== undefined ? existing.taxes : 0);
+
         setSelectedMistakes(getTradeMistakes(existing));
         setFormData({
           date: existing.date,
@@ -214,15 +222,15 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           optionType: existing.optionType || 'None',
           setupType: existing.setupType || 'None',
           useManualCharges: existing.useManualCharges || false,
-          manualBrokerage: existing.manualBrokerage || 0,
-          manualTaxes: existing.manualTaxes || 0,
+          manualBrokerage: initialManualBrokerage,
+          manualTaxes: initialManualTaxes,
           holdingType: existing.holdingType || 'Short Term',
           broker: existing.broker || 'Other',
           brokerAccountId: existing.brokerAccountId || '',
         });
         setTagsInput(existing.tags ? existing.tags.join(', ').replace(/#/g, '') : '');
-        setManualBrokerageText((existing.manualBrokerage || 0).toString());
-        setManualTaxesText((existing.manualTaxes || 0).toString());
+        setManualBrokerageText(initialManualBrokerage.toString());
+        setManualTaxesText(initialManualTaxes.toString());
 
         if (existing.partialExits && existing.partialExits.length > 0) {
           setUsePartialExits(true);
@@ -468,14 +476,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         }));
         setManualBrokerageText(calcBrokerage.toString());
         setManualTaxesText(calcTaxes.toString());
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          manualBrokerage: 0,
-          manualTaxes: 0
-        }));
-        setManualBrokerageText('0');
-        setManualTaxesText('0');
       }
     }
   }, [
@@ -508,6 +508,31 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     const type = e.target.type;
+
+    if (name === 'useManualCharges') {
+      const isChecked = (e.target as HTMLInputElement).checked;
+      setFormData((prev) => {
+        let mb = prev.manualBrokerage;
+        let mt = prev.manualTaxes;
+        if (isChecked && mb === 0 && mt === 0) {
+          const config = brokerCharges.find(c => c.broker === prev.broker);
+          const isOpt = prev.optionType && prev.optionType !== 'None';
+          const activeExits = usePartialExits ? partialExits.filter(ex => ex.qty > 0 && ex.price > 0) : undefined;
+          const taxResult = calculateIndianTaxesAndBrokerage(prev.segment, prev.product, prev.action, prev.qty, prev.entryPrice, prev.exitPrice, config, isOpt, activeExits, prev.strategy);
+          mb = taxResult.brokerage;
+          mt = Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100;
+        }
+        setManualBrokerageText(mb.toString());
+        setManualTaxesText(mt.toString());
+        return {
+          ...prev,
+          useManualCharges: isChecked,
+          manualBrokerage: mb,
+          manualTaxes: mt
+        };
+      });
+      return;
+    }
     
     let parsedVal: any = value;
     if (name === 'symbol') {
