@@ -37,3 +37,6 @@
 - **Missing `create` Import in Store**: Restored `import { create } from 'zustand';` at line 1 of `src/store/useTradeStore.ts`.
 - **Fail-Safe Store Data Loaders**: Added `Array.isArray()` and `null` safety guards across `loadTrades`, `loadBrokerAccounts`, `loadBankAccounts`, `loadAdjustments`, `loadInvestments`, `loadLockedFYs`, and `loadNoTradeDays` to eliminate all possibility of runtime crashes due to invalid localStorage state.
 - **Global ErrorBoundary & Safe Lazy Loading**: Added `ErrorBoundary` in `src/main.tsx` and `safeLazy` retry logic in `src/App.tsx` to handle network/chunk errors seamlessly.
+- **Trade Log Charges Preservation**: Fixed `TradeLogger.tsx` initialization bug where editing existing trades reset manual brokerage and taxes to zero.
+- **All-in-One Performance & Tax Engine Update**: Updated Indian tax engine rates, added signed Risk-to-Reward (R:R) for losing trades, implemented Supabase cloud pagination batching (>1000 records), and memoized heavy metrics in `Dashboard.tsx`.
+- **Apple iOS & WalletPulse Glassmorphic Theme**: Applied Apple iOS pitch obsidian dark (`#000000`) & grouped light (`#f2f2f7`) palette, backdrop blur (`30px`), squircle corners (`18px-20px`), smooth page slide entrance animation (`ios-page-enter`), and MS Excel smooth cell selection glide animation (`excelSelectionGlide`).
