@@ -1,83 +1,83 @@
 /* macOS & iOS Native & High Contrast Font stack */
 :root {
-  /* Default Dark Theme variables (iOS Dark obsidian style) */
-  --bg-color: #0b0b0d;
-  --bg-card: rgba(28, 28, 30, 0.72);
-  --bg-card-hover: rgba(38, 38, 40, 0.82);
-  --border-color: rgba(255, 255, 255, 0.08);
+  /* Default Dark Theme variables (Apple iOS Dark Obsidian style) */
+  --bg-color: #000000;
+  --bg-card: rgba(28, 28, 30, 0.68);
+  --bg-card-hover: rgba(44, 44, 46, 0.78);
+  --border-color: rgba(255, 255, 255, 0.12);
   --border-color-active: #0a84ff;
   
-  --primary: #0a84ff; /* Apple Blue (Dark) */
+  --primary: #0a84ff; /* Apple System Blue (Dark) */
   --primary-hover: #0071e3;
-  --primary-glow: rgba(10, 132, 255, 0.2);
+  --primary-glow: rgba(10, 132, 255, 0.28);
   
-  --text-main: #f5f5f7;
-  --text-muted: #86868b;
-  --text-dim: #6e6e73;
+  --text-main: #ffffff;
+  --text-muted: #98989d;
+  --text-dim: #636366;
   
-  --color-win: #30d158; /* Apple green */
-  --color-win-bg: rgba(48, 209, 88, 0.12);
-  --color-win-border: rgba(48, 209, 88, 0.25);
+  --color-win: #30d158; /* Apple System Green */
+  --color-win-bg: rgba(48, 209, 88, 0.14);
+  --color-win-border: rgba(48, 209, 88, 0.28);
   
-  --color-loss: #ff453a; /* Apple red */
-  --color-loss-bg: rgba(255, 69, 58, 0.12);
-  --color-loss-border: rgba(255, 69, 58, 0.25);
+  --color-loss: #ff453a; /* Apple System Red */
+  --color-loss-bg: rgba(255, 69, 58, 0.14);
+  --color-loss-border: rgba(255, 69, 58, 0.28);
   
-  --color-neutral: #bf5af2;
-  --color-neutral-bg: rgba(191, 90, 242, 0.12);
+  --color-neutral: #bf5af2; /* Apple System Purple */
+  --color-neutral-bg: rgba(191, 90, 242, 0.14);
   
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-sans);
   
   --transition-fast: 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
   --transition-normal: 0.35s cubic-bezier(0.25, 1, 0.3, 1);
-  --transition-fluid: 0.55s cubic-bezier(0.25, 1.45, 0.45, 1.05); /* Bouncy wobbly spring */
-  --transition-glass: 0.4s cubic-bezier(0.25, 1, 0.35, 1);
+  --transition-fluid: 0.55s cubic-bezier(0.25, 1.45, 0.45, 1.05);
+  --transition-glass: 0.3s cubic-bezier(0.25, 1, 0.35, 1);
   
   /* iOS spring physics curves */
-  --transition-ios-spring: 0.65s cubic-bezier(0.22, 1.6, 0.36, 1);  /* wobbly elastic bounce */
-  --transition-ios-ease: 0.55s cubic-bezier(0.15, 1, 0.2, 1);        /* decelerating ease out */
-  --transition-ios-bounce: 0.75s cubic-bezier(0.34, 1.85, 0.64, 1);  /* super wobbly liquid bounce */
+  --transition-ios-spring: 0.5s cubic-bezier(0.22, 1.4, 0.36, 1);
+  --transition-ios-ease: 0.45s cubic-bezier(0.15, 1, 0.2, 1);
+  --transition-ios-bounce: 0.6s cubic-bezier(0.34, 1.6, 0.64, 1);
   
-  --glass-shine: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.02) 55%, transparent 60%);
+  --glass-shine: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.03) 55%, transparent 60%);
   
-  --shadow-glow: 0 10px 30px 0 rgba(0, 0, 0, 0.4);
-  --shadow-card: 0 4px 16px 0 rgba(0, 0, 0, 0.22);
+  --shadow-glow: 0 12px 36px 0 rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   --bg-tooltip-opaque: #1c1c1e;
 }
 
 :root.light {
-  /* Light Theme variables - Soft, warm eye-friendly off-white & warm gray */
-  --bg-color: #edece8; /* Soft warm grayish-beige paper background */
-  --bg-card: #f9f8f5;  /* Warm alabaster/cream card background (eliminates harsh white glare) */
-  --bg-card-hover: #f1f0ea; /* Slightly darker warm hover tone */
-  --border-color: rgba(43, 44, 46, 0.08); /* Soft warm gray borders */
-  --border-color-active: #0076e3;
+  /* Light Theme variables - Apple iOS Grouped Light Theme */
+  --bg-color: #f2f2f7;
+  --bg-card: rgba(255, 255, 255, 0.75);
+  --bg-card-hover: rgba(255, 255, 255, 0.92);
+  --border-color: rgba(0, 0, 0, 0.08);
+  --border-color-active: #007aff;
   
-  --primary: #0076e3; /* Softer pleasant sapphire blue */
-  --primary-hover: #005eb5;
-  --primary-glow: rgba(0, 118, 227, 0.14);
+  --primary: #007aff; /* Apple System Blue (Light) */
+  --primary-hover: #0062cc;
+  --primary-glow: rgba(0, 122, 255, 0.2);
   
-  --text-main: #252729; /* Soft charcoal text (reduces contrast fatigue) */
-  --text-muted: #535659; /* Softer secondary text */
-  --text-dim: #7f8285;
+  --text-main: #000000;
+  --text-muted: #6e6e73;
+  --text-dim: #8e8e93;
   
-  --color-win: #157d38; /* Soft, readable green */
-  --color-win-bg: rgba(21, 125, 56, 0.08);
-  --color-win-border: rgba(21, 125, 56, 0.16);
+  --color-win: #34c759;
+  --color-win-bg: rgba(52, 199, 89, 0.12);
+  --color-win-border: rgba(52, 199, 89, 0.24);
   
-  --color-loss: #cc252e; /* Soft, readable red */
-  --color-loss-bg: rgba(204, 37, 46, 0.08);
-  --color-loss-border: rgba(204, 37, 46, 0.16);
+  --color-loss: #ff3b30;
+  --color-loss-bg: rgba(255, 59, 48, 0.12);
+  --color-loss-border: rgba(255, 59, 48, 0.24);
   
-  --color-neutral: #6f2cf2;
-  --color-neutral-bg: rgba(111, 44, 242, 0.08);
+  --color-neutral: #af52de;
+  --color-neutral-bg: rgba(175, 82, 222, 0.12);
   
-  --glass-shine: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.12) 45%, rgba(255, 255, 255, 0.38) 50%, rgba(255, 255, 255, 0.12) 55%, transparent 60%);
+  --glass-shine: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.2) 45%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0.2) 55%, transparent 60%);
   
-  --shadow-glow: 0 10px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.01);
-  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.02), 0 1px 3px rgba(0, 0, 0, 0.01);
-  --bg-tooltip-opaque: #f9f8f5;
+  --shadow-glow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
+  --bg-tooltip-opaque: #ffffff;
 }
 
 /* Emerald Theme */
@@ -254,13 +254,13 @@ body {
 .glass-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: 18px;
+  padding: 16px;
   box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12),
     var(--shadow-card);
-  backdrop-filter: blur(25px) saturate(180%);
-  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
   position: relative;
   overflow: hidden;
   /* Keep standard card containers stable and prevent wobbly shifting on hover */
@@ -576,7 +576,7 @@ h1, h2, h3, h4 {
   padding: 8px 16px;
   font-weight: 600;
   font-size: 0.85rem;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   white-space: nowrap;
   transition: 
@@ -756,14 +756,14 @@ h1, h2, h3, h4 {
   backdrop-filter: blur(35px) saturate(185%);
   -webkit-backdrop-filter: blur(35px) saturate(185%);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: 20px;
   width: 100%;
   max-width: 620px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.06),
-    0 16px 40px rgba(0, 0, 0, 0.35);
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    0 20px 50px rgba(0, 0, 0, 0.45);
 }
 
 :root.light .modal-content {
@@ -861,10 +861,41 @@ h1, h2, h3, h4 {
   animation: iosSpringPop 0.62s var(--transition-ios-spring) forwards;
 }
 
-/* Premium Table Row Hover & Selection Highlights */
+/* Premium Table Row Hover & MS Excel Selection Glide Highlights */
+@keyframes excelSelectionGlide {
+  0% {
+    transform: scale(0.99);
+    filter: brightness(1.1);
+  }
+  60% {
+    transform: scale(1.008);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
 .custom-table tr {
   cursor: pointer;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  transition: 
+    background-color 0.25s cubic-bezier(0.1, 0.85, 0.25, 1), 
+    border-color 0.25s cubic-bezier(0.1, 0.85, 0.25, 1),
+    transform 0.22s cubic-bezier(0.1, 0.85, 0.25, 1),
+    box-shadow 0.25s cubic-bezier(0.1, 0.85, 0.25, 1);
+}
+
+.custom-table tr:active {
+  transform: scale(0.992);
+  transition: transform 0.06s ease;
+}
+
+.custom-table td {
+  transition: 
+    background-color 0.25s cubic-bezier(0.1, 0.85, 0.25, 1),
+    color 0.25s cubic-bezier(0.1, 0.85, 0.25, 1),
+    box-shadow 0.25s cubic-bezier(0.1, 0.85, 0.25, 1),
+    border-color 0.25s cubic-bezier(0.1, 0.85, 0.25, 1);
 }
 
 .custom-table tr:hover td {
@@ -883,23 +914,28 @@ h1, h2, h3, h4 {
   border-bottom-right-radius: 8px;
 }
 
-/* Premium selected row with native capsule shape and vertical primary indicator bar */
+/* MS Excel Smooth Selected Row with green/blue indicator ring */
+.custom-table tr.selected-row {
+  animation: excelSelectionGlide 0.26s cubic-bezier(0.1, 0.85, 0.25, 1) forwards;
+}
+
 .custom-table tr.selected-row td {
-  background-color: rgba(10, 132, 255, 0.16) !important;
+  background-color: rgba(10, 132, 255, 0.18) !important;
   color: var(--text-main) !important;
   font-weight: 550;
-  border-bottom: 1px solid transparent !important; /* Remove normal table borders */
+  border-bottom: 1px solid transparent !important;
 }
 
 .custom-table tr.selected-row td:first-child {
   border-top-left-radius: 8px;
   border-bottom-left-radius: 8px;
-  box-shadow: inset 4px 0 0 var(--primary) !important;
+  box-shadow: inset 4px 0 0 var(--primary), inset 0 1.5px 0 var(--primary), inset 0 -1.5px 0 var(--primary) !important;
 }
 
 .custom-table tr.selected-row td:last-child {
   border-top-right-radius: 8px;
   border-bottom-right-radius: 8px;
+  box-shadow: inset -2px 0 0 var(--primary), inset 0 1.5px 0 var(--primary), inset 0 -1.5px 0 var(--primary) !important;
 }
 
 :root.light .custom-table tr.selected-row td {
@@ -1268,7 +1304,9 @@ h1, h2, h3, h4 {
 .app-sidebar {
   width: 250px;
   background: var(--bg-card);
-  border-right: 1.5px solid var(--border-color);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  border-right: 1px solid var(--border-color);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -1332,31 +1370,48 @@ h1, h2, h3, h4 {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-muted);
   cursor: pointer;
   text-align: left;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: 
+    background-color 0.32s cubic-bezier(0.16, 1, 0.3, 1), 
+    border-color 0.32s cubic-bezier(0.16, 1, 0.3, 1), 
+    color 0.32s cubic-bezier(0.16, 1, 0.3, 1), 
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), 
+    box-shadow 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  position: relative;
 }
 
 .sidebar-tab-btn:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(120, 120, 128, 0.14);
   color: var(--text-main);
+  transform: translateX(3px);
 }
 
 :root.light .sidebar-tab-btn:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-tab-btn:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
 }
 
 .sidebar-tab-btn.active {
-  background: var(--primary);
-  color: #fff;
-  box-shadow: 0 4px 12px var(--primary-glow);
+  background: linear-gradient(135deg, rgba(10, 132, 255, 0.95) 0%, rgba(0, 113, 227, 0.95) 100%);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff !important;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 6px 20px var(--primary-glow);
+  transform: translateX(4px) scale(1.015);
 }
 
 .sidebar-footer {
@@ -1473,4 +1528,151 @@ h1, h2, h3, h4 {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ==========================================
+   Deep Apple OS / WalletPulse Native Styling
+   ========================================== */
+
+/* Authentic Apple macOS Page Entrance Animation */
+@keyframes iosPageSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.992);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+.ios-page-enter {
+  animation: iosPageSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* macOS Sequoia Window Traffic Light Dots */
+.mac-traffic-lights {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+.mac-dot:hover {
+  transform: scale(1.2);
+}
+.mac-close { background-color: #ff5f56; border: 0.5px solid #e0443e; }
+.mac-minimize { background-color: #ffbd2e; border: 0.5px solid #dea123; }
+.mac-maximize { background-color: #27c93f; border: 0.5px solid #1aab29; }
+
+/* Authentic Apple Wallet Translucent Card Rim */
+.ios-wallet-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.16),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition-ios-spring), box-shadow var(--transition-ios-spring), background-color var(--transition-glass);
+}
+
+.ios-wallet-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+:root.light .ios-wallet-card {
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* Authentic Apple iOS Toggle Switch */
+.ios-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.ios-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ios-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(120, 120, 128, 0.32);
+  transition: background-color 0.3s cubic-bezier(0.25, 1, 0.35, 1);
+  border-radius: 9999px;
+}
+
+.ios-slider::before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: transform 0.3s cubic-bezier(0.22, 1.4, 0.36, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.ios-switch input:checked + .ios-slider {
+  background-color: #34c759;
+}
+
+.ios-switch input:checked + .ios-slider::before {
+  transform: translateX(20px);
+}
+
+/* iOS Pulsing Status Badge Pill */
+.ios-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(120, 120, 128, 0.12);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  backdrop-filter: blur(10px);
+}
+
+.ios-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34c759;
+  box-shadow: 0 0 8px #34c759;
+  animation: pulse 2s infinite;
 }

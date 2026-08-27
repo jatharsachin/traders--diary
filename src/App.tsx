@@ -1491,7 +1491,7 @@ export default function App() {
             {/* Metrics: Capital, Wealth, Today's P&L, Nifty, Clock */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               {/* Capital */}
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '5px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
                 <span>Capital:</span>
                 <strong style={{ color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                   ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
@@ -1499,7 +1499,7 @@ export default function App() {
               </div>
 
               {/* Wealth */}
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '5px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
                 <span>Wealth:</span>
                 <strong style={{ color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
                   ₹{isPnlVisible ? Math.round(combinedWealth).toLocaleString('en-IN') : '••••'}
@@ -1518,11 +1518,11 @@ export default function App() {
                 const isProfit = todayPnL !== null && todayPnL >= 0;
 
                 return (
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
                     <span 
                       style={{ 
-                        width: '5px', 
-                        height: '5px', 
+                        width: '6px', 
+                        height: '6px', 
                         borderRadius: '50%', 
                         background: todayPnL === null ? '#888' : isProfit ? 'var(--color-win)' : 'var(--color-loss)',
                         boxShadow: todayPnL === null ? 'none' : isProfit ? '0 0 6px var(--color-win)' : '0 0 6px var(--color-loss)'
@@ -1540,8 +1540,8 @@ export default function App() {
               })()}
 
               {/* Nifty */}
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: isMarketOpen() ? 'var(--color-win)' : 'var(--color-loss)' }} />
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isMarketOpen() ? 'var(--color-win)' : 'var(--color-loss)', boxShadow: isMarketOpen() ? '0 0 6px var(--color-win)' : '0 0 6px var(--color-loss)' }} />
                 <span>NIFTY:</span>
                 <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                   {niftyPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1552,7 +1552,7 @@ export default function App() {
               </div>
 
               {/* Clock */}
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', background: 'rgba(255, 255, 255, 0.02)', border: '1.2px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', height: '32px', display: 'flex', alignItems: 'center', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', fontFamily: 'var(--font-mono)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
                 {liveTime || 'Loading...'}
               </div>
 
@@ -1701,36 +1701,38 @@ export default function App() {
             <span style={{ fontSize: '0.78rem', letterSpacing: '0.05em' }}>LOADING PANEL...</span>
           </div>
         }>
-          {activeTab === 'dashboard' && (
-            <Dashboard 
-              activeAccountId={activeAccountId} 
-              onNavigateToTab={setActiveTab} 
-              onSelectDateFilter={(date) => {
-                setSelectedDateFilter(date);
-                setActiveTab('logs');
-              }}
-            />
-          )}
-          {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
-          {activeTab === 'calendar' && (
-            <TradingCalendar 
-              activeAccountId={activeAccountId} 
-              onEditTrade={handleEditTrade} 
-            />
-          )}
-          {activeTab === 'logs' && (
-            <TradeTable 
-              onEditTrade={handleEditTrade} 
-              activeAccountId={activeAccountId} 
-              initialDateFilter={selectedDateFilter}
-              onClearDateFilter={() => setSelectedDateFilter(null)}
-            />
-          )}
-          {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
-          {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
-          {activeTab === 'strategies' && <StrategyManager />}
-          {activeTab === 'account' && <AccountManager activeAccountId={activeAccountId} />}
-          {activeTab === 'help' && <Help />}
+          <div key={activeTab} className="ios-page-enter">
+            {activeTab === 'dashboard' && (
+              <Dashboard 
+                activeAccountId={activeAccountId} 
+                onNavigateToTab={setActiveTab} 
+                onSelectDateFilter={(date) => {
+                  setSelectedDateFilter(date);
+                  setActiveTab('logs');
+                }}
+              />
+            )}
+            {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
+            {activeTab === 'calendar' && (
+              <TradingCalendar 
+                activeAccountId={activeAccountId} 
+                onEditTrade={handleEditTrade} 
+              />
+            )}
+            {activeTab === 'logs' && (
+              <TradeTable 
+                onEditTrade={handleEditTrade} 
+                activeAccountId={activeAccountId} 
+                initialDateFilter={selectedDateFilter}
+                onClearDateFilter={() => setSelectedDateFilter(null)}
+              />
+            )}
+            {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
+            {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
+            {activeTab === 'strategies' && <StrategyManager />}
+            {activeTab === 'account' && <AccountManager activeAccountId={activeAccountId} />}
+            {activeTab === 'help' && <Help />}
+          </div>
         </Suspense>
       </main>
 
