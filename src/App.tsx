@@ -1443,12 +1443,12 @@ export default function App() {
                   onChange={(e) => setActiveAccountId(e.target.value)}
                   className="form-select"
                   style={{
-                    padding: '2px 8px',
+                    padding: '2px 14px',
                     fontSize: '0.78rem',
                     height: '32px',
                     background: 'var(--bg-card)',
-                    border: '1.2px solid var(--border-color)',
-                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '9999px',
                     color: 'var(--text-main)',
                     cursor: 'pointer',
                     minWidth: '130px',
@@ -1471,11 +1471,11 @@ export default function App() {
                 style={{
                   fontSize: '0.78rem',
                   fontWeight: 700,
-                  padding: '2px 8px',
+                  padding: '2px 14px',
                   background: 'var(--bg-card)',
                   color: 'var(--text-main)',
-                  border: '1.2px solid var(--border-color)',
-                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '9999px',
                   height: '32px',
                   cursor: 'pointer'
                 }}
