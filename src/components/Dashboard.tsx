@@ -2093,62 +2093,89 @@ export function Dashboard({
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* Days Streak Line */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Calendar size={13} color="var(--color-win)" /> Days Streak:
-              </span>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ color: 'var(--color-win)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                  {maxConsecWins}W Days
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Days Streak Block */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Calendar size={13} color="var(--color-win)" /> Days Streak:
                 </span>
-                <span style={{ color: 'var(--text-dim)' }}>/</span>
-                <span style={{ color: 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                  {maxConsecLosses}L Days
-                </span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--color-win)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    {maxConsecWins}W Days
+                  </span>
+                  <span style={{ color: 'var(--text-dim)' }}>/</span>
+                  <span style={{ color: 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    {maxConsecLosses}L Days
+                  </span>
+                </div>
+              </div>
+              {/* Days Progress Bar */}
+              <div style={{ display: 'flex', height: '6px', borderRadius: '9999px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', padding: '1px' }}>
+                <div 
+                  style={{ 
+                    flex: maxConsecWins || 1, 
+                    background: 'linear-gradient(90deg, #15803d 0%, #30d158 100%)', 
+                    borderRadius: '9999px',
+                    boxShadow: '0 0 6px rgba(48, 209, 88, 0.35)',
+                    transition: 'all 0.3s ease' 
+                  }} 
+                  title={`Days Win Streak: ${maxConsecWins} days`}
+                />
+                <div style={{ width: '2px' }} />
+                <div 
+                  style={{ 
+                    flex: maxConsecLosses || 1, 
+                    background: 'linear-gradient(90deg, #ff453a 0%, #dc2626 100%)', 
+                    borderRadius: '9999px',
+                    boxShadow: '0 0 6px rgba(255, 69, 58, 0.35)',
+                    transition: 'all 0.3s ease' 
+                  }} 
+                  title={`Days Loss Streak: ${maxConsecLosses} days`}
+                />
               </div>
             </div>
 
-            {/* Trades Streak Line */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Flame size={13} color="#f59e0b" /> Trades Streak:
-              </span>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ color: 'var(--color-win)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                  {maxTradeWins}W Trades
+            {/* Trades Streak Block */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Flame size={13} color="#f59e0b" /> Trades Streak:
                 </span>
-                <span style={{ color: 'var(--text-dim)' }}>/</span>
-                <span style={{ color: 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                  {maxTradeLosses}L Trades
-                </span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--color-win)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    {maxTradeWins}W Trades
+                  </span>
+                  <span style={{ color: 'var(--text-dim)' }}>/</span>
+                  <span style={{ color: 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    {maxTradeLosses}L Trades
+                  </span>
+                </div>
               </div>
-            </div>
-            
-            {/* Visual Streaks Split Progress Bar (Days Basis) */}
-            <div style={{ display: 'flex', height: '8px', borderRadius: '9999px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', padding: '1px', marginTop: '2px' }}>
-              <div 
-                style={{ 
-                  flex: maxConsecWins || 1, 
-                  background: 'linear-gradient(90deg, #15803d 0%, #30d158 100%)', 
-                  borderRadius: '9999px',
-                  boxShadow: '0 0 8px rgba(48, 209, 88, 0.4)',
-                  transition: 'all 0.3s ease' 
-                }} 
-                title={`Max Days Win Streak: ${maxConsecWins} profitable days in a row`}
-              />
-              <div style={{ width: '3px' }} />
-              <div 
-                style={{ 
-                  flex: maxConsecLosses || 1, 
-                  background: 'linear-gradient(90deg, #ff453a 0%, #dc2626 100%)', 
-                  borderRadius: '9999px',
-                  boxShadow: '0 0 8px rgba(255, 69, 58, 0.4)',
-                  transition: 'all 0.3s ease' 
-                }} 
-                title={`Max Days Loss Streak: ${maxConsecLosses} losing days in a row`}
-              />
+              {/* Trades Progress Bar */}
+              <div style={{ display: 'flex', height: '6px', borderRadius: '9999px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', padding: '1px' }}>
+                <div 
+                  style={{ 
+                    flex: maxTradeWins || 1, 
+                    background: 'linear-gradient(90deg, #15803d 0%, #30d158 100%)', 
+                    borderRadius: '9999px',
+                    boxShadow: '0 0 6px rgba(48, 209, 88, 0.35)',
+                    transition: 'all 0.3s ease' 
+                  }} 
+                  title={`Trades Win Streak: ${maxTradeWins} trades`}
+                />
+                <div style={{ width: '2px' }} />
+                <div 
+                  style={{ 
+                    flex: maxTradeLosses || 1, 
+                    background: 'linear-gradient(90deg, #ff453a 0%, #dc2626 100%)', 
+                    borderRadius: '9999px',
+                    boxShadow: '0 0 6px rgba(255, 69, 58, 0.35)',
+                    transition: 'all 0.3s ease' 
+                  }} 
+                  title={`Trades Loss Streak: ${maxTradeLosses} trades`}
+                />
+              </div>
             </div>
           </div>
         </div>
