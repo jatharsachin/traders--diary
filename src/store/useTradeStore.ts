@@ -285,9 +285,13 @@ const computeTradeCalculations = (
     brokerage = trade.manualBrokerage || 0;
     taxes = trade.manualTaxes || 0;
     totalCharges = brokerage + taxes;
-  } else {
-    const isOpt = segment === 'F&O' && ((trade.optionType && trade.optionType !== 'None') || (trade.symbol?.toUpperCase().includes('CE') || trade.symbol?.toUpperCase().includes('PE')));
-    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, effectiveExitPrice, chargesConfig, isOpt, trade.partialExits, trade.strategy);
+    const isOpt = segment === 'F&O' && (
+      (trade.optionType && trade.optionType !== 'None') ||
+      (trade.strikePrice !== undefined && trade.strikePrice > 0) ||
+      (trade.symbol && /CE|PE|\bCALL\b|\bPUT\b/i.test(trade.symbol)) ||
+      (!trade.symbol?.toUpperCase().includes('FUT') && trade.entryPrice < 3000)
+    );
+    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, effectiveExitPrice, chargesConfig, isOpt, trade.partialExits, trade.strategy, trade.symbol);
     brokerage = taxResult.brokerage;
     taxes = taxResult.totalCharges - brokerage;
     totalCharges = taxResult.totalCharges;
