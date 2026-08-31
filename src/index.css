@@ -45,34 +45,34 @@
 }
 
 :root.light {
-  /* Light Theme variables - Apple iOS Grouped Light Theme */
-  --bg-color: #f2f2f7;
-  --bg-card: rgba(255, 255, 255, 0.75);
-  --bg-card-hover: rgba(255, 255, 255, 0.92);
-  --border-color: rgba(0, 0, 0, 0.08);
-  --border-color-active: #007aff;
+  /* Light Theme variables - Eye-Comfort Soft Warm Paper & Slate Palette */
+  --bg-color: #e9ecf2;
+  --bg-card: rgba(255, 255, 255, 0.94);
+  --bg-card-hover: #ffffff;
+  --border-color: rgba(0, 0, 0, 0.09);
+  --border-color-active: #0071e3;
   
-  --primary: #007aff; /* Apple System Blue (Light) */
-  --primary-hover: #0062cc;
-  --primary-glow: rgba(0, 122, 255, 0.2);
+  --primary: #0071e3; /* Apple System Blue (Light) */
+  --primary-hover: #005bb5;
+  --primary-glow: rgba(0, 113, 227, 0.16);
   
-  --text-main: #252729;
-  --text-muted: #535659;
-  --text-dim: #7f8285;
+  --text-main: #1d1d1f;
+  --text-muted: #515665;
+  --text-dim: #798194;
   
-  --color-win: #34c759;
-  --color-win-bg: rgba(52, 199, 89, 0.12);
-  --color-win-border: rgba(52, 199, 89, 0.24);
+  --color-win: #15803d; /* Soft Deep Forest Green */
+  --color-win-bg: rgba(22, 163, 74, 0.09);
+  --color-win-border: rgba(22, 163, 74, 0.22);
   
-  --color-loss: #ff3b30;
-  --color-loss-bg: rgba(255, 59, 48, 0.12);
-  --color-loss-border: rgba(255, 59, 48, 0.24);
+  --color-loss: #dc2626; /* Soft Crimson Red */
+  --color-loss-bg: rgba(220, 38, 38, 0.08);
+  --color-loss-border: rgba(220, 38, 38, 0.22);
   
-  --color-neutral: #af52de;
-  --color-neutral-bg: rgba(175, 82, 222, 0.12);
+  --color-neutral: #8b5cf6;
+  --color-neutral-bg: rgba(139, 92, 246, 0.08);
   
-  --shadow-glow: 0 12px 32px rgba(0, 0, 0, 0.08);
-  --shadow-card: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 14px rgba(0, 0, 0, 0.04);
   --bg-tooltip-opaque: #ffffff;
 }
 
@@ -206,13 +206,13 @@ body::after {
 }
 
 :root.light body::before {
-  background: radial-gradient(circle, #007aff 0%, rgba(0, 122, 255, 0) 75%);
-  opacity: 0.14;
+  background: radial-gradient(circle, #0071e3 0%, rgba(0, 113, 227, 0) 75%);
+  opacity: 0.05;
 }
 
 :root.light body::after {
   background: radial-gradient(circle, #bf5af2 0%, rgba(191, 90, 242, 0) 75%);
-  opacity: 0.12;
+  opacity: 0.04;
 }
 
 /* Smooth globally applied transitions */
@@ -1271,7 +1271,20 @@ h1, h2, h3, h4 {
 }
 
 :root.light .custom-table tbody tr:nth-child(even) td:not([rowspan]) {
+  background-color: rgba(0, 0, 0, 0.018) !important;
+}
+
+:root.light .custom-table th {
   background-color: rgba(0, 0, 0, 0.035) !important;
+  color: var(--text-muted) !important;
+}
+
+:root.light .form-input, 
+:root.light .form-select, 
+:root.light .form-textarea {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: var(--text-main) !important;
 }
 
 /* --- Left Sidebar Navigation Layout --- */
