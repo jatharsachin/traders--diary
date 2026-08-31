@@ -39,8 +39,6 @@
   --transition-ios-ease: 0.45s cubic-bezier(0.15, 1, 0.2, 1);
   --transition-ios-bounce: 0.6s cubic-bezier(0.34, 1.6, 0.64, 1);
   
-  --glass-shine: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.03) 55%, transparent 60%);
-  
   --shadow-glow: 0 12px 36px 0 rgba(0, 0, 0, 0.5);
   --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   --bg-tooltip-opaque: #1c1c1e;
@@ -72,8 +70,6 @@
   
   --color-neutral: #af52de;
   --color-neutral-bg: rgba(175, 82, 222, 0.12);
-  
-  --glass-shine: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.2) 45%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0.2) 55%, transparent 60%);
   
   --shadow-glow: 0 12px 32px rgba(0, 0, 0, 0.08);
   --shadow-card: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
@@ -278,28 +274,9 @@ body {
     var(--shadow-card);
 }
 
-.glass-card::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: var(--glass-shine);
-  transform: rotate(-20deg) translate(-35%, -35%);
-  transition: transform 1.2s cubic-bezier(0.15, 0.85, 0.35, 1);
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  z-index: 1;
-}
-
-/* Base card hover is stable (only background transitions and shine sweep) */
+/* Base card hover is clean and stable (smooth background color transition only, no reflection/glare) */
 .glass-card:hover {
   background: var(--bg-card-hover);
-}
-
-.glass-card:hover::after {
-  transform: rotate(-20deg) translate(18%, 18%);
 }
 
 /* Metric KPI cards and interactive glass components that scale/pop on hover */
