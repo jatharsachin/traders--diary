@@ -1741,8 +1741,8 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* Grid 2: Key Performance Indicators (Row 2 - 6 Columns) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', marginBottom: '16px' }}>
+      {/* Grid 2: Key Performance Indicators (Row 2 - 6 Columns Responsive) */}
+      <div className="metrics-grid-row2">
         {/* Metric 1: Profit Factor */}
         <div className="glass-card metric-card">
           <div className="metric-title">
@@ -1810,21 +1810,26 @@ export function Dashboard({
         </div>
 
         {/* Metric 5: Best & Worst Days Card */}
-        <div className="glass-card metric-card">
+        <div className="glass-card metric-card" style={{ minWidth: 0 }}>
           <div className="metric-title" style={{ color: 'var(--text-muted)' }}>
-            <span>🏆 Best / Worst Days</span>
+            <Award size={16} color="#eab308" />
+            <span>Best / Worst Days</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '2px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '4px' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>🟩 BEST DAY</span>
-              <strong style={{ fontSize: '0.72rem', color: 'var(--color-win)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-                {bestDay.pnl > 0 ? `${bestDay.date} (${isPnlVisible ? formatCurrency(bestDay.pnl) : '••••'})` : 'N/A'}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '1px 0', minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', minWidth: 0 }}>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', fontWeight: 650 }}>
+                🟩 {bestDay.date !== 'N/A' && bestDay.date !== 'No Trades' ? bestDay.date : 'Best Day'}
+              </span>
+              <strong style={{ fontSize: '0.78rem', color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+                {bestDay.pnl > 0 ? (isPnlVisible ? `+${formatCurrency(bestDay.pnl)}` : '••••') : '₹0'}
               </strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '4px' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>🟥 WORST DAY</span>
-              <strong style={{ fontSize: '0.72rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-                {worstDay.pnl < 0 ? `${worstDay.date} (${isPnlVisible ? formatCurrency(worstDay.pnl) : '••••'})` : 'N/A'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', minWidth: 0 }}>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', fontWeight: 650 }}>
+                🟥 {worstDay.date !== 'N/A' && worstDay.date !== 'No Trades' ? worstDay.date : 'Worst Day'}
+              </span>
+              <strong style={{ fontSize: '0.78rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                {worstDay.pnl < 0 ? (isPnlVisible ? formatCurrency(worstDay.pnl) : '••••') : '₹0'}
               </strong>
             </div>
           </div>
