@@ -1366,9 +1366,27 @@ export function Dashboard({
             <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0 }}>
               Welcome back, {userName || 'Sachin'}!
             </h2>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '4px', marginBottom: 0 }}>
-              Ready for your cognitive trading audit? Track setups, emotions, and broker statements all in one place.
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+              <div 
+                style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  background: 'rgba(255,255,255,0.03)', 
+                  padding: '3px 10px', 
+                  borderRadius: '9999px', 
+                  border: '1px solid var(--border-color)',
+                  fontSize: '0.72rem'
+                }}
+              >
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: disciplineInfo.color, boxShadow: `0 0 6px ${disciplineInfo.color}` }} />
+                <span style={{ color: 'var(--text-muted)' }}>Discipline:</span>
+                <strong style={{ color: disciplineInfo.color }}>{disciplineInfo.grade} ({disciplineScore.toFixed(0)}%)</strong>
+              </div>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>
+                • {disciplineInfo.desc}
+              </span>
+            </div>
           </div>
         </div>
         
@@ -2450,9 +2468,14 @@ export function Dashboard({
                   </strong>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                  <span style={{ color: 'var(--text-dim)' }}>Win Rate:</span>
-                  <strong style={{ color: 'var(--text-main)' }}>{stat.winRate.toFixed(1)}%</strong>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                    <span style={{ color: 'var(--text-dim)' }}>Win Rate:</span>
+                    <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>{stat.winRate.toFixed(1)}%</strong>
+                  </div>
+                  <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '9999px', overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.min(100, Math.max(0, stat.winRate))}%`, height: '100%', background: stat.winRate >= 50 ? 'var(--color-win)' : 'var(--color-loss)', borderRadius: '9999px' }} />
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
