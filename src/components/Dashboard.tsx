@@ -5,7 +5,7 @@ import { getTradeMistakes } from '../types';
 import { 
   IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
   ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
-  Eye, EyeOff, Save, Award, TrendingDown, BookOpen
+  Eye, EyeOff, Save, Award, TrendingDown, BookOpen, Calendar
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
@@ -776,11 +776,10 @@ export function Dashboard({
   const winDaysCount = useMemo(() => daysList.filter((d) => d > 0).length, [daysList]);
   const winDaysPct = useMemo(() => daysList.length > 0 ? (winDaysCount / daysList.length) * 100 : 0, [daysList, winDaysCount]);
 
-  // Streaks
   // Day-level Streaks calculation
-  const streaks = useMemo(() => {
-    let maxConsecWins = 0;
-    let maxConsecLosses = 0;
+  const dayStreaks = useMemo(() => {
+    let maxWins = 0;
+    let maxLosses = 0;
     let currentWins = 0;
     let currentLosses = 0;
 
@@ -790,17 +789,41 @@ export function Dashboard({
       if (dayPnL > 0) {
         currentWins++;
         currentLosses = 0;
-        if (currentWins > maxConsecWins) maxConsecWins = currentWins;
+        if (currentWins > maxWins) maxWins = currentWins;
       } else if (dayPnL < 0) {
         currentLosses++;
         currentWins = 0;
-        if (currentLosses > maxConsecLosses) maxConsecLosses = currentLosses;
+        if (currentLosses > maxLosses) maxLosses = currentLosses;
       }
     });
-    return { maxConsecWins, maxConsecLosses };
+    return { maxWins, maxLosses };
   }, [dailyPnL]);
 
-  const { maxConsecWins, maxConsecLosses } = streaks;
+  // Trade-level Streaks calculation
+  const tradeStreaks = useMemo(() => {
+    let maxWins = 0;
+    let maxLosses = 0;
+    let currentWins = 0;
+    let currentLosses = 0;
+
+    sortedTrades.forEach((t) => {
+      if (t.netPnL > 0) {
+        currentWins++;
+        currentLosses = 0;
+        if (currentWins > maxWins) maxWins = currentWins;
+      } else if (t.netPnL < 0) {
+        currentLosses++;
+        currentWins = 0;
+        if (currentLosses > maxLosses) maxLosses = currentLosses;
+      }
+    });
+    return { maxWins, maxLosses };
+  }, [sortedTrades]);
+
+  const maxConsecWins = dayStreaks.maxWins;
+  const maxConsecLosses = dayStreaks.maxLosses;
+  const maxTradeWins = tradeStreaks.maxWins;
+  const maxTradeLosses = tradeStreaks.maxLosses;
 
   // Sharpe Ratio
   const calculateSharpeRatio = () => {
@@ -2070,16 +2093,41 @@ export function Dashboard({
             </div>
           </div>
 
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Days Streak Line */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Flame size={14} color="var(--color-win)" /> Max Win Streak: <strong style={{ color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>{maxConsecWins} Days</strong>
+                <Calendar size={13} color="var(--color-win)" /> Days Streak:
               </span>
-              <span>Max Loss Streak: <strong style={{ color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>{maxConsecLosses} Days</strong></span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ color: 'var(--color-win)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  {maxConsecWins}W Days
+                </span>
+                <span style={{ color: 'var(--text-dim)' }}>/</span>
+                <span style={{ color: 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  {maxConsecLosses}L Days
+                </span>
+              </div>
+            </div>
+
+            {/* Trades Streak Line */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Flame size={13} color="#f59e0b" /> Trades Streak:
+              </span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ color: 'var(--color-win)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  {maxTradeWins}W Trades
+                </span>
+                <span style={{ color: 'var(--text-dim)' }}>/</span>
+                <span style={{ color: 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  {maxTradeLosses}L Trades
+                </span>
+              </div>
             </div>
             
-            {/* Visual Streaks Split Progress Bar */}
-            <div style={{ display: 'flex', height: '8px', borderRadius: '9999px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', padding: '1px' }}>
+            {/* Visual Streaks Split Progress Bar (Days Basis) */}
+            <div style={{ display: 'flex', height: '8px', borderRadius: '9999px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', padding: '1px', marginTop: '2px' }}>
               <div 
                 style={{ 
                   flex: maxConsecWins || 1, 
@@ -2088,7 +2136,7 @@ export function Dashboard({
                   boxShadow: '0 0 8px rgba(48, 209, 88, 0.4)',
                   transition: 'all 0.3s ease' 
                 }} 
-                title={`Max Win Streak: ${maxConsecWins} profitable days in a row`}
+                title={`Max Days Win Streak: ${maxConsecWins} profitable days in a row`}
               />
               <div style={{ width: '3px' }} />
               <div 
@@ -2099,7 +2147,7 @@ export function Dashboard({
                   boxShadow: '0 0 8px rgba(255, 69, 58, 0.4)',
                   transition: 'all 0.3s ease' 
                 }} 
-                title={`Max Loss Streak: ${maxConsecLosses} losing days in a row`}
+                title={`Max Days Loss Streak: ${maxConsecLosses} losing days in a row`}
               />
             </div>
           </div>
