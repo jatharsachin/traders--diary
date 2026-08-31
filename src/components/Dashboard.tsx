@@ -136,7 +136,7 @@ export function Dashboard({
     const startStr = `${startYear}-04-01`;
 
     const priorTradesPnL = activeTrades
-      .filter((t) => t.date < startStr && (activeAccountId === 'Combined' ? true : t.brokerAccountId === activeAccountId))
+      .filter((t) => (t.exitDate || t.date) < startStr && (activeAccountId === 'Combined' ? true : t.brokerAccountId === activeAccountId))
       .reduce((acc, t) => acc + t.netPnL, 0);
 
     const priorAdjustments = capitalAdjustments
@@ -285,10 +285,12 @@ export function Dashboard({
 
   const sortTradesChronologically = (tradesList: typeof trades) => {
     return [...tradesList].sort((a, b) => {
-      if (a.date !== b.date) {
-        return a.date.localeCompare(b.date);
+      const aDate = a.exitDate || a.date;
+      const bDate = b.exitDate || b.date;
+      if (aDate !== bDate) {
+        return aDate.localeCompare(bDate);
       }
-      return parseTimeToMinutes(a.entryTime) - parseTimeToMinutes(b.entryTime);
+      return parseTimeToMinutes(a.exitTime || a.entryTime) - parseTimeToMinutes(b.exitTime || b.entryTime);
     });
   };
 
@@ -343,13 +345,13 @@ export function Dashboard({
   const anchorDate = useMemo(() => new Date(), []);
 
   // Monthly stats for dropdown select
-  const availableMonths = Array.from(new Set(sortedTrades.map(t => t.date.substring(0, 7)))).sort().reverse();
+  const availableMonths = Array.from(new Set(sortedTrades.map(t => (t.exitDate || t.date).substring(0, 7)))).sort().reverse();
   const activeChartMonth = selectedChartMonth || (availableMonths[0] || new Date().toISOString().substring(0, 7));
-  const selectedMonthTrades = sortedTrades.filter(t => t.date.startsWith(activeChartMonth));
+  const selectedMonthTrades = sortedTrades.filter(t => (t.exitDate || t.date).startsWith(activeChartMonth));
   const selectedMonthPnL = selectedMonthTrades.reduce((sum, t) => sum + t.netPnL, 0);
 
   // Average Trades Volume Calculations
-  const uniqueDays = new Set(trades.map(t => t.date)).size || 1;
+  const uniqueDays = new Set(trades.map(t => (t.exitDate || t.date))).size || 1;
   const avgTradesPerDay = trades.length / uniqueDays;
 
   // Group by week YYYY-Www
@@ -360,10 +362,10 @@ export function Dashboard({
     const week = Math.ceil((d.getDay() + 1 + numberOfDays) / 7);
     return `${d.getFullYear()}-W${week}`;
   };
-  const uniqueWeeks = new Set(trades.map(t => getWeekIdentifier(t.date))).size || 1;
+  const uniqueWeeks = new Set(trades.map(t => getWeekIdentifier(t.exitDate || t.date))).size || 1;
   const avgTradesPerWeek = trades.length / uniqueWeeks;
 
-  const uniqueMonths = new Set(trades.map(t => t.date.substring(0, 7))).size || 1;
+  const uniqueMonths = new Set(trades.map(t => (t.exitDate || t.date).substring(0, 7))).size || 1;
   const avgTradesPerMonth = trades.length / uniqueMonths;
 
   const getModifiedDietzReturn = (days: number) => {
@@ -371,7 +373,7 @@ export function Dashboard({
     cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
-    const periodTrades = sortedTrades.filter((t) => t.date >= cutoffStr);
+    const periodTrades = sortedTrades.filter((t) => (t.exitDate || t.date) >= cutoffStr);
     const pnl = periodTrades.reduce((acc, t) => acc + t.netPnL, 0);
 
     let startCap = 0;
@@ -573,17 +575,19 @@ export function Dashboard({
 
   const monthsData = getMonthsGrouped(dates);
 
-  const heatmapTrades = rawTrades.filter(
-    (t) => t.date >= heatmapRange.start && t.date <= heatmapRange.end && (selectedBroker === 'All' ? true : (t.broker || 'Other') === selectedBroker)
-  );
+  const heatmapTrades = rawTrades.filter((t) => {
+    const d = t.exitDate || t.date;
+    return d >= heatmapRange.start && d <= heatmapRange.end && (selectedBroker === 'All' ? true : (t.broker || 'Other') === selectedBroker);
+  });
 
   const dailyStats: Record<string, { pnl: number; count: number }> = {};
   heatmapTrades.forEach((t) => {
-    if (!dailyStats[t.date]) {
-      dailyStats[t.date] = { pnl: 0, count: 0 };
+    const d = t.exitDate || t.date;
+    if (!dailyStats[d]) {
+      dailyStats[d] = { pnl: 0, count: 0 };
     }
-    dailyStats[t.date].pnl += t.netPnL;
-    dailyStats[t.date].count += 1;
+    dailyStats[d].pnl += t.netPnL;
+    dailyStats[d].count += 1;
   });
 
   let maxWin = 1;

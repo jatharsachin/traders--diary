@@ -96,7 +96,10 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       });
 
   // Range filtered trades, adjustments, and investments
-  const rangeTrades = trades.filter(t => t.date >= startDate && t.date <= endDate);
+  const rangeTrades = trades.filter(t => {
+    const d = t.exitDate || t.date;
+    return d >= startDate && d <= endDate;
+  });
   const rangeAdjustments = adjustments.filter(a => a.date >= startDate && a.date <= endDate);
 
   // Calculate opening balance at startDate
@@ -105,7 +108,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
       ? brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0)
       : (brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0);
 
-    const priorTrades = trades.filter(t => t.date < startDate);
+    const priorTrades = trades.filter(t => (t.exitDate || t.date) < startDate);
     const priorPnL = priorTrades.reduce((sum, t) => sum + t.netPnL, 0);
 
     const priorAdjustments = adjustments.filter(a => a.date < startDate);
@@ -133,8 +136,8 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
         : 'Equity';
     return {
       id: t.id,
-      date: t.date,
-      time: t.entryTime,
+      date: t.exitDate || t.date,
+      time: t.exitTime || t.entryTime,
       type: 'TRADE' as const,
       label: t.action,
       typeLabel,

@@ -809,13 +809,14 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       const calculatedLeg2Symbol = leg2Symbol || `${underlyingIndex} ${leg2Strike} ${leg2OptionType}`;
 
       const cleanTags = parsedTags.filter(t => !['#spread_leg1', '#spread_leg2', '#hedge_leg', '#hedged'].includes(t.toLowerCase()));
+      const finalExitDate = formData.product === 'Delivery' ? (formData.exitDate || formData.date) : formData.date;
 
       const finalTradeData = {
         ...formData,
         mistake: finalMistakeStr,
         mistakes: cleanMistakes,
         symbol: leg1Symbol,
-        exitDate: formData.date,
+        exitDate: finalExitDate,
         tags: [...cleanTags, '#spread_leg1', '#hedged'],
       };
 
@@ -830,7 +831,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         symbol: calculatedLeg2Symbol,
         entryPrice: leg2EntryPrice,
         exitPrice: leg2ExitPrice,
-        exitDate: formData.date,
+        exitDate: finalExitDate,
         tags: [...cleanTags, '#spread_leg2', '#hedge_leg', '#hedged'],
         notes: (formData.notes ? formData.notes.replace(/\(Hedge Leg.*?\)/gi, '').trim() + ' ' : '') + `(Hedge Leg for ${leg1Symbol})`,
       };
@@ -970,6 +971,18 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                       />
                     </div>
                   )}
+                  <div className="form-group">
+                    <label className="form-label">Product</label>
+                    <select
+                      name="product"
+                      value={formData.product}
+                      onChange={handleChange}
+                      className="form-select"
+                    >
+                      <option value="Intraday">Intraday (MIS)</option>
+                      <option value="Delivery">Overnight / Positional (NRML/CNC)</option>
+                    </select>
+                  </div>
                   <div className="form-group">
                     <label className="form-label">Segment</label>
                     <select
@@ -1341,19 +1354,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Product</label>
-                      <select
-                        name="product"
-                        value={formData.product}
-                        onChange={handleChange}
-                        className="form-select"
-                      >
-                        <option value="Intraday">Intraday</option>
-                        <option value="Delivery">Delivery</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Action</label>
                       <select
                         name="action"
@@ -1377,53 +1377,11 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   <div 
                     style={{ 
                       display: 'grid', 
-                      gridTemplateColumns: '1fr 1fr 1fr', 
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
                       gap: '16px', 
                       marginBottom: '16px' 
                     }}
                   >
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Active Account</label>
-                      <select
-                        name="brokerAccountId"
-                        value={formData.brokerAccountId}
-                        onChange={(e) => {
-                          const accId = e.target.value;
-                          const matched = brokerAccounts.find(a => a.id === accId);
-                          setFormData(prev => ({
-                            ...prev,
-                            brokerAccountId: accId,
-                            broker: matched ? matched.broker : 'Other'
-                          }));
-                        }}
-                        className="form-select"
-                      >
-                        {brokerAccounts.filter(a => a.active).map((acc) => (
-                          <option key={acc.id} value={acc.id}>
-                            {acc.accountName} ({acc.broker})
-                          </option>
-                        ))}
-                        {formData.brokerAccountId && !brokerAccounts.find(a => a.id === formData.brokerAccountId) && (
-                          <option value={formData.brokerAccountId}>
-                            {formData.broker} Account (Inactive)
-                          </option>
-                        )}
-                        {brokerAccounts.length === 0 && <option value="">Other / Direct</option>}
-                      </select>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Product</label>
-                      <select
-                        name="product"
-                        value={formData.product}
-                        onChange={handleChange}
-                        className="form-select"
-                      >
-                        <option value="Intraday">Intraday</option>
-                        <option value="Delivery">Delivery</option>
-                      </select>
-                    </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Slippage (Pts)</label>

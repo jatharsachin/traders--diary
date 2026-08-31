@@ -217,9 +217,7 @@ export function TradingCalendar({
   const getDayTradesSummary = (dayNum: number) => {
     const formattedDay = dayNum.toString().padStart(2, '0');
     const formattedMonth = (month + 1).toString().padStart(2, '0');
-    const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
-
-    const dailyTrades = trades.filter((t) => t.date === dateStr);
+    const dailyTrades = trades.filter((t) => (t.exitDate || t.date) === dateStr);
     const dailyInvPurchases = investments.filter((i) => i.date === dateStr);
     const dailyInvExits = investments.filter((i) => i.status === 'EXITED' && i.exitDate === dateStr);
 
@@ -555,13 +553,13 @@ export function TradingCalendar({
   const getActiveMonthPnL = () => {
     const formattedMonth = (month + 1).toString().padStart(2, '0');
     const monthPrefix = `${year}-${formattedMonth}-`;
-    const monthlyTrades = trades.filter((t) => t.date.startsWith(monthPrefix));
+    const monthlyTrades = trades.filter((t) => (t.exitDate || t.date).startsWith(monthPrefix));
     return monthlyTrades.reduce((acc, t) => acc + t.netPnL, 0);
   };
 
   const getActiveYearPnL = () => {
     const yearPrefix = `${year}-`;
-    const yearlyTrades = trades.filter((t) => t.date.startsWith(yearPrefix));
+    const yearlyTrades = trades.filter((t) => (t.exitDate || t.date).startsWith(yearPrefix));
     return yearlyTrades.reduce((acc, t) => acc + t.netPnL, 0);
   };
 
@@ -580,7 +578,10 @@ export function TradingCalendar({
     const monStr = formatD(monday);
     const sunStr = formatD(sunday);
 
-    const weeklyTrades = trades.filter((t) => t.date >= monStr && t.date <= sunStr);
+    const weeklyTrades = trades.filter((t) => {
+      const d = t.exitDate || t.date;
+      return d >= monStr && d <= sunStr;
+    });
 
     return weeklyTrades.reduce((acc, t) => acc + t.netPnL, 0);
   };
@@ -602,7 +603,10 @@ export function TradingCalendar({
   const { startStr: fyStartStr, endStr: fyEndStr, fyStartYear } = getFYRange();
 
   const getFYPnL = () => {
-    const fyTrades = trades.filter((t) => t.date >= fyStartStr && t.date <= fyEndStr);
+    const fyTrades = trades.filter((t) => {
+      const d = t.exitDate || t.date;
+      return d >= fyStartStr && d <= fyEndStr;
+    });
     return fyTrades.reduce((acc, t) => acc + t.netPnL, 0);
   };
   const activeFYPnL = getFYPnL();
@@ -610,12 +614,15 @@ export function TradingCalendar({
   const getActiveMonthDeployed = () => {
     const formattedMonth = (month + 1).toString().padStart(2, '0');
     const monthPrefix = `${year}-${formattedMonth}-`;
-    const monthlyTrades = trades.filter((t) => t.date.startsWith(monthPrefix));
+    const monthlyTrades = trades.filter((t) => (t.exitDate || t.date).startsWith(monthPrefix));
     return monthlyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0);
   };
 
   const getFYDeployed = () => {
-    const fyTrades = trades.filter((t) => t.date >= fyStartStr && t.date <= fyEndStr);
+    const fyTrades = trades.filter((t) => {
+      const d = t.exitDate || t.date;
+      return d >= fyStartStr && d <= fyEndStr;
+    });
     return fyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0);
   };
 
@@ -707,7 +714,8 @@ export function TradingCalendar({
       const wEndStr = wEnd.toISOString().split('T')[0];
       
       const weeklyTrades = trades.filter((t) => {
-        return t.date >= wStartStr && t.date <= wEndStr;
+        const d = t.exitDate || t.date;
+        return d >= wStartStr && d <= wEndStr;
       });
 
       const weeklyInvPurchases = investments.filter((i) => i.date >= wStartStr && i.date <= wEndStr);
@@ -775,7 +783,8 @@ export function TradingCalendar({
       const mEndStr = `${mYear}-${String(mMonthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
       
       const monthlyTrades = trades.filter((t) => {
-        return t.date >= mStartStr && t.date <= mEndStr;
+        const d = t.exitDate || t.date;
+        return d >= mStartStr && d <= mEndStr;
       });
 
       const monthlyInvPurchases = investments.filter((i) => i.date >= mStartStr && i.date <= mEndStr);
@@ -1014,7 +1023,7 @@ export function TradingCalendar({
         periodInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate && i.exitDate >= mStartStr && i.exitDate <= mEndStr);
       }
     } else if (selectedDate) {
-      dayTradesList = trades.filter((t) => t.date === selectedDate);
+      dayTradesList = trades.filter((t) => (t.exitDate || t.date) === selectedDate);
       periodInvPurchases = investments.filter(i => i.date === selectedDate);
       periodInvExits = investments.filter(i => i.status === 'EXITED' && i.exitDate === selectedDate);
     }
@@ -2027,7 +2036,12 @@ export function TradingCalendar({
                       className={selectedRowId === t.id ? 'selected-row' : ''}
                       onClick={() => setSelectedRowId(selectedRowId === t.id ? null : t.id)}
                     >
-                      <td style={{ fontWeight: 550, fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{formatTimeToAMPM(t.entryTime)} - {formatTimeToAMPM(t.exitTime)}</td>
+                      <td style={{ fontWeight: 550, fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+                        <div>{formatTimeToAMPM(t.entryTime)} - {formatTimeToAMPM(t.exitTime)}</div>
+                        {t.exitDate && t.exitDate !== t.date && (
+                          <div style={{ fontSize: '0.62rem', color: '#60a5fa', fontWeight: 600 }}>Entry: {t.date}</div>
+                        )}
+                      </td>
                       <td style={{ fontWeight: 600 }}>{t.symbol}</td>
                       <td>
                         <BrokerBadge broker={t.broker} />

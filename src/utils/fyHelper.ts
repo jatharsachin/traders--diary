@@ -24,7 +24,10 @@ export function filterTradesByFY(trades: Trade[], fy: string): Trade[] {
   const startStr = `${startYear}-04-01`;
   const endStr = `${endYear}-03-31`;
 
-  return trades.filter((t) => t.date >= startStr && t.date <= endStr);
+  return trades.filter((t) => {
+    const d = t.exitDate || t.date;
+    return d >= startStr && d <= endStr;
+  });
 }
 
 export const FINANCIAL_YEARS = [
