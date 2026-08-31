@@ -64,6 +64,7 @@ export function Dashboard({
   const investments = allInvestments.filter(i => !i.brokerAccountId || activeAccountIds.includes(i.brokerAccountId));
   
   const [selectedBroker, setSelectedBroker] = useState<string>('All');
+  const [selectedSegment, setSelectedSegment] = useState<string>('All');
   const [showCombined, setShowCombined] = useState(false);
   const [selectedChartMonth, setSelectedChartMonth] = useState<string>('');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -174,10 +175,39 @@ export function Dashboard({
   }, [rawTradesByFY, activeAccountId]);
 
   const trades = useMemo(() => {
-    return selectedBroker === 'All' 
-      ? rawTrades 
-      : rawTrades.filter((t) => (t.broker || 'Other') === selectedBroker);
-  }, [rawTrades, selectedBroker]);
+    return rawTrades.filter((t) => {
+      const matchesBroker = selectedBroker === 'All' || (t.broker || 'Other') === selectedBroker;
+      if (!matchesBroker) return false;
+      if (selectedSegment === 'All') return true;
+      if (selectedSegment === 'Options') {
+        return t.segment === 'F&O' && (
+          (t.optionType && t.optionType !== 'None') ||
+          (t.strikePrice !== undefined && t.strikePrice > 0) ||
+          /CE|PE|\bCALL\b|\bPUT\b/i.test(t.symbol || '') ||
+          (!t.symbol?.toUpperCase().includes('FUT') && t.entryPrice < 3000)
+        );
+      }
+      if (selectedSegment === 'Futures') {
+        const isOpt = t.segment === 'F&O' && (
+          (t.optionType && t.optionType !== 'None') ||
+          (t.strikePrice !== undefined && t.strikePrice > 0) ||
+          /CE|PE|\bCALL\b|\bPUT\b/i.test(t.symbol || '') ||
+          (!t.symbol?.toUpperCase().includes('FUT') && t.entryPrice < 3000)
+        );
+        return t.segment === 'F&O' && !isOpt;
+      }
+      if (selectedSegment === 'Equity') {
+        return t.segment === 'Equity';
+      }
+      if (selectedSegment === 'Commodity') {
+        return t.segment === 'Commodity';
+      }
+      if (selectedSegment === 'Currency') {
+        return t.segment === 'Currency';
+      }
+      return true;
+    });
+  }, [rawTrades, selectedBroker, selectedSegment]);
 
   const totalTrades = trades.length;
   const winningTrades = trades.filter((t) => t.netPnL > 0);
@@ -697,7 +727,8 @@ export function Dashboard({
   const dailyPnL = useMemo(() => {
     const pnlMap: Record<string, number> = {};
     sortedTrades.forEach((t) => {
-      pnlMap[t.date] = (pnlMap[t.date] || 0) + t.netPnL;
+      const d = t.exitDate || t.date;
+      pnlMap[d] = (pnlMap[d] || 0) + t.netPnL;
     });
     return pnlMap;
   }, [sortedTrades]);
@@ -1120,15 +1151,39 @@ export function Dashboard({
         if (!dateStr || dateStr === 'Start') return 'Start';
         const d = parseLocalDate(dateStr);
         if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       };
 
+      const val = data.tradingPnL || 0;
+      const isPositive = val >= 0;
+
       return (
-        <div className="glass-card" style={{ background: 'var(--bg-tooltip-opaque)', border: '1px solid var(--border-color)', padding: '8px 12px', boxShadow: 'var(--shadow-glow)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDateTooltip(data.date)}</span>
-          <span style={{ fontSize: '0.82rem', fontWeight: 650, color: 'var(--text-main)' }}>
-            Value: {isPnlVisible ? formatCurrency(data.tradingPnL) : '••••'}
-          </span>
+        <div 
+          className="glass-card" 
+          style={{ 
+            background: 'var(--bg-tooltip-opaque)', 
+            border: '1.5px solid var(--border-color-active)', 
+            borderRadius: '12px',
+            padding: '10px 14px', 
+            boxShadow: 'var(--shadow-glow)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '4px',
+            minWidth: '150px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>{formatDateTooltip(data.date)}</span>
+            <span 
+              className={`badge ${isPositive ? 'badge-win' : 'badge-loss'}`}
+              style={{ fontSize: '0.62rem', padding: '1px 6px' }}
+            >
+              {isPositive ? 'GROWTH' : 'DRAWDOWN'}
+            </span>
+          </div>
+          <div style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: isPositive ? 'var(--color-win)' : 'var(--color-loss)' }}>
+            {isPnlVisible ? `${isPositive ? '+' : ''}${formatCurrency(val)}` : '••••••'}
+          </div>
         </div>
       );
     }
@@ -1469,8 +1524,44 @@ export function Dashboard({
           </button>
         </div>
       </div>
-
-
+      {/* Quick Segment Filter Pills */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '-4px', marginBottom: '2px' }}>
+        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Segment:
+        </span>
+        {[
+          { key: 'All', label: 'All Segments' },
+          { key: 'Options', label: '⚡ Options' },
+          { key: 'Futures', label: '📈 Futures' },
+          { key: 'Equity', label: '💼 Equity Cash' },
+          { key: 'Commodity', label: '🪙 Commodity' },
+          { key: 'Currency', label: '💱 Currency' }
+        ].map((seg) => {
+          const isSel = selectedSegment === seg.key;
+          return (
+            <button
+              key={seg.key}
+              onClick={() => setSelectedSegment(seg.key)}
+              style={{
+                background: isSel ? 'var(--primary)' : 'rgba(255, 255, 255, 0.03)',
+                color: isSel ? '#ffffff' : 'var(--text-muted)',
+                border: isSel ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                borderRadius: '9999px',
+                padding: '4px 12px',
+                fontSize: '0.74rem',
+                fontWeight: isSel ? 700 : 550,
+                cursor: 'pointer',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              {seg.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Grid 1: Key Performance Indicators (Row 1 - 5 Columns) */}
       <div className="metrics-grid">
@@ -1881,35 +1972,35 @@ export function Dashboard({
       <div className="grid-2col-12-1" style={{ marginBottom: '14px' }}>
         
         {/* Card 1: Performance Returns Duration */}
-        <div className="glass-card" style={{ padding: '24px' }}>
+        <div className="glass-card" style={{ padding: '24px', borderTop: '2.5px solid var(--primary)', position: 'relative' }}>
           <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <CalendarRange size={18} color="var(--primary)" />
             Returns Breakdown
           </h3>
-          <div className="grid-2col-equal-small" style={{ gap: '16px' }}>
-            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>1 Month Return</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: m1.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                {isPnlVisible ? formatCurrency(m1.pnl) : '••••'} ({m1.pct.toFixed(1)}%)
+          <div className="grid-2col-equal-small" style={{ gap: '14px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>1 Month Return</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '4px', fontFamily: 'var(--font-mono)', color: m1.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(m1.pnl) : '••••'} <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>({m1.pct.toFixed(1)}%)</span>
               </div>
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>3 Months Return</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: m3.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                {isPnlVisible ? formatCurrency(m3.pnl) : '••••'} ({m3.pct.toFixed(1)}%)
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>3 Months Return</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '4px', fontFamily: 'var(--font-mono)', color: m3.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(m3.pnl) : '••••'} <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>({m3.pct.toFixed(1)}%)</span>
               </div>
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>All Time P&L</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '4px', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'} ({allTimePct.toFixed(1)}%)
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>All Time P&L</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '4px', fontFamily: 'var(--font-mono)', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'} <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>({allTimePct.toFixed(1)}%)</span>
               </div>
             </div>
-             <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '62px' }}>
-               <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+             <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '62px' }}>
+               <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                  Annualized CAGR {isExtrapolated && <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>(Projected)</span>}
                </div>
-               <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '2px', color: cagr >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+               <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)', color: cagr >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
                  {cagr.toFixed(1)}%
                </div>
                {isExtrapolated && (
@@ -1922,23 +2013,23 @@ export function Dashboard({
         </div>
 
         {/* Card 2: Consistency & Streaks */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="glass-card" style={{ padding: '24px', borderTop: '2.5px solid var(--color-win)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
           <div>
             <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <ShieldCheck size={18} color="var(--color-win)" />
               Consistency Audit
             </h3>
             
-            <div className="grid-2col-equal-small" style={{ gap: '16px', marginBottom: '16px' }}>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Trading Days Win %</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-win)', marginTop: '4px' }}>
+            <div className="grid-2col-equal-small" style={{ gap: '14px', marginBottom: '16px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.015)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Trading Days Win %</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-win)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
                   {winDaysPct.toFixed(1)}%
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Total Trades</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '4px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.015)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Total Trades</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
                   {totalTrades}
                 </div>
               </div>
@@ -1946,28 +2037,35 @@ export function Dashboard({
           </div>
 
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Flame size={14} color="var(--color-win)" /> Max Win Streak: <strong>{maxConsecWins}</strong>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Flame size={14} color="var(--color-win)" /> Max Win Streak: <strong style={{ color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>{maxConsecWins}</strong>
               </span>
-              <span>Max Loss Streak: <strong>{maxConsecLosses}</strong></span>
+              <span>Max Loss Streak: <strong style={{ color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>{maxConsecLosses}</strong></span>
             </div>
             
             {/* Visual Streaks Split Progress Bar */}
-            <div style={{ display: 'flex', height: '10px', borderRadius: '5px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', height: '8px', borderRadius: '9999px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', padding: '1px' }}>
               <div 
                 style={{ 
                   flex: maxConsecWins || 1, 
-                  background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)', 
+                  background: 'linear-gradient(90deg, #15803d 0%, #30d158 100%)', 
+                  borderRadius: '9999px',
+                  boxShadow: '0 0 8px rgba(48, 209, 88, 0.4)',
                   transition: 'all 0.3s ease' 
                 }} 
+                title={`Max Win Streak: ${maxConsecWins} wins`}
               />
+              <div style={{ width: '3px' }} />
               <div 
                 style={{ 
                   flex: maxConsecLosses || 1, 
-                  background: 'linear-gradient(90deg, #f87171 0%, #ef4444 100%)', 
+                  background: 'linear-gradient(90deg, #ff453a 0%, #dc2626 100%)', 
+                  borderRadius: '9999px',
+                  boxShadow: '0 0 8px rgba(255, 69, 58, 0.4)',
                   transition: 'all 0.3s ease' 
                 }} 
+                title={`Max Loss Streak: ${maxConsecLosses} losses`}
               />
             </div>
           </div>
