@@ -53,10 +53,12 @@ const TradeLogger = safeLazy(() => import('./components/TradeLogger').then(m => 
 const Taxation = safeLazy(() => import('./components/Taxation').then(m => ({ default: m.Taxation })));
 const DayBook = safeLazy(() => import('./components/DayBook').then(m => ({ default: m.DayBook })));
 const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
+const DhanConnectModal = safeLazy(() => import('./components/DhanConnectModal').then(m => ({ default: m.DhanConnectModal })));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [isLoggerOpen, setIsLoggerOpen] = useState(false);
+  const [isDhanModalOpen, setIsDhanModalOpen] = useState(false);
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [lastSeenNotificationCount, setLastSeenNotificationCount] = useState<number>(0);
@@ -798,6 +800,36 @@ export default function App() {
 
             {/* Theme, Notification, and User Profile Info */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+              {/* Dhan Direct Auto-Sync Button */}
+              <button 
+                type="button"
+                onClick={() => setIsDhanModalOpen(true)}
+                className="btn btn-secondary"
+                style={{ 
+                  height: '48px', 
+                  padding: '0 14px', 
+                  borderRadius: '12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  background: 'var(--bg-card)',
+                  border: '1.5px solid var(--border-color)',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  flexShrink: 0
+                }}
+                title="Dhan Direct Auto-Sync (Pure Read-Only)"
+              >
+                <img 
+                  src={BROKER_LOGOS['Dhan']} 
+                  alt="Dhan" 
+                  style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1.5px', border: '1px solid var(--border-color)' }} 
+                />
+                <span className="hide-mobile">Dhan Sync</span>
+              </button>
+
               {/* Theme Toggle Button */}
               <button 
                 onClick={toggleTheme}
@@ -1751,6 +1783,13 @@ export default function App() {
           onClose={() => setIsProfileSettingsOpen(false)}
           useTwoRowHeader={useTwoRowHeader}
           setUseTwoRowHeader={setUseTwoRowHeader}
+        />
+
+        {/* Dhan Direct Auto-Sync Modal Overlay */}
+        <DhanConnectModal 
+          isOpen={isDhanModalOpen}
+          onClose={() => setIsDhanModalOpen(false)}
+          activeAccountId={activeAccountId}
         />
       </Suspense>
 
