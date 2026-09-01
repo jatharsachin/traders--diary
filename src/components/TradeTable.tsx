@@ -3,7 +3,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import type { Trade, Mistake } from '../types';
 import { getTradeMistakes } from '../types';
 import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings, X, SlidersHorizontal } from 'lucide-react';
-import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
+import { filterTradesByFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
 
 interface TradeTableProps {
@@ -30,7 +30,7 @@ export function TradeTable({
     brokerAccounts
   } = useTradeStore();
 
-  const purchaseItems = allInvestments.map(i => ({
+  const purchaseItems = (allInvestments || []).map(i => ({
     id: `${i.id}-buy`,
     date: i.date,
     exitDate: i.status === 'EXITED' ? i.exitDate : undefined,
@@ -38,43 +38,52 @@ export function TradeTable({
     exitTime: i.status === 'EXITED' ? '15:30' : '09:15',
     durationMinutes: 0,
     symbol: i.symbol,
-    broker: i.broker || 'System',
+    broker: i.broker || 'Other',
     brokerAccountId: i.brokerAccountId,
-    segment: i.type, // e.g. BOND, ETF, EQUITY
-    product: 'Investment',
+    segment: (i.type === 'ETF' || i.type === 'BOND') ? 'Equity' : (i.type || 'Equity'),
+    rawType: i.type,
+    product: 'Delivery' as const,
     action: 'BUY' as const,
     qty: i.qty,
     entryPrice: i.buyPrice,
-    exitPrice: i.status === 'EXITED' ? i.exitPrice! : 0,
-    grossPnL: i.status === 'EXITED' ? i.qty * (i.exitPrice! - i.buyPrice) : 0,
+    exitPrice: i.status === 'EXITED' ? (i.exitPrice || 0) : (i.currentPrice || i.buyPrice),
+    grossPnL: i.status === 'EXITED' ? i.qty * ((i.exitPrice || 0) - i.buyPrice) : i.qty * ((i.currentPrice || i.buyPrice) - i.buyPrice),
     brokerage: 0,
     taxes: 0,
-    netPnL: i.status === 'EXITED' ? i.qty * (i.exitPrice! - i.buyPrice) : 0,
-    strategy: 'None',
+    netPnL: i.status === 'EXITED' ? i.qty * ((i.exitPrice || 0) - i.buyPrice) : i.qty * ((i.currentPrice || i.buyPrice) - i.buyPrice),
+    strategy: 'Delivery Investment',
     mistake: 'None',
-    setupType: 'None',
-    notes: i.notes || '',
+    setupType: 'None' as const,
+    notes: i.notes || 'Investment holding log',
     isInvestment: true,
-    emotion: 'Neutral',
-    roi: 0,
+    emotion: 'Calm' as const,
+    roi: i.buyPrice > 0 ? (((i.status === 'EXITED' ? (i.exitPrice || 0) : (i.currentPrice || i.buyPrice)) - i.buyPrice) / i.buyPrice) * 100 : 0,
     actualRR: 0,
     isExpiryDay: false,
-    tags: [] as string[]
+    tags: ['#investment', `#${i.type || 'HOLDING'}`] as string[]
   }));
 
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
-  const fyInvestments = filterTradesByFY(purchaseItems as any, selectedFY) as any[];
+  const fyInvestments = selectedFY === 'All'
+    ? purchaseItems
+    : purchaseItems.filter(i => {
+        // ALWAYS keep all active investments visible across views, or exited in this FY
+        if (!i.exitDate) return true;
+        const fy = getFinancialYear(i.exitDate || i.date);
+        return fy === selectedFY;
+      });
 
   const tradesFiltered = activeAccountId === 'Combined' 
     ? fyTrades 
-    : fyTrades.filter(t => t.brokerAccountId === activeAccountId);
+    : fyTrades.filter(t => !t.brokerAccountId || t.brokerAccountId === activeAccountId);
 
   const investmentsFiltered = activeAccountId === 'Combined'
     ? fyInvestments
     : fyInvestments.filter(i => {
+        if (!i.brokerAccountId) return true;
         if (i.brokerAccountId === activeAccountId) return true;
         const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-        return activeAcc ? i.broker === activeAcc.broker : false;
+        return activeAcc ? i.broker?.toLowerCase() === activeAcc.broker?.toLowerCase() : false;
       });
 
   const trades = [...tradesFiltered, ...investmentsFiltered];
@@ -123,7 +132,7 @@ export function TradeTable({
   // Filter trades
   const filteredTrades = trades.filter((trade) => {
     const matchesSearch = trade.symbol.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSegment = selectedSegment === 'All' || trade.segment === selectedSegment;
+    const matchesSegment = selectedSegment === 'All' || trade.segment === selectedSegment || (trade as any).rawType === selectedSegment;
     const matchesAction = selectedAction === 'All' || trade.action === selectedAction;
     const matchesStrategy = selectedStrategy === 'All' || trade.strategy === selectedStrategy;
     const matchesMistake = selectedMistake === 'All' || getTradeMistakes(trade).includes(selectedMistake as Mistake);
