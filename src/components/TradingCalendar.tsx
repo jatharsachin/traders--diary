@@ -217,6 +217,7 @@ export function TradingCalendar({
   const getDayTradesSummary = (dayNum: number) => {
     const formattedDay = dayNum.toString().padStart(2, '0');
     const formattedMonth = (month + 1).toString().padStart(2, '0');
+    const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
     const dailyTrades = trades.filter((t) => (t.exitDate || t.date) === dateStr);
     const dailyInvPurchases = investments.filter((i) => i.date === dateStr);
     const dailyInvExits = investments.filter((i) => i.status === 'EXITED' && i.exitDate === dateStr);
