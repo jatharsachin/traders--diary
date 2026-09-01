@@ -67,59 +67,60 @@ const DHAN_API_BASE = 'https://api.dhan.co/v2';
  * Strictly performs ONLY 'GET' requests.
  */
 async function dhanGetRequest<T>(endpoint: string, creds: DhanCredentials): Promise<T> {
-  const targetUrl = `${DHAN_API_BASE}${endpoint}`;
+  const cleanToken = creds.accessToken.trim();
+  const cleanClientId = creds.clientId.trim();
+
   const headers: Record<string, string> = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
-    'access-token': creds.accessToken.trim(),
-    'client-id': creds.clientId.trim(),
+    'access-token': cleanToken,
+    'client-id': cleanClientId,
   };
 
-  // 1. Try Direct Fetch
-  try {
-    const directRes = await fetch(targetUrl, {
-      method: 'GET',
-      headers,
-    });
-    if (directRes.ok) {
-      return await directRes.json();
-    }
-    // If unauthorized or bad request, throw meaningful error
-    if (directRes.status === 401 || directRes.status === 403) {
-      throw new Error('Invalid Dhan Client ID or Access Token. Please verify your credentials.');
-    }
-  } catch (err: any) {
-    if (err.message && err.message.includes('Invalid Dhan Client ID')) {
-      throw err;
-    }
-    // Network or CORS error -> Fallback to CORS proxy
-  }
-
-  // 2. Try CORS Proxy Fallback
-  const proxyUrls = [
-    `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+  // Try dev/local proxy first (bypasses browser CORS), then direct endpoint
+  const candidateUrls = [
+    `/dhan-api${endpoint}`,
+    `${DHAN_API_BASE}${endpoint}`,
   ];
 
-  for (const proxyUrl of proxyUrls) {
+  let lastErrorMsg = '';
+
+  for (const url of candidateUrls) {
     try {
-      const proxyRes = await fetch(proxyUrl, {
+      const res = await fetch(url, {
         method: 'GET',
         headers,
       });
-      if (proxyRes.ok) {
-        return await proxyRes.json();
+
+      if (res.ok) {
+        return await res.json();
       }
-      if (proxyRes.status === 401 || proxyRes.status === 403) {
-        throw new Error('Invalid Dhan Client ID or Access Token. Please verify your credentials.');
+
+      // Parse detailed error from Dhan API response
+      try {
+        const errorJson = await res.json();
+        if (errorJson && (errorJson.errorMessage || errorJson.message || errorJson.errorType)) {
+          lastErrorMsg = errorJson.errorMessage || errorJson.message || `Dhan Error: ${errorJson.errorType} (${errorJson.errorCode || res.status})`;
+          throw new Error(`Dhan: ${lastErrorMsg}`);
+        }
+      } catch (jsonErr: any) {
+        if (jsonErr.message && jsonErr.message.startsWith('Dhan:')) {
+          throw jsonErr;
+        }
       }
-    } catch (e: any) {
-      if (e.message && e.message.includes('Invalid Dhan Client ID')) {
-        throw e;
+
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Dhan: Client ID or Access Token is invalid or expired. Please generate a fresh token from web.dhan.co.');
       }
+    } catch (err: any) {
+      if (err.message && err.message.startsWith('Dhan:')) {
+        throw err;
+      }
+      lastErrorMsg = err.message || '';
     }
   }
 
-  throw new Error('Unable to connect to Dhan API. Please check your internet connection or Access Token.');
+  throw new Error(lastErrorMsg || 'Unable to connect to Dhan API. Please check your Access Token or network.');
 }
 
 /**
