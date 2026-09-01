@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import logoImg from '../assets/tradediary_logo.png';
 import { BROKER_LOGOS } from '../utils/brandLogos';
-import { DhanConnectModal } from './DhanConnectModal';
 
 interface AccountManagerProps {
   activeAccountId?: string;
@@ -28,8 +27,6 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
     brokerAccounts,
     syncAllInvestmentPrices
   } = useTradeStore();
-
-  const [isDhanModalOpen, setIsDhanModalOpen] = useState(false);
 
   // Investment Form States
   const [isInvFormOpen, setIsInvFormOpen] = useState(false);
@@ -420,16 +417,6 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
                     <span>{syncPricesLoading ? 'Syncing...' : 'Sync Live Prices'}</span>
                   </button>
                 )}
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 650 }}
-                  onClick={() => setIsDhanModalOpen(true)}
-                  title="Dhan Direct Auto-Sync (Pure Read-Only)"
-                >
-                  <img src={BROKER_LOGOS['Dhan']} alt="Dhan" style={{ width: '15px', height: '15px', borderRadius: '50%', background: '#fff', padding: '1px' }} />
-                  <span>Dhan Sync</span>
-                </button>
                 <button className="btn btn-primary" style={{ padding: '6px 10px', fontSize: '0.75rem' }} onClick={() => { setInvDate(new Date().toISOString().split('T')[0]); setIsInvFormOpen(true); }}>
                   <Plus size={11} />
                   <span>Log Purchase</span>
@@ -657,13 +644,6 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
           </div>
         </div>
       )}
-
-      {/* Dhan Direct Auto-Sync Modal Overlay */}
-      <DhanConnectModal 
-        isOpen={isDhanModalOpen}
-        onClose={() => setIsDhanModalOpen(false)}
-        activeAccountId={activeAccountId}
-      />
 
     </div>
   );
