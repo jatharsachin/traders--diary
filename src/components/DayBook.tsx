@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatTimeToAMPM } from '../utils/fyHelper';
+import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
   CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown
@@ -26,8 +26,15 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
   const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
 
-  const [startDate, setStartDate] = useState<string>(oneMonthAgoStr);
-  const [endDate, setEndDate] = useState<string>(todayStr);
+  const [dateRange, setDateRange] = useState<'today' | '30days' | 'custom'>('30days');
+  const [customStartDate, setCustomStartDate] = useState(oneMonthAgoStr);
+  const [customEndDate, setCustomEndDate] = useState(todayStr);
+  const [sortAscending, setSortAscending] = useState(false);
+  const [showRunningBalance, setShowRunningBalance] = useState(true);
+
+  const startDate = dateRange === 'custom' ? customStartDate : (dateRange === 'today' ? todayStr : oneMonthAgoStr);
+  const endDate = dateRange === 'custom' ? customEndDate : todayStr;
+
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
@@ -54,9 +61,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
 
   const handleSaveNotes = (id: string, type: 'TRADE' | 'DEPOSIT' | 'WITHDRAWAL') => {
     const isLocked = (dateStr: string) => {
-      const match = dateStr.substring(0, 4);
-      // We can also call the store's check or get lockedFYs
-      const fy = `FY ${match}-${(parseInt(match) + 1).toString().slice(-2)}`;
+      const fy = getFinancialYear(dateStr);
       return useTradeStore.getState().lockedFYs.includes(fy);
     };
 

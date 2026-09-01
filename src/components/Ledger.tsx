@@ -1263,7 +1263,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 })}
                 {activeBankTxList.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
+                    <td colSpan={6} style={{ padding: '24px', textTransform: 'none', color: 'var(--text-dim)', textAlign: 'center' }}>
                       No transactions recorded for this bank account.
                     </td>
                   </tr>

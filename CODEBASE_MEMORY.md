@@ -37,6 +37,17 @@
 - **Missing `create` Import in Store**: Restored `import { create } from 'zustand';` at line 1 of `src/store/useTradeStore.ts`.
 - **Fail-Safe Store Data Loaders**: Added `Array.isArray()` and `null` safety guards across `loadTrades`, `loadBrokerAccounts`, `loadBankAccounts`, `loadAdjustments`, `loadInvestments`, `loadLockedFYs`, and `loadNoTradeDays` to eliminate all possibility of runtime crashes due to invalid localStorage state.
 - **Global ErrorBoundary & Safe Lazy Loading**: Added `ErrorBoundary` in `src/main.tsx` and `safeLazy` retry logic in `src/App.tsx` to handle network/chunk errors seamlessly.
+- **Comprehensive Codebase Audit & Fixes**:
+  - `src/store/useTradeStore.ts`: Fixed `computeTradeCalculations` missing `else` branch for automatic charges calculation, preserved manual brokerage/taxes in manual mode, and fixed double-entry bank transaction ID matching.
+  - `src/utils/taxEngine.ts`: Added `optionsFlatFee ?? 20` fallback guards to prevent `NaN` cascading.
+  - `src/utils/fyHelper.ts`: Protected `formatTimeToAMPM` against duplicate AM/PM suffixes, added timestamp safety to `filterTradesByFY`, and expanded `FINANCIAL_YEARS`.
+  - `src/utils/statementParser.ts`: Fixed proportional charges deduction on partial execution matching legs.
+  - `src/components/Dashboard.tsx`: Fixed mistake cost calculation and discipline rating using `getTradeMistakes(t)`, and fixed heatmap modal date interpolation.
+  - `src/components/TradeTable.tsx`: Removed stray `$` in ribbon filter, added null-safety to CSV notes, and used `formatTradeMistakes(t)` in PDF export.
+  - `src/components/DayBook.tsx`: Fixed Jan-Mar financial year detection using `getFinancialYear(dateStr)`.
+  - `src/components/TradingCalendar.tsx`: Defaulted `currentDate` to live `new Date()` and used `formatTradeMistakes(t)` for mistake badges.
+  - `src/components/Ledger.tsx`: Fixed bank transactions empty table row `colSpan` from 7 to 6.
+  - `src/App.tsx`: Fixed mistake leak alert calculation and restored legacy trades visibility.
 - **Dhan Direct Connect Removed**: Completely removed Dhan direct connect API integration and modal per user request, preserving 100% original software architecture, zero external broker connection dependencies, and full peace of mind.
 - **Trading Calendar `dateStr` Variable Fix**: Fixed `ReferenceError: dateStr is not defined` inside `getDayTradesSummary` in `src/components/TradingCalendar.tsx` by properly constructing the ISO date string `${year}-${formattedMonth}-${formattedDay}`.
 - **Dual Progress Bars for Days & Trades Streaks**: Enhanced the Consistency Audit card with two dedicated, independent dual-tone progress bars (one for **Days Streak** and one for **Trades Streak**), providing clear visual split tracking for both daily consistency and trade execution runs.

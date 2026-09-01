@@ -282,16 +282,29 @@ const computeTradeCalculations = (
   let totalCharges = 0;
 
   if (trade.useManualCharges) {
-    brokerage = trade.manualBrokerage || 0;
-    taxes = trade.manualTaxes || 0;
+    brokerage = Number(trade.manualBrokerage) || 0;
+    taxes = Number(trade.manualTaxes) || 0;
     totalCharges = brokerage + taxes;
+  } else {
     const isOpt = segment === 'F&O' && (
       (trade.optionType && trade.optionType !== 'None') ||
       (trade.strikePrice !== undefined && trade.strikePrice > 0) ||
       (trade.symbol && /CE|PE|\bCALL\b|\bPUT\b/i.test(trade.symbol)) ||
       (!trade.symbol?.toUpperCase().includes('FUT') && trade.entryPrice < 3000)
     );
-    const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, effectiveExitPrice, chargesConfig, isOpt, trade.partialExits, trade.strategy, trade.symbol);
+    const taxResult = calculateIndianTaxesAndBrokerage(
+      segment, 
+      product, 
+      action, 
+      qty, 
+      entryPrice, 
+      effectiveExitPrice, 
+      chargesConfig, 
+      isOpt, 
+      trade.partialExits, 
+      trade.strategy, 
+      trade.symbol
+    );
     brokerage = taxResult.brokerage;
     taxes = taxResult.totalCharges - brokerage;
     totalCharges = taxResult.totalCharges;
@@ -1014,7 +1027,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         syncMetaToCloud('capital_adjustments', updated);
 
         // Clean up linked double-entry Bank Transaction
-        const updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== `btx-${id}`);
+        const btxId = id.startsWith('adj-btx-') ? id.replace('adj-', '') : (id.startsWith('adj-') ? id.replace('adj-', 'btx-') : `btx-${id}`);
+        const updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== btxId && tx.id !== `btx-${id}` && tx.id !== id.replace('adj-', ''));
         localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
         syncMetaToCloud('bank_transactions', updatedBankTx);
 
@@ -1762,8 +1776,12 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       syncMetaToCloud('capital_adjustments', updatedAdjustments);
 
       // Clean up linked subscription expenses
-      const subId = id.startsWith('btx-sub-') ? id.replace('btx-sub-', '') : id;
-      const updatedExpenses = state.subscriptionExpenses.filter((s) => s.id !== subId);
+      const subId = id.startsWith('btx-sub-') 
+        ? id.replace('btx-sub-', '') 
+        : id.startsWith('btx-exp-') 
+        ? id.replace('btx-', '') 
+        : id;
+      const updatedExpenses = state.subscriptionExpenses.filter((s) => s.id !== subId && s.id !== id);
       localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
       syncMetaToCloud('subscription_expenses', updatedExpenses);
 

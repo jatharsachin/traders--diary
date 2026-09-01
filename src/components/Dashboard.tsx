@@ -1063,7 +1063,7 @@ export function Dashboard({
       const winRate = w.trades.length > 0 ? (wins / w.trades.length) * 100 : 0;
       
       // Mistake cost
-      const mistakeCost = w.trades.reduce((acc, t) => (t.netPnL < 0 && t.mistake !== 'None' ? acc + Math.abs(t.netPnL) : acc), 0);
+      const mistakeCost = w.trades.reduce((acc, t) => (t.netPnL < 0 && getTradeMistakes(t).length > 0 ? acc + Math.abs(t.netPnL) : acc), 0);
       
       // Dominant emotion
       const emap: Record<string, number> = {};
@@ -1162,7 +1162,7 @@ export function Dashboard({
   };
 
   // Discipline Rating Calculation
-  const totalTradesWithMistakes = trades.filter((t) => t.mistake && t.mistake !== 'None').length;
+  const totalTradesWithMistakes = trades.filter((t) => getTradeMistakes(t).length > 0).length;
   const disciplineScore = totalTrades > 0 
     ? ((totalTrades - totalTradesWithMistakes) / totalTrades) * 100 
     : 100;
@@ -2379,7 +2379,7 @@ export function Dashboard({
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '12px' }}>
                 <div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-                    Trades Logged: ${new Date(selectedHeatmapDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    Trades Logged: {parseLocalDate(selectedHeatmapDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
                   </h3>
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: '2px 0 0 0' }}>
                     Quick overview of trades executed on this calendar day

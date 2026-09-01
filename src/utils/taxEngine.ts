@@ -115,8 +115,9 @@ export function calculateIndianTaxesAndBrokerage(
     if (isOptionCalculated) {
       // Equity & Index Options
       if (chargesConfig) {
-        const entryBroker = chargesConfig.optionsFlatFee;
-        const exitBroker = chargesConfig.optionsFlatFee * exitLegsCount;
+        const flatFee = chargesConfig.optionsFlatFee ?? 20;
+        const entryBroker = flatFee;
+        const exitBroker = flatFee * exitLegsCount;
         brokerage = entryBroker + exitBroker; // Flat ₹20 per executed order
       } else {
         brokerage = 20 * (1 + exitLegsCount); // Default ₹20 per order
@@ -147,7 +148,8 @@ export function calculateIndianTaxesAndBrokerage(
     if (isOptionCalculated) {
       // Commodity Options
       if (chargesConfig) {
-        brokerage = chargesConfig.optionsFlatFee * (1 + exitLegsCount);
+        const flatFee = chargesConfig.optionsFlatFee ?? 20;
+        brokerage = flatFee * (1 + exitLegsCount);
       } else {
         brokerage = 20 * (1 + exitLegsCount);
       }
@@ -161,19 +163,20 @@ export function calculateIndianTaxesAndBrokerage(
         const sellBroker = calcExitBrokerage(chargesConfig.futuresRatePct, chargesConfig.futuresMaxFee || Infinity);
         brokerage = buyBroker + sellBroker;
       } else {
-        const buyBroker = Math.min(20, buyValue * 0.0003);
-        const sellBroker = calcExitBrokerage(0.03, 20);
+        const buyBroker = Math.min(20, buyValue * 0.0002);
+        const sellBroker = calcExitBrokerage(0.02, 20);
         brokerage = buyBroker + sellBroker;
       }
-      exchangeTx = totalTurnover * 0.000026; // 0.0026%
-      stt = sellValue * 0.0002; // CTT 0.02% on sell side
+      exchangeTx = totalTurnover * 0.000021; // 0.0021%
+      stt = sellValue * 0.0001; // CTT 0.01% on sell side
       stampDuty = buyValue * 0.00002; // 0.002% buy side
     }
   } else if (segment === 'Currency') {
     // CDS charges (No STT)
     if (isOptionCalculated) {
       if (chargesConfig) {
-        brokerage = chargesConfig.optionsFlatFee * (1 + exitLegsCount);
+        const flatFee = chargesConfig.optionsFlatFee ?? 20;
+        brokerage = flatFee * (1 + exitLegsCount);
       } else {
         brokerage = 20 * (1 + exitLegsCount);
       }

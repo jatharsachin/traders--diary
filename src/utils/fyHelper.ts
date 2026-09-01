@@ -25,13 +25,15 @@ export function filterTradesByFY(trades: Trade[], fy: string): Trade[] {
   const endStr = `${endYear}-03-31`;
 
   return trades.filter((t) => {
-    const d = t.exitDate || t.date;
+    const d = (t.exitDate || t.date || '').substring(0, 10);
     return d >= startStr && d <= endStr;
   });
 }
 
 export const FINANCIAL_YEARS = [
   'All',
+  'FY 2024-25',
+  'FY 2025-26',
   'FY 2026-27'
 ];
 
@@ -48,13 +50,15 @@ export function getCurrentLiveFY(): string {
 
 export function formatTimeToAMPM(timeStr: string): string {
   if (!timeStr) return '';
-  const parts = timeStr.trim().split(':');
-  if (parts.length < 2) return timeStr;
+  const trimmed = timeStr.trim();
+  if (/AM|PM/i.test(trimmed)) return trimmed;
+  const parts = trimmed.split(':');
+  if (parts.length < 2) return trimmed;
   
   let hours = parseInt(parts[0], 10);
-  const minutes = parts[1].padStart(2, '0');
+  const minutes = (parts[1].split(' ')[0] || '').padStart(2, '0');
   
-  if (isNaN(hours)) return timeStr;
+  if (isNaN(hours)) return trimmed;
   
   const ampm = hours >= 12 ? 'PM' : 'AM';
   hours = hours % 12;

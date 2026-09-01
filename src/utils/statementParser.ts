@@ -146,6 +146,8 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
           broker: 'Kotak Neo'
         });
 
+        firstSell.brokerage = Math.max(0, firstSell.brokerage - propSellBrokerage);
+        firstSell.taxes = Math.max(0, firstSell.taxes - propSellTaxes);
         firstSell.qty -= matchQty;
         remainingQty -= matchQty;
 
@@ -155,9 +157,11 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
       }
 
       if (remainingQty > 0) {
-        // Still have buy quantity, queue it
+        // Still have buy quantity, queue it with remaining charges
+        const propRemBrokerage = exec.qty > 0 ? (exec.brokerage / exec.qty) * remainingQty : 0;
+        const propRemTaxes = exec.qty > 0 ? (exec.taxes / exec.qty) * remainingQty : 0;
         if (!pendingBuys[symbol]) pendingBuys[symbol] = [];
-        pendingBuys[symbol].push({ ...exec, qty: remainingQty });
+        pendingBuys[symbol].push({ ...exec, qty: remainingQty, brokerage: propRemBrokerage, taxes: propRemTaxes });
       }
       pendingSells[symbol] = sellQueue;
 
@@ -172,10 +176,10 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
         const matchQty = Math.min(firstBuy.qty, remainingQty);
 
         // Calculate proportional charges
-        const propBuyBrokerage = (firstBuy.brokerage / firstBuy.qty) * matchQty;
-        const propBuyTaxes = (firstBuy.taxes / firstBuy.qty) * matchQty;
-        const propSellBrokerage = (exec.brokerage / exec.qty) * matchQty;
-        const propSellTaxes = (exec.taxes / exec.qty) * matchQty;
+        const propBuyBrokerage = firstBuy.qty > 0 ? (firstBuy.brokerage / firstBuy.qty) * matchQty : 0;
+        const propBuyTaxes = firstBuy.qty > 0 ? (firstBuy.taxes / firstBuy.qty) * matchQty : 0;
+        const propSellBrokerage = exec.qty > 0 ? (exec.brokerage / exec.qty) * matchQty : 0;
+        const propSellTaxes = exec.qty > 0 ? (exec.taxes / exec.qty) * matchQty : 0;
 
         trades.push({
           date: firstBuy.date,
@@ -203,6 +207,8 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
           broker: 'Kotak Neo'
         });
 
+        firstBuy.brokerage = Math.max(0, firstBuy.brokerage - propBuyBrokerage);
+        firstBuy.taxes = Math.max(0, firstBuy.taxes - propBuyTaxes);
         firstBuy.qty -= matchQty;
         remainingQty -= matchQty;
 
@@ -212,9 +218,11 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
       }
 
       if (remainingQty > 0) {
-        // Still have sell quantity, queue it for future buy covers (Short)
+        // Still have sell quantity, queue it with remaining charges
+        const propRemBrokerage = exec.qty > 0 ? (exec.brokerage / exec.qty) * remainingQty : 0;
+        const propRemTaxes = exec.qty > 0 ? (exec.taxes / exec.qty) * remainingQty : 0;
         if (!pendingSells[symbol]) pendingSells[symbol] = [];
-        pendingSells[symbol].push({ ...exec, qty: remainingQty });
+        pendingSells[symbol].push({ ...exec, qty: remainingQty, brokerage: propRemBrokerage, taxes: propRemTaxes });
       }
       pendingBuys[symbol] = buyQueue;
     }

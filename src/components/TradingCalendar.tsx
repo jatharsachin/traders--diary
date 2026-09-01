@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { getTradeMistakes } from '../types';
+import { getTradeMistakes, formatTradeMistakes } from '../types';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
 import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM } from '../utils/fyHelper';
@@ -2070,8 +2070,8 @@ export function TradingCalendar({
                       <td>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                           <span className="badge badge-neutral" style={{ padding: '2px 5px', fontSize: '0.62rem' }}>{t.emotion}</span>
-                          {t.mistake !== 'None' && (
-                            <span className="badge badge-loss" style={{ padding: '2px 5px', fontSize: '0.62rem' }}>{t.mistake}</span>
+                          {getTradeMistakes(t).length > 0 && (
+                            <span className="badge badge-loss" style={{ padding: '2px 5px', fontSize: '0.62rem' }}>{formatTradeMistakes(t)}</span>
                           )}
                         </div>
                       </td>

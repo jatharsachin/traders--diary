@@ -12,6 +12,7 @@ import { AuthScreen } from './components/AuthScreen';
 
 
 import { useTradeStore } from './store/useTradeStore';
+import { getTradeMistakes } from './types';
 import { BROKER_LOGOS } from './utils/brandLogos';
 import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
@@ -200,7 +201,7 @@ export default function App() {
   } = useTradeStore();
 
   const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
-  const trades = allTrades.filter(t => t.brokerAccountId && activeAccountIds.includes(t.brokerAccountId));
+  const trades = allTrades.filter(t => !t.brokerAccountId || activeAccountIds.includes(t.brokerAccountId));
   const capitalAdjustments = allAdjustments.filter(a => !a.brokerAccountId || activeAccountIds.includes(a.brokerAccountId));
   const investments = allInvestments.filter(i => !i.brokerAccountId || activeAccountIds.includes(i.brokerAccountId));
 
@@ -287,7 +288,7 @@ export default function App() {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const recentTrades = trades.filter(t => new Date(t.date) >= sevenDaysAgo);
-    const recentMistakeCost = recentTrades.reduce((acc, t) => (t.netPnL < 0 && t.mistake !== 'None' ? acc + Math.abs(t.netPnL) : acc), 0);
+    const recentMistakeCost = recentTrades.reduce((acc, t) => (t.netPnL < 0 && getTradeMistakes(t).length > 0 ? acc + Math.abs(t.netPnL) : acc), 0);
     
     if (recentMistakeCost > 5000) {
       alertsList.push({

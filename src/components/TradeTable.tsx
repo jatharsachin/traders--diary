@@ -196,7 +196,7 @@ export function TradeTable({
     const rows = sortedTrades.map((t) => [
       t.date, t.entryTime, t.exitTime, t.symbol, t.segment, t.product, t.action,
       t.qty, t.entryPrice, t.exitPrice, t.grossPnL, (t.brokerage + t.taxes).toFixed(2), t.netPnL,
-      t.roi.toFixed(2), t.emotion, t.mistake, t.setupType || 'None', t.notes.replace(/"/g, '""')
+      t.roi.toFixed(2), t.emotion, formatTradeMistakes(t), t.setupType || 'None', (t.notes || '').replace(/"/g, '""')
     ]);
     
     const csvContent = [
@@ -231,7 +231,7 @@ export function TradeTable({
         <td>₹${t.exitPrice}</td>
         <td style="color: ${t.netPnL >= 0 ? '#10b981' : '#f87171'}; font-weight: bold;">₹${t.netPnL.toFixed(2)}</td>
         <td>${t.emotion}</td>
-        <td>${t.mistake}</td>
+        <td>${formatTradeMistakes(t)}</td>
         <td>${t.setupType || 'None'}</td>
       </tr>
     `).join('');
@@ -513,7 +513,7 @@ export function TradeTable({
       </div>
 
       {/* Advanced Filter Ribbon & Collapse Layout */}
-      ${(() => {
+      {(() => {
           const activeFiltersCount = 
     (selectedSegment !== 'All' ? 1 : 0) +
     (selectedAction !== 'All' ? 1 : 0) +
