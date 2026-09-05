@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Broker } from '../types';
 import { 
@@ -27,7 +27,17 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
   } = useTradeStore();
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate || todayStr);
+
+  const latestTradeDate = useMemo(() => {
+    if (!allTrades || allTrades.length === 0) return todayStr;
+    const sortedDates = [...allTrades]
+      .map(t => t.exitDate || t.date)
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a));
+    return sortedDates[0] || todayStr;
+  }, [allTrades, todayStr]);
+
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate || latestTradeDate);
   const [selectedAccount, setSelectedAccount] = useState<string>(activeAccountId);
   const [brokerageInput, setBrokerageInput] = useState<string>('');
   const [taxesInput, setTaxesInput] = useState<string>('');
@@ -35,6 +45,13 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Auto-sync to latest trading date if not explicitly specified
+  useEffect(() => {
+    if (!initialDate && latestTradeDate && selectedDate === todayStr && latestTradeDate !== todayStr) {
+      setSelectedDate(latestTradeDate);
+    }
+  }, [latestTradeDate, initialDate, todayStr, selectedDate]);
 
   // Active account list for dropdown
   const activeAccountsList = brokerAccounts.filter(a => a.active);
@@ -47,7 +64,8 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
   // Trades on selected date
   const dayTrades = useMemo(() => {
     return allTrades.filter(t => {
-      if (t.date !== selectedDate) return false;
+      const tradeDate = t.exitDate || t.date;
+      if (tradeDate !== selectedDate) return false;
       if (selectedAccount !== 'Combined') {
         if (t.brokerAccountId) return t.brokerAccountId === selectedAccount;
         if (currentAccObj && t.broker) return t.broker.toLowerCase() === currentAccObj.broker.toLowerCase();
@@ -355,27 +373,75 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
         </div>
       </div>
 
-      {/* Main Entry & Day Reconciler Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
-        
-        {/* Left Column: Date & Day's Executions Snapshot */}
-        <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-              <Calendar size={18} color="var(--primary)" />
-              <span>1. Select Trading Day & Account</span>
-            </h3>
-            {existingNoteForDate && (
-              <span className="badge badge-win" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
-                ✓ Reconciled
+      {/* Unified, Streamlined Reconcile Card */}
+      <div 
+        className="glass-card" 
+        style={{ 
+          padding: '20px 24px', 
+          borderRadius: '14px',
+          border: '1px solid var(--border-color)',
+          background: 'var(--bg-card)'
+        }}
+      >
+        {/* Card Header */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          flexWrap: 'wrap', 
+          gap: '12px',
+          borderBottom: '1px solid var(--border-color)', 
+          paddingBottom: '14px',
+          marginBottom: '18px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ 
+              background: 'rgba(59, 130, 246, 0.1)', 
+              color: 'var(--primary)', 
+              padding: '6px', 
+              borderRadius: '8px' 
+            }}>
+              <Receipt size={18} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.02rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+                {editingNoteId ? 'Edit Contract Note Charges' : 'Enter / Reconcile Day\'s Brokerage & Charges'}
+              </h3>
+              <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', margin: '2px 0 0 0' }}>
+                Enter total brokerage & taxes from your broker's contract note for the day.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {existingNoteForDate ? (
+              <span className="badge badge-win" style={{ fontSize: '0.72rem', padding: '4px 10px' }}>
+                ✓ Reconciled Note
+              </span>
+            ) : dayTrades.length > 0 ? (
+              <span className="badge badge-warning" style={{ fontSize: '0.72rem', padding: '4px 10px' }}>
+                ⚡ Auto Charges ({dayTrades.length} trades)
+              </span>
+            ) : (
+              <span className="badge badge-neutral" style={{ fontSize: '0.72rem', padding: '4px 10px' }}>
+                No Trades Logged
               </span>
             )}
           </div>
+        </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <form onSubmit={handleSaveContractNote}>
+          {/* Row 1: Date, Account, and Day Gross P&L Pill */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+            gap: '14px', 
+            marginBottom: '16px',
+            alignItems: 'end'
+          }}>
             <div>
-              <label style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>
-                Trading Date
+              <label style={{ fontSize: '0.74rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '5px' }}>
+                📅 Select Trading Date
               </label>
               <input
                 type="date"
@@ -385,14 +451,14 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                   setEditingNoteId(null);
                 }}
                 className="form-input"
-                style={{ height: '38px', fontSize: '0.85rem' }}
+                style={{ height: '38px', fontSize: '0.88rem', width: '100%' }}
                 required
               />
             </div>
 
             <div>
-              <label style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>
-                Broker Account
+              <label style={{ fontSize: '0.74rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '5px' }}>
+                🏦 Broker Account
               </label>
               <select
                 value={selectedAccount}
@@ -401,7 +467,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                   setEditingNoteId(null);
                 }}
                 className="form-select"
-                style={{ height: '38px', fontSize: '0.85rem' }}
+                style={{ height: '38px', fontSize: '0.88rem', width: '100%' }}
               >
                 <option value="Combined">All Accounts (Combined)</option>
                 {activeAccountsList.map(a => (
@@ -411,189 +477,148 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* Day's Trades Snapshot Card */}
-          <div style={{ 
-            background: 'var(--bg-main)', 
-            border: '1px solid var(--border-color)', 
-            borderRadius: '10px', 
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>
-                Day's Execution Summary
-              </span>
-              <span className="badge badge-neutral" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                {dayTrades.length} Trade{dayTrades.length !== 1 ? 's' : ''} Logged
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div style={{ background: 'var(--bg-card)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block' }}>Gross P&L</span>
+            {/* Quick Context Metric: Gross Realized P&L on this date */}
+            <div style={{ 
+              background: 'rgba(255, 255, 255, 0.03)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '8px', 
+              padding: '6px 14px',
+              height: '38px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 600, display: 'block' }}>
+                  Day Gross Realized P&L
+                </span>
                 <span style={{ 
-                  fontSize: '1.1rem', 
+                  fontSize: '0.92rem', 
                   fontWeight: 800, 
-                  fontFamily: 'var(--font-mono)',
-                  color: dayGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
+                  fontFamily: 'var(--font-mono)', 
+                  color: dayGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' 
                 }}>
                   {dayGrossPnL >= 0 ? '+' : ''}₹{dayGrossPnL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-
-              <div style={{ background: 'var(--bg-card)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block' }}>Total Turnover</span>
-                <span style={{ fontSize: '1.1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>
-                  ₹{dayTurnover.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            </div>
-
-            {dayTrades.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-dim)', fontSize: '0.78rem' }}>
-                ℹ️ No individual trades logged for this date yet. You can still enter the day's contract note charges.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 650 }}>Executed Trades:</span>
-                {dayTrades.map((t, idx) => (
-                  <div 
-                    key={t.id} 
-                    style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center', 
-                      padding: '6px 10px', 
-                      background: 'rgba(255,255,255,0.02)', 
-                      borderRadius: '6px', 
-                      fontSize: '0.75rem',
-                      border: '1px solid var(--border-color)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{t.symbol}</span>
-                      <span style={{ fontSize: '0.65rem', color: t.action === 'BUY' ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700 }}>
-                        {t.action}
-                      </span>
-                      <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>({t.qty} qty)</span>
-                    </div>
-                    <span style={{ 
-                      fontWeight: 700, 
-                      fontFamily: 'var(--font-mono)',
-                      color: t.grossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
-                    }}>
-                      {t.grossPnL >= 0 ? '+' : ''}₹{t.grossPnL.toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Contract Note Entry Form */}
-        <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-              <Receipt size={18} color="var(--primary)" />
-              <span>2. Enter Contract Note Charges</span>
-            </h3>
-            {editingNoteId && (
-              <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
-                ✏️ Editing Mode
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                {dayTrades.length} trade{dayTrades.length !== 1 ? 's' : ''}
               </span>
-            )}
+            </div>
           </div>
 
-          <form onSubmit={handleSaveContractNote} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Total Brokerage (₹)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  placeholder="e.g. 40.00"
-                  value={brokerageInput}
-                  onChange={(e) => setBrokerageInput(e.target.value)}
-                  className="form-input"
-                  style={{ height: '38px', fontSize: '0.9rem', borderColor: 'rgba(251, 146, 60, 0.3)', fontWeight: 600 }}
-                  required
-                />
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px', display: 'block' }}>
-                  Flat brokerage from broker
-                </span>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Govt Taxes & Charges (₹)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  placeholder="e.g. 35.80"
-                  value={taxesInput}
-                  onChange={(e) => setTaxesInput(e.target.value)}
-                  className="form-input"
-                  style={{ height: '38px', fontSize: '0.9rem', borderColor: 'rgba(239, 68, 68, 0.3)', fontWeight: 600 }}
-                  required
-                />
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px', display: 'block' }}>
-                  STT, GST, Stamp, Exchange
-                </span>
-              </div>
+          {/* Row 2: Direct Charges Inputs */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+            gap: '14px', 
+            marginBottom: '16px' 
+          }}>
+            <div>
+              <label style={{ fontSize: '0.74rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '5px' }}>
+                Total Brokerage (₹)
+              </label>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                placeholder="e.g. 40.00"
+                value={brokerageInput}
+                onChange={(e) => setBrokerageInput(e.target.value)}
+                className="form-input"
+                style={{ 
+                  height: '38px', 
+                  fontSize: '0.92rem', 
+                  fontFamily: 'var(--font-mono)', 
+                  fontWeight: 650, 
+                  borderColor: 'rgba(251, 146, 60, 0.4)',
+                  width: '100%' 
+                }}
+                required
+              />
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '3px', display: 'block' }}>
+                Broker order execution charges
+              </span>
             </div>
 
             <div>
-              <label style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>
-                Contract Note Reference / Remarks (Optional)
+              <label style={{ fontSize: '0.74rem', fontWeight: 650, color: 'var(--text-main)', display: 'block', marginBottom: '5px' }}>
+                Govt Taxes & Other Fees (₹)
+              </label>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                placeholder="e.g. 35.80"
+                value={taxesInput}
+                onChange={(e) => setTaxesInput(e.target.value)}
+                className="form-input"
+                style={{ 
+                  height: '38px', 
+                  fontSize: '0.92rem', 
+                  fontFamily: 'var(--font-mono)', 
+                  fontWeight: 650, 
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  width: '100%' 
+                }}
+                required
+              />
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '3px', display: 'block' }}>
+                STT, GST, Exchange, Stamp duty & SEBI
+              </span>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.74rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '5px' }}>
+                Contract Note Ref / Memo (Optional)
               </label>
               <input
                 type="text"
-                placeholder="e.g. Zerodha CN #2026-0905 or Kotak Neo Daily"
+                placeholder="e.g. Zerodha CN #2026-0904"
                 value={notesInput}
                 onChange={(e) => setNotesInput(e.target.value)}
                 className="form-input"
-                style={{ height: '36px', fontSize: '0.8rem' }}
+                style={{ height: '38px', fontSize: '0.85rem', width: '100%' }}
               />
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '3px', display: 'block' }}>
+                Optional memo or contract note ID
+              </span>
             </div>
+          </div>
 
-            {/* Realized Net P&L Preview Banner */}
-            <div style={{
-              background: 'rgba(59, 130, 246, 0.04)',
-              border: '1.5px dashed var(--border-color)',
-              borderRadius: '10px',
-              padding: '14px 16px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginTop: '4px'
-            }}>
+          {/* Row 3: Live Summary Banner & Action Buttons */}
+          <div style={{ 
+            background: 'rgba(59, 130, 246, 0.04)', 
+            border: '1px solid var(--border-color)', 
+            borderRadius: '10px', 
+            padding: '12px 18px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px',
+            marginTop: '4px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
               <div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 650, display: 'block' }}>
-                  Total Contract Charges
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 650, display: 'block' }}>
+                  Total Charges
                 </span>
-                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                  ₹{totalEnteredCharges.toFixed(2)}
+                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f87171', fontFamily: 'var(--font-mono)' }}>
+                  -₹{totalEnteredCharges.toFixed(2)}
                 </span>
               </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 650, display: 'block' }}>
+              <div style={{ width: '1px', height: '26px', background: 'var(--border-color)' }} />
+
+              <div>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 650, display: 'block' }}>
                   Reconciled Net Day P&L
                 </span>
                 <span style={{ 
-                  fontSize: '1.3rem', 
-                  fontWeight: 800, 
+                  fontSize: '1.18rem', 
+                  fontWeight: 850, 
                   fontFamily: 'var(--font-mono)',
                   color: previewNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
                 }}>
@@ -602,8 +627,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {editingNoteId && (
                 <button
                   type="button"
@@ -614,9 +638,9 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                     setNotesInput('');
                   }}
                   className="btn btn-secondary"
-                  style={{ flex: '1', height: '42px', fontSize: '0.82rem' }}
+                  style={{ height: '38px', padding: '0 16px', fontSize: '0.82rem' }}
                 >
-                  Cancel Edit
+                  Cancel
                 </button>
               )}
 
@@ -624,26 +648,27 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                 type="submit"
                 className="btn btn-primary"
                 style={{ 
-                  flex: '2', 
-                  height: '42px', 
-                  fontSize: '0.88rem', 
+                  height: '38px', 
+                  padding: '0 20px', 
+                  fontSize: '0.86rem', 
                   fontWeight: 700, 
                   display: 'flex', 
                   alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '8px' 
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)'
                 }}
               >
-                <ShieldCheck size={18} />
-                <span>{editingNoteId ? 'Update & Reallocate' : 'Save & Apply to Day\'s Trades'}</span>
+                <CheckCircle size={16} />
+                <span>{editingNoteId ? 'Update & Reallocate' : 'Save & Reconcile Day'}</span>
               </button>
             </div>
+          </div>
 
-            <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', textAlign: 'center', display: 'block', marginTop: '2px' }}>
-              🔒 100% Safe: Will distribute exact contract note charges proportionally to the day's trades without touching entry/exit prices.
-            </span>
-          </form>
-        </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+            <span>🔒 100% Safe: Applies exact contract note charges without touching trade prices or quantities.</span>
+            <span>💡 Tip: Click <strong>"Reconcile"</strong> on any day in the table below to quickly edit its charges.</span>
+          </div>
+        </form>
       </div>
 
       {/* Reconciled Contract Notes History Table */}
