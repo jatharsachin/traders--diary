@@ -103,6 +103,18 @@ export interface Investment {
   brokerAccountId?: string; // Links to specific broker-user account
 }
 
+export interface DailyContractNote {
+  id: string; // Unique ID, e.g. "cn-2026-09-05-acc-1"
+  date: string; // YYYY-MM-DD
+  brokerAccountId?: string;
+  broker: Broker;
+  brokerage: number; // Total brokerage for the day
+  taxes: number;     // Total taxes & regulatory charges for the day
+  totalCharges: number; // brokerage + taxes
+  notes?: string;    // Contract note number or remarks
+  appliedToTrades?: boolean;
+}
+
 // NEW ENTITIES
 
 export interface BrokerAccount {

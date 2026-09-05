@@ -37,6 +37,11 @@
 - **Missing `create` Import in Store**: Restored `import { create } from 'zustand';` at line 1 of `src/store/useTradeStore.ts`.
 - **Fail-Safe Store Data Loaders**: Added `Array.isArray()` and `null` safety guards across `loadTrades`, `loadBrokerAccounts`, `loadBankAccounts`, `loadAdjustments`, `loadInvestments`, `loadLockedFYs`, and `loadNoTradeDays` to eliminate all possibility of runtime crashes due to invalid localStorage state.
 - **Global ErrorBoundary & Safe Lazy Loading**: Added `ErrorBoundary` in `src/main.tsx` and `safeLazy` retry logic in `src/App.tsx` to handle network/chunk errors seamlessly.
+- **Dedicated Daily Charges & Contract Notes Manager**:
+  - Added dedicated `ContractNotesManager.tsx` accessible via the **Contract Notes** sidebar navigation tab.
+  - Allows traders to directly enter exact end-of-day Brokerage (₹) and Government Taxes (₹) from their broker contract note.
+  - 1-Click "Save & Apply" allocates exact charges proportionally across that day's trades with zero price/quantity alterations and 100% data integrity.
+  - Streamlined `TradeLogger.tsx` by removing cluttered per-trade charge math so logging trades is fast, clean, and frictionless.
 - **Comprehensive Codebase Audit & Fixes**:
   - `src/store/useTradeStore.ts`: Fixed `computeTradeCalculations` missing `else` branch for automatic charges calculation, preserved manual brokerage/taxes in manual mode, and fixed double-entry bank transaction ID matching.
   - `src/utils/taxEngine.ts`: Added `optionsFlatFee ?? 20` fallback guards to prevent `NaN` cascading.

@@ -1697,80 +1697,29 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
               </div>
             )}
 
-            {/* Charges & Brokerage Section */}
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h3 style={{ fontSize: '0.95rem', margin: 0 }}>Charges & Brokerage (₹)</h3>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <input
-                    type="checkbox"
-                    id="useManualCharges"
-                    name="useManualCharges"
-                    checked={formData.useManualCharges}
-                    onChange={handleChange}
-                    style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
-                  />
-                  <label htmlFor="useManualCharges" style={{ fontSize: '0.78rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                    Manual Edit Override
-                  </label>
-                </div>
-              </div>
-
-              <div 
-                className="grid-2col-equal" 
-                style={{ 
-                  background: formData.useManualCharges ? 'rgba(251, 146, 60, 0.03)' : 'rgba(255, 255, 255, 0.01)',
-                  border: formData.useManualCharges ? '1px solid rgba(251, 146, 60, 0.15)' : '1px solid var(--border-color)',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '16px',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: formData.useManualCharges ? '#fb923c' : 'var(--text-muted)', fontWeight: 600 }}>
-                    Brokerage {formData.useManualCharges ? '(Manual)' : '(Auto)'}
-                  </label>
-                  <input
-                    type="number"
-                    name="manualBrokerage"
-                    value={manualBrokerageText}
-                    onChange={handleChange}
-                    placeholder="0.00"
-                    disabled={!formData.useManualCharges}
-                    className="form-input"
-                    style={{ 
-                      borderColor: formData.useManualCharges ? 'rgba(251, 146, 60, 0.3)' : 'var(--border-color)',
-                      opacity: formData.useManualCharges ? 1 : 0.6,
-                      cursor: formData.useManualCharges ? 'text' : 'not-allowed'
-                    }}
-                    step="any"
-                    min="0"
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: formData.useManualCharges ? '#fb923c' : 'var(--text-muted)', fontWeight: 600 }}>
-                    Government Taxes & Fees {formData.useManualCharges ? '(Manual)' : '(Auto)'}
-                  </label>
-                  <input
-                    type="number"
-                    name="manualTaxes"
-                    value={manualTaxesText}
-                    onChange={handleChange}
-                    placeholder="0.00"
-                    disabled={!formData.useManualCharges}
-                    className="form-input"
-                    style={{ 
-                      borderColor: formData.useManualCharges ? 'rgba(251, 146, 60, 0.3)' : 'var(--border-color)',
-                      opacity: formData.useManualCharges ? 1 : 0.6,
-                      cursor: formData.useManualCharges ? 'text' : 'not-allowed'
-                    }}
-                    step="any"
-                    min="0"
-                  />
+            {/* Charges & Contract Notes Notice */}
+            <div style={{ 
+              borderTop: '1px solid var(--border-color)', 
+              paddingTop: '14px', 
+              marginBottom: '16px',
+              background: 'rgba(59, 130, 246, 0.03)',
+              border: '1px solid rgba(59, 130, 246, 0.12)',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1rem' }}>⚡</span>
+                <div>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 650, color: 'var(--text-main)', display: 'block' }}>
+                    Streamlined Trade Logging
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                    Exact daily brokerage & govt taxes can be entered directly from your broker's contract note via the <strong>Contract Notes</strong> tab at day-end.
+                  </span>
                 </div>
               </div>
             </div>

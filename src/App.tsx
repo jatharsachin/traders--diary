@@ -14,12 +14,12 @@ import { AuthScreen } from './components/AuthScreen';
 import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
 import { BROKER_LOGOS } from './utils/brandLogos';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
 
-type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'help';
+type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
 
 
 const safeLazy = (importFn: () => Promise<any>) =>
@@ -53,6 +53,7 @@ const ProfileSettingsModal = safeLazy(() => import('./components/ProfileSettings
 const TradeLogger = safeLazy(() => import('./components/TradeLogger').then(m => ({ default: m.TradeLogger })));
 const Taxation = safeLazy(() => import('./components/Taxation').then(m => ({ default: m.Taxation })));
 const DayBook = safeLazy(() => import('./components/DayBook').then(m => ({ default: m.DayBook })));
+const ContractNotesManager = safeLazy(() => import('./components/ContractNotesManager').then(m => ({ default: m.ContractNotesManager })));
 const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 
 export default function App() {
@@ -570,6 +571,14 @@ export default function App() {
             >
               <Briefcase size={17} color={activeTab === 'account' ? '#fff' : '#3b82f6'} />
               <span className="hide-collapsed">Investments</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('contractNotes'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'contractNotes' ? 'active' : '')}
+              title="Contract Notes"
+            >
+              <FileSpreadsheet size={17} color={activeTab === 'contractNotes' ? '#fff' : '#10b981'} />
+              <span className="hide-collapsed">Contract Notes</span>
             </button>
 
             <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginTop: '12px', marginBottom: '4px' }}>
@@ -1730,6 +1739,7 @@ export default function App() {
             )}
             {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
             {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
+            {activeTab === 'contractNotes' && <ContractNotesManager activeAccountId={activeAccountId} />}
             {activeTab === 'strategies' && <StrategyManager />}
             {activeTab === 'account' && <AccountManager activeAccountId={activeAccountId} />}
             {activeTab === 'help' && <Help />}

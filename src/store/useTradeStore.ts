@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { 
   Trade, Setup, Broker, CapitalAdjustment, Investment, BrokerAccount, BankAccount, 
-  SubscriptionExpense, BankTransaction, BrokerChargesConfig 
+  SubscriptionExpense, BankTransaction, BrokerChargesConfig, DailyContractNote 
 } from '../types';
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
 import { 
@@ -61,6 +61,11 @@ interface TradeStore {
   exitInvestment: (id: string, exitPrice: number, exitDate: string, exitNotes: string, exitQty?: number) => void;
   updateInvestmentsList: (updatedList: Investment[]) => void;
   syncAllInvestmentPrices: () => Promise<{ updatedCount: number; failedSymbols: string[] }>;
+
+  // Daily Contract Notes & Charges
+  contractNotes: DailyContractNote[];
+  addOrUpdateContractNote: (note: Omit<DailyContractNote, 'id' | 'totalCharges'>) => void;
+  deleteContractNote: (id: string) => void;
 
   // Supabase SaaS Auth Settings
   sessionUser: any;
@@ -611,6 +616,19 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return getMockInvestments();
   };
 
+  const loadContractNotes = (): DailyContractNote[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_contract_notes'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse contract notes', e);
+      }
+    }
+    return [];
+  };
+
   const loadPnlVisibility = (): boolean => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_pnl_visibility'));
     return saved !== null ? JSON.parse(saved) : true;
@@ -706,6 +724,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     capitalAdjustments: loadAdjustments(initialAccounts, initialBanks),
     theme: loadTheme(),
     investments: loadInvestments(),
+    contractNotes: loadContractNotes(),
     sessionUser: null,
     isPnlVisible: loadPnlVisibility(),
     weeklyRetrospectives: loadWeeklyRetrospectives(),
@@ -1871,6 +1890,79 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       };
     }),
 
+    addOrUpdateContractNote: (noteData) => set((state) => {
+      const totalCharges = Math.round(((noteData.brokerage || 0) + (noteData.taxes || 0)) * 100) / 100;
+      const noteId = `cn-${noteData.date}-${noteData.brokerAccountId || noteData.broker}`;
+      
+      const newNote: DailyContractNote = {
+        ...noteData,
+        id: noteId,
+        totalCharges,
+        appliedToTrades: true
+      };
+
+      const filteredNotes = state.contractNotes.filter(n => n.id !== noteId);
+      const updatedNotes = [newNote, ...filteredNotes];
+      localStorage.setItem(getScopedKey('traders_diary_contract_notes'), JSON.stringify(updatedNotes));
+      syncMetaToCloud('contract_notes', updatedNotes);
+
+      // Distribute charges accurately to that day's trades for this account/broker
+      const dayTrades = state.trades.filter(t => {
+        if (t.date !== noteData.date) return false;
+        if (noteData.brokerAccountId && t.brokerAccountId && t.brokerAccountId !== noteData.brokerAccountId) return false;
+        if (!noteData.brokerAccountId && t.broker && t.broker !== noteData.broker) return false;
+        return true;
+      });
+
+      if (dayTrades.length > 0) {
+        const totalTurnover = dayTrades.reduce((sum, t) => sum + (t.entryPrice * t.qty) + (t.exitPrice * t.qty), 0);
+        
+        const updatedTrades = state.trades.map(t => {
+          if (t.date === noteData.date && (
+            (noteData.brokerAccountId && t.brokerAccountId === noteData.brokerAccountId) ||
+            (!noteData.brokerAccountId && t.broker === noteData.broker) ||
+            (!noteData.brokerAccountId && !t.brokerAccountId)
+          )) {
+            const tradeTurnover = (t.entryPrice * t.qty) + (t.exitPrice * t.qty);
+            const proportion = totalTurnover > 0 ? (tradeTurnover / totalTurnover) : (1 / dayTrades.length);
+            
+            const allocBrokerage = Math.round((noteData.brokerage * proportion) * 100) / 100;
+            const allocTaxes = Math.round((noteData.taxes * proportion) * 100) / 100;
+            const allocTotalCharges = Math.round((allocBrokerage + allocTaxes) * 100) / 100;
+            const netPnL = Math.round((t.grossPnL - allocTotalCharges) * 100) / 100;
+
+            const updatedT: Trade = {
+              ...t,
+              useManualCharges: true,
+              manualBrokerage: allocBrokerage,
+              manualTaxes: allocTaxes,
+              brokerage: allocBrokerage,
+              taxes: allocTaxes,
+              netPnL
+            };
+            syncTradeToCloud('update', updatedT);
+            return updatedT;
+          }
+          return t;
+        });
+
+        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+        return { 
+          contractNotes: updatedNotes,
+          trades: updatedTrades 
+        };
+      }
+
+      return { contractNotes: updatedNotes };
+    }),
+
+    deleteContractNote: (id) => set((state) => {
+      const updatedNotes = state.contractNotes.filter(n => n.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_contract_notes'), JSON.stringify(updatedNotes));
+      syncMetaToCloud('contract_notes', updatedNotes);
+      return { contractNotes: updatedNotes };
+    }),
+
     signUpUser: async (email, pass, metadata) => {
       const client = getSupabaseClient();
       if (!client) return { error: new Error('Supabase client not configured') };
@@ -1914,6 +2006,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           baseCapital: 500000,
           capitalAdjustments: [],
           investments: [],
+          contractNotes: [],
           weeklyRetrospectives: {},
           selectedFY: getCurrentLiveFY(),
           noTradeDays: loadNoTradeDays(),
