@@ -496,7 +496,7 @@ export default function App() {
             style={{ 
               width: isSidebarCollapsed ? '36px' : '100%', 
               height: '38px', 
-              borderRadius: isSidebarCollapsed ? '50%' : '8px', 
+              borderRadius: isSidebarCollapsed ? '50%' : '9999px', 
               fontSize: '0.8rem', 
               boxShadow: '0 4px 12px var(--primary-glow)',
               fontWeight: 700,
@@ -506,7 +506,7 @@ export default function App() {
               gap: isSidebarCollapsed ? '0' : '6px',
               marginTop: '4px',
               flexShrink: 0,
-              padding: isSidebarCollapsed ? '0' : '0 12px'
+              padding: isSidebarCollapsed ? '0' : '0 16px'
             }} 
             onClick={handleNewTrade}
             title="Log Trade"
@@ -1389,7 +1389,7 @@ export default function App() {
             style={{ 
               height: '38px', 
               padding: '0 20px', 
-              borderRadius: '10px', 
+              borderRadius: '9999px', 
               fontSize: '0.85rem', 
               boxShadow: '0 4px 12px var(--primary-glow)',
               fontWeight: 700,
