@@ -492,26 +492,32 @@ export default function App() {
 
           {/* Action Log Trade CTA */}
           <button 
-            className="btn btn-primary" 
+            className={`sidebar-tab-btn ${isLoggerOpen ? 'active' : ''}`}
             style={{ 
               width: isSidebarCollapsed ? '36px' : '100%', 
               height: '38px', 
               borderRadius: isSidebarCollapsed ? '50%' : '9999px', 
-              fontSize: '0.8rem', 
-              boxShadow: '0 4px 12px var(--primary-glow)',
+              fontSize: '0.84rem', 
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: isSidebarCollapsed ? '0' : '6px',
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              gap: isSidebarCollapsed ? '0' : '10px',
               marginTop: '4px',
               flexShrink: 0,
-              padding: isSidebarCollapsed ? '0' : '0 16px'
+              padding: isSidebarCollapsed ? '0' : '0 16px',
+              border: isLoggerOpen ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid var(--border-color)',
+              background: isLoggerOpen 
+                ? 'linear-gradient(135deg, rgba(10, 132, 255, 0.95) 0%, rgba(0, 113, 227, 0.95) 100%)' 
+                : 'rgba(255, 255, 255, 0.03)',
+              color: isLoggerOpen ? '#ffffff' : 'var(--text-main)',
+              boxShadow: isLoggerOpen ? '0 6px 20px var(--primary-glow)' : 'none',
+              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
             }} 
             onClick={handleNewTrade}
             title="Log Trade"
           >
-            <Plus size={17} />
+            <Plus size={18} color={isLoggerOpen ? '#ffffff' : 'var(--primary)'} />
             {!isSidebarCollapsed && <span>Log Trade</span>}
           </button>
 
@@ -1385,13 +1391,13 @@ export default function App() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', visibility: 'hidden' }}>&nbsp;</span>
           <button 
-            className="btn btn-primary" 
+            className={`btn ${isLoggerOpen ? 'btn-primary' : 'btn-secondary'}`} 
             style={{ 
               height: '38px', 
               padding: '0 20px', 
               borderRadius: '9999px', 
               fontSize: '0.85rem', 
-              boxShadow: '0 4px 12px var(--primary-glow)',
+              boxShadow: isLoggerOpen ? '0 4px 12px var(--primary-glow)' : 'none',
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
