@@ -883,6 +883,7 @@ export function TradingCalendar({
         grossPnL: Math.round(grossPnL * 100) / 100,
         brokerage: Math.round(wBrokerage * 100) / 100,
         taxes: Math.round(wTaxes * 100) / 100,
+        charges: Math.round((wBrokerage + wTaxes) * 100) / 100,
         deployedCapital: weeklyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0),
         invested: wInvested,
         exited: wExited,
@@ -938,6 +939,7 @@ export function TradingCalendar({
         grossPnL: Math.round(grossPnL * 100) / 100,
         brokerage: Math.round(mBrokerage * 100) / 100,
         taxes: Math.round(mTaxes * 100) / 100,
+        charges: Math.round((mBrokerage + mTaxes) * 100) / 100,
         deployedCapital: monthlyTrades.reduce((acc, t) => acc + (t.entryPrice * t.qty), 0),
         invested: mInvested,
         exited: mExited,
@@ -1275,25 +1277,40 @@ export function TradingCalendar({
 
         <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', marginTop: 'auto' }}>
           {hasTrades && (
-            <div>
-              <span className="pnl-desktop">
-                {isPnlVisible ? (w.netPnL > 0 ? '+' : '') : ''}
-                {isPnlVisible ? Math.round(w.netPnL).toLocaleString('en-IN') : '••••'}
-                <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
-                  ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
+            <>
+              <div>
+                <span className="pnl-desktop">
+                  {isPnlVisible ? (w.netPnL > 0 ? '+' : '') : ''}
+                  {isPnlVisible ? Math.round(w.netPnL).toLocaleString('en-IN') : '••••'}
+                  <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                    ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
+                  </span>
                 </span>
-              </span>
-              <span className="pnl-mobile">
-                {isPnlVisible ? formatCompactPnLMobile(w.netPnL) : (
-                  <>
-                    ••••
-                    <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
-                      ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
-                    </span>
-                  </>
-                )}
-              </span>
-            </div>
+                <span className="pnl-mobile">
+                  {isPnlVisible ? formatCompactPnLMobile(w.netPnL) : (
+                    <>
+                      ••••
+                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                        ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
+                      </span>
+                    </>
+                  )}
+                </span>
+              </div>
+
+              <div 
+                style={{ 
+                  fontSize: '0.62rem', 
+                  color: 'var(--text-dim)', 
+                  fontWeight: 600, 
+                  fontFamily: 'var(--font-mono)', 
+                  marginTop: '1px' 
+                }}
+                title={`Week Charges: ₹${Math.round(w.charges).toLocaleString('en-IN')}`}
+              >
+                {isPnlVisible ? `Chgs: ₹${Math.round(w.charges).toLocaleString('en-IN')}` : '•• chgs'}
+              </div>
+            </>
           )}
 
           {w.invested > 0 && (
@@ -1458,25 +1475,40 @@ export function TradingCalendar({
 
         <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', marginTop: 'auto' }}>
           {hasTrades && (
-            <div>
-              <span className="pnl-desktop">
-                {isPnlVisible ? (m.netPnL > 0 ? '+' : '') : ''}
-                {isPnlVisible ? Math.round(m.netPnL).toLocaleString('en-IN') : '••••'}
-                <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
-                  ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
+            <>
+              <div>
+                <span className="pnl-desktop">
+                  {isPnlVisible ? (m.netPnL > 0 ? '+' : '') : ''}
+                  {isPnlVisible ? Math.round(m.netPnL).toLocaleString('en-IN') : '••••'}
+                  <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                    ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
+                  </span>
                 </span>
-              </span>
-              <span className="pnl-mobile">
-                {isPnlVisible ? formatCompactPnLMobile(m.netPnL) : (
-                  <>
-                    ••••
-                    <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
-                      ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
-                    </span>
-                  </>
-                )}
-              </span>
-            </div>
+                <span className="pnl-mobile">
+                  {isPnlVisible ? formatCompactPnLMobile(m.netPnL) : (
+                    <>
+                      ••••
+                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                        ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
+                      </span>
+                    </>
+                  )}
+                </span>
+              </div>
+
+              <div 
+                style={{ 
+                  fontSize: '0.62rem', 
+                  color: 'var(--text-dim)', 
+                  fontWeight: 600, 
+                  fontFamily: 'var(--font-mono)', 
+                  marginTop: '1px' 
+                }}
+                title={`Month Charges: ₹${Math.round(m.charges).toLocaleString('en-IN')}`}
+              >
+                {isPnlVisible ? `Chgs: ₹${Math.round(m.charges).toLocaleString('en-IN')}` : '•• chgs'}
+              </div>
+            </>
           )}
 
           {m.invested > 0 && (
