@@ -458,23 +458,32 @@ export default function App() {
               </button>
             ) : (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img 
-                    src={logoImg} 
-                    alt="Logo" 
-                    style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1.5px solid rgba(255, 255, 255, 0.08)' }} 
-                  />
-                  <div>
-                    <h1 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, whiteSpace: 'nowrap' }}>TradeDiary Pro</h1>
-                    {isSupabaseConfigured() && (
-                      <span 
-                        className="badge badge-win" 
-                        style={{ fontSize: '0.5rem', padding: '1px 4px', textTransform: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
-                      >
-                        <ShieldCheck size={11} /> Sync Linked
-                      </span>
-                    )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    padding: '1.5px',
+                    background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 255, 255, 0.12))',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.5), 0 0 10px rgba(234, 179, 8, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <img 
+                      src={logoImg} 
+                      alt="Logo" 
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        borderRadius: '6.5px', 
+                        objectFit: 'cover',
+                        filter: 'brightness(1.18) contrast(1.12)' 
+                      }} 
+                    />
                   </div>
+                  <h1 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, whiteSpace: 'nowrap', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>TradeDiary Pro</h1>
                 </div>
                 <button 
                   onClick={() => {
@@ -742,42 +751,34 @@ export default function App() {
                 <span className="mac-dot mac-maximize"></span>
               </div>
 
-              <img 
-                src={logoImg} 
-                alt="TradeDiary Pro Logo" 
-                style={{ 
-                  width: '40px', 
-                  height: '40px', 
-                  borderRadius: '10px', 
-                  objectFit: 'cover',
-                  border: '1.5px solid rgba(255, 255, 255, 0.08)',
-                  boxShadow: '0 4px 10px rgba(0, 0, 0, 0.25)' 
-                }} 
-              />
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '11px',
+                padding: '1.5px',
+                background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 255, 255, 0.12))',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 12px rgba(234, 179, 8, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <img 
+                  src={logoImg} 
+                  alt="TradeDiary Pro Logo" 
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    borderRadius: '9px', 
+                    objectFit: 'cover',
+                    filter: 'brightness(1.18) contrast(1.12)' 
+                  }} 
+                />
+              </div>
 
               <div>
                 <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
                   {userName || 'Sachin'}'s Trade Diary
-                  {isSupabaseConfigured() && (
-                    <span 
-                      className="badge badge-win" 
-                      title="Cloud Status: Connected | Database Sync: Active | SSL Channel: Secured"
-                      style={{ 
-                        fontSize: '0.58rem', 
-                        padding: '2px 6px', 
-                        textTransform: 'none', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '3px',
-                        cursor: 'help',
-                        border: '1px solid rgba(16, 185, 129, 0.4)',
-                        background: 'rgba(16, 185, 129, 0.12)',
-                        boxShadow: '0 0 8px rgba(16, 185, 129, 0.2)'
-                      }}
-                    >
-                      <ShieldCheck size={9} /> Sync Linked
-                    </span>
-                  )}
                   <select
                     value={selectedFY}
                     onChange={(e) => setSelectedFY(e.target.value)}

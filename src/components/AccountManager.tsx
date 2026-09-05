@@ -257,8 +257,21 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
         
         {/* Wealth overview */}
         <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-            <img src={logoImg} alt="Logo" style={{ width: '40px', height: '40px', borderRadius: '8px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '10px',
+              padding: '1.5px',
+              background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 255, 255, 0.12))',
+              boxShadow: '0 3px 10px rgba(0, 0, 0, 0.4), 0 0 10px rgba(234, 179, 8, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <img src={logoImg} alt="Logo" style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover', filter: 'brightness(1.15) contrast(1.1)' }} />
+            </div>
             <div>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Portfolio Overview</h2>
               <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Long-Term & Trading Assets Balance</span>
