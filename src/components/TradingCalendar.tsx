@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { getTradeMistakes, formatTradeMistakes } from '../types';
-import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen, Receipt, X, Check } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
-import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM } from '../utils/fyHelper';
+import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { WeeklyJournalModal } from './WeeklyJournalModal';
 
 export const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
@@ -101,7 +101,10 @@ export function TradingCalendar({
     brokerAccounts,
     investments: allInvestments,
     noTradeDays,
-    toggleNoTradeDay
+    toggleNoTradeDay,
+    contractNotes,
+    addOrUpdateContractNote,
+    lockedFYs
   } = useTradeStore();
 
 
@@ -127,6 +130,69 @@ export function TradingCalendar({
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [calendarViewMode, setCalendarViewMode] = useState<'tile' | 'row'>('tile');
   const [isJournalOpen, setIsJournalOpen] = useState(false);
+
+  // Reconcile / Contract Note Modal state
+  const [reconcileDate, setReconcileDate] = useState<string | null>(null);
+  const [reconcileBrokerage, setReconcileBrokerage] = useState<string>('');
+  const [reconcileTaxes, setReconcileTaxes] = useState<string>('');
+  const [reconcileNotes, setReconcileNotes] = useState<string>('');
+  const [reconcileSuccessMsg, setReconcileSuccessMsg] = useState<string | null>(null);
+
+  const handleOpenReconcile = (dateStr: string) => {
+    setReconcileDate(dateStr);
+    const existingNote = contractNotes?.find(cn => cn.date === dateStr);
+    if (existingNote) {
+      setReconcileBrokerage(existingNote.brokerage.toString());
+      setReconcileTaxes(existingNote.taxes.toString());
+      setReconcileNotes(existingNote.notes || '');
+    } else {
+      const dayTradesForDate = trades.filter(t => (t.exitDate || t.date) === dateStr);
+      const curBrokerage = dayTradesForDate.reduce((sum, t) => sum + (t.brokerage || 0), 0);
+      const curTaxes = dayTradesForDate.reduce((sum, t) => sum + (t.taxes || 0), 0);
+      setReconcileBrokerage(curBrokerage > 0 ? (Math.round(curBrokerage * 100) / 100).toString() : '');
+      setReconcileTaxes(curTaxes > 0 ? (Math.round(curTaxes * 100) / 100).toString() : '');
+      setReconcileNotes('');
+    }
+  };
+
+  const handleSaveReconcile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reconcileDate) return;
+
+    const fy = getFinancialYear(reconcileDate);
+    if (lockedFYs?.includes(fy)) {
+      alert(`Cannot edit charges: Financial Year "${fy}" is locked.`);
+      return;
+    }
+
+    const dayTradesForDate = trades.filter(t => (t.exitDate || t.date) === reconcileDate);
+    const brokerToUse = dayTradesForDate[0]?.broker || 'Other';
+    const accountIdToUse = dayTradesForDate[0]?.brokerAccountId || undefined;
+
+    const numBrokerage = parseFloat(reconcileBrokerage) || 0;
+    const numTaxes = parseFloat(reconcileTaxes) || 0;
+
+    addOrUpdateContractNote({
+      date: reconcileDate,
+      brokerAccountId: accountIdToUse,
+      broker: brokerToUse,
+      brokerage: numBrokerage,
+      taxes: numTaxes,
+      notes: reconcileNotes.trim()
+    });
+
+    setReconcileSuccessMsg(`Charges for ${reconcileDate} updated successfully!`);
+    setTimeout(() => {
+      setReconcileSuccessMsg(null);
+      setReconcileDate(null);
+    }, 1200);
+  };
+
+  const reconcileDayGrossPnL = useMemo(() => {
+    if (!reconcileDate) return 0;
+    const dayTradesForDate = trades.filter(t => (t.exitDate || t.date) === reconcileDate);
+    return Math.round(dayTradesForDate.reduce((sum, t) => sum + (t.grossPnL || 0), 0) * 100) / 100;
+  }, [trades, reconcileDate]);
 
   // Synchronize currentDate with selectedFY boundaries
   useEffect(() => {
@@ -274,9 +340,16 @@ export function TradingCalendar({
 
     const deployedCapital = dailyTrades.reduce((sum, t) => sum + (t.entryPrice * t.qty), 0);
 
+    const brokerage = dailyTrades.reduce((acc, t) => acc + (t.brokerage || 0), 0);
+    const taxes = dailyTrades.reduce((acc, t) => acc + (t.taxes || 0), 0);
+    const charges = brokerage + taxes;
+
     return {
       netPnL: Math.round(netPnL * 100) / 100,
       grossPnL: Math.round(grossPnL * 100) / 100,
+      brokerage: Math.round(brokerage * 100) / 100,
+      taxes: Math.round(taxes * 100) / 100,
+      charges: Math.round(charges * 100) / 100,
       count: dailyTrades.length,
       dominantEmotion,
       mainMistake,
@@ -411,6 +484,26 @@ export function TradingCalendar({
               </div>
             );
           })()}
+
+          {summary && summary.count > 0 && (
+            <div 
+              style={{ 
+                fontSize: '0.62rem', 
+                color: 'var(--text-dim)', 
+                fontWeight: 600, 
+                fontFamily: 'var(--font-mono)', 
+                marginTop: '1px',
+                cursor: 'pointer'
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenReconcile(cellDateStr);
+              }}
+              title={`Day Charges: ₹${Math.round(summary.charges).toLocaleString('en-IN')} (Click to Edit / Reconcile)`}
+            >
+              {isPnlVisible ? `Chgs: ₹${Math.round(summary.charges).toLocaleString('en-IN')}` : '•• chgs'}
+            </div>
+          )}
 
           {summary && summary.invested > 0 && (
             <div 
@@ -558,6 +651,20 @@ export function TradingCalendar({
     return monthlyTrades.reduce((acc, t) => acc + t.netPnL, 0);
   };
 
+  const getActiveMonthGrossPnL = () => {
+    const formattedMonth = (month + 1).toString().padStart(2, '0');
+    const monthPrefix = `${year}-${formattedMonth}-`;
+    const monthlyTrades = trades.filter((t) => (t.exitDate || t.date).startsWith(monthPrefix));
+    return monthlyTrades.reduce((acc, t) => acc + (t.grossPnL || 0), 0);
+  };
+
+  const getActiveMonthCharges = () => {
+    const formattedMonth = (month + 1).toString().padStart(2, '0');
+    const monthPrefix = `${year}-${formattedMonth}-`;
+    const monthlyTrades = trades.filter((t) => (t.exitDate || t.date).startsWith(monthPrefix));
+    return monthlyTrades.reduce((acc, t) => acc + (t.brokerage || 0) + (t.taxes || 0), 0);
+  };
+
   const getActiveYearPnL = () => {
     const yearPrefix = `${year}-`;
     const yearlyTrades = trades.filter((t) => (t.exitDate || t.date).startsWith(yearPrefix));
@@ -588,6 +695,8 @@ export function TradingCalendar({
   };
 
   const activeMonthPnL = getActiveMonthPnL();
+  const activeMonthGrossPnL = getActiveMonthGrossPnL();
+  const activeMonthCharges = getActiveMonthCharges();
   const activeYearPnL = getActiveYearPnL();
   const currentWeekPnL = getCurrentWeekPnL();
 
@@ -612,6 +721,24 @@ export function TradingCalendar({
   };
   const activeFYPnL = getFYPnL();
 
+  const getFYGrossPnL = () => {
+    const fyTrades = trades.filter((t) => {
+      const d = t.exitDate || t.date;
+      return d >= fyStartStr && d <= fyEndStr;
+    });
+    return fyTrades.reduce((acc, t) => acc + (t.grossPnL || 0), 0);
+  };
+  const activeFYGrossPnL = getFYGrossPnL();
+
+  const getFYCharges = () => {
+    const fyTrades = trades.filter((t) => {
+      const d = t.exitDate || t.date;
+      return d >= fyStartStr && d <= fyEndStr;
+    });
+    return fyTrades.reduce((acc, t) => acc + (t.brokerage || 0) + (t.taxes || 0), 0);
+  };
+  const activeFYCharges = getFYCharges();
+
   const getActiveMonthDeployed = () => {
     const formattedMonth = (month + 1).toString().padStart(2, '0');
     const monthPrefix = `${year}-${formattedMonth}-`;
@@ -631,6 +758,8 @@ export function TradingCalendar({
   const activeFYDeployed = getFYDeployed();
 
   const headerPnL = activePnlTab === 'monthly' ? activeMonthPnL : activeFYPnL;
+  const headerGrossPnL = activePnlTab === 'monthly' ? activeMonthGrossPnL : activeFYGrossPnL;
+  const headerCharges = activePnlTab === 'monthly' ? activeMonthCharges : activeFYCharges;
   const headerDeployed = activePnlTab === 'monthly' ? activeMonthDeployed : activeFYDeployed;
   const headerRoi = headerDeployed > 0 ? (headerPnL / headerDeployed) * 100 : 0;
   const headerTitle = activePnlTab === 'monthly' 
@@ -1659,10 +1788,52 @@ export function TradingCalendar({
           >
             <ChevronLeft size={16} />
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem', minWidth: '110px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 650, fontSize: '0.95rem', minWidth: '110px', textAlign: 'center' }}>
               {headerTitle}
             </span>
+
+            {/* Gross Realized P&L badge */}
+            <span 
+              className="badge"
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 650,
+                backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                color: 'var(--text-main)',
+                border: '1px solid var(--border-color)',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontFamily: 'var(--font-mono)'
+              }}
+              title={`Gross Realized P&L for ${headerTitle}`}
+            >
+              Gross: <span style={{ color: headerGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700, marginLeft: '2px' }}>
+                {isPnlVisible ? `${headerGrossPnL >= 0 ? '+' : ''}${formatCurrency(headerGrossPnL)}` : '••••'}
+              </span>
+            </span>
+
+            {/* Total Charges badge */}
+            <span 
+              className="badge"
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 650,
+                backgroundColor: 'rgba(239, 68, 68, 0.06)',
+                color: 'var(--text-muted)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontFamily: 'var(--font-mono)'
+              }}
+              title={`Brokerage & Taxes for ${headerTitle}`}
+            >
+              Chgs: <span style={{ color: '#f87171', fontWeight: 700, marginLeft: '2px' }}>
+                {isPnlVisible ? formatCurrency(headerCharges) : '••••'}
+              </span>
+            </span>
+
+            {/* Net Realized P&L badge */}
             <span 
               className="badge"
               style={{
@@ -1677,7 +1848,7 @@ export function TradingCalendar({
               title={headerBadgeTitle}
             >
               <>
-                {isPnlVisible ? (
+                Net: {isPnlVisible ? (
                   <>
                     {headerPnL >= 0 ? '+' : ''}{formatCurrency(headerPnL)}
                   </>
@@ -2000,13 +2171,37 @@ export function TradingCalendar({
                 {detailsSubTitle}
               </p>
             </div>
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '4px 10px', fontSize: '0.75rem', height: '30px' }}
-              onClick={handleClearSelection}
-            >
-              Clear Selection
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {selectedDate && (
+                <button 
+                  className="btn btn-primary" 
+                  style={{ 
+                    padding: '5px 12px', 
+                    fontSize: '0.78rem', 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '6px',
+                    backgroundColor: 'var(--primary)',
+                    color: '#fff',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => handleOpenReconcile(selectedDate)}
+                  title="Enter/edit broker contract note charges for this date"
+                >
+                  <Receipt size={14} />
+                  <span>⚡ Edit Day's Charges / Contract Note</span>
+                </button>
+              )}
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '4px 10px', fontSize: '0.75rem', height: '30px' }}
+                onClick={handleClearSelection}
+              >
+                Clear Selection
+              </button>
+            </div>
           </div>
 
           {dayTrades.length > 0 ? (
@@ -2413,6 +2608,183 @@ export function TradingCalendar({
         isOpen={isJournalOpen} 
         onClose={() => setIsJournalOpen(false)} 
       />
+
+      {/* Direct Reconcile / Contract Note Modal */}
+      {reconcileDate && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+          onClick={() => setReconcileDate(null)}
+        >
+          <div 
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              padding: '24px',
+              borderRadius: '16px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-card)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ padding: '8px', borderRadius: '8px', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)' }}>
+                  <Receipt size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Reconcile Brokerage & Charges</h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Date: <strong>{reconcileDate}</strong>
+                  </p>
+                </div>
+              </div>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '4px', borderRadius: '8px' }}
+                onClick={() => setReconcileDate(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {reconcileSuccessMsg && (
+              <div style={{ 
+                padding: '10px 14px', 
+                borderRadius: '8px', 
+                backgroundColor: 'rgba(48, 209, 88, 0.15)', 
+                border: '1px solid rgba(48, 209, 88, 0.3)', 
+                color: 'var(--color-win)', 
+                fontSize: '0.82rem', 
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <Check size={16} />
+                <span>{reconcileSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Live Day Summary Box */}
+            <div style={{ 
+              backgroundColor: 'rgba(255, 255, 255, 0.03)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '10px', 
+              padding: '12px 16px', 
+              marginBottom: '18px',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '8px',
+              textAlign: 'center'
+            }}>
+              <div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Day Gross P&L</span>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: reconcileDayGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', marginTop: '2px' }}>
+                  {isPnlVisible ? `${reconcileDayGrossPnL >= 0 ? '+' : ''}₹${reconcileDayGrossPnL.toLocaleString('en-IN')}` : '••••'}
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total Charges</span>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#f87171', marginTop: '2px' }}>
+                  {isPnlVisible ? `-₹${((parseFloat(reconcileBrokerage) || 0) + (parseFloat(reconcileTaxes) || 0)).toLocaleString('en-IN')}` : '••••'}
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Net Day P&L</span>
+                <div style={{ fontSize: '0.9rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: (reconcileDayGrossPnL - ((parseFloat(reconcileBrokerage) || 0) + (parseFloat(reconcileTaxes) || 0))) >= 0 ? 'var(--color-win)' : 'var(--color-loss)', marginTop: '2px' }}>
+                  {isPnlVisible ? `${(reconcileDayGrossPnL - ((parseFloat(reconcileBrokerage) || 0) + (parseFloat(reconcileTaxes) || 0))) >= 0 ? '+' : ''}₹${Math.round(reconcileDayGrossPnL - ((parseFloat(reconcileBrokerage) || 0) + (parseFloat(reconcileTaxes) || 0))).toLocaleString('en-IN')}` : '••••'}
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveReconcile}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>
+                  Brokerage (₹)
+                </label>
+                <input 
+                  type="number"
+                  step="any"
+                  min="0"
+                  className="form-control"
+                  placeholder="e.g. 40.00"
+                  value={reconcileBrokerage}
+                  onChange={(e) => setReconcileBrokerage(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '0.88rem', fontFamily: 'var(--font-mono)' }}
+                  autoFocus
+                />
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '3px', display: 'block' }}>
+                  Broker's order execution fees from contract note
+                </span>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>
+                  Govt Taxes & Other Fees (₹)
+                </label>
+                <input 
+                  type="number"
+                  step="any"
+                  min="0"
+                  className="form-control"
+                  placeholder="e.g. 25.50"
+                  value={reconcileTaxes}
+                  onChange={(e) => setReconcileTaxes(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '0.88rem', fontFamily: 'var(--font-mono)' }}
+                />
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '3px', display: 'block' }}>
+                  Sum of STT, Exchange Turnover, GST, SEBI & Stamp duty
+                </span>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>
+                  Notes / Contract Note Ref (Optional)
+                </label>
+                <input 
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. CN-20260904-01"
+                  value={reconcileNotes}
+                  onChange={(e) => setReconcileNotes(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setReconcileDate(null)}
+                  style={{ padding: '7px 16px', fontSize: '0.82rem' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary"
+                  style={{ padding: '7px 18px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Check size={16} />
+                  <span>Save & Apply Charges</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

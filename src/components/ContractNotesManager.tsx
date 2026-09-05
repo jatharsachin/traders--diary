@@ -159,33 +159,99 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
     }
   };
 
-  // Filtered contract notes history
-  const filteredNotes = useMemo(() => {
-    return (contractNotes || []).filter(cn => {
+  // Filtered trades for current FY and active account
+  const fyTrades = useMemo(() => {
+    return allTrades.filter(t => {
       if (selectedFY !== 'All') {
-        const fy = getFinancialYear(cn.date);
+        const fy = getFinancialYear(t.exitDate || t.date);
         if (fy !== selectedFY) return false;
       }
-      if (activeAccountId !== 'Combined' && cn.brokerAccountId && cn.brokerAccountId !== activeAccountId) {
-        return false;
-      }
-      if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase();
-        return (
-          cn.date.includes(term) ||
-          cn.broker.toLowerCase().includes(term) ||
-          (cn.notes && cn.notes.toLowerCase().includes(term))
-        );
+      if (activeAccountId !== 'Combined') {
+        if (t.brokerAccountId) return t.brokerAccountId === activeAccountId;
+        const acc = brokerAccounts.find(a => a.id === activeAccountId);
+        if (acc && t.broker) return t.broker.toLowerCase() === acc.broker.toLowerCase();
       }
       return true;
-    }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [contractNotes, selectedFY, activeAccountId, searchTerm]);
+    });
+  }, [allTrades, selectedFY, activeAccountId, brokerAccounts]);
 
-  // Lifetime summary stats
-  const totalReconciledNotes = filteredNotes.length;
-  const totalReconciledBrokerage = filteredNotes.reduce((acc, n) => acc + n.brokerage, 0);
-  const totalReconciledTaxes = filteredNotes.reduce((acc, n) => acc + n.taxes, 0);
-  const totalReconciledCharges = filteredNotes.reduce((acc, n) => acc + n.totalCharges, 0);
+  // Combined daily breakdown merging all trading days and recorded contract notes
+  const dailyBreakdownList = useMemo(() => {
+    const daysMap: Record<string, typeof allTrades> = {};
+    fyTrades.forEach(t => {
+      const d = t.exitDate || t.date;
+      if (!daysMap[d]) daysMap[d] = [];
+      daysMap[d].push(t);
+    });
+
+    (contractNotes || []).forEach(cn => {
+      if (selectedFY !== 'All') {
+        const fy = getFinancialYear(cn.date);
+        if (fy !== selectedFY) return;
+      }
+      if (activeAccountId !== 'Combined' && cn.brokerAccountId && cn.brokerAccountId !== activeAccountId) {
+        return;
+      }
+      if (!daysMap[cn.date]) {
+        daysMap[cn.date] = [];
+      }
+    });
+
+    const dates = Object.keys(daysMap).sort((a, b) => b.localeCompare(a));
+
+    return dates.map(date => {
+      const tradesForDay = daysMap[date] || [];
+      const cn = (contractNotes || []).find(n => {
+        if (n.date !== date) return false;
+        if (activeAccountId !== 'Combined' && n.brokerAccountId) return n.brokerAccountId === activeAccountId;
+        return true;
+      });
+
+      const tradeCount = tradesForDay.length;
+      const grossPnL = tradesForDay.reduce((sum, t) => sum + (t.grossPnL || 0), 0);
+      const brokerage = cn ? cn.brokerage : tradesForDay.reduce((sum, t) => sum + (t.brokerage || 0), 0);
+      const taxes = cn ? cn.taxes : tradesForDay.reduce((sum, t) => sum + (t.taxes || 0), 0);
+      const totalCharges = Math.round((brokerage + taxes) * 100) / 100;
+      const netPnL = Math.round((grossPnL - totalCharges) * 100) / 100;
+
+      const broker = cn?.broker || tradesForDay[0]?.broker || 'Other';
+      const brokerAccountId = cn?.brokerAccountId || tradesForDay[0]?.brokerAccountId;
+      const isReconciled = !!cn;
+
+      return {
+        id: cn?.id || `day-${date}`,
+        date,
+        broker,
+        brokerAccountId,
+        tradeCount,
+        grossPnL,
+        brokerage,
+        taxes,
+        totalCharges,
+        netPnL,
+        isReconciled,
+        notes: cn?.notes || (isReconciled ? '' : 'Recorded from trade executions')
+      };
+    });
+  }, [fyTrades, contractNotes, selectedFY, activeAccountId]);
+
+  // Filtered breakdown with search
+  const filteredBreakdownList = useMemo(() => {
+    if (!searchTerm.trim()) return dailyBreakdownList;
+    const term = searchTerm.toLowerCase();
+    return dailyBreakdownList.filter(item => 
+      item.date.includes(term) ||
+      item.broker.toLowerCase().includes(term) ||
+      (item.notes && item.notes.toLowerCase().includes(term))
+    );
+  }, [dailyBreakdownList, searchTerm]);
+
+  // Financial Year Aggregated Metrics
+  const totalTradingDaysCount = dailyBreakdownList.length;
+  const totalReconciledCount = dailyBreakdownList.filter(d => d.isReconciled).length;
+  const totalFYBrokerage = dailyBreakdownList.reduce((acc, d) => acc + d.brokerage, 0);
+  const totalFYTaxes = dailyBreakdownList.reduce((acc, d) => acc + d.taxes, 0);
+  const totalFYCharges = dailyBreakdownList.reduce((acc, d) => acc + d.totalCharges, 0);
 
   return (
     <div className="tab-pane" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -248,22 +314,24 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
       <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <div className="glass-card" style={{ padding: '16px' }}>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-            Reconciled Days
+            Trading Days
           </span>
           <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '6px', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
-            {totalReconciledNotes} Days
+            {totalTradingDaysCount} Days
           </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Contract Notes recorded</span>
+          <span style={{ fontSize: '0.7rem', color: totalReconciledCount > 0 ? 'var(--color-win)' : 'var(--text-muted)' }}>
+            {totalReconciledCount} / {totalTradingDaysCount} Reconciled Notes
+          </span>
         </div>
 
         <div className="glass-card" style={{ padding: '16px' }}>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-            Total Brokerage (₹)
+            Total FY Brokerage (₹)
           </span>
           <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '6px', color: '#fb923c', fontFamily: 'var(--font-mono)' }}>
-            {isPnlVisible ? `₹${totalReconciledBrokerage.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
+            {isPnlVisible ? `₹${totalFYBrokerage.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
           </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Broker commission paid</span>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total brokerage deducted in {selectedFY}</span>
         </div>
 
         <div className="glass-card" style={{ padding: '16px' }}>
@@ -271,9 +339,9 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
             Govt Taxes & STT (₹)
           </span>
           <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '6px', color: '#f87171', fontFamily: 'var(--font-mono)' }}>
-            {isPnlVisible ? `₹${totalReconciledTaxes.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
+            {isPnlVisible ? `₹${totalFYTaxes.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
           </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>STT, GST, Stamp & SEBI</span>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>STT, GST, Stamp & SEBI charges</span>
         </div>
 
         <div className="glass-card" style={{ padding: '16px' }}>
@@ -281,9 +349,9 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
             Total Charges Deducted
           </span>
           <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '6px', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-            {isPnlVisible ? `₹${totalReconciledCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
+            {isPnlVisible ? `₹${totalFYCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
           </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>100% precision audit</span>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>100% precision audit in {selectedFY}</span>
         </div>
       </div>
 
@@ -579,14 +647,15 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
       </div>
 
       {/* Reconciled Contract Notes History Table */}
+      {/* Reconciled Contract Notes & Daily Charges History Table */}
       <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
-              Reconciled Contract Notes History ({filteredNotes.length})
+              Daily Charges & Contract Notes Breakdown ({filteredBreakdownList.length} Days)
             </h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: '2px 0 0 0' }}>
-              All daily contract note charges recorded for {selectedFY}
+              All trading days and contract note charges recorded for {selectedFY}
             </p>
           </div>
 
@@ -611,40 +680,42 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
               <tr style={{ borderBottom: '1.5px solid var(--border-color)', color: 'var(--text-dim)', fontSize: '0.7rem', textTransform: 'uppercase' }}>
                 <th style={{ padding: '10px 12px' }}>Date</th>
                 <th style={{ padding: '10px 12px' }}>Broker & Account</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center' }}>Trades</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Gross P&L</th>
                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>Brokerage</th>
                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>Govt Taxes</th>
                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>Total Charges</th>
-                <th style={{ padding: '10px 12px' }}>Remarks / Ref</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Net Realized P&L</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredNotes.length === 0 ? (
+              {filteredBreakdownList.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-dim)', fontSize: '0.82rem' }}>
-                    No contract notes recorded for this period. Use the form above to add your first day's charges!
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-dim)', fontSize: '0.82rem' }}>
+                    No trading activity or contract notes found for {selectedFY}.
                   </td>
                 </tr>
               ) : (
-                filteredNotes.map((note) => {
-                  const accObj = brokerAccounts.find(a => a.id === note.brokerAccountId);
-                  const isCurrentSelected = note.date === selectedDate;
+                filteredBreakdownList.map((item) => {
+                  const accObj = brokerAccounts.find(a => a.id === item.brokerAccountId);
+                  const isCurrentSelected = item.date === selectedDate;
                   return (
                     <tr 
-                      key={note.id}
+                      key={item.id}
                       style={{ 
                         borderBottom: '1px solid var(--border-color)',
-                        background: isCurrentSelected ? 'rgba(59, 130, 246, 0.04)' : 'transparent',
+                        background: isCurrentSelected ? 'rgba(59, 130, 246, 0.05)' : 'transparent',
                         transition: 'background 0.15s ease'
                       }}
                     >
                       <td style={{ padding: '10px 12px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>
-                        {note.date}
+                        {item.date}
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <BrokerBadge broker={note.broker} />
+                          <BrokerBadge broker={item.broker} />
                           {accObj && (
                             <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
                               ({accObj.accountName})
@@ -652,27 +723,51 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                           )}
                         </div>
                       </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 650, fontFamily: 'var(--font-mono)' }}>
+                        {item.tradeCount}
+                      </td>
+                      <td style={{ 
+                        padding: '10px 12px', 
+                        textAlign: 'right', 
+                        fontFamily: 'var(--font-mono)', 
+                        color: item.grossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)',
+                        fontWeight: 650 
+                      }}>
+                        {isPnlVisible ? `${item.grossPnL >= 0 ? '+' : ''}₹${item.grossPnL.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '••••'}
+                      </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: '#fb923c', fontWeight: 650 }}>
-                        {isPnlVisible ? `₹${note.brokerage.toFixed(2)}` : '••••'}
+                        {isPnlVisible ? `₹${item.brokerage.toFixed(2)}` : '••••'}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: '#f87171', fontWeight: 650 }}>
-                        {isPnlVisible ? `₹${note.taxes.toFixed(2)}` : '••••'}
+                        {isPnlVisible ? `₹${item.taxes.toFixed(2)}` : '••••'}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-loss)', fontWeight: 800 }}>
-                        {isPnlVisible ? `₹${note.totalCharges.toFixed(2)}` : '••••'}
+                        {isPnlVisible ? `₹${item.totalCharges.toFixed(2)}` : '••••'}
                       </td>
-                      <td style={{ padding: '10px 12px', fontSize: '0.75rem', color: 'var(--text-muted)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={note.notes}>
-                        {note.notes || '-'}
+                      <td style={{ 
+                        padding: '10px 12px', 
+                        textAlign: 'right', 
+                        fontFamily: 'var(--font-mono)', 
+                        color: item.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)',
+                        fontWeight: 800 
+                      }}>
+                        {isPnlVisible ? `${item.netPnL >= 0 ? '+' : ''}₹${item.netPnL.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '••••'}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span className="badge badge-win" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
-                          ✓ Reconciled
-                        </span>
+                        {item.isReconciled ? (
+                          <span className="badge badge-win" style={{ fontSize: '0.68rem', padding: '3px 8px' }}>
+                            ✓ Reconciled Note
+                          </span>
+                        ) : (
+                          <span className="badge badge-neutral" style={{ fontSize: '0.68rem', padding: '3px 8px' }}>
+                            ⚡ From Trades
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                           <button
-                            onClick={() => handleEditNote(note)}
+                            onClick={() => handleEditNote(item)}
                             style={{ 
                               background: 'rgba(59, 130, 246, 0.08)', 
                               border: '1px solid rgba(59, 130, 246, 0.2)', 
@@ -683,31 +778,34 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                               display: 'flex',
                               alignItems: 'center',
                               gap: '4px',
-                              fontSize: '0.72rem'
+                              fontSize: '0.72rem',
+                              fontWeight: 600
                             }}
-                            title="Edit & Reallocate"
+                            title="Edit or Reconcile with Contract Note"
                           >
                             <Edit2 size={12} />
-                            <span>Edit</span>
+                            <span>{item.isReconciled ? 'Edit' : 'Reconcile'}</span>
                           </button>
-                          <button
-                            onClick={() => handleDeleteNote(note.id, note.date)}
-                            style={{ 
-                              background: 'rgba(239, 68, 68, 0.08)', 
-                              border: '1px solid rgba(239, 68, 68, 0.2)', 
-                              color: 'var(--color-loss)', 
-                              borderRadius: '6px', 
-                              padding: '4px 8px', 
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '0.72rem'
-                            }}
-                            title="Delete"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          {item.isReconciled && (
+                            <button
+                              onClick={() => handleDeleteNote(item.id, item.date)}
+                              style={{ 
+                                background: 'rgba(239, 68, 68, 0.08)', 
+                                border: '1px solid rgba(239, 68, 68, 0.2)', 
+                                color: 'var(--color-loss)', 
+                                borderRadius: '6px', 
+                                padding: '4px 8px', 
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.72rem'
+                              }}
+                              title="Reset to trade log defaults"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
