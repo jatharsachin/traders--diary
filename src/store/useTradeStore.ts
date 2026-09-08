@@ -211,6 +211,8 @@ const computeTradeCalculations = (
     manualTaxes?: number;
     holdingType?: 'Short Term' | 'Long Term';
     broker?: Broker;
+    brokerage?: number;
+    taxes?: number;
   },
   chargesConfig?: BrokerChargesConfig
 ) => {
@@ -281,7 +283,8 @@ const computeTradeCalculations = (
     ? (effectiveExitPrice - entryPrice) * qty 
     : (entryPrice - effectiveExitPrice) * qty;
 
-  // Taxes & Brokerage
+  // Taxes & Brokerage: NEVER auto-calculate!
+  // Brokerage and taxes are only recorded when manually entered or updated by the user (e.g. via Contract Notes / Calendar).
   let brokerage = 0;
   let taxes = 0;
   let totalCharges = 0;
@@ -290,29 +293,16 @@ const computeTradeCalculations = (
     brokerage = Number(trade.manualBrokerage) || 0;
     taxes = Number(trade.manualTaxes) || 0;
     totalCharges = brokerage + taxes;
+  } else if (trade.brokerage !== undefined || trade.taxes !== undefined) {
+    // Preserve existing trade charges if already present on trade (for edit / 100% data safety)
+    brokerage = Number(trade.brokerage) || 0;
+    taxes = Number(trade.taxes) || 0;
+    totalCharges = brokerage + taxes;
   } else {
-    const isOpt = segment === 'F&O' && (
-      (trade.optionType && trade.optionType !== 'None') ||
-      (trade.strikePrice !== undefined && trade.strikePrice > 0) ||
-      (trade.symbol && /CE|PE|\bCALL\b|\bPUT\b/i.test(trade.symbol)) ||
-      (!trade.symbol?.toUpperCase().includes('FUT') && trade.entryPrice < 3000)
-    );
-    const taxResult = calculateIndianTaxesAndBrokerage(
-      segment, 
-      product, 
-      action, 
-      qty, 
-      entryPrice, 
-      effectiveExitPrice, 
-      chargesConfig, 
-      isOpt, 
-      trade.partialExits, 
-      trade.strategy, 
-      trade.symbol
-    );
-    brokerage = taxResult.brokerage;
-    taxes = taxResult.totalCharges - brokerage;
-    totalCharges = taxResult.totalCharges;
+    // Default for newly logged trades: 0 charges until user manually enters them.
+    brokerage = 0;
+    taxes = 0;
+    totalCharges = 0;
   }
   const netPnL = grossPnL - totalCharges;
 
@@ -903,6 +893,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
             manualTaxes: merged.manualTaxes,
             holdingType: merged.holdingType,
             broker: merged.broker,
+            brokerage: merged.brokerage,
+            taxes: merged.taxes,
           }, chargesConfig);
           const updatedTrade = { ...merged, ...calculated };
           
@@ -1908,7 +1900,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
       // Distribute charges accurately to that day's trades for this account/broker
       const dayTrades = state.trades.filter(t => {
-        if (t.date !== noteData.date) return false;
+        const tradeDate = t.exitDate || t.date;
+        if (tradeDate !== noteData.date) return false;
         if (noteData.brokerAccountId && t.brokerAccountId && t.brokerAccountId !== noteData.brokerAccountId) return false;
         if (!noteData.brokerAccountId && t.broker && t.broker !== noteData.broker) return false;
         return true;
@@ -1918,7 +1911,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         const totalTurnover = dayTrades.reduce((sum, t) => sum + (t.entryPrice * t.qty) + (t.exitPrice * t.qty), 0);
         
         const updatedTrades = state.trades.map(t => {
-          if (t.date === noteData.date && (
+          const tradeDate = t.exitDate || t.date;
+          if (tradeDate === noteData.date && (
             (noteData.brokerAccountId && t.brokerAccountId === noteData.brokerAccountId) ||
             (!noteData.brokerAccountId && t.broker === noteData.broker) ||
             (!noteData.brokerAccountId && !t.brokerAccountId)
@@ -1957,9 +1951,37 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     }),
 
     deleteContractNote: (id) => set((state) => {
+      const targetNote = state.contractNotes.find(n => n.id === id);
       const updatedNotes = state.contractNotes.filter(n => n.id !== id);
       localStorage.setItem(getScopedKey('traders_diary_contract_notes'), JSON.stringify(updatedNotes));
       syncMetaToCloud('contract_notes', updatedNotes);
+
+      if (targetNote) {
+        const updatedTrades = state.trades.map(t => {
+          const tradeDate = t.exitDate || t.date;
+          if (tradeDate === targetNote.date && (
+            (targetNote.brokerAccountId && t.brokerAccountId === targetNote.brokerAccountId) ||
+            (!targetNote.brokerAccountId && t.broker === targetNote.broker) ||
+            (!targetNote.brokerAccountId && !t.brokerAccountId)
+          )) {
+            const updatedT: Trade = {
+              ...t,
+              useManualCharges: false,
+              manualBrokerage: 0,
+              manualTaxes: 0,
+              brokerage: 0,
+              taxes: 0,
+              netPnL: t.grossPnL
+            };
+            syncTradeToCloud('update', updatedT);
+            return updatedT;
+          }
+          return t;
+        });
+        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+        return { contractNotes: updatedNotes, trades: updatedTrades };
+      }
+
       return { contractNotes: updatedNotes };
     }),
 

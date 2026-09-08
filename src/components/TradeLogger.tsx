@@ -3,7 +3,6 @@ import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
 import { getTradeMistakes, formatTradeMistakes } from '../types';
 import { X, Save, ShieldAlert, Check, AlertTriangle } from 'lucide-react';
-import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
 import { getFinancialYear } from '../utils/fyHelper';
 
 interface TradeLoggerProps {
@@ -582,49 +581,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     }
   }, [underlyingIndex, leg2Strike, leg2OptionType, formData.segment, isOpen]);
 
-  // Real-time auto-calculation of charges & taxes
-  useEffect(() => {
-    if (!formData.useManualCharges && isOpen) {
-      const { segment, product, action, qty, entryPrice, exitPrice, strategy, symbol } = formData;
-      if (qty > 0 && entryPrice > 0 && exitPrice > 0) {
-        const config = brokerCharges.find(c => c.broker === formData.broker);
-        const isOpt = segment === 'F&O' && (
-          (formData.optionType && formData.optionType !== 'None') ||
-          (formData.strikePrice !== undefined && formData.strikePrice > 0) ||
-          (symbol && /CE|PE|\bCALL\b|\bPUT\b/i.test(symbol)) ||
-          (!symbol?.toUpperCase().includes('FUT') && entryPrice < 3000)
-        );
-        const activeExits = usePartialExits ? partialExits.filter(e => e.qty > 0 && e.price > 0) : undefined;
-        const taxResult = calculateIndianTaxesAndBrokerage(segment, product, action, qty, entryPrice, exitPrice, config, isOpt, activeExits, strategy, symbol);
-        const calcBrokerage = taxResult.brokerage;
-        const calcTaxes = Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100;
-        setFormData((prev) => ({
-          ...prev,
-          manualBrokerage: calcBrokerage,
-          manualTaxes: calcTaxes
-        }));
-        setManualBrokerageText(calcBrokerage.toString());
-        setManualTaxesText(calcTaxes.toString());
-      }
-    }
-  }, [
-    formData.useManualCharges,
-    formData.segment,
-    formData.product,
-    formData.action,
-    formData.qty,
-    formData.entryPrice,
-    formData.exitPrice,
-    formData.broker,
-    formData.optionType,
-    formData.strikePrice,
-    formData.symbol,
-    brokerCharges,
-    isOpen,
-    partialExits,
-    usePartialExits
-  ]);
-
   // Save draft to localStorage as user types
   useEffect(() => {
     if (!editTradeId && isOpen) {
@@ -643,31 +599,10 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
 
     if (name === 'useManualCharges') {
       const isChecked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => {
-        let mb = prev.manualBrokerage;
-        let mt = prev.manualTaxes;
-        if (isChecked && mb === 0 && mt === 0) {
-          const config = brokerCharges.find(c => c.broker === prev.broker);
-          const isOpt = prev.segment === 'F&O' && (
-            (prev.optionType && prev.optionType !== 'None') ||
-            (prev.strikePrice !== undefined && prev.strikePrice > 0) ||
-            (prev.symbol && /CE|PE|\bCALL\b|\bPUT\b/i.test(prev.symbol)) ||
-            (!prev.symbol?.toUpperCase().includes('FUT') && prev.entryPrice < 3000)
-          );
-          const activeExits = usePartialExits ? partialExits.filter(ex => ex.qty > 0 && ex.price > 0) : undefined;
-          const taxResult = calculateIndianTaxesAndBrokerage(prev.segment, prev.product, prev.action, prev.qty, prev.entryPrice, prev.exitPrice, config, isOpt, activeExits, prev.strategy, prev.symbol);
-          mb = taxResult.brokerage;
-          mt = Math.round((taxResult.totalCharges - taxResult.brokerage) * 100) / 100;
-        }
-        setManualBrokerageText(mb.toString());
-        setManualTaxesText(mt.toString());
-        return {
-          ...prev,
-          useManualCharges: isChecked,
-          manualBrokerage: mb,
-          manualTaxes: mt
-        };
-      });
+      setFormData((prev) => ({
+        ...prev,
+        useManualCharges: isChecked,
+      }));
       return;
     }
     
