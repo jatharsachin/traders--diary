@@ -650,6 +650,49 @@ export function Dashboard({
 
   const brokerageLeakage = grossProfit > 0 ? (totalCharges / grossProfit) * 100 : 0;
 
+  // Recent 5-7 Trading Days Summary for Welcome Banner Calendar Strip
+  const recentTradingDays = useMemo(() => {
+    // Collect all distinct dates that had trades in rawTrades or are marked as no-trade days
+    const tradeDateSet = new Set<string>();
+    rawTrades.forEach((t) => {
+      const d = t.exitDate || t.date;
+      if (d) tradeDateSet.add(d);
+    });
+    noTradeDays.forEach((d) => {
+      if (d) tradeDateSet.add(d);
+    });
+
+    // Sort dates in descending order (most recent first)
+    const sortedAllDates = Array.from(tradeDateSet).sort((a, b) => b.localeCompare(a));
+    // Take the latest 6 active trading / no-trade dates, then reverse to chronological (left to right)
+    const targetDates = sortedAllDates.slice(0, 6).reverse();
+
+    return targetDates.map((dateStr) => {
+      const dObj = parseLocalDate(dateStr);
+      const dayName = dObj.toLocaleDateString('en-IN', { weekday: 'short' });
+      const dayNum = dObj.getDate();
+      const monthShort = dObj.toLocaleDateString('en-IN', { month: 'short' });
+      
+      const dayTrades = rawTrades.filter((t) => (t.exitDate || t.date) === dateStr);
+      const isNoTrade = noTradeDays.includes(dateStr) && dayTrades.length === 0;
+      const dayNetPnL = dayTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
+      const dayGrossPnL = dayTrades.reduce((sum, t) => sum + (t.grossPnL || 0), 0);
+      const dayCharges = dayTrades.reduce((sum, t) => sum + ((t.brokerage || 0) + (t.taxes || 0)), 0);
+
+      return {
+        dateStr,
+        dayName,
+        dayNum,
+        monthShort,
+        count: dayTrades.length,
+        isNoTrade,
+        netPnL: Math.round(dayNetPnL * 100) / 100,
+        grossPnL: Math.round(dayGrossPnL * 100) / 100,
+        charges: Math.round(dayCharges * 100) / 100
+      };
+    });
+  }, [rawTrades, noTradeDays]);
+
   // Broker-wise Performance statistics calculations
   const getBrokerwiseStats = () => {
     const brokerMap: Record<string, { 
@@ -1423,6 +1466,132 @@ export function Dashboard({
           </div>
         </div>
         
+        {/* Recent Trading Days P&L Calendar Strip */}
+        {recentTradingDays.length > 0 && (
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              flexWrap: 'wrap',
+              margin: '0 auto',
+              padding: '6px 12px',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '5px', 
+                fontSize: '0.68rem', 
+                color: 'var(--text-dim)', 
+                fontWeight: 700, 
+                textTransform: 'uppercase', 
+                letterSpacing: '0.06em',
+                paddingRight: '6px',
+                borderRight: '1px solid var(--border-color)',
+                marginRight: '2px',
+                cursor: onNavigateToTab ? 'pointer' : 'default'
+              }}
+              onClick={() => onNavigateToTab?.('calendar')}
+              title="Click to view full Calendar"
+            >
+              <Calendar size={13} color="var(--primary)" />
+              <span>Recent Days</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {recentTradingDays.map((d) => {
+                const isWin = d.netPnL > 0;
+                const isLoss = d.netPnL < 0;
+                const bgStyle = d.isNoTrade
+                  ? 'rgba(96, 165, 250, 0.08)'
+                  : isWin 
+                  ? 'rgba(48, 209, 88, 0.1)'
+                  : isLoss 
+                  ? 'rgba(255, 69, 58, 0.1)'
+                  : 'rgba(255, 255, 255, 0.04)';
+
+                const borderColor = d.isNoTrade
+                  ? 'rgba(96, 165, 250, 0.3)'
+                  : isWin 
+                  ? 'rgba(48, 209, 88, 0.3)'
+                  : isLoss 
+                  ? 'rgba(255, 69, 58, 0.3)'
+                  : 'var(--border-color)';
+
+                const textColor = d.isNoTrade
+                  ? '#60a5fa'
+                  : isWin 
+                  ? 'var(--color-win)'
+                  : isLoss 
+                  ? 'var(--color-loss)'
+                  : 'var(--text-muted)';
+
+                return (
+                  <div
+                    key={d.dateStr}
+                    onClick={() => {
+                      if (onSelectDateFilter) {
+                        onSelectDateFilter(d.dateStr);
+                      } else if (onNavigateToTab) {
+                        onNavigateToTab('calendar');
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px 9px',
+                      borderRadius: '8px',
+                      background: bgStyle,
+                      border: `1.2px solid ${borderColor}`,
+                      cursor: 'pointer',
+                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                      minWidth: '64px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                    title={`${d.dayName}, ${d.dayNum} ${d.monthShort}: ${d.isNoTrade ? 'Disciplined No-Trade Day' : `${d.count} trade(s), Net P&L: ₹${d.netPnL.toLocaleString('en-IN')}, Chgs: ₹${d.charges.toLocaleString('en-IN')}`}\n(Click to view details)`}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      <span>{d.dayName}</span>
+                      <span style={{ opacity: 0.85 }}>{d.dayNum}</span>
+                    </div>
+
+                    <div style={{ fontSize: '0.74rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: textColor, marginTop: '2px', whiteSpace: 'nowrap' }}>
+                      {d.isNoTrade ? (
+                        <span style={{ fontSize: '0.66rem' }}>🛡️ No-Trd</span>
+                      ) : !isPnlVisible ? (
+                        '••••'
+                      ) : (
+                        `${isWin ? '+' : ''}₹${Math.abs(d.netPnL) >= 1000 ? `${(d.netPnL / 1000).toFixed(1)}k` : Math.round(d.netPnL)}`
+                      )}
+                    </div>
+
+                    {!d.isNoTrade && (
+                      <div style={{ fontSize: '0.56rem', color: 'var(--text-dim)', marginTop: '1px' }}>
+                        {d.count} trd{d.count > 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Highlighted Big Financial Year Badge */}
           <div 
