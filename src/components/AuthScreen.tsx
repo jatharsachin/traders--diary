@@ -179,8 +179,9 @@ export function AuthScreen({ recoveryMode = false, onRecoveryComplete }: AuthScr
           />
           <h2
             style={{
-              fontSize: '1.85rem',
-              fontWeight: 800,
+              fontFamily: 'var(--font-brand)',
+              fontSize: '2rem',
+              fontWeight: 700,
               letterSpacing: '-0.025em',
               background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
               WebkitBackgroundClip: 'text',

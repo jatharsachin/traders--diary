@@ -262,15 +262,13 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
               width: '40px',
               height: '40px',
               borderRadius: '10px',
-              padding: '1.5px',
-              background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 255, 255, 0.12))',
-              boxShadow: '0 3px 10px rgba(0, 0, 0, 0.4), 0 0 10px rgba(234, 179, 8, 0.2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              flexShrink: 0
+              flexShrink: 0,
+              boxShadow: '0 3px 10px rgba(0, 0, 0, 0.4)'
             }}>
-              <img src={logoImg} alt="Logo" style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover', filter: 'brightness(1.15) contrast(1.1)' }} />
+              <img src={logoImg} alt="Logo" style={{ width: '100%', height: '100%', borderRadius: '10px', objectFit: 'contain' }} />
             </div>
             <div>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>Portfolio Overview</h2>
