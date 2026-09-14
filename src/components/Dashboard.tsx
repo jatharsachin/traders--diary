@@ -1819,7 +1819,7 @@ export function Dashboard({
         </div>
       </div>
       {/* Quick Segment Filter Pills */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '-4px', marginBottom: '2px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '-4px', marginBottom: '14px' }}>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           Segment:
         </span>
@@ -1855,278 +1855,6 @@ export function Dashboard({
             </button>
           );
         })}
-      </div>
-
-      {/* Grid 1: Key Performance Indicators (Row 1 - 5 Columns) */}
-      <div className="metrics-grid">
-        {/* KPI 1: Realized Net P&L */}
-        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '84px', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '8px' }}>
-            {/* Left Part: Net P&L Summary */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-              <div className="metric-title" style={{ margin: 0, fontSize: '0.74rem' }}>
-                <IndianRupee size={13} style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }} />
-                <span>{showCombined ? 'Combined Wealth P&L' : 'Net Realized P&L'}</span>
-                {showCombined && (
-                  <span className="badge badge-win" style={{ fontSize: '0.52rem', padding: '1px 4px', textTransform: 'none', marginLeft: '4px' }}>
-                    Combined
-                  </span>
-                )}
-              </div>
-              <div 
-                className="metric-value" 
-                style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontSize: '1.75rem', margin: 0, display: 'flex', alignItems: 'baseline', gap: '4px' }}
-              >
-                {isPnlVisible ? formatCurrency(displayNetPnL) : '••••'}
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                  ({displayNetPnL >= 0 ? '+' : ''}{showCombined ? combinedReturnPct.toFixed(1) : tradingReturnPct.toFixed(1)}%)
-                </span>
-              </div>
-
-              {totalSubExpenses > 0 && !showCombined && (
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Net Bottom-Line:</span>
-                  <strong style={{ color: netBottomLinePnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                    {isPnlVisible ? formatCurrency(netBottomLinePnL) : '••••'}
-                  </strong>
-                  <span style={{ fontSize: '0.62rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
-                    (after {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'} subs)
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Right Part: Detailed Breakdown Items */}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', flexShrink: 0 }}>
-              {!showCombined ? (
-                <>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>GROSS P&L</span>
-                    <strong style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'}
-                    </strong>
-                  </div>
-                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>BROKERAGE</span>
-                    <strong style={{ fontSize: '0.76rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalBrokerage) : '••••'}
-                    </strong>
-                  </div>
-                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>TAXES & FEES</span>
-                    <strong style={{ fontSize: '0.76rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
-                    </strong>
-                  </div>
-                  {totalSubExpenses > 0 && (
-                    <>
-                      <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                        <span style={{ fontSize: '0.58rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBSCRIPTIONS</span>
-                        <strong style={{ fontSize: '0.76rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
-                          {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'}
-                        </strong>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>TRADING NET</span>
-                    <strong style={{ fontSize: '0.76rem', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'}
-                    </strong>
-                  </div>
-                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>INV. RETURNS</span>
-                    <strong style={{ fontSize: '0.76rem', color: totalInvReturns >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                      {isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}
-                    </strong>
-                  </div>
-                  {totalSubExpenses > 0 && (
-                    <>
-                      <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                        <span style={{ fontSize: '0.58rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBSCRIPTIONS</span>
-                        <strong style={{ fontSize: '0.76rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
-                          {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'}
-                        </strong>
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 2: Success Rate */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <Percent size={18} color="var(--primary)" />
-            <span>Success Rate</span>
-          </div>
-          <div>
-            <div className="metric-value text-white">
-              {winRate.toFixed(1)}%
-            </div>
-            <div className="metric-subtext">
-              {winningTrades.length} Green / {losingTrades.length} Red (Total: {totalTrades})
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3: Options Scalping Stats */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <Clock size={18} color="#fb7185" />
-            <span>Avg hold time / Leakage</span>
-          </div>
-          <div>
-            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
-              <span>{avgOptionDuration.toFixed(1)}m</span>
-              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
-              <span style={{ color: brokerageLeakage > 20 ? 'var(--color-loss)' : 'var(--color-win)' }}>{brokerageLeakage.toFixed(0)}%</span>
-            </div>
-            <div className="metric-subtext">
-              Avg. scalp hold / Profit leaked to charges
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 4: Sharpe & Risk Ratio */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <Scale size={18} color="#fb923c" />
-            <span>Sharpe & Drawdown</span>
-          </div>
-          <div>
-            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
-              <span>{sharpe.toFixed(2)}</span>
-              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
-              <span style={{ color: 'var(--color-loss)' }}>-{maxDDPct.toFixed(1)}%</span>
-            </div>
-            <div className="metric-subtext">
-              Sharpe ratio / Max portfolio drawdown %
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid 2: Key Performance Indicators (Row 2 - 6 Columns Responsive) */}
-      <div className="metrics-grid-row2">
-        {/* Metric 1: Profit Factor */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <Scale size={18} color="var(--primary)" />
-            <span>Profit Factor</span>
-          </div>
-          <div>
-            <div className="metric-value text-white">
-              {profitFactor === Infinity ? '∞' : profitFactor.toFixed(2)}
-            </div>
-            <div className="metric-subtext">
-              Gross Win / Gross Loss ratio. &gt; 1.5 is healthy
-            </div>
-          </div>
-        </div>
-
-        {/* Metric 2: Expectancy */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <Award size={18} color="#34d399" />
-            <span>Expectancy</span>
-          </div>
-          <div>
-            <div className="metric-value" style={{ color: expectancy >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-              {isPnlVisible ? formatCurrency(expectancy) : '••••'}
-            </div>
-            <div className="metric-subtext">
-              Expected net return per trade executed
-            </div>
-          </div>
-        </div>
-
-        {/* Metric 3: Max Drawdown */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <TrendingDown size={18} color="var(--color-loss)" />
-            <span>Peak Drawdown</span>
-          </div>
-          <div>
-            <div className="metric-value" style={{ color: 'var(--color-loss)' }}>
-              {isPnlVisible ? formatCurrency(maxDrawdown) : '••••'}
-            </div>
-            <div className="metric-subtext">
-              Max peak-to-trough drop in capital
-            </div>
-          </div>
-        </div>
-
-        {/* Metric 4: Max Win/Loss Streak */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <Flame size={18} color="#fb923c" />
-            <span>Streak (Days)</span>
-          </div>
-          <div>
-            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
-              <span style={{ color: 'var(--color-win)' }}>{maxConsecWins}W</span>
-              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
-              <span style={{ color: 'var(--color-loss)' }}>{maxConsecLosses}L</span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '6px' }}>Days</span>
-            </div>
-            <div className="metric-subtext">
-              Consecutive winning vs losing trading days
-            </div>
-          </div>
-        </div>
-
-        {/* Metric 5: Best & Worst Days Card */}
-        <div className="glass-card metric-card" style={{ minWidth: 0 }}>
-          <div className="metric-title" style={{ color: 'var(--text-muted)' }}>
-            <Award size={16} color="#eab308" />
-            <span>Best / Worst Days</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '1px 0', minWidth: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', minWidth: 0 }}>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', fontWeight: 650 }}>
-                🟩 {bestDay.date !== 'N/A' && bestDay.date !== 'No Trades' ? bestDay.date : 'Best Day'}
-              </span>
-              <strong style={{ fontSize: '0.78rem', color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
-                {bestDay.pnl > 0 ? (isPnlVisible ? `+${formatCurrency(bestDay.pnl)}` : '••••') : '₹0'}
-              </strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', minWidth: 0 }}>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', fontWeight: 650 }}>
-                🟥 {worstDay.date !== 'N/A' && worstDay.date !== 'No Trades' ? worstDay.date : 'Worst Day'}
-              </span>
-              <strong style={{ fontSize: '0.78rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                {worstDay.pnl < 0 ? (isPnlVisible ? formatCurrency(worstDay.pnl) : '••••') : '₹0'}
-              </strong>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 5: Trade Volume Averages */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <TrendingUp size={18} color="var(--primary)" />
-            <span>Avg Trades (D/W/M)</span>
-          </div>
-          <div>
-            <div className="metric-value text-white" style={{ fontSize: '1.38rem', fontFamily: 'var(--font-mono)' }}>
-              {avgTradesPerDay.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerWeek.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerMonth.toFixed(1)}
-            </div>
-            <div className="metric-subtext">
-              Daily / Weekly / Monthly averages
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Equity Curve Chart */}
@@ -2572,6 +2300,286 @@ export function Dashboard({
           </div>
         </div>
 
+      </div>
+
+      {/* Core Performance & Risk Metrics */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', marginTop: '6px' }}>
+        <TrendingUp size={18} color="var(--primary)" />
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+          Core Performance & Risk Metrics
+        </h3>
+      </div>
+
+      {/* Grid 1: Key Performance Indicators (Row 1 - 5 Columns) */}
+      <div className="metrics-grid">
+        {/* KPI 1: Realized Net P&L */}
+        <div className={`glass-card metric-card metric-card-large ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '84px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '8px' }}>
+            {/* Left Part: Net P&L Summary */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+              <div className="metric-title" style={{ margin: 0, fontSize: '0.74rem' }}>
+                <IndianRupee size={13} style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }} />
+                <span>{showCombined ? 'Combined Wealth P&L' : 'Net Realized P&L'}</span>
+                {showCombined && (
+                  <span className="badge badge-win" style={{ fontSize: '0.52rem', padding: '1px 4px', textTransform: 'none', marginLeft: '4px' }}>
+                    Combined
+                  </span>
+                )}
+              </div>
+              <div 
+                className="metric-value" 
+                style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontSize: '1.75rem', margin: 0, display: 'flex', alignItems: 'baseline', gap: '4px' }}
+              >
+                {isPnlVisible ? formatCurrency(displayNetPnL) : '••••'}
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                  ({displayNetPnL >= 0 ? '+' : ''}{showCombined ? combinedReturnPct.toFixed(1) : tradingReturnPct.toFixed(1)}%)
+                </span>
+              </div>
+
+              {totalSubExpenses > 0 && !showCombined && (
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Net Bottom-Line:</span>
+                  <strong style={{ color: netBottomLinePnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                    {isPnlVisible ? formatCurrency(netBottomLinePnL) : '••••'}
+                  </strong>
+                  <span style={{ fontSize: '0.62rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
+                    (after {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'} subs)
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Right Part: Detailed Breakdown Items */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', flexShrink: 0 }}>
+              {!showCombined ? (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>GROSS P&L</span>
+                    <strong style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'}
+                    </strong>
+                  </div>
+                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>BROKERAGE</span>
+                    <strong style={{ fontSize: '0.76rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalBrokerage) : '••••'}
+                    </strong>
+                  </div>
+                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>TAXES & FEES</span>
+                    <strong style={{ fontSize: '0.76rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
+                    </strong>
+                  </div>
+                  {totalSubExpenses > 0 && (
+                    <>
+                      <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                        <span style={{ fontSize: '0.58rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBSCRIPTIONS</span>
+                        <strong style={{ fontSize: '0.76rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                          {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'}
+                        </strong>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>TRADING NET</span>
+                    <strong style={{ fontSize: '0.76rem', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'}
+                    </strong>
+                  </div>
+                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>INV. RETURNS</span>
+                    <strong style={{ fontSize: '0.76rem', color: totalInvReturns >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                      {isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}
+                    </strong>
+                  </div>
+                  {totalSubExpenses > 0 && (
+                    <>
+                      <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                        <span style={{ fontSize: '0.58rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBSCRIPTIONS</span>
+                        <strong style={{ fontSize: '0.76rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                          {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'}
+                        </strong>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 2: Success Rate */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Percent size={18} color="var(--primary)" />
+            <span>Success Rate</span>
+          </div>
+          <div>
+            <div className="metric-value text-white">
+              {winRate.toFixed(1)}%
+            </div>
+            <div className="metric-subtext">
+              {winningTrades.length} Green / {losingTrades.length} Red (Total: {totalTrades})
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 3: Options Scalping Stats */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Clock size={18} color="#fb7185" />
+            <span>Avg hold time / Leakage</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span>{avgOptionDuration.toFixed(1)}m</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: brokerageLeakage > 20 ? 'var(--color-loss)' : 'var(--color-win)' }}>{brokerageLeakage.toFixed(0)}%</span>
+            </div>
+            <div className="metric-subtext">
+              Avg. scalp hold / Profit leaked to charges
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Sharpe & Risk Ratio */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Scale size={18} color="#fb923c" />
+            <span>Sharpe & Drawdown</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span>{sharpe.toFixed(2)}</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: 'var(--color-loss)' }}>-{maxDDPct.toFixed(1)}%</span>
+            </div>
+            <div className="metric-subtext">
+              Sharpe ratio / Max portfolio drawdown %
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid 2: Key Performance Indicators (Row 2 - 6 Columns Responsive) */}
+      <div className="metrics-grid-row2">
+        {/* Metric 1: Profit Factor */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Scale size={18} color="var(--primary)" />
+            <span>Profit Factor</span>
+          </div>
+          <div>
+            <div className="metric-value text-white">
+              {profitFactor === Infinity ? '∞' : profitFactor.toFixed(2)}
+            </div>
+            <div className="metric-subtext">
+              Gross Win / Gross Loss ratio. &gt; 1.5 is healthy
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 2: Expectancy */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Award size={18} color="#34d399" />
+            <span>Expectancy</span>
+          </div>
+          <div>
+            <div className="metric-value" style={{ color: expectancy >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+              {isPnlVisible ? formatCurrency(expectancy) : '••••'}
+            </div>
+            <div className="metric-subtext">
+              Expected net return per trade executed
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 3: Max Drawdown */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <TrendingDown size={18} color="var(--color-loss)" />
+            <span>Peak Drawdown</span>
+          </div>
+          <div>
+            <div className="metric-value" style={{ color: 'var(--color-loss)' }}>
+              {isPnlVisible ? formatCurrency(maxDrawdown) : '••••'}
+            </div>
+            <div className="metric-subtext">
+              Max peak-to-trough drop in capital
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 4: Max Win/Loss Streak */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Flame size={18} color="#fb923c" />
+            <span>Streak (Days)</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span style={{ color: 'var(--color-win)' }}>{maxConsecWins}W</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: 'var(--color-loss)' }}>{maxConsecLosses}L</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '6px' }}>Days</span>
+            </div>
+            <div className="metric-subtext">
+              Consecutive winning vs losing trading days
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 5: Best & Worst Days Card */}
+        <div className="glass-card metric-card" style={{ minWidth: 0 }}>
+          <div className="metric-title" style={{ color: 'var(--text-muted)' }}>
+            <Award size={16} color="#eab308" />
+            <span>Best / Worst Days</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '1px 0', minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', minWidth: 0 }}>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', fontWeight: 650 }}>
+                🟩 {bestDay.date !== 'N/A' && bestDay.date !== 'No Trades' ? bestDay.date : 'Best Day'}
+              </span>
+              <strong style={{ fontSize: '0.78rem', color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+                {bestDay.pnl > 0 ? (isPnlVisible ? `+${formatCurrency(bestDay.pnl)}` : '••••') : '₹0'}
+              </strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', minWidth: 0 }}>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', fontWeight: 650 }}>
+                🟥 {worstDay.date !== 'N/A' && worstDay.date !== 'No Trades' ? worstDay.date : 'Worst Day'}
+              </span>
+              <strong style={{ fontSize: '0.78rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                {worstDay.pnl < 0 ? (isPnlVisible ? formatCurrency(worstDay.pnl) : '••••') : '₹0'}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 5: Trade Volume Averages */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <TrendingUp size={18} color="var(--primary)" />
+            <span>Avg Trades (D/W/M)</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.38rem', fontFamily: 'var(--font-mono)' }}>
+              {avgTradesPerDay.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerWeek.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerMonth.toFixed(1)}
+            </div>
+            <div className="metric-subtext">
+              Daily / Weekly / Monthly averages
+            </div>
+          </div>
+        </div>
       </div>
 
 
