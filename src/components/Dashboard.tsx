@@ -1846,6 +1846,34 @@ export function Dashboard({
             </select>
           </div>
 
+          {/* Segment Filter Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Segment:</span>
+            <select
+              value={selectedSegment}
+              onChange={(e) => setSelectedSegment(e.target.value)}
+              className="form-select"
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.78rem',
+                height: '32px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                minWidth: '135px'
+              }}
+            >
+              <option value="All">All Segments</option>
+              <option value="Options">⚡ Options</option>
+              <option value="Futures">📈 Futures</option>
+              <option value="Equity">💼 Equity Cash</option>
+              <option value="Commodity">🪙 Commodity</option>
+              <option value="Currency">💱 Currency</option>
+            </select>
+          </div>
+
           {/* Active FY Indicator */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Active FY:</span>
@@ -1929,45 +1957,6 @@ export function Dashboard({
           </button>
         </div>
       </div>
-      {/* Quick Segment Filter Pills */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '-4px', marginBottom: '10px' }}>
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          Segment:
-        </span>
-        {[
-          { key: 'All', label: 'All Segments' },
-          { key: 'Options', label: '⚡ Options' },
-          { key: 'Futures', label: '📈 Futures' },
-          { key: 'Equity', label: '💼 Equity Cash' },
-          { key: 'Commodity', label: '🪙 Commodity' },
-          { key: 'Currency', label: '💱 Currency' }
-        ].map((seg) => {
-          const isSel = selectedSegment === seg.key;
-          return (
-            <button
-              key={seg.key}
-              onClick={() => setSelectedSegment(seg.key)}
-              style={{
-                background: isSel ? 'var(--primary)' : 'rgba(255, 255, 255, 0.03)',
-                color: isSel ? '#ffffff' : 'var(--text-muted)',
-                border: isSel ? '1px solid var(--primary)' : '1px solid var(--border-color)',
-                borderRadius: '9999px',
-                padding: '4px 12px',
-                fontSize: '0.74rem',
-                fontWeight: isSel ? 700 : 550,
-                cursor: 'pointer',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              {seg.label}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Equity Curve Chart */}
       <div className="glass-card" style={{ padding: '24px', marginBottom: '14px' }}>
         {/* Header controls layout matching the premium design */}
