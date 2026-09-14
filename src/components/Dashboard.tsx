@@ -1385,28 +1385,29 @@ export function Dashboard({
       <div 
         className="glass-card animate-tab-panel" 
         style={{ 
-          padding: '20px 24px', 
+          padding: '10px 16px', 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
           background: 'var(--bg-card)',
           border: '1.5px solid var(--border-color)',
           borderRadius: '12px',
-          flexWrap: 'wrap',
-          gap: '16px',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          gap: '10px',
           boxShadow: 'var(--shadow-card)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {/* User Profile Photo */}
+        {/* 1. User Greeting & Profile */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
             {isCustomAvatar ? (
               <img
                 src={userAvatar}
                 alt="Profile"
                 style={{
-                  width: '56px',
-                  height: '56px',
+                  width: '42px',
+                  height: '42px',
                   borderRadius: '50%',
                   objectFit: 'cover',
                   border: '2px solid var(--primary)',
@@ -1416,15 +1417,15 @@ export function Dashboard({
             ) : (
               <div 
                 style={{
-                  width: '56px',
-                  height: '56px',
+                  width: '42px',
+                  height: '42px',
                   borderRadius: '50%',
                   backgroundColor: 'var(--primary-glow)',
                   border: '2px solid var(--primary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.8rem',
+                  fontSize: '1.4rem',
                   boxShadow: 'var(--shadow-glow)'
                 }}
               >
@@ -1444,11 +1445,11 @@ export function Dashboard({
                   position: 'absolute', 
                   bottom: '-2px', 
                   right: '-2px', 
-                  fontSize: '0.9rem',
+                  fontSize: '0.8rem',
                   background: 'var(--bg-card)',
                   borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
+                  width: '18px',
+                  height: '18px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1462,110 +1463,109 @@ export function Dashboard({
           </div>
 
           <div>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0 }}>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0, whiteSpace: 'nowrap' }}>
               Welcome back, {userName || 'Sachin'}!
             </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
               <div 
                 style={{ 
                   display: 'inline-flex', 
                   alignItems: 'center', 
-                  gap: '6px', 
+                  gap: '5px', 
                   background: 'rgba(255,255,255,0.03)', 
-                  padding: '3px 10px', 
+                  padding: '2px 7px', 
                   borderRadius: '9999px', 
                   border: '1px solid var(--border-color)',
-                  fontSize: '0.72rem'
+                  fontSize: '0.66rem',
+                  whiteSpace: 'nowrap'
                 }}
               >
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: disciplineInfo.color, boxShadow: `0 0 6px ${disciplineInfo.color}` }} />
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: disciplineInfo.color, boxShadow: `0 0 6px ${disciplineInfo.color}` }} />
                 <span style={{ color: 'var(--text-muted)' }}>Discipline:</span>
                 <strong style={{ color: disciplineInfo.color }}>{disciplineInfo.grade} ({disciplineScore.toFixed(0)}%)</strong>
               </div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>
-                • {disciplineInfo.desc}
-              </span>
             </div>
           </div>
         </div>
         
-        {/* Realized Net P&L Primary Summary Card */}
+        {/* 2. Realized Net P&L Primary Summary Card */}
         <div 
           className={`glass-card metric-card ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} 
           style={{ 
-            minHeight: '74px', 
+            minHeight: '58px', 
             justifyContent: 'center', 
-            padding: '8px 16px',
+            padding: '5px 12px',
             background: 'rgba(255, 255, 255, 0.025)',
             border: '1px solid var(--border-color)',
-            borderRadius: '12px'
+            borderRadius: '10px',
+            flexShrink: 0
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '10px' }}>
             {/* Left Part: Net P&L Summary */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-              <div className="metric-title" style={{ margin: 0, fontSize: '0.74rem' }}>
-                <IndianRupee size={13} style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }} />
+              <div className="metric-title" style={{ margin: 0, fontSize: '0.66rem' }}>
+                <IndianRupee size={12} style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }} />
                 <span>{showCombined ? 'Combined Wealth P&L' : 'Net Realized P&L'}</span>
                 {showCombined && (
-                  <span className="badge badge-win" style={{ fontSize: '0.52rem', padding: '1px 4px', textTransform: 'none', marginLeft: '4px' }}>
+                  <span className="badge badge-win" style={{ fontSize: '0.48rem', padding: '1px 3px', textTransform: 'none', marginLeft: '3px' }}>
                     Combined
                   </span>
                 )}
               </div>
               <div 
                 className="metric-value" 
-                style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontSize: '1.75rem', margin: 0, display: 'flex', alignItems: 'baseline', gap: '4px' }}
+                style={{ color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontSize: '1.35rem', margin: 0, display: 'flex', alignItems: 'baseline', gap: '4px', lineHeight: 1.15 }}
               >
                 {isPnlVisible ? formatCurrency(displayNetPnL) : '••••'}
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 600, color: displayNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
                   ({displayNetPnL >= 0 ? '+' : ''}{showCombined ? combinedReturnPct.toFixed(1) : tradingReturnPct.toFixed(1)}%)
                 </span>
               </div>
 
               {totalSubExpenses > 0 && !showCombined && (
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Net Bottom-Line:</span>
+                <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>Bottom-Line:</span>
                   <strong style={{ color: netBottomLinePnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                     {isPnlVisible ? formatCurrency(netBottomLinePnL) : '••••'}
                   </strong>
-                  <span style={{ fontSize: '0.62rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
-                    (after {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'} subs)
+                  <span style={{ fontSize: '0.54rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', padding: '0px 4px', borderRadius: '3px', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
+                    (after subs)
                   </span>
                 </div>
               )}
             </div>
 
             {/* Right Part: Detailed Breakdown Items */}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '7px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', flexShrink: 0 }}>
               {!showCombined ? (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>GROSS P&L</span>
-                    <strong style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                    <span style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>GROSS P&L</span>
+                    <strong style={{ fontSize: '0.68rem', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalGrossPnL) : '••••'}
                     </strong>
                   </div>
-                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                  <div style={{ width: '1px', height: '14px', background: 'var(--border-color)' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>BROKERAGE</span>
-                    <strong style={{ fontSize: '0.76rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                    <span style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>BROKERAGE</span>
+                    <strong style={{ fontSize: '0.68rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalBrokerage) : '••••'}
                     </strong>
                   </div>
-                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                  <div style={{ width: '1px', height: '14px', background: 'var(--border-color)' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>TAXES & FEES</span>
-                    <strong style={{ fontSize: '0.76rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                    <span style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>TAXES & FEES</span>
+                    <strong style={{ fontSize: '0.68rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalTaxes) : '••••'}
                     </strong>
                   </div>
                   {totalSubExpenses > 0 && (
                     <>
-                      <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                      <div style={{ width: '1px', height: '14px', background: 'var(--border-color)' }} />
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                        <span style={{ fontSize: '0.58rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBSCRIPTIONS</span>
-                        <strong style={{ fontSize: '0.76rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: '0.52rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBS</span>
+                        <strong style={{ fontSize: '0.68rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
                           {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'}
                         </strong>
                       </div>
@@ -1575,24 +1575,24 @@ export function Dashboard({
               ) : (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>TRADING NET</span>
-                    <strong style={{ fontSize: '0.76rem', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                    <span style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>TRADING NET</span>
+                    <strong style={{ fontSize: '0.68rem', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'}
                     </strong>
                   </div>
-                  <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                  <div style={{ width: '1px', height: '14px', background: 'var(--border-color)' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>INV. RETURNS</span>
-                    <strong style={{ fontSize: '0.76rem', color: totalInvReturns >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                    <span style={{ fontSize: '0.52rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.01em' }}>INV. RETURNS</span>
+                    <strong style={{ fontSize: '0.68rem', color: totalInvReturns >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                       {isPnlVisible ? formatCurrency(totalInvReturns) : '••••'}
                     </strong>
                   </div>
                   {totalSubExpenses > 0 && (
                     <>
-                      <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }} />
+                      <div style={{ width: '1px', height: '14px', background: 'var(--border-color)' }} />
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                        <span style={{ fontSize: '0.58rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBSCRIPTIONS</span>
-                        <strong style={{ fontSize: '0.76rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: '0.52rem', color: '#f59e0b', fontWeight: 650, letterSpacing: '0.01em' }}>SUBS</span>
+                        <strong style={{ fontSize: '0.68rem', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
                           {isPnlVisible ? formatCurrency(totalSubExpenses) : '••••'}
                         </strong>
                       </div>
@@ -1604,44 +1604,43 @@ export function Dashboard({
           </div>
         </div>
 
-        {/* Recent Trading Days P&L Calendar Strip */}
+        {/* 3. Recent Trading Days P&L Calendar Strip */}
         {recentTradingDays.length > 0 && (
           <div 
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '8px', 
-              flexWrap: 'wrap',
-              padding: '6px 12px',
+              gap: '6px', 
+              padding: '4px 8px',
               background: 'rgba(255,255,255,0.02)',
               border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
+              borderRadius: '10px',
+              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)',
+              flexShrink: 0
             }}
           >
             <div 
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '5px', 
-                fontSize: '0.68rem', 
+                gap: '4px', 
+                fontSize: '0.64rem', 
                 color: 'var(--text-dim)', 
                 fontWeight: 700, 
                 textTransform: 'uppercase', 
-                letterSpacing: '0.06em',
-                paddingRight: '6px',
+                letterSpacing: '0.04em',
+                paddingRight: '5px',
                 borderRight: '1px solid var(--border-color)',
-                marginRight: '2px',
                 cursor: onNavigateToTab ? 'pointer' : 'default'
               }}
               onClick={() => onNavigateToTab?.('calendar')}
               title="Click to view full Calendar"
             >
-              <Calendar size={13} color="var(--primary)" />
-              <span>Recent Days</span>
+              <Calendar size={12} color="var(--primary)" />
+              <span>Recent</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               {recentTradingDays.map((d) => {
                 const isWin = d.netPnL > 0;
                 const isLoss = d.netPnL < 0;
@@ -1684,32 +1683,30 @@ export function Dashboard({
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: '4px 9px',
-                      borderRadius: '8px',
+                      padding: '3px 6px',
+                      borderRadius: '6px',
                       background: bgStyle,
                       border: `1.2px solid ${borderColor}`,
                       cursor: 'pointer',
                       transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                      minWidth: '64px'
+                      minWidth: '50px'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
                     }}
                     title={`${d.dayName}, ${d.dayNum} ${d.monthShort}: ${d.isNoTrade ? 'Disciplined No-Trade Day' : `${d.count} trade(s), Net P&L: ₹${d.netPnL.toLocaleString('en-IN')}, Chgs: ₹${d.charges.toLocaleString('en-IN')}`}\n(Click to view details)`}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.64rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                       <span>{d.dayName}</span>
                       <span style={{ opacity: 0.85 }}>{d.dayNum}</span>
                     </div>
 
-                    <div style={{ fontSize: '0.74rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: textColor, marginTop: '2px', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: textColor, marginTop: '1px', whiteSpace: 'nowrap' }}>
                       {d.isNoTrade ? (
-                        <span style={{ fontSize: '0.66rem' }}>🛡️ No-Trd</span>
+                        <span style={{ fontSize: '0.62rem' }}>🛡️ No-Trd</span>
                       ) : !isPnlVisible ? (
                         '••••'
                       ) : (
@@ -1718,7 +1715,7 @@ export function Dashboard({
                     </div>
 
                     {!d.isNoTrade && (
-                      <div style={{ fontSize: '0.56rem', color: 'var(--text-dim)', marginTop: '1px' }}>
+                      <div style={{ fontSize: '0.52rem', color: 'var(--text-dim)' }}>
                         {d.count} trd{d.count > 1 ? 's' : ''}
                       </div>
                     )}
@@ -1732,9 +1729,9 @@ export function Dashboard({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '4px 10px',
-                marginLeft: '4px',
+                gap: '6px',
+                padding: '3px 8px',
+                marginLeft: '2px',
                 borderLeft: '1px solid var(--border-color)',
                 background: recentDaysTotal.tradeCount === 0 
                   ? 'transparent'
@@ -1746,19 +1743,19 @@ export function Dashboard({
                   : recentDaysTotal.netPnL >= 0 
                   ? '1px solid rgba(48, 209, 88, 0.25)' 
                   : '1px solid rgba(255, 69, 58, 0.25)',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 cursor: onNavigateToTab ? 'pointer' : 'default'
               }}
               onClick={() => onNavigateToTab?.('calendar')}
               title={`Total of Recent ${recentDaysTotal.daysCount} Days\nGross P&L: ₹${recentDaysTotal.grossPnL.toLocaleString('en-IN')}\nCharges: ₹${recentDaysTotal.charges.toLocaleString('en-IN')}\nNet P&L: ₹${recentDaysTotal.netPnL.toLocaleString('en-IN')}\nTotal Trades: ${recentDaysTotal.tradeCount}\n(Click to view full Calendar)`}
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: '0.56rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                   Total P&L
                 </span>
                 <span 
                   style={{ 
-                    fontSize: '0.82rem', 
+                    fontSize: '0.76rem', 
                     fontWeight: 850, 
                     fontFamily: 'var(--font-mono)', 
                     color: recentDaysTotal.tradeCount === 0 
@@ -1780,23 +1777,23 @@ export function Dashboard({
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Highlighted Big Financial Year Badge */}
+        {/* 4. Active Statement FY Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <div 
             style={{
               background: 'linear-gradient(135deg, var(--primary-glow) 0%, rgba(59, 130, 246, 0.04) 100%)',
               border: '1.5px solid var(--primary)',
-              padding: '6px 16px',
-              borderRadius: '10px',
+              padding: '4px 10px',
+              borderRadius: '8px',
               textAlign: 'center',
-              minWidth: '120px',
-              boxShadow: '0 4px 10px rgba(59, 130, 246, 0.08)'
+              minWidth: '80px',
+              boxShadow: '0 2px 8px rgba(59, 130, 246, 0.08)'
             }}
           >
-            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 650 }}>
-              Active Statement
+            <div style={{ fontSize: '0.54rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+              Active FY
             </div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 850, color: 'var(--primary)', letterSpacing: '-0.02em', marginTop: '2px' }}>
+            <div style={{ fontSize: '1.05rem', fontWeight: 850, color: 'var(--primary)', letterSpacing: '-0.02em', marginTop: '1px' }}>
               {selectedFY}
             </div>
           </div>
