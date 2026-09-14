@@ -500,21 +500,27 @@ h1, h2, h3, h4 {
   font-weight: 550;
 }
 
-.metrics-grid-3col {
+.metrics-top-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 12px;
+}
+
+@media (max-width: 1024px) {
+  .metrics-top-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metrics-grid-2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-bottom: 16px;
 }
 
-@media (max-width: 900px) {
-  .metrics-grid-3col {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .metrics-grid-3col {
+@media (max-width: 640px) {
+  .metrics-grid-2col {
     grid-template-columns: 1fr;
   }
 }

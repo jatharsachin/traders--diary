@@ -1857,8 +1857,10 @@ export function Dashboard({
         })}
       </div>
 
-      {/* Primary KPI: Realized Net P&L Summary Card */}
-      <div className={`glass-card metric-card ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '84px', justifyContent: 'center', padding: '14px 20px', marginBottom: '14px' }}>
+      {/* Primary KPI Metrics: Net Realized P&L + Success Rate */}
+      <div className="metrics-top-grid" style={{ marginBottom: '14px' }}>
+        {/* KPI 1: Realized Net P&L */}
+        <div className={`glass-card metric-card ${displayNetPnL >= 0 ? 'glow-green' : 'glow-red'}`} style={{ minHeight: '84px', justifyContent: 'center', padding: '14px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', gap: '8px' }}>
             {/* Left Part: Net P&L Summary */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
@@ -1961,6 +1963,23 @@ export function Dashboard({
             </div>
           </div>
         </div>
+
+        {/* KPI 2: Success Rate */}
+        <div className="glass-card metric-card" style={{ minHeight: '84px', justifyContent: 'center', padding: '14px 18px' }}>
+          <div className="metric-title" style={{ margin: 0, fontSize: '0.74rem' }}>
+            <Percent size={14} color="var(--primary)" />
+            <span>Success Rate</span>
+          </div>
+          <div style={{ marginTop: '2px' }}>
+            <div className="metric-value text-white" style={{ fontSize: '1.75rem', margin: 0, lineHeight: 1.15 }}>
+              {winRate.toFixed(1)}%
+            </div>
+            <div className="metric-subtext" style={{ marginTop: '3px' }}>
+              {winningTrades.length} Green / {losingTrades.length} Red ({totalTrades} Total)
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Equity Curve Chart */}
       <div className="glass-card" style={{ padding: '24px', marginBottom: '14px' }}>
@@ -2415,24 +2434,8 @@ export function Dashboard({
         </h3>
       </div>
 
-      {/* Secondary Metrics (Row 1 - 3 Columns) */}
-      <div className="metrics-grid-3col">
-        {/* KPI 2: Success Rate */}
-        <div className="glass-card metric-card">
-          <div className="metric-title">
-            <Percent size={18} color="var(--primary)" />
-            <span>Success Rate</span>
-          </div>
-          <div>
-            <div className="metric-value text-white">
-              {winRate.toFixed(1)}%
-            </div>
-            <div className="metric-subtext">
-              {winningTrades.length} Green / {losingTrades.length} Red (Total: {totalTrades})
-            </div>
-          </div>
-        </div>
-
+      {/* Secondary Metrics (Row 1 - 2 Columns) */}
+      <div className="metrics-grid-2col">
         {/* KPI 3: Options Scalping Stats */}
         <div className="glass-card metric-card">
           <div className="metric-title">
