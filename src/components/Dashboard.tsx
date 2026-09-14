@@ -693,6 +693,46 @@ export function Dashboard({
     });
   }, [rawTrades, noTradeDays]);
 
+  // Current Calendar Week (Mon-Sun) P&L and Stats
+  const currentWeekStats = useMemo(() => {
+    const now = new Date();
+    // Find current week Monday (IST / local)
+    const d = new Date(now);
+    const day = d.getDay();
+    const diffToMon = (day === 0 ? -6 : 1) - day;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diffToMon);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const monStr = monday.toISOString().split('T')[0];
+    const sunStr = sunday.toISOString().split('T')[0];
+
+    const weekTrades = rawTrades.filter((t) => {
+      const td = t.exitDate || t.date;
+      return td >= monStr && td <= sunStr;
+    });
+
+    const weekNetPnL = weekTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
+    const weekGrossPnL = weekTrades.reduce((sum, t) => sum + (t.grossPnL || 0), 0);
+    const weekCharges = weekTrades.reduce((sum, t) => sum + ((t.brokerage || 0) + (t.taxes || 0)), 0);
+
+    // Active trading days in this week
+    const tradedDaysSet = new Set(weekTrades.map(t => t.exitDate || t.date));
+
+    return {
+      netPnL: Math.round(weekNetPnL * 100) / 100,
+      grossPnL: Math.round(weekGrossPnL * 100) / 100,
+      charges: Math.round(weekCharges * 100) / 100,
+      tradeCount: weekTrades.length,
+      daysTraded: tradedDaysSet.size,
+      rangeLabel: `${monday.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - ${sunday.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+    };
+  }, [rawTrades]);
+
   // Broker-wise Performance statistics calculations
   const getBrokerwiseStats = () => {
     const brokerMap: Record<string, { 
@@ -1588,6 +1628,57 @@ export function Dashboard({
                   </div>
                 );
               })}
+            </div>
+
+            {/* Current Week Total P&L Badge */}
+            <div 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '4px 10px',
+                marginLeft: '4px',
+                borderLeft: '1px solid var(--border-color)',
+                background: currentWeekStats.tradeCount === 0 
+                  ? 'transparent'
+                  : currentWeekStats.netPnL >= 0 
+                  ? 'rgba(48, 209, 88, 0.08)' 
+                  : 'rgba(255, 69, 58, 0.08)',
+                border: currentWeekStats.tradeCount === 0 
+                  ? '1px dashed var(--border-color)' 
+                  : currentWeekStats.netPnL >= 0 
+                  ? '1px solid rgba(48, 209, 88, 0.25)' 
+                  : '1px solid rgba(255, 69, 58, 0.25)',
+                borderRadius: '8px',
+                cursor: onNavigateToTab ? 'pointer' : 'default'
+              }}
+              onClick={() => onNavigateToTab?.('calendar')}
+              title={`This Week (${currentWeekStats.rangeLabel})\nGross P&L: ₹${currentWeekStats.grossPnL.toLocaleString('en-IN')}\nCharges: ₹${currentWeekStats.charges.toLocaleString('en-IN')}\nNet P&L: ₹${currentWeekStats.netPnL.toLocaleString('en-IN')}\nTotal Trades: ${currentWeekStats.tradeCount} (${currentWeekStats.daysTraded} active days)\n(Click to view full Calendar)`}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Week P&L
+                </span>
+                <span 
+                  style={{ 
+                    fontSize: '0.82rem', 
+                    fontWeight: 850, 
+                    fontFamily: 'var(--font-mono)', 
+                    color: currentWeekStats.tradeCount === 0 
+                      ? 'var(--text-dim)' 
+                      : currentWeekStats.netPnL >= 0 
+                      ? 'var(--color-win)' 
+                      : 'var(--color-loss)' 
+                  }}
+                >
+                  {!isPnlVisible 
+                    ? '••••••' 
+                    : currentWeekStats.tradeCount === 0
+                    ? '₹0'
+                    : `${currentWeekStats.netPnL >= 0 ? '+' : ''}₹${Math.round(currentWeekStats.netPnL).toLocaleString('en-IN')}`
+                  }
+                </span>
+              </div>
             </div>
           </div>
         )}
