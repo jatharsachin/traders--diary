@@ -664,8 +664,15 @@ export function Dashboard({
 
     // Sort dates in descending order (most recent first)
     const sortedAllDates = Array.from(tradeDateSet).sort((a, b) => b.localeCompare(a));
-    // Take the latest 6 active trading / no-trade dates, then reverse to chronological (left to right)
-    const targetDates = sortedAllDates.slice(0, 6).reverse();
+    // Filter to ensure only weekdays (Mon-Fri) and take the latest 5 days, then reverse to chronological (left to right)
+    const targetDates = sortedAllDates
+      .filter((dateStr) => {
+        const d = parseLocalDate(dateStr);
+        const dayOfWeek = d.getDay();
+        return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday to Friday only
+      })
+      .slice(0, 5)
+      .reverse();
 
     return targetDates.map((dateStr) => {
       const dObj = parseLocalDate(dateStr);
