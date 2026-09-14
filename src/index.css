@@ -1,36 +1,3 @@
-/* Brand Font Stack - Instagram Sans Headline & Modern Sans */
-@font-face {
-  font-family: 'Instagram Sans Headline';
-  src: url('./assets/fonts/InstagramSansHeadline.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Instagram Sans';
-  src: url('./assets/fonts/InstagramSansBold.woff') format('woff');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Instagram Sans';
-  src: url('./assets/fonts/InstagramSansMedium.woff') format('woff');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Instagram Sans';
-  src: url('./assets/fonts/InstagramSansRegular.woff') format('woff');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* macOS & iOS Native & High Contrast Font stack */
 :root {
   /* Default Dark Theme variables (Apple iOS Dark Obsidian style) */
@@ -59,7 +26,6 @@
   --color-neutral: #bf5af2; /* Apple System Purple */
   --color-neutral-bg: rgba(191, 90, 242, 0.14);
   
-  --font-brand: 'Instagram Sans Headline', 'Instagram Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-sans);
   

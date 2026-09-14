@@ -463,11 +463,13 @@ export default function App() {
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
+                    padding: '1.5px',
+                    background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 255, 255, 0.12))',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.5), 0 0 10px rgba(234, 179, 8, 0.25)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    flexShrink: 0,
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)'
+                    flexShrink: 0
                   }}>
                     <img 
                       src={logoImg} 
@@ -475,12 +477,13 @@ export default function App() {
                       style={{ 
                         width: '100%', 
                         height: '100%', 
-                        borderRadius: '8px', 
-                        objectFit: 'contain'
+                        borderRadius: '6.5px', 
+                        objectFit: 'cover',
+                        filter: 'brightness(1.18) contrast(1.12)' 
                       }} 
                     />
                   </div>
-                  <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '1.08rem', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>TradeDiary Pro</h1>
+                  <h1 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, whiteSpace: 'nowrap', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>TradeDiary Pro</h1>
                 </div>
                 <button 
                   onClick={() => {
@@ -752,11 +755,13 @@ export default function App() {
                 width: '42px',
                 height: '42px',
                 borderRadius: '11px',
+                padding: '1.5px',
+                background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 255, 255, 0.12))',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 12px rgba(234, 179, 8, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0,
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)'
+                flexShrink: 0
               }}>
                 <img 
                   src={logoImg} 
@@ -764,14 +769,15 @@ export default function App() {
                   style={{ 
                     width: '100%', 
                     height: '100%', 
-                    borderRadius: '11px', 
-                    objectFit: 'contain'
+                    borderRadius: '9px', 
+                    objectFit: 'cover',
+                    filter: 'brightness(1.18) contrast(1.12)' 
                   }} 
                 />
               </div>
 
               <div>
-                <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '1.35rem', fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
                   {userName || 'Sachin'}'s Trade Diary
                   <select
                     value={selectedFY}
