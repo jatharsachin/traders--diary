@@ -1,15 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { getTradeMistakes } from '../types';
 import { 
-  IndianRupee, Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
+  Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
   ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
   Eye, EyeOff, Save, Award, TrendingDown, BookOpen, Calendar
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
-import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
-import { BROKER_LOGOS } from '../utils/brandLogos';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
+import { filterTradesByFY } from '../utils/fyHelper';
 import { OFFLINE_NSE_HOLIDAYS } from './TradingCalendar';
 import { ExecutiveReportModal } from './ExecutiveReportModal';
 import { WeeklyJournalModal } from './WeeklyJournalModal';
