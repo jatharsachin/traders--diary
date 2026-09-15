@@ -102,9 +102,14 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
                   fontWeight: 650,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  border: isSelected ? `1.5px solid ${activeColor}` : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: isSelected ? activeBg : 'rgba(255, 255, 255, 0.08)',
+                  border: isSelected ? `1.5px solid ${activeColor}` : '1px solid rgba(255, 255, 255, 0.12)',
+                  borderTopColor: isSelected ? activeColor : 'rgba(255, 255, 255, 0.22)',
+                  borderBottomColor: isSelected ? activeColor : 'rgba(0, 0, 0, 0.35)',
+                  background: isSelected ? activeBg : 'linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.05) 100%)',
                   color: isSelected ? activeColor : 'var(--text-main)',
+                  boxShadow: isSelected 
+                    ? `0 2px 8px ${activeColor}33, inset 0 1px 0 rgba(255, 255, 255, 0.25)` 
+                    : 'inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.25)',
                   backdropFilter: 'blur(10px)',
                   WebkitBackdropFilter: 'blur(10px)',
                 }}
