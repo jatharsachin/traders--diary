@@ -1278,10 +1278,11 @@ export default function App() {
             {/* Today's Live P&L Badge */}
             {(() => {
               const getTodayNetPnL = () => {
-                const todayStr = new Date().toISOString().split('T')[0];
-                const todayTrades = filteredTrades.filter(t => t.date === todayStr);
+                const now = new Date();
+                const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const todayTrades = filteredTrades.filter(t => (t.exitDate || t.date) === todayStr);
                 if (todayTrades.length === 0) return null;
-                return todayTrades.reduce((sum, t) => sum + t.netPnL, 0);
+                return todayTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
               };
               const todayPnL = getTodayNetPnL();
               const isProfit = todayPnL !== null && todayPnL >= 0;
@@ -1631,10 +1632,11 @@ export default function App() {
               {/* Today's P&L */}
               {(() => {
                 const getTodayNetPnL = () => {
-                  const todayStr = new Date().toISOString().split('T')[0];
-                  const todayTrades = filteredTrades.filter(t => t.date === todayStr);
+                  const now = new Date();
+                  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                  const todayTrades = filteredTrades.filter(t => (t.exitDate || t.date) === todayStr);
                   if (todayTrades.length === 0) return null;
-                  return todayTrades.reduce((sum, t) => sum + t.netPnL, 0);
+                  return todayTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
                 };
                 const todayPnL = getTodayNetPnL();
                 const isProfit = todayPnL !== null && todayPnL >= 0;

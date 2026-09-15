@@ -637,12 +637,16 @@ export function Dashboard({
   let greenDaysCount = 0;
   let redDaysCount = 0;
   let noTradeDaysCount = 0;
+  let holidaysCount = 0;
 
   dates.forEach((dateStr) => {
     const stats = dailyStats[dateStr];
+    const isHoliday = !!OFFLINE_NSE_HOLIDAYS[dateStr];
     if (stats && stats.count > 0) {
       if (stats.pnl > 0) greenDaysCount++;
       else if (stats.pnl < 0) redDaysCount++;
+    } else if (isHoliday) {
+      holidaysCount++;
     } else if (noTradeDays.includes(dateStr)) {
       noTradeDaysCount++;
     }
@@ -2134,6 +2138,10 @@ export function Dashboard({
               <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(59, 130, 246, 0.35)', border: '1px solid rgba(59, 130, 246, 0.4)' }}></span>
               <span style={{ color: 'var(--text-muted)' }}>No-Trade Days: {noTradeDaysCount}</span>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(245, 158, 11, 0.45)', border: '1px solid rgba(245, 158, 11, 0.7)' }}></span>
+              <span style={{ color: 'var(--text-muted)' }}>Holidays: {holidaysCount}</span>
+            </div>
           </div>
         </div>
 
@@ -2195,6 +2203,8 @@ export function Dashboard({
                     {m.dates.map((dateStr) => {
                       const stats = dailyStats[dateStr];
                       const isNoTrade = noTradeDays.includes(dateStr);
+                      const holidayName = OFFLINE_NSE_HOLIDAYS[dateStr];
+                      const isHoliday = !!holidayName;
                       let bgColor = 'rgba(120, 120, 120, 0.08)';
                       let border = '1px solid var(--border-color)';
                       let title = `${dateStr}: No trades logged`;
@@ -2214,6 +2224,10 @@ export function Dashboard({
                           bgColor = 'rgba(120, 120, 120, 0.3)';
                           title = `${dateStr}: ${stats.count} trades | Net PnL: ₹0`;
                         }
+                      } else if (isHoliday) {
+                        bgColor = 'rgba(245, 158, 11, 0.32)';
+                        border = '1px solid rgba(245, 158, 11, 0.65)';
+                        title = `${dateStr}: Market Holiday (${holidayName})`;
                       } else if (isNoTrade) {
                         bgColor = 'rgba(59, 130, 246, 0.25)';
                         border = '1px solid rgba(59, 130, 246, 0.4)';
@@ -2580,11 +2594,12 @@ export function Dashboard({
 
       {/* Heatmap Date Trades Detail Modal Overlay */}
       {selectedHeatmapDate && (() => {
-        const dayTrades = trades.filter(t => t.date === selectedHeatmapDate);
+        const dayTrades = trades.filter(t => (t.exitDate || t.date) === selectedHeatmapDate);
         const dayInvestments = investments.filter(i => i.date === selectedHeatmapDate);
         const totalNetPnLOnDay = dayTrades.reduce((sum, t) => sum + t.netPnL, 0);
         const totalTradesCount = dayTrades.length;
         const isNoTradeDay = noTradeDays.includes(selectedHeatmapDate);
+        const holidayName = OFFLINE_NSE_HOLIDAYS[selectedHeatmapDate];
         
         return createPortal(
           <div 
@@ -2702,7 +2717,13 @@ export function Dashboard({
                   </table>
                 ) : (
                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    {isNoTradeDay ? (
+                    {holidayName ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '1.5rem' }}>🎉</span>
+                        <strong style={{ color: '#f59e0b', fontSize: '0.9rem' }}>Market Holiday: {holidayName}</strong>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>NSE/BSE markets were closed on this calendar day.</span>
+                      </div>
+                    ) : isNoTradeDay ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontSize: '1.5rem' }}>🛡️</span>
                         <strong>Disciplined No-Trade Day</strong>
