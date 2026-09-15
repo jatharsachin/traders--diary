@@ -96,15 +96,17 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
                 type="button"
                 onClick={() => setTimeRange(range)}
                 style={{
-                  padding: '6px 12px',
-                  borderRadius: '8px',
+                  padding: '6px 14px',
+                  borderRadius: '9999px',
                   fontSize: '0.75rem',
                   fontWeight: 650,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  border: isSelected ? `1.5px solid ${activeColor}` : '1.5px solid rgba(255, 255, 255, 0.06)',
-                  background: isSelected ? activeBg : 'rgba(255, 255, 255, 0.02)',
-                  color: isSelected ? activeColor : 'var(--text-dim)',
+                  border: isSelected ? `1.5px solid ${activeColor}` : '1px solid rgba(255, 255, 255, 0.08)',
+                  background: isSelected ? activeBg : 'rgba(255, 255, 255, 0.08)',
+                  color: isSelected ? activeColor : 'var(--text-main)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
                 }}
               >
                 {label} <span style={{ marginLeft: '4px', fontSize: '0.72rem', color: isLoss ? 'var(--color-loss)' : 'var(--color-win)' }}>{sign}{stat.pct.toFixed(2)}%</span>
