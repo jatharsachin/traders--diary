@@ -61,7 +61,24 @@ export default function App() {
   const [isLoggerOpen, setIsLoggerOpen] = useState(false);
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [lastSeenNotificationCount, setLastSeenNotificationCount] = useState<number>(0);
+  const [seenNotificationIds, setSeenNotificationIds] = useState<string[]>(() => {
+    try {
+      const userKey = localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+      const saved = localStorage.getItem(`traders_diary_seen_notifs_${userKey}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>(() => {
+    try {
+      const userKey = localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+      const saved = localStorage.getItem(`traders_diary_dismissed_notifs_${userKey}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isRecoveryActive, setIsRecoveryActive] = useState(false);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -251,7 +268,7 @@ export default function App() {
     const tradesToday = trades.filter(t => t.date === todayStr);
     if (tradesToday.length > 5) {
       alertsList.push({
-        id: 'overtrading',
+        id: `overtrading-${todayStr}`,
         type: 'danger' as const,
         title: 'Overtrading Alert',
         message: `You have taken ${tradesToday.length} trades today. Trading >5 times increases emotional error risk.`,
@@ -277,7 +294,7 @@ export default function App() {
     
     if (consecutiveLosses >= 3) {
       alertsList.push({
-        id: 'revenge-trading',
+        id: `revenge-trading-${consecutiveLosses}-${sortedNewest[0]?.id || ''}`,
         type: 'danger' as const,
         title: 'Revenge Trading Warning',
         message: `Active streak of ${consecutiveLosses} consecutive losing trades. Take a step back to reset your mindset.`,
@@ -293,7 +310,7 @@ export default function App() {
     
     if (recentMistakeCost > 5000) {
       alertsList.push({
-        id: 'mistake-cost',
+        id: `mistake-cost-${todayStr}`,
         type: 'warning' as const,
         title: 'Discipline Leak Detected',
         message: `Execution mistake penalties totaled ₹${recentMistakeCost.toLocaleString('en-IN')} this week. Audit your rules!`,
@@ -322,7 +339,7 @@ export default function App() {
     
     if (holidayNames[tomorrowStr]) {
       alertsList.push({
-        id: 'nse-holiday',
+        id: `nse-holiday-${tomorrowStr}`,
         type: 'info' as const,
         title: 'NSE Market Holiday Tomorrow',
         message: `Tomorrow is a scheduled market holiday for ${holidayNames[tomorrowStr]}. Rest and recharge!`,
@@ -333,7 +350,63 @@ export default function App() {
     return alertsList;
   };
 
-  const notifications = getDynamicNotifications();
+  const rawNotifications = getDynamicNotifications();
+  const notifications = rawNotifications.filter(n => !dismissedNotificationIds.includes(n.id));
+  const unreadNotifications = notifications.filter(n => !seenNotificationIds.includes(n.id));
+  const unreadNotificationCount = unreadNotifications.length;
+
+  useEffect(() => {
+    const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+    try {
+      const savedSeen = localStorage.getItem(`traders_diary_seen_notifs_${userKey}`);
+      if (savedSeen) setSeenNotificationIds(JSON.parse(savedSeen));
+      const savedDismissed = localStorage.getItem(`traders_diary_dismissed_notifs_${userKey}`);
+      if (savedDismissed) setDismissedNotificationIds(JSON.parse(savedDismissed));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [sessionUser?.id]);
+
+  const handleToggleNotifications = () => {
+    const nextState = !isNotifOpen;
+    setIsNotifOpen(nextState);
+    if (nextState) {
+      const allActiveIds = notifications.map(n => n.id);
+      const updatedSeen = Array.from(new Set([...seenNotificationIds, ...allActiveIds]));
+      setSeenNotificationIds(updatedSeen);
+      const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+      try {
+        localStorage.setItem(`traders_diary_seen_notifs_${userKey}`, JSON.stringify(updatedSeen));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const handleDismissNotification = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const updated = Array.from(new Set([...dismissedNotificationIds, id]));
+    setDismissedNotificationIds(updated);
+    const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+    try {
+      localStorage.setItem(`traders_diary_dismissed_notifs_${userKey}`, JSON.stringify(updated));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDismissAllNotifications = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const allIds = notifications.map(n => n.id);
+    const updated = Array.from(new Set([...dismissedNotificationIds, ...allIds]));
+    setDismissedNotificationIds(updated);
+    const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+    try {
+      localStorage.setItem(`traders_diary_dismissed_notifs_${userKey}`, JSON.stringify(updated));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Setup Supabase Auth Session Listener
   useEffect(() => {
@@ -839,13 +912,7 @@ export default function App() {
               {/* Bell Icon & Notification Center */}
               <div style={{ position: 'relative' }}>
                 <button 
-                  onClick={() => {
-                    const nextState = !isNotifOpen;
-                    setIsNotifOpen(nextState);
-                    if (nextState) {
-                      setLastSeenNotificationCount(notifications.length);
-                    }
-                  }}
+                  onClick={handleToggleNotifications}
                   className="btn btn-secondary"
                   style={{ 
                     width: '48px', 
@@ -862,8 +929,8 @@ export default function App() {
                   }}
                   title="Alerts Center"
                 >
-                  <Bell size={18} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
-                  {notifications.length > lastSeenNotificationCount && (
+                  <Bell size={18} color={unreadNotificationCount > 0 ? 'var(--color-loss)' : 'var(--text-main)'} />
+                  {unreadNotificationCount > 0 && (
                     <span 
                       style={{ 
                         position: 'absolute', 
@@ -882,7 +949,7 @@ export default function App() {
                         boxShadow: '0 0 8px var(--color-loss)'
                       }}
                     >
-                      {notifications.length - lastSeenNotificationCount}
+                      {unreadNotificationCount}
                     </span>
                   )}
                 </button>
@@ -910,7 +977,27 @@ export default function App() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                       <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>Alerts & Notifications</span>
-                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={handleDismissAllNotifications}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--primary)',
+                              fontSize: '0.68rem',
+                              fontWeight: 650,
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              borderRadius: '4px'
+                            }}
+                            title="Dismiss all active alerts"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {notifications.length > 0 ? (
@@ -927,9 +1014,27 @@ export default function App() {
                             borderLeftWidth: '3px'
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                             <strong style={{ color: 'var(--text-main)', fontSize: '0.78rem' }}>{n.title}</strong>
-                            <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
+                              <button
+                                onClick={(e) => handleDismissNotification(n.id, e)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  padding: '1px 3px',
+                                  lineHeight: 1,
+                                  fontSize: '0.75rem',
+                                  borderRadius: '3px'
+                                }}
+                                title="Dismiss alert"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
                           <p style={{ color: 'var(--text-muted)', lineHeight: '1.3', margin: 0 }}>{n.message}</p>
                         </div>
@@ -1579,13 +1684,7 @@ export default function App() {
               {/* Notification Icon */}
               <div style={{ position: 'relative' }}>
                 <button 
-                  onClick={() => {
-                    const nextState = !isNotifOpen;
-                    setIsNotifOpen(nextState);
-                    if (nextState) {
-                      setLastSeenNotificationCount(notifications.length);
-                    }
-                  }}
+                  onClick={handleToggleNotifications}
                   className="btn btn-secondary"
                   style={{ 
                     width: '32px', 
@@ -1597,13 +1696,13 @@ export default function App() {
                     justifyContent: 'center', 
                     position: 'relative', 
                     cursor: 'pointer',
-                    background: 'var(--bg-card)',
-                    border: '1.2px solid var(--border-color)'
+                    background: isNotifOpen ? 'var(--primary-glow)' : 'var(--bg-card)',
+                    border: isNotifOpen ? '1px solid var(--border-color-active)' : '1.2px solid var(--border-color)'
                   }}
                   title="Alerts Center"
                 >
-                  <Bell size={15} color={notifications.length > lastSeenNotificationCount ? 'var(--color-loss)' : 'var(--text-main)'} />
-                  {notifications.length > lastSeenNotificationCount && (
+                  <Bell size={15} color={unreadNotificationCount > 0 ? 'var(--color-loss)' : 'var(--text-main)'} />
+                  {unreadNotificationCount > 0 && (
                     <span 
                       style={{ 
                         position: 'absolute', 
@@ -1621,7 +1720,7 @@ export default function App() {
                         justifyContent: 'center'
                       }}
                     >
-                      {notifications.length - lastSeenNotificationCount}
+                      {unreadNotificationCount}
                     </span>
                   )}
                 </button>
@@ -1649,7 +1748,27 @@ export default function App() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
                       <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)' }}>Alerts & Notifications</span>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{notifications.length} Active</span>
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={handleDismissAllNotifications}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--primary)',
+                              fontSize: '0.65rem',
+                              fontWeight: 650,
+                              cursor: 'pointer',
+                              padding: '1px 3px',
+                              borderRadius: '3px'
+                            }}
+                            title="Dismiss all active alerts"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {notifications.length > 0 ? (
@@ -1666,9 +1785,27 @@ export default function App() {
                             borderLeftWidth: '3px'
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px' }}>
                             <strong style={{ color: 'var(--text-main)', fontSize: '0.75rem' }}>{n.title}</strong>
-                            <span style={{ fontSize: '0.58rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontSize: '0.58rem', color: 'var(--text-dim)' }}>{n.timestamp}</span>
+                              <button
+                                onClick={(e) => handleDismissNotification(n.id, e)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  padding: '1px 3px',
+                                  lineHeight: 1,
+                                  fontSize: '0.72rem',
+                                  borderRadius: '3px'
+                                }}
+                                title="Dismiss alert"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
                           <p style={{ color: 'var(--text-muted)', lineHeight: '1.3', margin: 0 }}>{n.message}</p>
                         </div>

@@ -476,14 +476,26 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         }
       }
       
-      if (t.segment === 'F&O' && (!t.optionType || t.optionType === 'None')) {
+      if (t.segment === 'F&O') {
         const symUpper = (t.symbol || '').toUpperCase();
-        if (symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL')) {
-          t.optionType = 'CE';
-          changed = true;
-        } else if (symUpper.includes(' PE') || symUpper.endsWith('PE') || symUpper.includes('PUT')) {
-          t.optionType = 'PE';
-          changed = true;
+        const symMatch = symUpper.match(/\b(\d{4,6})\s*(CE|PE)\b/);
+        if (symMatch) {
+          if (!t.strikePrice || t.strikePrice === 0) {
+            t.strikePrice = parseFloat(symMatch[1]);
+            changed = true;
+          }
+          if (!t.optionType || t.optionType === 'None') {
+            t.optionType = symMatch[2] as 'CE' | 'PE';
+            changed = true;
+          }
+        } else if (!t.optionType || t.optionType === 'None') {
+          if (symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL')) {
+            t.optionType = 'CE';
+            changed = true;
+          } else if (symUpper.includes(' PE') || symUpper.endsWith('PE') || symUpper.includes('PUT')) {
+            t.optionType = 'PE';
+            changed = true;
+          }
         }
       }
       

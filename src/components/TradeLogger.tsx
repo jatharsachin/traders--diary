@@ -241,9 +241,21 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           setEditingLeg2Id(leg2.id);
           setIsMultiLeg(true);
 
+          let detectedLeg2Strike = leg2.strikePrice || 0;
+          let detectedLeg2OptionType = leg2.optionType || 'CE';
+          if ((!detectedLeg2Strike || detectedLeg2Strike === 0) && leg2.symbol) {
+            const leg2Match = leg2.symbol.toUpperCase().match(/\b(\d{4,6})\s*(CE|PE)\b/);
+            if (leg2Match) {
+              detectedLeg2Strike = parseFloat(leg2Match[1]);
+              if (!leg2.optionType || leg2.optionType === 'None') {
+                detectedLeg2OptionType = leg2Match[2] as 'CE' | 'PE';
+              }
+            }
+          }
+
           setLeg2Action(leg2.action);
-          setLeg2Strike(leg2.strikePrice || 0);
-          setLeg2OptionType(leg2.optionType || 'CE');
+          setLeg2Strike(detectedLeg2Strike);
+          setLeg2OptionType(detectedLeg2OptionType);
           setLeg2EntryPrice(leg2.entryPrice);
           setLeg2ExitPrice(leg2.exitPrice);
           setLeg2Symbol(leg2.symbol);
@@ -565,21 +577,32 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     }
   }, [underlyingIndex, formData.strikePrice, formData.optionType, formData.segment, isOpen]);
 
-  // Sync Leg 2's Option Type with Leg 1 by default
+  // Sync Leg 2's Option Type with Leg 1 by default when creating new multi-leg
   useEffect(() => {
-    if (isMultiLeg) {
+    if (isMultiLeg && !editingLeg2Id) {
       setLeg2OptionType(formData.optionType);
     }
-  }, [formData.optionType, isMultiLeg]);
+  }, [formData.optionType, isMultiLeg, editingLeg2Id]);
 
   // Dynamic Leg 2 Symbol Generation
   useEffect(() => {
     if (formData.segment === 'F&O' && leg2Strike > 0 && leg2OptionType !== 'None' && isOpen) {
       setLeg2Symbol(`${underlyingIndex} ${leg2Strike} ${leg2OptionType}`);
-    } else {
-      setLeg2Symbol('');
     }
   }, [underlyingIndex, leg2Strike, leg2OptionType, formData.segment, isOpen]);
+
+  // Auto-detect Leg 2 strike if symbol is typed/loaded
+  useEffect(() => {
+    if (leg2Symbol && (!leg2Strike || leg2Strike === 0)) {
+      const match = leg2Symbol.toUpperCase().match(/\b(\d{4,6})\s*(CE|PE)\b/);
+      if (match) {
+        setLeg2Strike(parseFloat(match[1]));
+        if (!leg2OptionType || leg2OptionType === 'None') {
+          setLeg2OptionType(match[2] as 'CE' | 'PE');
+        }
+      }
+    }
+  }, [leg2Symbol, leg2Strike, leg2OptionType]);
 
   // Save draft to localStorage as user types
   useEffect(() => {
@@ -740,8 +763,15 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     const finalMistakeStr = cleanMistakes.length > 0 ? cleanMistakes.join(', ') : 'None';
 
     if (isMultiLeg) {
+      if (formData.segment === 'F&O' && (!leg2Strike || leg2Strike <= 0)) {
+        setError('Please enter a valid Strike Price for Leg 2 (Hedge Leg).');
+        return;
+      }
+
       const leg1Symbol = finalSymbol || `${underlyingIndex} ${formData.strikePrice} ${formData.optionType}`;
-      const calculatedLeg2Symbol = leg2Symbol || `${underlyingIndex} ${leg2Strike} ${leg2OptionType}`;
+      const calculatedLeg2Symbol = (leg2Strike > 0 && leg2OptionType !== 'None')
+        ? `${underlyingIndex} ${leg2Strike} ${leg2OptionType}`
+        : (leg2Symbol || `${underlyingIndex} ${leg2Strike} ${leg2OptionType}`);
 
       const cleanTags = parsedTags.filter(t => !['#spread_leg1', '#spread_leg2', '#hedge_leg', '#hedged'].includes(t.toLowerCase()));
       const finalExitDate = formData.product === 'Delivery' ? (formData.exitDate || formData.date) : formData.date;
@@ -759,7 +789,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         ...formData,
         mistake: finalMistakeStr,
         mistakes: cleanMistakes,
-        id: crypto.randomUUID ? crypto.randomUUID() : `trade-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: editingLeg2Id || (crypto.randomUUID ? crypto.randomUUID() : `trade-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`),
         action: leg2Action,
         strikePrice: leg2Strike,
         optionType: leg2OptionType,

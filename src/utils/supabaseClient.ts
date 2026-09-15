@@ -41,7 +41,11 @@ function prepareTradeForCloud(trade: any, userId: string) {
     useManualCharges: trade.useManualCharges,
     manualBrokerage: trade.manualBrokerage,
     manualTaxes: trade.manualTaxes,
-    exitDate: trade.exitDate
+    exitDate: trade.exitDate,
+    strikePrice: trade.strikePrice !== undefined && trade.strikePrice !== null ? Number(trade.strikePrice) : undefined,
+    optionType: trade.optionType || undefined,
+    setupType: trade.setupType || undefined,
+    holdingType: trade.holdingType || undefined
   };
 
   let cleanNotes = trade.notes || '';
@@ -98,6 +102,28 @@ function parseTradeFromCloud(dbRow: any): Trade {
     }
   }
 
+  let strikeVal: number | undefined = undefined;
+  if (metadata.strikePrice !== undefined && metadata.strikePrice !== null && !isNaN(Number(metadata.strikePrice))) {
+    strikeVal = Number(metadata.strikePrice);
+  } else if (dbRow.strikeprice !== undefined && dbRow.strikeprice !== null && !isNaN(Number(dbRow.strikeprice))) {
+    strikeVal = Number(dbRow.strikeprice);
+  } else if (dbRow.strikePrice !== undefined && dbRow.strikePrice !== null && !isNaN(Number(dbRow.strikePrice))) {
+    strikeVal = Number(dbRow.strikePrice);
+  }
+
+  let optTypeVal: 'CE' | 'PE' | 'None' | undefined = metadata.optionType || dbRow.optiontype || dbRow.optionType || undefined;
+
+  // Resilient fallback: parse strikePrice and optionType from symbol (e.g. "NIFTY 22500 PE", "BANKNIFTY 48000 CE")
+  if ((!strikeVal || strikeVal === 0) && dbRow.symbol) {
+    const symMatch = (dbRow.symbol || '').toUpperCase().match(/\b(\d{4,6})\s*(CE|PE)\b/);
+    if (symMatch) {
+      strikeVal = parseFloat(symMatch[1]);
+      if (!optTypeVal || optTypeVal === 'None') {
+        optTypeVal = symMatch[2] as 'CE' | 'PE';
+      }
+    }
+  }
+
   return {
     id: dbRow.id,
     date: dbRow.date,
@@ -119,6 +145,10 @@ function parseTradeFromCloud(dbRow: any): Trade {
     emotion: dbRow.emotion || 'Neutral',
     mistake: dbRow.mistake || 'None',
     notes: notes,
+    strikePrice: strikeVal,
+    optionType: optTypeVal,
+    setupType: metadata.setupType || undefined,
+    holdingType: metadata.holdingType || undefined,
     isExpiryDay: !!dbRow.isexpiryday,
     durationMinutes: Number(dbRow.durationminutes || 0),
     grossPnL: Number(dbRow.grosspnl || 0),
