@@ -73,17 +73,22 @@ export function TradeTable({
         return fy === selectedFY;
       });
 
+  const isMatchAccount = (id?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId || !id) return true;
+    return activeAccountId === id || activeAccountId.split(',').includes(id);
+  };
+
   const tradesFiltered = activeAccountId === 'Combined' 
     ? fyTrades 
-    : fyTrades.filter(t => !t.brokerAccountId || t.brokerAccountId === activeAccountId);
+    : fyTrades.filter(t => !t.brokerAccountId || isMatchAccount(t.brokerAccountId));
 
   const investmentsFiltered = activeAccountId === 'Combined'
     ? fyInvestments
     : fyInvestments.filter(i => {
         if (!i.brokerAccountId) return true;
-        if (i.brokerAccountId === activeAccountId) return true;
-        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-        return activeAcc ? i.broker?.toLowerCase() === activeAcc.broker?.toLowerCase() : false;
+        if (isMatchAccount(i.brokerAccountId)) return true;
+        const matchedAccs = brokerAccounts.filter(a => isMatchAccount(a.id));
+        return matchedAccs.some(a => i.broker?.toLowerCase() === a.broker?.toLowerCase());
       });
 
   const trades = [...tradesFiltered, ...investmentsFiltered];

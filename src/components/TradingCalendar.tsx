@@ -108,17 +108,23 @@ export function TradingCalendar({
   } = useTradeStore();
 
 
+  const isMatchAccount = (brokerAccId?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId) return true;
+    if (!brokerAccId) return false;
+    return activeAccountId === brokerAccId || activeAccountId.split(',').includes(brokerAccId);
+  };
+
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
   const trades = activeAccountId === 'Combined'
     ? fyTrades
-    : fyTrades.filter(t => t.brokerAccountId === activeAccountId);
+    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId));
 
   const investments = activeAccountId === 'Combined'
     ? allInvestments
     : allInvestments.filter(i => {
-        if (i.brokerAccountId === activeAccountId) return true;
-        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-        return activeAcc ? (i.broker?.toLowerCase() === activeAcc.broker.toLowerCase()) : false;
+        if (i.brokerAccountId && isMatchAccount(i.brokerAccountId)) return true;
+        const matchedAccs = brokerAccounts.filter(a => isMatchAccount(a.id));
+        return matchedAccs.some(a => (i.broker?.toLowerCase() === a.broker.toLowerCase()));
       });
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026

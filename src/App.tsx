@@ -14,6 +14,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
 import { BROKER_LOGOS } from './utils/brandLogos';
+import { AccountFilterDropdown } from './components/AccountFilterDropdown';
 import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
@@ -82,7 +83,36 @@ export default function App() {
   const [isRecoveryActive, setIsRecoveryActive] = useState(false);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [activeAccountId, setActiveAccountId] = useState<string>('Combined');
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>(() => {
+    try {
+      const userKey = localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+      const savedScoped = localStorage.getItem(`traders_diary_selected_accounts_${userKey}`);
+      if (savedScoped) {
+        const parsed = JSON.parse(savedScoped);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      const savedGlobal = localStorage.getItem('traders_diary_selected_accounts');
+      if (savedGlobal) {
+        const parsed = JSON.parse(savedGlobal);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      const savedActiveId = localStorage.getItem(`traders_diary_active_account_${userKey}`) || 
+                            localStorage.getItem('traders_diary_active_account');
+      if (savedActiveId && savedActiveId !== 'Combined') {
+        return savedActiveId.split(',');
+      }
+    } catch {}
+    return [];
+  });
+  const [activeAccountId, setActiveAccountId] = useState<string>(() => {
+    try {
+      const userKey = localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+      const saved = localStorage.getItem(`traders_diary_active_account_${userKey}`) || 
+                    localStorage.getItem('traders_diary_active_account');
+      if (saved) return saved;
+    } catch {}
+    return 'Combined';
+  });
   const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
   const [useTwoRowHeader, setUseTwoRowHeader] = useState<boolean>(() => {
     return localStorage.getItem('traders_diary_two_row_header') === 'true';
@@ -219,31 +249,92 @@ export default function App() {
   } = useTradeStore();
 
   const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
+
+  // Sync selectedAccountIds on initial load or when brokerAccounts/auth user change
+  useEffect(() => {
+    if (activeAccountIds.length === 0) return;
+
+    try {
+      const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+      const savedRaw = localStorage.getItem(`traders_diary_selected_accounts_${userKey}`) || 
+                       localStorage.getItem('traders_diary_selected_accounts');
+
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter(id => activeAccountIds.includes(id));
+          if (valid.length > 0) {
+            setSelectedAccountIds(valid);
+            const isAll = activeAccountIds.every(id => valid.includes(id));
+            const newActive = isAll ? 'Combined' : (valid.length === 1 ? valid[0] : valid.join(','));
+            setActiveAccountId(newActive);
+            return;
+          }
+        }
+      }
+
+      const savedActive = localStorage.getItem(`traders_diary_active_account_${userKey}`) || 
+                          localStorage.getItem('traders_diary_active_account');
+      if (savedActive && savedActive !== 'Combined') {
+        const parts = savedActive.split(',').filter(id => activeAccountIds.includes(id));
+        if (parts.length > 0) {
+          setSelectedAccountIds(parts);
+          setActiveAccountId(savedActive);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to sync accounts from storage', e);
+    }
+
+    // Default to all active accounts if nothing valid was saved
+    if (selectedAccountIds.length === 0) {
+      setSelectedAccountIds(activeAccountIds);
+      setActiveAccountId('Combined');
+    }
+  }, [brokerAccounts, sessionUser]);
+
+  const handleSelectedAccountsChange = (newSelectedIds: string[]) => {
+    setSelectedAccountIds(newSelectedIds);
+    const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+    localStorage.setItem('traders_diary_selected_accounts', JSON.stringify(newSelectedIds));
+    localStorage.setItem(`traders_diary_selected_accounts_${userKey}`, JSON.stringify(newSelectedIds));
+
+    const isAll = activeAccountIds.length > 0 && activeAccountIds.every(id => newSelectedIds.includes(id));
+    const newActive = isAll ? 'Combined' : (newSelectedIds.length === 1 ? newSelectedIds[0] : newSelectedIds.join(','));
+    setActiveAccountId(newActive);
+    localStorage.setItem('traders_diary_active_account', newActive);
+    localStorage.setItem(`traders_diary_active_account_${userKey}`, newActive);
+  };
+
   const trades = allTrades.filter(t => !t.brokerAccountId || activeAccountIds.includes(t.brokerAccountId));
   const capitalAdjustments = allAdjustments.filter(a => !a.brokerAccountId || activeAccountIds.includes(a.brokerAccountId));
   const investments = allInvestments.filter(i => !i.brokerAccountId || activeAccountIds.includes(i.brokerAccountId));
 
-  const filteredTrades = activeAccountId === 'Combined'
+  const isCombinedView = activeAccountId === 'Combined' || selectedAccountIds.length === 0 || selectedAccountIds.length === activeAccountIds.length;
+  const effectiveSelectedIds = isCombinedView ? activeAccountIds : (selectedAccountIds.length > 0 ? selectedAccountIds : activeAccountId.split(',').filter(Boolean));
+
+  const filteredTrades = isCombinedView
     ? trades
-    : trades.filter((t) => t.brokerAccountId === activeAccountId);
+    : trades.filter((t) => effectiveSelectedIds.includes(t.brokerAccountId || ''));
 
-  const filteredAdjustments = activeAccountId === 'Combined'
+  const filteredAdjustments = isCombinedView
     ? capitalAdjustments
-    : capitalAdjustments.filter((a) => a.brokerAccountId === activeAccountId);
+    : capitalAdjustments.filter((a) => effectiveSelectedIds.includes(a.brokerAccountId || ''));
 
-  const filteredBaseCapital = activeAccountId === 'Combined'
+  const filteredBaseCapital = isCombinedView
     ? baseCapital
-    : (brokerAccounts.find((a) => a.id === activeAccountId)?.startingCapital || 0);
+    : brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).reduce((sum, a) => sum + (a.startingCapital || 0), 0);
 
   const totalNetPnL = filteredTrades.reduce((acc, t) => acc + t.netPnL, 0);
   const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
   const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
-  const filteredInvestments = activeAccountId === 'Combined'
+  const filteredInvestments = isCombinedView
     ? investments
     : investments.filter(i => {
-        if (i.brokerAccountId === activeAccountId) return true;
-        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-        return activeAcc ? i.broker === activeAcc.broker : false;
+        if (i.brokerAccountId && effectiveSelectedIds.includes(i.brokerAccountId)) return true;
+        const matchedAccs = brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id));
+        return matchedAccs.some(a => i.broker === a.broker);
       });
 
   const totalInvPurchasedCost = filteredInvestments.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
@@ -1175,46 +1266,13 @@ export default function App() {
           {/* Row 2: Account Context, Capital, Nifty simulated Ticker & Live Clock */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none', gap: '8px', borderTop: '1.5px solid var(--border-color)', paddingTop: '12px', marginTop: '4px' }}>
             {/* Global Account Selector Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-              {(() => {
-                const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-                if (activeAcc) {
-                  return (
-                    <img 
-                      src={BROKER_LOGOS[activeAcc.broker] || BROKER_LOGOS['Other']} 
-                      alt={activeAcc.broker} 
-                      style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1.5px', border: '1px solid var(--border-color)' }} 
-                    />
-                  );
-                }
-                return null;
-              })()}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Active Account:</span>
-              <select
-                value={activeAccountId}
-                onChange={(e) => setActiveAccountId(e.target.value)}
-                className="form-select"
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '0.82rem',
-                  height: '38px',
-                  background: 'var(--bg-card)',
-                  border: '1.5px solid var(--border-color)',
-                  borderRadius: '10px',
-                  color: 'var(--text-main)',
-                  cursor: 'pointer',
-                  minWidth: '150px',
-                  outline: 'none',
-                  fontWeight: 600
-                }}
-              >
-                <option value="Combined">Combined Accounts</option>
-                {brokerAccounts.filter(a => a.active).map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.accountName} ({acc.broker})
-                  </option>
-                ))}
-              </select>
+              <AccountFilterDropdown 
+                brokerAccounts={brokerAccounts}
+                selectedAccountIds={selectedAccountIds}
+                onChange={handleSelectedAccountsChange}
+              />
             </div>
 
             {/* Current Capital Balance */}
@@ -1547,45 +1605,12 @@ export default function App() {
             {/* Account & Financial Year Selectors */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {/* Account Dropdown */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {(() => {
-                  const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-                  if (activeAcc) {
-                    return (
-                      <img 
-                        src={BROKER_LOGOS[activeAcc.broker] || BROKER_LOGOS['Other']} 
-                        alt={activeAcc.broker} 
-                        style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'contain', background: '#fff', padding: '1px', border: '1px solid var(--border-color)' }} 
-                      />
-                    );
-                  }
-                  return null;
-                })()}
-                <select
-                  value={activeAccountId}
-                  onChange={(e) => setActiveAccountId(e.target.value)}
-                  className="form-select"
-                  style={{
-                    padding: '2px 14px',
-                    fontSize: '0.78rem',
-                    height: '32px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '9999px',
-                    color: 'var(--text-main)',
-                    cursor: 'pointer',
-                    minWidth: '130px',
-                    fontWeight: 600
-                  }}
-                >
-                  <option value="Combined">Combined Accounts</option>
-                  {brokerAccounts.filter(a => a.active).map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.accountName} ({acc.broker})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Account Dropdown with Checkbox Ticks */}
+              <AccountFilterDropdown 
+                brokerAccounts={brokerAccounts}
+                selectedAccountIds={selectedAccountIds}
+                onChange={handleSelectedAccountsChange}
+              />
 
               {/* Financial Year Select */}
               <select

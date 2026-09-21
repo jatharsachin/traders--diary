@@ -83,21 +83,26 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     setEditingId(null);
   };
 
+  const isMatchAccount = (id?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId || !id) return true;
+    return activeAccountId === id || activeAccountId.split(',').includes(id);
+  };
+
   // Scoped trades, adjustments, and investments
   const trades = activeAccountId === 'Combined' 
     ? allTrades 
-    : allTrades.filter(t => t.brokerAccountId === activeAccountId);
+    : allTrades.filter(t => isMatchAccount(t.brokerAccountId));
   
   const adjustments = activeAccountId === 'Combined' 
     ? allAdjustments 
-    : allAdjustments.filter(a => a.brokerAccountId === activeAccountId);
+    : allAdjustments.filter(a => isMatchAccount(a.brokerAccountId));
 
   const investments = activeAccountId === 'Combined' 
     ? allInvestments 
     : allInvestments.filter(i => {
-        if (i.brokerAccountId === activeAccountId) return true;
-        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-        return activeAcc ? i.broker === activeAcc.broker : false;
+        if (isMatchAccount(i.brokerAccountId)) return true;
+        const matchedAccs = brokerAccounts.filter(a => isMatchAccount(a.id));
+        return matchedAccs.some(a => i.broker === a.broker);
       });
 
   // Range filtered trades, adjustments, and investments

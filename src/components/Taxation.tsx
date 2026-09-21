@@ -9,9 +9,13 @@ import {
 export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
   const { trades: allTrades, selectedFY } = useTradeStore();
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
+  const isMatchAccount = (id?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId || !id) return true;
+    return activeAccountId === id || activeAccountId.split(',').includes(id);
+  };
   const trades = activeAccountId === 'Combined'
     ? fyTrades
-    : fyTrades.filter(t => t.brokerAccountId === activeAccountId);
+    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId));
 
   // --- INDIAN TAXATION COMPUTATIONS ---
   

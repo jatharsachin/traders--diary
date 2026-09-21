@@ -193,10 +193,15 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   let trades = filterTradesByFY(allTrades, selectedFY);
   let capitalAdjustments = filterTradesByFY(allCapitalAdjustments as any, selectedFY) as any as CapitalAdjustment[];
 
+  const isMatchAccount = (id?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId || !id) return true;
+    return activeAccountId === id || activeAccountId.split(',').includes(id);
+  };
+
   // Apply active account scopes
   if (activeAccountId !== 'Combined') {
-    trades = trades.filter((t) => t.brokerAccountId === activeAccountId);
-    capitalAdjustments = capitalAdjustments.filter((a) => a.brokerAccountId === activeAccountId);
+    trades = trades.filter((t) => isMatchAccount(t.brokerAccountId));
+    capitalAdjustments = capitalAdjustments.filter((a) => isMatchAccount(a.brokerAccountId));
   } else if (selectedBrokerFilter !== 'All') {
     trades = trades.filter((t) => t.broker === selectedBrokerFilter);
     capitalAdjustments = capitalAdjustments.filter((a) => a.broker === selectedBrokerFilter);
@@ -213,9 +218,9 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     const invPurchases = investments
       .filter((i) => {
         const matchesAccount = activeAccountId !== 'Combined' 
-          ? (i.brokerAccountId === activeAccountId || (() => {
-              const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-              return activeAcc ? i.broker === activeAcc.broker : false;
+          ? (isMatchAccount(i.brokerAccountId) || (() => {
+              const matchedAccs = brokerAccounts.filter(a => isMatchAccount(a.id));
+              return matchedAccs.some(a => i.broker === a.broker);
             })())
           : (selectedBrokerFilter === 'All' ? true : i.broker === selectedBrokerFilter);
         const matchesFY = (!startLimit || i.date >= startLimit) && (!endLimit || i.date <= endLimit);
@@ -408,7 +413,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const getFYOpeningBalance = () => {
     let startingCap = 0;
     if (activeAccountId !== 'Combined') {
-      startingCap = brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0;
+      startingCap = brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + a.startingCapital, 0);
     } else if (selectedBrokerFilter !== 'All') {
       startingCap = brokerAccounts.filter(a => a.broker === selectedBrokerFilter).reduce((sum, a) => sum + a.startingCapital, 0);
     } else {
@@ -424,14 +429,14 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
     const priorTrades = allTrades.filter(t => t.date < startStr && (
       activeAccountId !== 'Combined' 
-        ? t.brokerAccountId === activeAccountId 
+        ? isMatchAccount(t.brokerAccountId) 
         : (selectedBrokerFilter !== 'All' ? t.broker === selectedBrokerFilter : true)
     ));
     const priorPnL = priorTrades.reduce((sum, t) => sum + t.netPnL, 0);
 
     const priorAdjs = allCapitalAdjustments.filter(a => a.date < startStr && (
       activeAccountId !== 'Combined' 
-        ? a.brokerAccountId === activeAccountId 
+        ? isMatchAccount(a.brokerAccountId) 
         : (selectedBrokerFilter !== 'All' ? a.broker === selectedBrokerFilter : true)
     ));
     const priorAdjSum = priorAdjs.reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
