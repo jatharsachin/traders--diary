@@ -36,11 +36,13 @@ const parseLocalDate = (dateStr: string) => {
 export function Dashboard({ 
   activeAccountId = 'Combined', 
   onNavigateToTab,
-  onSelectDateFilter
+  onSelectDateFilter,
+  onEditTrade
 }: { 
   activeAccountId?: string; 
   onNavigateToTab?: (tab: any) => void;
   onSelectDateFilter?: (date: string) => void;
+  onEditTrade?: (id: string) => void;
 }) {
   const {
     trades: allTrades,
@@ -1271,6 +1273,76 @@ export function Dashboard({
         </div>
       )}
       
+      {/* Weekend Review Ritual Banner (Shown on Weekends Saturday/Sunday) */}
+      {(() => {
+        const dayOfWeek = new Date().getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const reminderPref = localStorage.getItem('traders_diary_weekend_reminder');
+        const isEnabled = reminderPref !== 'false';
+        if (!isWeekend || !isEnabled) return null;
+
+        return (
+          <div 
+            className="glass-card animate-tab-panel"
+            style={{
+              padding: '12px 18px',
+              marginBottom: '14px',
+              borderRadius: '14px',
+              border: '1.5px solid rgba(10, 132, 255, 0.4)',
+              background: 'linear-gradient(135deg, rgba(10, 132, 255, 0.12) 0%, rgba(191, 90, 242, 0.08) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              boxShadow: '0 8px 24px -6px rgba(10, 132, 255, 0.25)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(10, 132, 255, 0.2)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.25rem',
+                flexShrink: 0,
+                border: '1px solid rgba(10, 132, 255, 0.35)'
+              }}>
+                🗓️
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: '0.92rem', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
+                    Weekend Routine: Review Weekly Notes & Mistakes
+                  </strong>
+                  <span style={{ fontSize: '0.66rem', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', background: 'rgba(10, 132, 255, 0.2)', color: 'var(--primary)', border: '1px solid rgba(10, 132, 255, 0.35)' }}>
+                    शनिवार/रविवार रिव्ह्यू
+                  </span>
+                </div>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  मार्केट बंद आहे. ट्रेड लॉगमध्ये नोंदवलेल्या सर्व नोट्स व चुका तपासा, जेणेकरून सोमवारी चुकांची पुनरावृत्ती होणार नाही!
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => setIsJournalModalOpen(true)}
+                className="btn btn-primary"
+                style={{ padding: '7px 16px', fontSize: '0.78rem', gap: '6px', fontWeight: 700 }}
+              >
+                <BookOpen size={15} />
+                <span>रिव्ह्यू सुरू करा (Review Notes)</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Redesigned Welcome Banner */}
       <div 
         className="glass-card animate-tab-panel" 
@@ -1558,12 +1630,13 @@ export function Dashboard({
               gap: '6px',
               border: '1px solid rgba(59, 130, 246, 0.3)',
               background: 'rgba(59, 130, 246, 0.1)',
-              color: 'var(--primary)'
+              color: 'var(--primary)',
+              fontWeight: 650
             }}
-            title="Open Guided Weekly Reflection Journal"
+            title="Open Weekend Review: Trade Notes & Mistakes Audit"
           >
             <BookOpen size={15} color="var(--primary)" />
-            <span>Weekly Journal</span>
+            <span>Weekend Review</span>
           </button>
 
           <button 
@@ -2368,6 +2441,7 @@ export function Dashboard({
       <WeeklyJournalModal 
         isOpen={isJournalModalOpen} 
         onClose={() => setIsJournalModalOpen(false)} 
+        onEditTrade={onEditTrade}
       />
 
     </div>

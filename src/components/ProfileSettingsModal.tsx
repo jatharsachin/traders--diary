@@ -108,6 +108,9 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
   // Custom Profile Pic (Base64)
   const [customPicError, setCustomPicError] = useState('');
 
+  // Weekend Review Reminder preference
+  const [isWeekendReminderEnabled, setIsWeekendReminderEnabled] = useState(() => localStorage.getItem('traders_diary_weekend_reminder') !== 'false');
+
   // Add Account Form
   const [newAccBroker, setNewAccBroker] = useState<Broker>('Zerodha');
   const [newAccName, setNewAccName] = useState('');
@@ -656,6 +659,24 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                       </label>
                       <p style={{ fontSize: '0.65rem', color: 'var(--text-dim)', margin: '2px 0 0 20px' }}>
                         Unchecking switches to a modern left sidebar layout that utilizes screen side-space on wide displays.
+                      </p>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '14px' }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={isWeekendReminderEnabled}
+                          onChange={(e) => {
+                            setIsWeekendReminderEnabled(e.target.checked);
+                            localStorage.setItem('traders_diary_weekend_reminder', e.target.checked ? 'true' : 'false');
+                          }}
+                          style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+                        />
+                        <span>Weekend Notes & Mistakes Review Reminders (वीकेंड रिव्ह्यू स्मरणपत्र)</span>
+                      </label>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--text-dim)', margin: '2px 0 0 20px' }}>
+                        शनिवार व रविवारी आठवड्यातील सर्व ट्रेड्सच्या नोट्स व चुकांचा रिव्ह्यू करण्यासाठी बॅनर व स्मरणपत्र दाखवा.
                       </p>
                     </div>
 

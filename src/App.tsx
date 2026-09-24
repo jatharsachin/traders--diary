@@ -438,6 +438,18 @@ export default function App() {
       });
     }
 
+    // 5. Weekend Review & Mistake Audit Alert
+    const todayDay = new Date().getDay();
+    if (todayDay === 0 || todayDay === 6) { // Saturday or Sunday
+      alertsList.push({
+        id: `weekend-review-${todayStr}`,
+        type: 'info' as const,
+        title: 'Weekend Audit: Notes & Mistakes',
+        message: 'The market is closed for the weekend. Audit your trade notes and tagged mistakes to prepare for next week!',
+        timestamp: 'Weekend Review'
+      });
+    }
+
     return alertsList;
   };
 
@@ -1891,6 +1903,7 @@ export default function App() {
                   setSelectedDateFilter(date);
                   setActiveTab('logs');
                 }}
+                onEditTrade={handleEditTrade}
               />
             )}
             {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
