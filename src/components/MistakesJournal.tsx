@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { getTradeMistakes } from '../types';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
+import { groupHedgedTrades } from '../utils/tradeGrouping';
+import type { GroupedTradePosition } from '../utils/tradeGrouping';
 import { BrokerBadge } from './BrokerBadge';
 import { 
   AlertTriangle, BookOpen, Calendar, Clock, Filter, Search, 
@@ -46,6 +48,11 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
       : fyTrades.filter(t => isMatchAccount(t.brokerAccountId));
   }, [fyTrades, activeAccountId]);
 
+  // Group hedged spread legs into unified positions to avoid duplicate cards and notes
+  const accountPositions = useMemo(() => {
+    return groupHedgedTrades(accountTrades);
+  }, [accountTrades]);
+
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMistakeType, setSelectedMistakeType] = useState<string>('All');
@@ -54,132 +61,129 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
 
-  // Filter trades to only those that have either a mistake OR a note
-  const notedTrades = useMemo(() => {
-    return accountTrades.filter(t => {
-      const mistakes = getTradeMistakes(t);
-      const hasNote = Boolean(t.notes && t.notes.trim().length > 0);
-      const hasMistake = mistakes.length > 0;
+  // Filter positions to only those that have either a mistake OR a note
+  const notedPositions = useMemo(() => {
+    return accountPositions.filter(p => {
+      const hasNote = Boolean(p.notes && p.notes.trim().length > 0);
+      const hasMistake = p.mistakes.length > 0;
       return hasNote || hasMistake;
     });
-  }, [accountTrades]);
+  }, [accountPositions]);
 
   // Extract all unique mistake types that appeared in the dataset
   const availableMistakes = useMemo(() => {
     const set = new Set<string>();
-    notedTrades.forEach(t => {
-      getTradeMistakes(t).forEach(m => set.add(m));
+    notedPositions.forEach(p => {
+      p.mistakes.forEach(m => set.add(m));
     });
     return Array.from(set).sort();
-  }, [notedTrades]);
+  }, [notedPositions]);
 
   // Extract all unique months available in the dataset
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
-    notedTrades.forEach(t => {
-      const dateStr = t.exitDate || t.date;
+    notedPositions.forEach(p => {
+      const dateStr = p.date;
       if (dateStr && dateStr.length >= 7) {
         set.add(dateStr.substring(0, 7)); // YYYY-MM
       }
     });
     return Array.from(set).sort().reverse();
-  }, [notedTrades]);
+  }, [notedPositions]);
 
   // Overall Cognitive & Mistakes Metrics
   const stats = useMemo(() => {
-    let totalMistakeTrades = 0;
+    let totalMistakePositions = 0;
     let totalMistakeLoss = 0;
     let totalNotesCount = 0;
     const mistakeFrequencies: Record<string, { count: number; loss: number }> = {};
 
-    notedTrades.forEach(t => {
-      const mistakes = getTradeMistakes(t);
-      if (t.notes && t.notes.trim().length > 0) totalNotesCount++;
-      if (mistakes.length > 0) {
-        totalMistakeTrades++;
-        if (t.netPnL < 0) totalMistakeLoss += Math.abs(t.netPnL);
-        mistakes.forEach(m => {
+    notedPositions.forEach(p => {
+      if (p.notes && p.notes.trim().length > 0) totalNotesCount++;
+      if (p.mistakes.length > 0) {
+        totalMistakePositions++;
+        if (p.combinedNetPnL < 0) totalMistakeLoss += Math.abs(p.combinedNetPnL);
+        p.mistakes.forEach(m => {
           if (!mistakeFrequencies[m]) mistakeFrequencies[m] = { count: 0, loss: 0 };
           mistakeFrequencies[m].count++;
-          if (t.netPnL < 0) mistakeFrequencies[m].loss += Math.abs(t.netPnL);
+          if (p.combinedNetPnL < 0) mistakeFrequencies[m].loss += Math.abs(p.combinedNetPnL);
         });
       }
     });
 
     const topMistake = Object.entries(mistakeFrequencies).sort((a, b) => b[1].count - a[1].count)[0];
-
-    const uniqueDays = new Set(notedTrades.map(t => t.exitDate || t.date)).size;
+    const uniqueDays = new Set(notedPositions.map(p => p.date)).size;
 
     return {
       uniqueDays,
       totalNotesCount,
-      totalMistakeTrades,
+      totalMistakePositions,
       totalMistakeLoss,
       topMistake: topMistake ? { name: topMistake[0], count: topMistake[1].count, loss: topMistake[1].loss } : null
     };
-  }, [notedTrades]);
+  }, [notedPositions]);
 
-  // Filtered list of trades based on UI controls
-  const filteredTrades = useMemo(() => {
-    return notedTrades.filter(t => {
-      const mistakes = getTradeMistakes(t);
-      const hasMistake = mistakes.length > 0;
-      const hasNote = Boolean(t.notes && t.notes.trim().length > 0);
-      const dateStr = t.exitDate || t.date;
+  // Filtered list of positions based on UI controls
+  const filteredPositions = useMemo(() => {
+    return notedPositions.filter(p => {
+      const hasMistake = p.mistakes.length > 0;
+      const hasNote = Boolean(p.notes && p.notes.trim().length > 0);
+      const dateStr = p.date;
 
       // Filter by type pill
       if (typeFilter === 'mistakes' && !hasMistake) return false;
       if (typeFilter === 'notes' && !hasNote) return false;
-      if (typeFilter === 'losses' && t.netPnL >= 0) return false;
+      if (typeFilter === 'losses' && p.combinedNetPnL >= 0) return false;
 
       // Filter by month
       if (selectedMonth !== 'All' && !dateStr.startsWith(selectedMonth)) return false;
 
       // Filter by specific mistake type
-      if (selectedMistakeType !== 'All' && !mistakes.includes(selectedMistakeType)) return false;
+      if (selectedMistakeType !== 'All' && !p.mistakes.includes(selectedMistakeType)) return false;
 
       // Filter by emotion
-      if (selectedEmotion !== 'All' && t.emotion !== selectedEmotion) return false;
+      if (selectedEmotion !== 'All' && p.emotion !== selectedEmotion) return false;
 
       // Search query (symbol, note content, strategy)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const inSymbol = t.symbol.toLowerCase().includes(q);
-        const inNote = t.notes ? t.notes.toLowerCase().includes(q) : false;
-        const inStrategy = t.strategy ? t.strategy.toLowerCase().includes(q) : false;
-        const inMistake = mistakes.some(m => m.toLowerCase().includes(q));
-        if (!inSymbol && !inNote && !inStrategy && !inMistake) return false;
+        const inSymbol1 = p.leg1.symbol.toLowerCase().includes(q);
+        const inSymbol2 = p.leg2 ? p.leg2.symbol.toLowerCase().includes(q) : false;
+        const inNote = p.notes ? p.notes.toLowerCase().includes(q) : false;
+        const inStrategy = p.strategy ? p.strategy.toLowerCase().includes(q) : false;
+        const inMistake = p.mistakes.some(m => m.toLowerCase().includes(q));
+        if (!inSymbol1 && !inSymbol2 && !inNote && !inStrategy && !inMistake) return false;
       }
 
       return true;
     });
-  }, [notedTrades, typeFilter, selectedMonth, selectedMistakeType, selectedEmotion, searchQuery]);
+  }, [notedPositions, typeFilter, selectedMonth, selectedMistakeType, selectedEmotion, searchQuery]);
 
-  // Group filtered trades by Date
+  // Group filtered positions by Date
   const dayGroups = useMemo(() => {
-    const map: Record<string, typeof filteredTrades> = {};
+    const map: Record<string, GroupedTradePosition[]> = {};
 
-    filteredTrades.forEach(t => {
-      const d = t.exitDate || t.date;
+    filteredPositions.forEach(p => {
+      const d = p.date;
       if (!map[d]) map[d] = [];
-      map[d].push(t);
+      map[d].push(p);
     });
 
-    const entries = Object.entries(map).map(([date, trades]) => {
-      // Sort trades within the day by time
-      const sortedDayTrades = [...trades].sort((a, b) => {
+    const entries = Object.entries(map).map(([date, positions]) => {
+      // Sort positions within the day by time
+      const sortedPositions = [...positions].sort((a, b) => {
         const timeA = a.entryTime || '00:00';
         const timeB = b.entryTime || '00:00';
         return timeA.localeCompare(timeB);
       });
 
-      const dayNetPnL = sortedDayTrades.reduce((sum, tr) => sum + tr.netPnL, 0);
-      const dayMistakesCount = sortedDayTrades.filter(tr => getTradeMistakes(tr).length > 0).length;
-      const dayNotesCount = sortedDayTrades.filter(tr => tr.notes && tr.notes.trim().length > 0).length;
+      const dayNetPnL = sortedPositions.reduce((sum, p) => sum + p.combinedNetPnL, 0);
+      const dayMistakesCount = sortedPositions.filter(p => p.mistakes.length > 0).length;
+      const dayNotesCount = sortedPositions.filter(p => p.notes && p.notes.trim().length > 0).length;
 
       return {
         date,
-        trades: sortedDayTrades,
+        positions: sortedPositions,
         dayNetPnL,
         dayMistakesCount,
         dayNotesCount
@@ -192,7 +196,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
         ? b.date.localeCompare(a.date) 
         : a.date.localeCompare(b.date);
     });
-  }, [filteredTrades, sortOrder]);
+  }, [filteredPositions, sortOrder]);
 
   const formatDateDisplay = (dateStr: string) => {
     try {
@@ -331,10 +335,10 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
             एकूण नोंदवलेल्या चुका (Mistakes)
           </span>
           <div style={{ fontSize: '1.45rem', fontWeight: 850, fontFamily: 'var(--font-mono)', color: '#f87171', marginTop: '2px' }}>
-            {stats.totalMistakeTrades} <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fca5a5' }}>Trades</span>
+            {stats.totalMistakePositions} <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fca5a5' }}>Decisions</span>
           </div>
           <span style={{ fontSize: '0.72rem', color: '#f87171', opacity: 0.9, marginTop: '2px', display: 'block' }}>
-            {((stats.totalMistakeTrades / (accountTrades.length || 1)) * 100).toFixed(1)}% of total trades
+            {((stats.totalMistakePositions / (accountPositions.length || 1)) * 100).toFixed(1)}% of trade decisions
           </span>
         </div>
 
@@ -563,7 +567,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
           </div>
 
           <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-            Showing {dayGroups.length} days ({filteredTrades.length} trades)
+            Showing {dayGroups.length} days ({filteredPositions.length} trade decisions)
           </span>
         </div>
       </div>
@@ -661,7 +665,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
 
                     {/* Day Badges */}
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                      {group.trades.length} {group.trades.length === 1 ? 'Trade' : 'Trades'}
+                      {group.positions.length} {group.positions.length === 1 ? 'Trade Position' : 'Trade Positions'}
                     </span>
 
                     {hasMistakesOnDay ? (
@@ -711,14 +715,258 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                   </div>
                 </div>
 
-                {/* Day Trades Stream */}
+                {/* Day Positions Stream */}
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {group.trades.map((trade) => {
-                    const mistakes = getTradeMistakes(trade);
-                    const isTradeWin = trade.netPnL >= 0;
-                    const hasMistake = mistakes.length > 0;
-                    const hasNote = Boolean(trade.notes && trade.notes.trim().length > 0);
+                  {group.positions.map((pos) => {
+                    const isSpread = pos.isHedgedSpread && Boolean(pos.leg2);
+                    const isPosWin = pos.combinedNetPnL >= 0;
+                    const hasMistake = pos.mistakes.length > 0;
+                    const hasNote = Boolean(pos.notes && pos.notes.trim().length > 0);
 
+                    // ==========================================
+                    // 1. UNIFIED HEDGED SPREAD CARD (NO DUPLICATES)
+                    // ==========================================
+                    if (isSpread && pos.leg2) {
+                      const leg1 = pos.leg1;
+                      const leg2 = pos.leg2;
+
+                      return (
+                        <div 
+                          key={pos.id}
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '14px',
+                            border: hasMistake 
+                              ? '1.5px solid rgba(239, 68, 68, 0.35)' 
+                              : '1.5px solid rgba(10, 132, 255, 0.35)',
+                            background: hasMistake ? 'rgba(239, 68, 68, 0.02)' : 'rgba(10, 132, 255, 0.02)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {/* Top Row: Hedged Badge, Leg 1, Leg 2, Time, Broker, Net Spread P&L */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span 
+                                style={{ 
+                                  fontSize: '0.72rem', 
+                                  fontWeight: 800, 
+                                  padding: '2px 8px', 
+                                  borderRadius: '6px',
+                                  background: 'rgba(10, 132, 255, 0.18)',
+                                  color: '#60a5fa',
+                                  border: '1px solid rgba(10, 132, 255, 0.35)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                🛡️ Hedged Spread (2 Legs)
+                              </span>
+
+                              {/* Leg 1 Pill */}
+                              <span style={{ 
+                                fontSize: '0.78rem', 
+                                fontWeight: 750, 
+                                color: 'var(--text-main)', 
+                                background: 'rgba(255,255,255,0.05)', 
+                                padding: '3px 8px', 
+                                borderRadius: '6px', 
+                                border: '1px solid var(--border-color)', 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '5px' 
+                              }}>
+                                <span style={{ color: leg1.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800, fontSize: '0.7rem' }}>
+                                  {leg1.action}
+                                </span>
+                                <span>{leg1.symbol}</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: leg1.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
+                                  ({leg1.netPnL >= 0 ? '+' : ''}{formatCurrency(leg1.netPnL)})
+                                </span>
+                              </span>
+
+                              {/* Leg 2 Pill */}
+                              <span style={{ 
+                                fontSize: '0.78rem', 
+                                fontWeight: 750, 
+                                color: 'var(--text-main)', 
+                                background: 'rgba(255,255,255,0.05)', 
+                                padding: '3px 8px', 
+                                borderRadius: '6px', 
+                                border: '1px solid var(--border-color)', 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '5px' 
+                              }}>
+                                <span style={{ color: leg2.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800, fontSize: '0.7rem' }}>
+                                  {leg2.action}
+                                </span>
+                                <span>{leg2.symbol}</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: leg2.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
+                                  ({leg2.netPnL >= 0 ? '+' : ''}{formatCurrency(leg2.netPnL)})
+                                </span>
+                              </span>
+
+                              {pos.entryTime && (
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <Clock size={12} />
+                                  <span>{formatTimeToAMPM(pos.entryTime)}</span>
+                                </span>
+                              )}
+
+                              {pos.broker && <BrokerBadge broker={pos.broker} />}
+                            </div>
+
+                            {/* Spread Combined Net P&L & Edit Button */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span 
+                                style={{ 
+                                  fontSize: '0.88rem', 
+                                  fontWeight: 850, 
+                                  fontFamily: 'var(--font-mono)',
+                                  color: isPosWin ? 'var(--color-win)' : 'var(--color-loss)',
+                                  background: isPosWin ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
+                                  border: '1px solid ' + (isPosWin ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
+                                  padding: '3px 9px',
+                                  borderRadius: '6px'
+                                }}
+                              >
+                                {isPnlVisible ? `Spread Net: ${isPosWin ? '+' : ''}${formatCurrency(pos.combinedNetPnL)}` : '••••••'}
+                              </span>
+
+                              {onEditTrade && (
+                                <button
+                                  onClick={() => onEditTrade(leg1.id)}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--primary)',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 650
+                                  }}
+                                  title="Open spread in TradeLogger"
+                                >
+                                  <span>Edit</span>
+                                  <ExternalLink size={13} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Deduplicated Mistakes & Emotion Tags */}
+                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                            {hasMistake ? (
+                              pos.mistakes.map(m => (
+                                <span 
+                                  key={m}
+                                  style={{ 
+                                    fontSize: '0.72rem', 
+                                    fontWeight: 750, 
+                                    padding: '2px 8px', 
+                                    borderRadius: '9999px',
+                                    background: 'rgba(239, 68, 68, 0.18)',
+                                    color: '#fca5a5',
+                                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <span>⚠️ चूक:</span> {m}
+                                </span>
+                              ))
+                            ) : (
+                              <span 
+                                style={{ 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 650, 
+                                  padding: '2px 7px', 
+                                  borderRadius: '9999px',
+                                  background: 'rgba(48, 209, 88, 0.12)',
+                                  color: '#4ade80',
+                                  border: '1px solid rgba(48, 209, 88, 0.25)'
+                                }}
+                              >
+                                ✓ चूक नाही (Clean Setup)
+                              </span>
+                            )}
+
+                            {pos.emotion && (
+                              <span 
+                                style={{ 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 650, 
+                                  padding: '2px 7px', 
+                                  borderRadius: '9999px',
+                                  background: 'rgba(191, 90, 242, 0.12)',
+                                  color: '#d8b4fe',
+                                  border: '1px solid rgba(191, 90, 242, 0.25)'
+                                }}
+                              >
+                                भावना: {pos.emotion}
+                              </span>
+                            )}
+
+                            {pos.strategy && (
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', padding: '2px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
+                                Strategy: {pos.strategy}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Unified Trade Notes Quote Box (Rendered EXACTLY ONCE) */}
+                          <div 
+                            style={{ 
+                              padding: '12px 14px', 
+                              borderRadius: '10px', 
+                              background: hasNote ? 'rgba(0, 0, 0, 0.35)' : 'rgba(255, 255, 255, 0.015)',
+                              borderLeft: hasNote ? '3.5px solid ' + (hasMistake ? '#f87171' : 'var(--primary)') : '3px solid var(--border-color)',
+                              fontSize: '0.82rem',
+                              color: hasNote ? 'var(--text-main)' : 'var(--text-dim)',
+                              lineHeight: 1.55
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: hasNote ? '4px' : '0' }}>
+                              <span style={{ fontSize: '0.74rem', fontWeight: 750, color: hasNote ? (hasMistake ? '#fca5a5' : 'var(--primary)') : 'var(--text-dim)' }}>
+                                📝 तुमची स्प्रेड ट्रेड नोंद (Trade Note):
+                              </span>
+                            </div>
+                            {hasNote ? (
+                              <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
+                            ) : (
+                              <span style={{ fontStyle: 'italic', fontSize: '0.76rem' }}>
+                                या स्प्रेडसाठी कोणतीही नोंद लिहिलेली नाही (No note written).
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Rules Followed / Broken */}
+                          {pos.rulesFollowed && pos.rulesFollowed.length > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                              <span style={{ fontWeight: 650 }}>नियम पाळले:</span>
+                              {pos.rulesFollowed.map(r => (
+                                <span key={r} style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
+                                  ✓ {r}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    // ==========================================
+                    // 2. NORMAL SINGLE TRADE CARD
+                    // ==========================================
+                    const trade = pos.leg1;
                     return (
                       <div 
                         key={trade.id}
@@ -779,14 +1027,14 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                                 fontSize: '0.88rem', 
                                 fontWeight: 850, 
                                 fontFamily: 'var(--font-mono)',
-                                color: isTradeWin ? 'var(--color-win)' : 'var(--color-loss)',
-                                background: isTradeWin ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
-                                border: '1px solid ' + (isTradeWin ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
+                                color: isPosWin ? 'var(--color-win)' : 'var(--color-loss)',
+                                background: isPosWin ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
+                                border: '1px solid ' + (isPosWin ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
                                 padding: '3px 9px',
                                 borderRadius: '6px'
                               }}
                             >
-                              {isPnlVisible ? `${isTradeWin ? '+' : ''}${formatCurrency(trade.netPnL)}` : '••••••'}
+                              {isPnlVisible ? `${isPosWin ? '+' : ''}${formatCurrency(trade.netPnL)}` : '••••••'}
                             </span>
 
                             {onEditTrade && (
@@ -816,7 +1064,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                         {/* Mistakes & Emotion Tags */}
                         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                           {hasMistake ? (
-                            mistakes.map(m => (
+                            pos.mistakes.map(m => (
                               <span 
                                 key={m}
                                 style={{ 
@@ -892,7 +1140,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                             </span>
                           </div>
                           {hasNote ? (
-                            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{trade.notes}</p>
+                            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
                           ) : (
                             <span style={{ fontStyle: 'italic', fontSize: '0.76rem' }}>
                               या ट्रेडसाठी कोणतीही नोंद लिहिलेली नाही (No note written).

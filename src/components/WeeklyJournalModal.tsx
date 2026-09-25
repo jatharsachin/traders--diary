@@ -8,6 +8,7 @@ import {
 import { useTradeStore } from '../store/useTradeStore';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { getTradeMistakes } from '../types';
+import { groupHedgedTrades } from '../utils/tradeGrouping';
 import { BrokerBadge } from './BrokerBadge';
 
 const formatCurrency = (val: number) => {
@@ -136,6 +137,11 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
     });
   }, [weekTrades]);
 
+  // Group trades into positions (merging paired hedged spread legs)
+  const groupedWeekPositions = useMemo(() => {
+    return groupHedgedTrades(sortedWeekTrades);
+  }, [sortedWeekTrades]);
+
   // Aggregate weekly mistakes and notes analytics
   const mistakeStats = useMemo(() => {
     const counts: Record<string, { count: number; loss: number }> = {};
@@ -143,20 +149,19 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
     let totalMistakeLoss = 0;
     let totalNotesCount = 0;
 
-    sortedWeekTrades.forEach(t => {
-      const mistakes = getTradeMistakes(t);
-      if (t.notes && t.notes.trim().length > 0) {
+    groupedWeekPositions.forEach(p => {
+      if (p.notes && p.notes.trim().length > 0) {
         totalNotesCount++;
       }
-      if (mistakes.length > 0) {
+      if (p.mistakes.length > 0) {
         totalMistakeTrades++;
-        if (t.netPnL < 0) {
-          totalMistakeLoss += Math.abs(t.netPnL);
+        if (p.combinedNetPnL < 0) {
+          totalMistakeLoss += Math.abs(p.combinedNetPnL);
         }
-        mistakes.forEach(m => {
+        p.mistakes.forEach(m => {
           if (!counts[m]) counts[m] = { count: 0, loss: 0 };
           counts[m].count++;
-          if (t.netPnL < 0) counts[m].loss += Math.abs(t.netPnL);
+          if (p.combinedNetPnL < 0) counts[m].loss += Math.abs(p.combinedNetPnL);
         });
       }
     });
@@ -167,23 +172,23 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
     })).sort((a, b) => b.count - a.count || b.loss - a.loss);
 
     return { list, totalMistakeTrades, totalMistakeLoss, totalNotesCount };
-  }, [sortedWeekTrades]);
+  }, [groupedWeekPositions]);
 
-  // Filtered trades for the feed
-  const filteredFeedTrades = useMemo(() => {
-    return sortedWeekTrades.filter(t => {
+  // Filtered positions for the feed
+  const filteredFeedPositions = useMemo(() => {
+    return groupedWeekPositions.filter(p => {
       if (feedFilter === 'mistakes') {
-        return getTradeMistakes(t).length > 0;
+        return p.mistakes.length > 0;
       }
       if (feedFilter === 'notes') {
-        return t.notes && t.notes.trim().length > 0;
+        return p.notes && p.notes.trim().length > 0;
       }
       if (feedFilter === 'losses') {
-        return t.netPnL < 0;
+        return p.combinedNetPnL < 0;
       }
       return true;
     });
-  }, [sortedWeekTrades, feedFilter]);
+  }, [groupedWeekPositions, feedFilter]);
 
   const weekNetPnL = weekTrades.reduce((sum, t) => sum + t.netPnL, 0);
   const weekWinCount = weekTrades.filter(t => t.netPnL > 0).length;
@@ -502,7 +507,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                       border: '1px solid ' + (feedFilter === 'all' ? 'var(--primary)' : 'var(--border-color)')
                     }}
                   >
-                    सर्व ट्रेड्स ({sortedWeekTrades.length})
+                    सर्व पोझिशन्स ({groupedWeekPositions.length})
                   </button>
 
                   <button
@@ -553,17 +558,17 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                       border: '1px solid ' + (feedFilter === 'losses' ? '#f87171' : 'var(--border-color)')
                     }}
                   >
-                    🔴 तोट्यातील ट्रेड्स ({sortedWeekTrades.filter(t => t.netPnL < 0).length})
+                    🔴 तोट्यातील पोझिशन्स ({groupedWeekPositions.filter(p => p.combinedNetPnL < 0).length})
                   </button>
                 </div>
 
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-                  {filteredFeedTrades.length} trades shown
+                  {filteredFeedPositions.length} positions shown
                 </span>
               </div>
 
               {/* Feed of Trades */}
-              {filteredFeedTrades.length === 0 ? (
+              {filteredFeedPositions.length === 0 ? (
                 <div style={{ 
                   textAlign: 'center', 
                   padding: '40px 20px', 
@@ -579,12 +584,210 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {filteredFeedTrades.map((t) => {
-                    const mistakes = getTradeMistakes(t);
-                    const isWin = t.netPnL >= 0;
-                    const hasMistake = mistakes.length > 0;
-                    const hasNote = t.notes && t.notes.trim().length > 0;
+                  {filteredFeedPositions.map((pos) => {
+                    const isSpread = pos.isHedgedSpread && Boolean(pos.leg2);
+                    const isWin = pos.combinedNetPnL >= 0;
+                    const hasMistake = pos.mistakes.length > 0;
+                    const hasNote = Boolean(pos.notes && pos.notes.trim().length > 0);
 
+                    // Hedged Spread Position
+                    if (isSpread && pos.leg2) {
+                      const leg1 = pos.leg1;
+                      const leg2 = pos.leg2;
+
+                      return (
+                        <div 
+                          key={pos.id}
+                          className="glass-card"
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '16px',
+                            border: hasMistake 
+                              ? '1px solid rgba(239, 68, 68, 0.35)' 
+                              : '1px solid rgba(10, 132, 255, 0.35)',
+                            background: hasMistake ? 'rgba(239, 68, 68, 0.02)' : 'rgba(10, 132, 255, 0.02)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {/* Top Header */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span 
+                                style={{ 
+                                  fontSize: '0.7rem', 
+                                  fontWeight: 800, 
+                                  padding: '2px 8px', 
+                                  borderRadius: '5px',
+                                  background: 'rgba(10, 132, 255, 0.2)',
+                                  color: '#60a5fa',
+                                  border: '1px solid rgba(10, 132, 255, 0.35)'
+                                }}
+                              >
+                                🛡️ Hedged Spread (2 Legs)
+                              </span>
+
+                              {/* Leg 1 Pill */}
+                              <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(255,255,255,0.04)', padding: '2px 7px', borderRadius: '5px', border: '1px solid var(--border-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ color: leg1.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800 }}>{leg1.action}</span>
+                                <span>{leg1.symbol}</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: leg1.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
+                                  ({leg1.netPnL >= 0 ? '+' : ''}{formatCurrency(leg1.netPnL)})
+                                </span>
+                              </span>
+
+                              {/* Leg 2 Pill */}
+                              <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(255,255,255,0.04)', padding: '2px 7px', borderRadius: '5px', border: '1px solid var(--border-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ color: leg2.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800 }}>{leg2.action}</span>
+                                <span>{leg2.symbol}</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: leg2.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
+                                  ({leg2.netPnL >= 0 ? '+' : ''}{formatCurrency(leg2.netPnL)})
+                                </span>
+                              </span>
+
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span>• {formatDateDisplay(pos.date)}</span>
+                                {pos.entryTime && <span>({formatTimeToAMPM(pos.entryTime)})</span>}
+                              </span>
+
+                              {pos.broker && <BrokerBadge broker={pos.broker} />}
+                            </div>
+
+                            {/* P&L Badge */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span 
+                                style={{ 
+                                  fontSize: '0.85rem', 
+                                  fontWeight: 800, 
+                                  fontFamily: 'var(--font-mono)',
+                                  color: isWin ? 'var(--color-win)' : 'var(--color-loss)',
+                                  background: isWin ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
+                                  border: '1px solid ' + (isWin ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
+                                  padding: '3px 8px',
+                                  borderRadius: '6px'
+                                }}
+                              >
+                                {isPnlVisible ? `Spread Net: ${isWin ? '+' : ''}₹${Math.round(pos.combinedNetPnL).toLocaleString('en-IN')}` : '••••'}
+                              </span>
+
+                              {onEditTrade && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onClose();
+                                    onEditTrade(leg1.id);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--primary)',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                  title="Inspect or Edit Spread in TradeLogger"
+                                >
+                                  <ExternalLink size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Deduplicated Mistakes & Emotion */}
+                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                            {hasMistake ? (
+                              pos.mistakes.map(m => (
+                                <span 
+                                  key={m}
+                                  style={{ 
+                                    fontSize: '0.7rem', 
+                                    fontWeight: 700, 
+                                    padding: '2px 8px', 
+                                    borderRadius: '9999px',
+                                    background: 'rgba(239, 68, 68, 0.18)',
+                                    color: '#fca5a5',
+                                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <span>⚠️ चूक:</span> {m}
+                                </span>
+                              ))
+                            ) : (
+                              <span 
+                                style={{ 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 650, 
+                                  padding: '2px 7px', 
+                                  borderRadius: '9999px',
+                                  background: 'rgba(48, 209, 88, 0.12)',
+                                  color: '#4ade80',
+                                  border: '1px solid rgba(48, 209, 88, 0.25)'
+                                }}
+                              >
+                                ✓ चूक नाही (Clean Setup)
+                              </span>
+                            )}
+
+                            {pos.emotion && (
+                              <span 
+                                style={{ 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 600, 
+                                  padding: '2px 7px', 
+                                  borderRadius: '9999px',
+                                  background: 'rgba(191, 90, 242, 0.12)',
+                                  color: '#d8b4fe',
+                                  border: '1px solid rgba(191, 90, 242, 0.25)'
+                                }}
+                              >
+                                भावना: {pos.emotion}
+                              </span>
+                            )}
+
+                            {pos.strategy && (
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', padding: '2px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
+                                Strategy: {pos.strategy}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Spread Trade Note Displayed ONCE */}
+                          <div 
+                            style={{ 
+                              padding: '10px 12px', 
+                              borderRadius: '10px', 
+                              background: hasNote ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.015)',
+                              borderLeft: hasNote ? '3px solid ' + (hasMistake ? '#f87171' : 'var(--primary)') : '3px solid var(--border-color)',
+                              fontSize: '0.8rem',
+                              color: hasNote ? 'var(--text-main)' : 'var(--text-dim)',
+                              lineHeight: 1.5
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: hasNote ? '4px' : '0' }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: hasNote ? (hasMistake ? '#fca5a5' : 'var(--primary)') : 'var(--text-dim)' }}>
+                                📝 तुमची स्प्रेड नोंद (Trade Note):
+                              </span>
+                            </div>
+                            {hasNote ? (
+                              <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
+                            ) : (
+                              <span style={{ fontStyle: 'italic', fontSize: '0.75rem' }}>
+                                या स्प्रेडसाठी कोणतीही नोंद लिहिलेली नाही (No note written).
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Single Trade Position
+                    const t = pos.leg1;
                     return (
                       <div 
                         key={t.id}
@@ -675,7 +878,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                         {/* Mistakes & Emotion Tags Row */}
                         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                           {hasMistake ? (
-                            mistakes.map(m => (
+                            pos.mistakes.map(m => (
                               <span 
                                 key={m}
                                 style={{ 
@@ -751,7 +954,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                             </span>
                           </div>
                           {hasNote ? (
-                            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{t.notes}</p>
+                            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
                           ) : (
                             <span style={{ fontStyle: 'italic', fontSize: '0.75rem' }}>
                               या ट्रेडसाठी कोणतीही नोंद लिहिलेली नाही (No note written).
