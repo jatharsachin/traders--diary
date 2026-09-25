@@ -28,6 +28,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
 
   const [startDate, setStartDate] = useState(oneMonthAgoStr);
   const [endDate, setEndDate] = useState(todayStr);
+  const [selectedPreset, setSelectedPreset] = useState<string>('30days');
   const [sortAscending, setSortAscending] = useState(false);
   const [showRunningBalance, setShowRunningBalance] = useState(true);
 
@@ -64,6 +65,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   }, [selectedFY, minDate, maxDate]);
 
   const handleQuickRange = (range: string) => {
+    setSelectedPreset(range);
     if (range === 'today') {
       setStartDate(todayStr);
       setEndDate(todayStr);
@@ -489,9 +491,50 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Range Inputs & Quick Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        {/* Right Toolbar Controls - Unified Standard Software Alignment */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Integrated Date Filter Capsule Group */}
+          <div 
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              background: 'rgba(255, 255, 255, 0.025)', 
+              padding: '2px 8px', 
+              borderRadius: '8px', 
+              border: '1px solid var(--border-color)',
+              height: '34px',
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* Quick Preset Selector */}
+            <select
+              className="form-select"
+              style={{ 
+                padding: '0 6px', 
+                fontSize: '0.74rem', 
+                height: '26px', 
+                borderRadius: '6px', 
+                cursor: 'pointer', 
+                background: 'var(--bg-card)', 
+                color: 'var(--text-main)', 
+                border: '1px solid var(--border-color)',
+                outline: 'none',
+                fontWeight: 600
+              }}
+              value={selectedPreset}
+              onChange={(e) => handleQuickRange(e.target.value)}
+            >
+              <option value="30days">Past 30 Days</option>
+              <option value="today">Today</option>
+              <option value="month">This Month</option>
+              {minDate && <option value="fy">Full Financial Year</option>}
+              <option value="custom">Custom Range</option>
+            </select>
+
+            <span style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
+
+            {/* From Date */}
             <input 
               type="date" 
               value={startDate} 
@@ -501,15 +544,26 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                 const val = e.target.value;
                 if (!val) return;
                 setStartDate(val);
+                setSelectedPreset('custom');
                 if (endDate && val > endDate) {
                   setEndDate(val);
                 }
               }} 
               onClick={(e) => (e.target as any).showPicker?.()}
               className="form-input" 
-              style={{ padding: '4px 8px', fontSize: '0.78rem', height: '32px', width: '135px', cursor: 'pointer' }} 
+              style={{ 
+                padding: '0 6px', 
+                fontSize: '0.76rem', 
+                height: '26px', 
+                width: '124px', 
+                cursor: 'pointer',
+                borderRadius: '5px',
+                border: '1px solid transparent',
+                background: 'transparent'
+              }} 
             />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>to</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>to</span>
+            {/* To Date */}
             <input 
               type="date" 
               value={endDate} 
@@ -519,66 +573,75 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
                 const val = e.target.value;
                 if (!val) return;
                 setEndDate(val);
+                setSelectedPreset('custom');
                 if (startDate && val < startDate) {
                   setStartDate(val);
                 }
               }} 
               onClick={(e) => (e.target as any).showPicker?.()}
               className="form-input" 
-              style={{ padding: '4px 8px', fontSize: '0.78rem', height: '32px', width: '135px', cursor: 'pointer' }} 
-            />
-
-            <select
-              className="form-select"
               style={{ 
-                padding: '4px 8px', 
-                fontSize: '0.74rem', 
-                height: '32px', 
-                borderRadius: '8px', 
-                cursor: 'pointer', 
-                background: 'var(--bg-card)', 
-                color: 'var(--text-main)', 
-                border: '1px solid var(--border-color)' 
-              }}
-              onChange={(e) => handleQuickRange(e.target.value)}
-              defaultValue="30days"
-            >
-              <option value="30days">Past 30 Days</option>
-              <option value="today">Today</option>
-              <option value="month">This Month</option>
-              {minDate && <option value="fy">Full Financial Year</option>}
-            </select>
+                padding: '0 6px', 
+                fontSize: '0.76rem', 
+                height: '26px', 
+                width: '124px', 
+                cursor: 'pointer',
+                borderRadius: '5px',
+                border: '1px solid transparent',
+                background: 'transparent'
+              }} 
+            />
           </div>
 
-
-
-          {/* Visibility toggle & print */}
+          {/* Visibility toggle */}
           <button
             type="button"
             onClick={togglePnlVisibility}
             className="btn btn-secondary"
-            style={{ width: '32px', height: '32px', padding: 0, border: '1.5px solid var(--border-color)', background: 'none' }}
+            style={{ width: '34px', height: '34px', padding: 0, borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title={isPnlVisible ? "Hide P&L" : "Show P&L"}
           >
             {isPnlVisible ? <EyeOff size={14} /> : <Eye size={14} color="var(--primary)" />}
           </button>
 
+          {/* Sort Order */}
           <button
             type="button"
             onClick={() => setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC')}
             className="btn btn-secondary"
-            style={{ fontSize: '0.72rem', padding: '6px 12px', border: '1.5px solid var(--border-color)', background: 'var(--bg-card)', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ 
+              fontSize: '0.74rem', 
+              padding: '0 12px', 
+              border: '1px solid var(--border-color)', 
+              background: 'var(--bg-card)', 
+              height: '34px', 
+              borderRadius: '8px',
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px' 
+            }}
             title={sortOrder === 'DESC' ? "Sorted: Latest First. Click to sort Earliest First" : "Sorted: Earliest First. Click to sort Latest First"}
           >
             <ArrowUpDown size={13} color="var(--primary)" />
             <span>{sortOrder === 'DESC' ? 'Latest First' : 'Earliest First'}</span>
           </button>
 
+          {/* Print */}
           <button
             type="button"
             onClick={handlePrintDayBook}
             className="btn btn-secondary"
-            style={{ fontSize: '0.72rem', padding: '6px 12px', border: '1.5px solid var(--border-color)', background: 'var(--bg-card)', height: '32px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ 
+              fontSize: '0.74rem', 
+              padding: '0 12px', 
+              border: '1px solid var(--border-color)', 
+              background: 'var(--bg-card)', 
+              height: '34px', 
+              borderRadius: '8px',
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px' 
+            }}
           >
             <Printer size={13} />
             <span>Print Ledger</span>
