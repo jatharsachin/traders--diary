@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
+import { groupHedgedTrades } from '../utils/tradeGrouping';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
   CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown
@@ -365,9 +366,94 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    // Group paired hedge legs into unified positions for printing
+    const groupedPositions = groupHedgedTrades(rangeTrades);
+
+    const printTradeItems = groupedPositions.map(pos => {
+      if (pos.isHedgedSpread && pos.leg2) {
+        const leg1 = pos.leg1;
+        const leg2 = pos.leg2;
+        const exitTime = leg1.exitTime || leg2.exitTime;
+        const entryTime = leg1.entryTime || leg2.entryTime;
+        const isCredit = pos.combinedNetPnL >= 0;
+
+        // Clean note without duplicate hedge leg annotations
+        const noteClean = pos.notes ? pos.notes.trim() : '';
+        const legBreakdown = `Leg 1: ${leg1.action} ${leg1.symbol} (${leg1.netPnL >= 0 ? '+' : ''}${formatCurrency(leg1.netPnL)}) | Leg 2: ${leg2.action} ${leg2.symbol} (${leg2.netPnL >= 0 ? '+' : ''}${formatCurrency(leg2.netPnL)})`;
+        const description = noteClean 
+          ? `${noteClean}<div style="font-size:9.5px; color:#718096; margin-top:2px;">${legBreakdown}</div>` 
+          : `<div style="font-size:9.5px; color:#718096;">${legBreakdown}</div>`;
+
+        return {
+          id: pos.id,
+          date: pos.date,
+          time: exitTime || entryTime || '09:15',
+          type: 'TRADE' as const,
+          label: 'HEDGED SPREAD',
+          typeLabel: 'Hedged Spread',
+          symbol: `${leg1.symbol} + ${leg2.symbol}`,
+          title: `[Hedged Spread] ${leg1.action} ${leg1.symbol} + ${leg2.action} ${leg2.symbol}`,
+          description,
+          amount: pos.combinedNetPnL,
+          charges: (leg1.brokerage + leg1.taxes) + (leg2.brokerage + leg2.taxes),
+          isCredit,
+          broker: pos.broker || leg1.broker,
+          entryTime,
+          exitTime
+        };
+      }
+
+      const t = pos.leg1;
+      const isOption = t.optionType === 'CE' || t.optionType === 'PE' || /\b(CE|PE)\b/.test(t.symbol);
+      const isFuture = t.segment === 'F&O' && !isOption;
+      const typeLabel = isOption ? 'Options' : isFuture ? 'Futures' : 'Equity';
+      return {
+        id: t.id,
+        date: t.exitDate || t.date,
+        time: t.exitTime || t.entryTime || '09:15',
+        type: 'TRADE' as const,
+        label: t.action,
+        typeLabel,
+        symbol: t.symbol,
+        qty: t.qty,
+        entryPrice: t.entryPrice,
+        strategy: t.strategy || 'None',
+        mistake: t.mistake || 'None',
+        title: `[${typeLabel} Trade] ${t.action} ${t.symbol}`,
+        description: t.notes && t.notes.trim() 
+          ? t.notes.trim() 
+          : `Qty: ${t.qty} @ Entry: ₹${t.entryPrice} | Setup: ${t.strategy || 'None'} | Mistakes: ${t.mistake || 'None'}`,
+        amount: t.netPnL,
+        charges: t.brokerage + t.taxes,
+        isCredit: t.netPnL >= 0,
+        broker: t.broker,
+        rawNotes: t.notes || '',
+        isInvestment: false,
+        entryTime: t.entryTime,
+        exitTime: t.exitTime
+      };
+    });
+
+    // Chronological sort for printing
+    const printTimelineItems = [...printTradeItems, ...adjItems, ...invPurchaseItems, ...invExitItems].sort((a, b) => {
+      const dComp = a.date.localeCompare(b.date);
+      if (dComp !== 0) return dComp;
+      return (a.time || '').localeCompare(b.time || '');
+    });
+
+    // Calculate running balance chronologically
+    let bal = openingBalance;
+    const printTimelineWithBal = printTimelineItems.map(item => {
+      bal += item.amount;
+      return {
+        ...item,
+        runningBalance: bal
+      };
+    });
+
     const sortedTimeline = sortOrder === 'DESC' 
-      ? [...timelineItemsWithBal].reverse() 
-      : timelineItemsWithBal;
+      ? [...printTimelineWithBal].reverse() 
+      : printTimelineWithBal;
 
     const tableRows = sortedTimeline.map((item) => {
       const isCredit = item.isCredit;
@@ -429,7 +515,7 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
           <table class="summary-table">
             <tr>
               <td><strong>Opening Balance:</strong> ${formatCurrency(openingBalance)}</td>
-              <td><strong>Total Trades:</strong> ${totalTradesCount} (WR: ${winRate.toFixed(1)}%)</td>
+              <td><strong>Total Positions:</strong> ${groupedPositions.length}${groupedPositions.length !== totalTradesCount ? ` (${totalTradesCount} trade legs)` : ''} (WR: ${winRate.toFixed(1)}%)</td>
               <td><strong>Net Trading P&L:</strong> ${formatCurrency(netPnL)}</td>
             </tr>
             <tr>
