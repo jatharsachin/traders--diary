@@ -82,7 +82,9 @@ const MISTAKES: Mistake[] = [
   'Panic Exit',
   'Greed Hold',
   'Manual Intervention',
-  'Tech / API Issue'
+  'Tech / API Issue',
+  '10K',
+  '10K Drawdown'
 ];
 
 export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: TradeLoggerProps) {
@@ -1767,7 +1769,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                   )}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {MISTAKES.map((m) => {
+                  {Array.from(new Set([...MISTAKES, ...selectedMistakes])).map((m) => {
                     const isNone = m === 'None';
                     const isSelected = isNone 
                       ? selectedMistakes.length === 0 
