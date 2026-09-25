@@ -15,12 +15,12 @@ import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
 import { BROKER_LOGOS } from './utils/brandLogos';
 import { AccountFilterDropdown } from './components/AccountFilterDropdown';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
 
-type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
+type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'mistakes' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
 
 
 const safeLazy = (importFn: () => Promise<any>) =>
@@ -56,6 +56,7 @@ const Taxation = safeLazy(() => import('./components/Taxation').then(m => ({ def
 const DayBook = safeLazy(() => import('./components/DayBook').then(m => ({ default: m.DayBook })));
 const ContractNotesManager = safeLazy(() => import('./components/ContractNotesManager').then(m => ({ default: m.ContractNotesManager })));
 const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
+const MistakesJournal = safeLazy(() => import('./components/MistakesJournal').then(m => ({ default: m.MistakesJournal })));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -742,6 +743,14 @@ export default function App() {
             >
               <History size={17} color={activeTab === 'logs' ? '#fff' : '#34d399'} />
               <span className="hide-collapsed">Logs</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('mistakes'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'mistakes' ? 'active' : '')}
+              title="Mistakes & Trade Notes Journal"
+            >
+              <AlertTriangle size={17} color={activeTab === 'mistakes' ? '#fff' : '#f87171'} />
+              <span className="hide-collapsed">Mistakes & Notes</span>
             </button>
 
             <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginTop: '12px', marginBottom: '4px' }}>
@@ -1500,6 +1509,15 @@ export default function App() {
                 <History size={15} color="#34d399" />
                 Logs
               </button>
+              <button 
+                onClick={() => setActiveTab('mistakes')} 
+                className={"nav-tab " + (activeTab === 'mistakes' ? 'active' : '')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="Day-wise Mistakes & Notes Journal"
+              >
+                <AlertTriangle size={15} color="#f87171" />
+                Mistakes & Notes
+              </button>
             </div>
           </div>
 
@@ -1919,6 +1937,12 @@ export default function App() {
                 activeAccountId={activeAccountId} 
                 initialDateFilter={selectedDateFilter}
                 onClearDateFilter={() => setSelectedDateFilter(null)}
+              />
+            )}
+            {activeTab === 'mistakes' && (
+              <MistakesJournal 
+                activeAccountId={activeAccountId} 
+                onEditTrade={handleEditTrade} 
               />
             )}
             {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
