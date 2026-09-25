@@ -214,12 +214,12 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
   const getRelativeDayLabel = (dateStr: string) => {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    if (dateStr === todayStr) return 'आज (Today)';
+    if (dateStr === todayStr) return 'Today';
 
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
     const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-    if (dateStr === yesterdayStr) return 'काल (Yesterday)';
+    if (dateStr === yesterdayStr) return 'Yesterday';
 
     return null;
   };
@@ -259,11 +259,11 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                 color: '#f87171', 
                 border: '1px solid rgba(239, 68, 68, 0.3)' 
               }}>
-                दैनंदिन चुका व नोट्स
+                Daily Audit
               </span>
             </div>
             <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              दिवसनिहाय तुमच्या सर्व ट्रेड नोट्स, चुका व भावनांचे स्वतंत्र विश्लेषण — चुका सुधारा आणि शिस्त वाढवा.
+              Day-wise breakdown of your trade notes, execution errors, and emotions — analyze patterns and build discipline.
             </p>
           </div>
         </div>
@@ -311,7 +311,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
           }}
         >
           <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            नोंद असलेले दिवस (Days Traded)
+            Days Traded (With Notes)
           </span>
           <div style={{ fontSize: '1.45rem', fontWeight: 850, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', marginTop: '2px' }}>
             {stats.uniqueDays} <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-dim)' }}>Days</span>
@@ -332,7 +332,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
           }}
         >
           <span style={{ fontSize: '0.68rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            एकूण नोंदवलेल्या चुका (Mistakes)
+            Identified Mistakes
           </span>
           <div style={{ fontSize: '1.45rem', fontWeight: 850, fontFamily: 'var(--font-mono)', color: '#f87171', marginTop: '2px' }}>
             {stats.totalMistakePositions} <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fca5a5' }}>Decisions</span>
@@ -353,13 +353,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
           }}
         >
           <span style={{ fontSize: '0.68rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            चुकांमुळे झालेला तोटा (Mistake Cost)
+            Financial Mistake Cost
           </span>
           <div style={{ fontSize: '1.45rem', fontWeight: 850, fontFamily: 'var(--font-mono)', color: '#ef4444', marginTop: '2px' }}>
             {isPnlVisible ? `-₹${Math.round(stats.totalMistakeLoss).toLocaleString('en-IN')}` : '••••••'}
           </div>
           <span style={{ fontSize: '0.72rem', color: '#fca5a5', marginTop: '2px', display: 'block' }}>
-            या चुका टाळल्यास भांडवल वाचले असते
+            Realized losses from execution mistakes
           </span>
         </div>
 
@@ -374,10 +374,10 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
           }}
         >
           <span style={{ fontSize: '0.68rem', color: '#fbbf24', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            सर्वात मोठी चूक (Top Repeat Error)
+            Top Repeat Error
           </span>
           <div style={{ fontSize: '1.1rem', fontWeight: 850, color: '#fbbf24', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {stats.topMistake ? stats.topMistake.name : 'None (No Mistakes)'}
+            {stats.topMistake ? stats.topMistake.name : 'None (Clean Execution)'}
           </div>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px', display: 'block' }}>
             {stats.topMistake ? `${stats.topMistake.count} times repeated` : 'Clean execution discipline'}
@@ -411,7 +411,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search in trade notes, symbol, setup..."
+              placeholder="Search in trade notes, symbol, setup, mistakes..."
               className="input-field"
               style={{ 
                 paddingLeft: '34px', 
@@ -438,7 +438,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
 
           {/* Month Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>महिना:</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Month:</span>
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
@@ -454,7 +454,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
 
           {/* Mistake Type Filter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>चूक (Mistake):</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Mistake:</span>
             <select
               value={selectedMistakeType}
               onChange={(e) => setSelectedMistakeType(e.target.value)}
@@ -470,7 +470,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
 
           {/* Emotion Filter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>भावना:</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Emotion:</span>
             <select
               value={selectedEmotion}
               onChange={(e) => setSelectedEmotion(e.target.value)}
@@ -478,11 +478,11 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
               style={{ padding: '5px 10px', fontSize: '0.78rem', borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
             >
               <option value="All">All Emotions</option>
-              <option value="Calm">Calm (शांत)</option>
-              <option value="Fearful">Fearful (भीती)</option>
-              <option value="Impatient">Impatient (अधीर)</option>
-              <option value="Greedy">Greedy (लोभी)</option>
-              <option value="Revengeful">Revengeful (सूड भावना)</option>
+              <option value="Calm">Calm</option>
+              <option value="Fearful">Fearful</option>
+              <option value="Impatient">Impatient</option>
+              <option value="Greedy">Greedy</option>
+              <option value="Revengeful">Revengeful</option>
             </select>
           </div>
 
@@ -494,7 +494,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
             title={sortOrder === 'desc' ? "Showing Newest Dates First" : "Showing Oldest Dates First"}
           >
             <ArrowUpDown size={14} />
-            <span>{sortOrder === 'desc' ? 'नवीन दिवस आधी (Newest)' : 'जुने दिवस आधी (Oldest)'}</span>
+            <span>{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
           </button>
         </div>
 
@@ -514,7 +514,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                 border: '1px solid ' + (typeFilter === 'all' ? 'var(--primary)' : 'var(--border-color)')
               }}
             >
-              सर्व दिवस (All Noted Days — {dayGroups.length})
+              All Noted Days ({dayGroups.length})
             </button>
 
             <button
@@ -530,7 +530,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                 border: '1px solid ' + (typeFilter === 'mistakes' ? '#ef4444' : 'var(--border-color)')
               }}
             >
-              ⚠️ फक्त चुका झालेले दिवस (Only Mistakes)
+              ⚠️ Mistakes Only
             </button>
 
             <button
@@ -546,7 +546,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                 border: '1px solid ' + (typeFilter === 'notes' ? 'var(--primary)' : 'var(--border-color)')
               }}
             >
-              📝 फक्त नोट्स असलेले दिवस (Only Notes)
+              📝 Notes Only
             </button>
 
             <button
@@ -562,7 +562,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                 border: '1px solid ' + (typeFilter === 'losses' ? '#f87171' : 'var(--border-color)')
               }}
             >
-              🔴 तोटा झालेले दिवस (Loss Days)
+              🔴 Loss Days
             </button>
           </div>
 
@@ -590,10 +590,10 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
         >
           <div style={{ fontSize: '2.5rem' }}>🎯</div>
           <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>
-            या फिल्टरमध्ये कोणतीही नोंद किंवा चूक आढळली नाही.
+            No trade notes or mistakes found for this filter.
           </strong>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '480px', margin: 0 }}>
-            ट्रेड लॉग (Trade Log) करताना तुमच्या ट्रेड्सचे कारण आणि विचार 'Notes' मध्ये लिहा आणि चुका 'Mistakes' मध्ये टॅग करा. ते सर्व या टॅबमध्ये दिवसनिहाय सुरक्षितपणे दिसतील.
+            When logging trades, record your reasoning in 'Notes' and tag execution errors in 'Mistakes' to review and audit them here.
           </p>
         </div>
       ) : (
@@ -880,7 +880,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                                     gap: '4px'
                                   }}
                                 >
-                                  <span>⚠️ चूक:</span> {m}
+                                  <span>⚠️ Mistake:</span> {m}
                                 </span>
                               ))
                             ) : (
@@ -895,7 +895,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                                   border: '1px solid rgba(48, 209, 88, 0.25)'
                                 }}
                               >
-                                ✓ चूक नाही (Clean Setup)
+                                ✓ Clean Setup
                               </span>
                             )}
 
@@ -911,7 +911,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                                   border: '1px solid rgba(191, 90, 242, 0.25)'
                                 }}
                               >
-                                भावना: {pos.emotion}
+                                Emotion: {pos.emotion}
                               </span>
                             )}
 
@@ -936,14 +936,14 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: hasNote ? '4px' : '0' }}>
                               <span style={{ fontSize: '0.74rem', fontWeight: 750, color: hasNote ? (hasMistake ? '#fca5a5' : 'var(--primary)') : 'var(--text-dim)' }}>
-                                📝 तुमची स्प्रेड ट्रेड नोंद (Trade Note):
+                                📝 Trade Note (Hedged Spread):
                               </span>
                             </div>
                             {hasNote ? (
                               <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
                             ) : (
                               <span style={{ fontStyle: 'italic', fontSize: '0.76rem' }}>
-                                या स्प्रेडसाठी कोणतीही नोंद लिहिलेली नाही (No note written).
+                                No notes logged for this spread.
                               </span>
                             )}
                           </div>
@@ -951,7 +951,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                           {/* Rules Followed / Broken */}
                           {pos.rulesFollowed && pos.rulesFollowed.length > 0 && (
                             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
-                              <span style={{ fontWeight: 650 }}>नियम पाळले:</span>
+                              <span style={{ fontWeight: 650 }}>Rules Followed:</span>
                               {pos.rulesFollowed.map(r => (
                                 <span key={r} style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
                                   ✓ {r}
@@ -1080,7 +1080,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                                   gap: '4px'
                                 }}
                               >
-                                <span>⚠️ चूक:</span> {m}
+                                <span>⚠️ Mistake:</span> {m}
                               </span>
                             ))
                           ) : (
@@ -1095,7 +1095,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                                 border: '1px solid rgba(48, 209, 88, 0.25)'
                               }}
                             >
-                              ✓ चूक नाही (Clean Setup)
+                              ✓ Clean Setup
                             </span>
                           )}
 
@@ -1111,7 +1111,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                                 border: '1px solid rgba(191, 90, 242, 0.25)'
                               }}
                             >
-                              भावना: {trade.emotion}
+                              Emotion: {trade.emotion}
                             </span>
                           )}
 
@@ -1136,14 +1136,14 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: hasNote ? '4px' : '0' }}>
                             <span style={{ fontSize: '0.74rem', fontWeight: 750, color: hasNote ? (hasMistake ? '#fca5a5' : 'var(--primary)') : 'var(--text-dim)' }}>
-                              📝 तुमची ट्रेड नोंद (Trade Note):
+                              📝 Trade Note:
                             </span>
                           </div>
                           {hasNote ? (
                             <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
                           ) : (
                             <span style={{ fontStyle: 'italic', fontSize: '0.76rem' }}>
-                              या ट्रेडसाठी कोणतीही नोंद लिहिलेली नाही (No note written).
+                              No notes logged for this trade.
                             </span>
                           )}
                         </div>
@@ -1151,7 +1151,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                         {/* Rules Followed / Broken */}
                         {trade.rulesFollowed && trade.rulesFollowed.length > 0 && (
                           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
-                            <span style={{ fontWeight: 650 }}>नियम पाळले:</span>
+                            <span style={{ fontWeight: 650 }}>Rules Followed:</span>
                             {trade.rulesFollowed.map(r => (
                               <span key={r} style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
                                 ✓ {r}

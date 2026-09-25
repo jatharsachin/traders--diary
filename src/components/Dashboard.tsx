@@ -1320,11 +1320,11 @@ export function Dashboard({
                     Weekend Routine: Review Weekly Notes & Mistakes
                   </strong>
                   <span style={{ fontSize: '0.66rem', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', background: 'rgba(10, 132, 255, 0.2)', color: 'var(--primary)', border: '1px solid rgba(10, 132, 255, 0.35)' }}>
-                    शनिवार/रविवार रिव्ह्यू
+                    Weekend Routine
                   </span>
                 </div>
                 <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  मार्केट बंद आहे. ट्रेड लॉगमध्ये नोंदवलेल्या सर्व नोट्स व चुका तपासा, जेणेकरून सोमवारी चुकांची पुनरावृत्ती होणार नाही!
+                  Market is closed. Audit your trade notes and execution errors from this week to eliminate repeat mistakes next week!
                 </p>
               </div>
             </div>
@@ -1336,7 +1336,7 @@ export function Dashboard({
                 style={{ padding: '7px 16px', fontSize: '0.78rem', gap: '6px', fontWeight: 700 }}
               >
                 <BookOpen size={15} />
-                <span>रिव्ह्यू सुरू करा (Review Notes)</span>
+                <span>Review Notes & Mistakes</span>
               </button>
             </div>
           </div>

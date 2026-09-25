@@ -281,11 +281,11 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                   borderRadius: '9999px',
                   border: '1px solid rgba(10, 132, 255, 0.25)'
                 }}>
-                  वीकेंड आत्मपरीक्षण
+                  Weekly Audit
                 </span>
               </div>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                ह्या आठवड्यात ट्रेड लॉगमध्ये लिहिलेल्या सर्व नोट्स, चुका व भावनांचा सविस्तर रिव्ह्यू.
+                Review all trade notes, execution errors, and psychology logged across this week.
               </p>
             </div>
           </div>
@@ -314,7 +314,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
           {/* Week Dropdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Calendar size={16} color="var(--primary)" />
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>निवडा आठवडा:</span>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>Select Week:</span>
             <select 
               value={selectedWeekId} 
               onChange={(e) => setSelectedWeekId(e.target.value)}
@@ -394,7 +394,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
             }}
           >
             <MessageSquare size={15} />
-            <span>ट्रेड नोट्स व चुका (Trade Notes & Mistakes Feed)</span>
+            <span>Trade Notes & Mistakes Feed</span>
             <span style={{ 
               fontSize: '0.68rem', 
               padding: '1px 6px', 
@@ -425,7 +425,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
             }}
           >
             <Target size={15} />
-            <span>आठवड्याचे आत्मपरीक्षण व नियम (Weekly Reflection & Rules)</span>
+            <span>Weekly Reflection & Rules</span>
           </button>
         </div>
 
@@ -454,12 +454,12 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <AlertTriangle size={16} color="#f87171" />
                       <strong style={{ fontSize: '0.82rem', color: '#f87171' }}>
-                        या आठवड्यातील चुकांचे विश्लेषण (Weekly Mistake Pattern):
+                        Weekly Mistake Pattern:
                       </strong>
                     </div>
                     {mistakeStats.totalMistakeLoss > 0 && (
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f87171', background: 'rgba(239, 68, 68, 0.15)', padding: '2px 8px', borderRadius: '6px' }}>
-                        तोटा: -{formatCurrency(mistakeStats.totalMistakeLoss)}
+                        Loss: -{formatCurrency(mistakeStats.totalMistakeLoss)}
                       </span>
                     )}
                   </div>
@@ -507,7 +507,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                       border: '1px solid ' + (feedFilter === 'all' ? 'var(--primary)' : 'var(--border-color)')
                     }}
                   >
-                    सर्व पोझिशन्स ({groupedWeekPositions.length})
+                    All Positions ({groupedWeekPositions.length})
                   </button>
 
                   <button
@@ -524,7 +524,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                       border: '1px solid ' + (feedFilter === 'notes' ? 'var(--primary)' : 'var(--border-color)')
                     }}
                   >
-                    📝 फक्त नोट्स असलेले ({mistakeStats.totalNotesCount})
+                    📝 Notes Only ({mistakeStats.totalNotesCount})
                   </button>
 
                   <button
@@ -541,7 +541,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                       border: '1px solid ' + (feedFilter === 'mistakes' ? '#ef4444' : 'var(--border-color)')
                     }}
                   >
-                    ⚠️ फक्त चुका झालेले ({mistakeStats.totalMistakeTrades})
+                    ⚠️ Mistakes Only ({mistakeStats.totalMistakeTrades})
                   </button>
 
                   <button
@@ -558,7 +558,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                       border: '1px solid ' + (feedFilter === 'losses' ? '#f87171' : 'var(--border-color)')
                     }}
                   >
-                    🔴 तोट्यातील पोझिशन्स ({groupedWeekPositions.filter(p => p.combinedNetPnL < 0).length})
+                    🔴 Loss Positions ({groupedWeekPositions.filter(p => p.combinedNetPnL < 0).length})
                   </button>
                 </div>
 
@@ -577,9 +577,9 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                   border: '1px dashed var(--border-color)',
                   color: 'var(--text-muted)'
                 }}>
-                  <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>या फिल्टरमध्ये कोणतेही ट्रेड्स आढळले नाहीत.</p>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>No trades match the current filter.</p>
                   <p style={{ fontSize: '0.75rem', marginTop: '4px', color: 'var(--text-dim)' }}>
-                    ट्रेड लॉग करताना Notes आणि Mistakes नक्की नोंदवा जेणेकरून वीकेंडला सुधारणा करता येईल.
+                    When logging trades, tag mistakes and write notes to review them here during the weekend.
                   </p>
                 </div>
               ) : (
@@ -715,7 +715,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                                     gap: '4px'
                                   }}
                                 >
-                                  <span>⚠️ चूक:</span> {m}
+                                  <span>⚠️ Mistake:</span> {m}
                                 </span>
                               ))
                             ) : (
@@ -730,7 +730,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                                   border: '1px solid rgba(48, 209, 88, 0.25)'
                                 }}
                               >
-                                ✓ चूक नाही (Clean Setup)
+                                ✓ Clean Setup
                               </span>
                             )}
 
@@ -746,7 +746,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                                   border: '1px solid rgba(191, 90, 242, 0.25)'
                                 }}
                               >
-                                भावना: {pos.emotion}
+                                Emotion: {pos.emotion}
                               </span>
                             )}
 
@@ -771,14 +771,14 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: hasNote ? '4px' : '0' }}>
                               <span style={{ fontSize: '0.72rem', fontWeight: 700, color: hasNote ? (hasMistake ? '#fca5a5' : 'var(--primary)') : 'var(--text-dim)' }}>
-                                📝 तुमची स्प्रेड नोंद (Trade Note):
+                                📝 Trade Note (Hedged Spread):
                               </span>
                             </div>
                             {hasNote ? (
                               <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
                             ) : (
                               <span style={{ fontStyle: 'italic', fontSize: '0.75rem' }}>
-                                या स्प्रेडसाठी कोणतीही नोंद लिहिलेली नाही (No note written).
+                                No trade notes logged for this spread.
                               </span>
                             )}
                           </div>
@@ -894,7 +894,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                                   gap: '4px'
                                 }}
                               >
-                                <span>⚠️ चूक:</span> {m}
+                                <span>⚠️ Mistake:</span> {m}
                               </span>
                             ))
                           ) : (
@@ -909,7 +909,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                                 border: '1px solid rgba(48, 209, 88, 0.25)'
                               }}
                             >
-                              ✓ चूक नाही (No Mistake)
+                              ✓ Clean Setup
                             </span>
                           )}
 
@@ -925,7 +925,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                                 border: '1px solid rgba(191, 90, 242, 0.25)'
                               }}
                             >
-                              भावना: {t.emotion}
+                              Emotion: {t.emotion}
                             </span>
                           )}
 
@@ -950,14 +950,14 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: hasNote ? '4px' : '0' }}>
                             <span style={{ fontSize: '0.72rem', fontWeight: 700, color: hasNote ? (hasMistake ? '#fca5a5' : 'var(--primary)') : 'var(--text-dim)' }}>
-                              📝 तुमची नोंद (Trade Note):
+                              📝 Trade Note:
                             </span>
                           </div>
                           {hasNote ? (
                             <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
                           ) : (
                             <span style={{ fontStyle: 'italic', fontSize: '0.75rem' }}>
-                              या ट्रेडसाठी कोणतीही नोंद लिहिलेली नाही (No note written).
+                              No notes logged for this trade.
                             </span>
                           )}
                         </div>
@@ -1005,12 +1005,12 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-win)' }}>
                   <CheckCircle2 size={16} />
-                  <span>1. काय चांगले झाले? (Wins & Good Execution)</span>
+                  <span>1. Wins & Good Execution</span>
                 </label>
                 <textarea
                   value={winsText}
                   onChange={(e) => setWinsText(e.target.value)}
-                  placeholder="उदा. मंगळवारी स्टॉप लॉस काटेकोरपणे पाळला, ब्रेकआऊटवर कॅन्डल क्लोजिंगची वाट बघितली, पोझिशन साईझ नियंत्रणात ठेवली..."
+                  placeholder="e.g. Strictly adhered to stop loss on Tuesday, waited for candle confirmation on breakouts, kept position sizing well within risk limits..."
                   className="input-field"
                   rows={3}
                   style={{ fontSize: '0.82rem', padding: '10px', resize: 'vertical', borderRadius: '10px' }}
@@ -1021,12 +1021,12 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', color: '#f87171' }}>
                   <AlertTriangle size={16} />
-                  <span>2. कोणत्या चुका झाल्या व काय शिकायला मिळाले? (Mistakes & Lessons Learned)</span>
+                  <span>2. Mistakes & Lessons Learned</span>
                 </label>
                 <textarea
                   value={mistakesText}
                   onChange={(e) => setMistakesText(e.target.value)}
-                  placeholder="उदा. गुरुवारी एक्स्पायरीला FOMO एन्ट्री घेतली, भीतीपोटी चांगल्या ट्रेडमधून लवकर एक्झिट केली, स्टॉप लॉस पुढे ढकलला..."
+                  placeholder="e.g. Took FOMO entry on expiry day, exited winners prematurely out of panic, trailed stop loss improperly..."
                   className="input-field"
                   rows={3}
                   style={{ fontSize: '0.82rem', padding: '10px', resize: 'vertical', borderRadius: '10px' }}
@@ -1037,12 +1037,12 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', color: '#60a5fa' }}>
                   <Target size={16} />
-                  <span>3. पुढील आठवड्यासाठी नियम व कमिटमेंट्स (Rules & Focus for Next Week)</span>
+                  <span>3. Next Week Focus & Golden Rules</span>
                 </label>
                 <textarea
                   value={goalsText}
                   onChange={(e) => setGoalsText(e.target.value)}
-                  placeholder="उदा. दररोज जास्तीत जास्त २ ट्रेड्स, १५ मिनिटांच्या कॅन्डल क्लोजिंगशिवाय कोणतीही नवीन एन्ट्री नाही, स्टॉप लॉस कधीही बदलणार नाही..."
+                  placeholder="e.g. Max 2 trades per day, no entries without 15-min candle closing confirmation, never move stop loss away..."
                   className="input-field"
                   rows={3}
                   style={{ fontSize: '0.82rem', padding: '10px', resize: 'vertical', borderRadius: '10px' }}
@@ -1062,7 +1062,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                   style={{ padding: '8px 24px', fontSize: '0.82rem', gap: '8px', fontWeight: 700 }}
                 >
                   <Save size={16} />
-                  <span>सेव्ह करा (Save Reflection)</span>
+                  <span>Save Reflection</span>
                 </button>
               </div>
             </form>
@@ -1083,7 +1083,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
           }}
         >
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            🔒 सुरक्षित: ट्रेड्स, लेजर किंवा कॅपिटलचा कोणताही डेटा बदलत नाही.
+            🔒 Read-only review: Trade, ledger, and capital records are strictly preserved.
           </span>
 
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -1093,7 +1093,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
               className="btn btn-secondary"
               style={{ padding: '7px 16px', fontSize: '0.8rem' }}
             >
-              बंद करा (Close)
+              Close
             </button>
             {activeTab === 'notes' && (
               <button
@@ -1102,7 +1102,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                 className="btn btn-primary"
                 style={{ padding: '7px 18px', fontSize: '0.8rem', gap: '6px', fontWeight: 700 }}
               >
-                <span>सुधारणा नियम लिहा (Write Rules)</span>
+                <span>Write Rules & Reflection</span>
                 <ChevronRight size={15} />
               </button>
             )}

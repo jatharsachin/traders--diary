@@ -673,10 +673,10 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                           }}
                           style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
                         />
-                        <span>Weekend Notes & Mistakes Review Reminders (वीकेंड रिव्ह्यू स्मरणपत्र)</span>
+                        <span>Weekend Notes & Mistakes Review Reminders</span>
                       </label>
                       <p style={{ fontSize: '0.65rem', color: 'var(--text-dim)', margin: '2px 0 0 20px' }}>
-                        शनिवार व रविवारी आठवड्यातील सर्व ट्रेड्सच्या नोट्स व चुकांचा रिव्ह्यू करण्यासाठी बॅनर व स्मरणपत्र दाखवा.
+                        Show reminders and banners on Saturday & Sunday to review trade notes and execution mistakes.
                       </p>
                     </div>
 
