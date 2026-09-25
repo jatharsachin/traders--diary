@@ -19,6 +19,8 @@ import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, 
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
+import { liquidGlassEngine } from './utils/liquidGlassEngine';
+import { LiquidMeshBackground } from './components/LiquidMeshBackground';
 
 type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'mistakes' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
 
@@ -380,7 +382,18 @@ export default function App() {
     .reduce((sum, i) => sum + (i.qty * (i.currentPrice || i.buyPrice)), 0);
   const combinedWealth = currentCapital + totalInvCurrent;
 
+  // Google Antigravity Liquid Glass Context-Aware Engine Initialization
+  useEffect(() => {
+    liquidGlassEngine.init(theme);
+    return () => {
+      liquidGlassEngine.destroy();
+    };
+  }, [theme]);
 
+  // Contextual P&L dynamic lighting and luminescence
+  useEffect(() => {
+    liquidGlassEngine.setPnlContext(totalNetPnL);
+  }, [totalNetPnL]);
   // Dynamic Alert / Notification Center calculations
   const getDynamicNotifications = () => {
     const alertsList = [];
@@ -633,10 +646,8 @@ export default function App() {
 
   return (
     <div className={useTwoRowHeader ? "app-layout top-nav-layout app-container" : "app-layout sidebar-layout"}>
-      {/* iOS 18 Liquid Glass Ambient Refraction Glow Orbs */}
-      <div className="ambient-orb orb-1" aria-hidden="true" />
-      <div className="ambient-orb orb-2" aria-hidden="true" />
-      <div className="ambient-orb orb-3" aria-hidden="true" />
+      {/* iOS 27 Liquid Glass Dynamic Mesh & Antigravity Refraction Background */}
+      <LiquidMeshBackground />
 
       {!useTwoRowHeader && isMobileSidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setIsMobileSidebarOpen(false)} />
