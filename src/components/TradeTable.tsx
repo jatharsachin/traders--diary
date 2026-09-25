@@ -884,17 +884,17 @@ export function TradeTable({
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('symbol')}>
                   Symbol <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('broker')}>
+                <th style={{ cursor: 'pointer', textAlign: 'center' }} onClick={() => handleSort('broker')}>
                   Broker <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('segment')}>
                   Type <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
-                <th>Action</th>
-                <th>Qty</th>
-                <th>Entry Price</th>
-                <th>Exit Price</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('netPnL')}>
+                <th style={{ textAlign: 'center' }}>Action</th>
+                <th style={{ textAlign: 'right' }}>Qty</th>
+                <th style={{ textAlign: 'right' }}>Entry Price</th>
+                <th style={{ textAlign: 'right' }}>Exit Price</th>
+                <th style={{ cursor: 'pointer', textAlign: 'right' }} onClick={() => handleSort('netPnL')}>
                   Net P&L <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
                 <th>Psychology</th>
@@ -907,10 +907,9 @@ export function TradeTable({
                   <tr 
                     key={trade.id}
                     onClick={() => setSelectedRowId(selectedRowId === trade.id ? null : trade.id)}
+                    className={selectedRowId === trade.id ? 'selected-row' : ''}
                     style={{
                       cursor: 'pointer',
-                      background: selectedRowId === trade.id ? 'var(--primary-glow)' : 'transparent',
-                      border: selectedRowId === trade.id ? '1px solid var(--primary)' : 'inherit',
                       transition: 'all 0.15s ease'
                     }}
                   >
@@ -1001,30 +1000,31 @@ export function TradeTable({
                         </div>
                       )}
                     </td>
-                    <td>
+                    <td style={{ textAlign: 'center' }}>
                       <BrokerBadge broker={trade.broker} />
                     </td>
                     <td>
                       <div style={{ fontSize: '0.8rem', fontWeight: 500 }}>{trade.segment}</div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{trade.product}</div>
                     </td>
-                    <td>
+                    <td style={{ textAlign: 'center' }}>
                       <span className={`badge ${trade.action === 'BUY' ? 'badge-win' : 'badge-loss'}`}>
                         {trade.action}
                       </span>
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>{trade.qty}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>{trade.entryPrice.toFixed(2)}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>{trade.exitPrice.toFixed(2)}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{trade.qty}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{trade.entryPrice.toFixed(2)}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{trade.exitPrice.toFixed(2)}</td>
                     <td 
                       style={{ 
                         fontFamily: 'var(--font-mono)', 
                         fontWeight: 700, 
-                        color: isProfit ? 'var(--color-win)' : 'var(--color-loss)' 
+                        color: isProfit ? 'var(--color-win)' : 'var(--color-loss)',
+                        textAlign: 'right'
                       }}
                     >
                       {isProfit ? '+' : ''}{isPnlVisible ? formatCurrency(trade.netPnL) : '••••'}
-                      <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 400, marginTop: '2px', lineHeight: '1.2' }}>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 400, marginTop: '2px', lineHeight: '1.2', textAlign: 'right' }}>
                         <div>Brokerage: {isPnlVisible ? formatCurrency(trade.brokerage) : '••••'}</div>
                         <div>Taxes & Fees: {isPnlVisible ? formatCurrency(trade.taxes) : '••••'}</div>
                       </div>
