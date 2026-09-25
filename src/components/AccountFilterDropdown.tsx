@@ -22,9 +22,12 @@ export function AccountFilterDropdown({
   const activeAccounts = brokerAccounts.filter(a => a.active);
   const allActiveIds = activeAccounts.map(a => a.id);
 
-  // If selectedAccountIds contains all or is marked as all, it's combined
-  const isAllSelected = allActiveIds.length > 0 && allActiveIds.every(id => selectedAccountIds.includes(id));
-  const isCombined = isAllSelected || selectedAccountIds.length === 0;
+  // SANITIZE: Filter out stale or ghost IDs that no longer belong to activeAccounts
+  const validSelectedIds = selectedAccountIds.filter(id => allActiveIds.includes(id));
+
+  // If validSelectedIds is empty or contains all, it's combined
+  const isCombined = validSelectedIds.length === 0 || 
+                     (allActiveIds.length > 0 && allActiveIds.every(id => validSelectedIds.includes(id)));
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -46,29 +49,32 @@ export function AccountFilterDropdown({
   const handleToggleCombined = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange(allActiveIds);
+    setIsOpen(false);
   };
 
-  // Handle toggling an individual account
-  const handleToggleAccount = (accId: string, e: React.MouseEvent) => {
+  // Handle toggling an individual account checkbox (multi-select)
+  const handleToggleCheckbox = (accId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const isChecked = selectedAccountIds.includes(accId);
+    const current = isCombined ? allActiveIds : validSelectedIds;
+    const isChecked = current.includes(accId);
 
     if (isChecked) {
       // If user unchecks this account, only uncheck if at least 1 account remains
-      if (selectedAccountIds.length > 1) {
-        const next = selectedAccountIds.filter(id => id !== accId);
+      if (current.length > 1) {
+        const next = current.filter(id => id !== accId);
         onChange(next);
       }
     } else {
-      const next = [...selectedAccountIds, accId];
+      const next = [...current, accId];
       onChange(next);
     }
   };
 
-  // Handle "Only" button to quickly select just one broker
-  const handleSelectOnly = (accId: string, e: React.MouseEvent) => {
+  // Handle clicking the account row (Single Account Select)
+  const handleSelectAccount = (accId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     onChange([accId]);
+    setIsOpen(false);
   };
 
   // Get current button label and icon
@@ -80,8 +86,8 @@ export function AccountFilterDropdown({
       };
     }
 
-    if (selectedAccountIds.length === 1) {
-      const matched = activeAccounts.find(a => a.id === selectedAccountIds[0]);
+    if (validSelectedIds.length === 1) {
+      const matched = activeAccounts.find(a => a.id === validSelectedIds[0]);
       if (matched) {
         const logo = BROKER_LOGOS[matched.broker] || BROKER_LOGOS['Other'];
         return {
@@ -98,7 +104,7 @@ export function AccountFilterDropdown({
     }
 
     return {
-      label: `${selectedAccountIds.length} Accounts Selected`,
+      label: `${validSelectedIds.length} Accounts Selected`,
       icon: <Layers size={14} color="var(--primary)" />
     };
   };
@@ -171,7 +177,7 @@ export function AccountFilterDropdown({
               Select Active Accounts
             </span>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-              {selectedAccountIds.length}/{activeAccounts.length}
+              {isCombined ? `${activeAccounts.length}/${activeAccounts.length}` : `${validSelectedIds.length}/${activeAccounts.length}`}
             </span>
           </div>
 
@@ -243,13 +249,14 @@ export function AccountFilterDropdown({
 
           {/* Individual Broker Accounts */}
           {activeAccounts.map((acc) => {
-            const isChecked = selectedAccountIds.includes(acc.id);
+            const isChecked = isCombined ? true : validSelectedIds.includes(acc.id);
+            const isSoleSelected = !isCombined && validSelectedIds.length === 1 && validSelectedIds[0] === acc.id;
             const logo = BROKER_LOGOS[acc.broker] || BROKER_LOGOS['Other'];
 
             return (
               <div
                 key={acc.id}
-                onClick={(e) => handleToggleAccount(acc.id, e)}
+                onClick={(e) => handleSelectAccount(acc.id, e)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -257,27 +264,27 @@ export function AccountFilterDropdown({
                   padding: '7px 10px',
                   borderRadius: '9px',
                   cursor: 'pointer',
-                  background: isChecked && !isCombined ? 'rgba(10, 132, 255, 0.1)' : 'transparent',
+                  background: isSoleSelected ? 'rgba(10, 132, 255, 0.12)' : (isChecked && !isCombined ? 'rgba(10, 132, 255, 0.08)' : 'transparent'),
+                  border: isSoleSelected ? '1px solid rgba(10, 132, 255, 0.3)' : '1px solid transparent',
                   transition: 'background 0.15s ease'
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = isChecked && !isCombined 
-                    ? 'rgba(10, 132, 255, 0.16)' 
-                    : 'rgba(255, 255, 255, 0.06)';
-                  const onlyBtn = e.currentTarget.querySelector('.only-btn') as HTMLElement;
-                  if (onlyBtn) onlyBtn.style.opacity = '1';
+                  (e.currentTarget as HTMLElement).style.background = isSoleSelected 
+                    ? 'rgba(10, 132, 255, 0.18)' 
+                    : (isChecked && !isCombined ? 'rgba(10, 132, 255, 0.14)' : 'rgba(255, 255, 255, 0.06)');
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = isChecked && !isCombined 
-                    ? 'rgba(10, 132, 255, 0.1)' 
-                    : 'transparent';
-                  const onlyBtn = e.currentTarget.querySelector('.only-btn') as HTMLElement;
-                  if (onlyBtn) onlyBtn.style.opacity = '0';
+                  (e.currentTarget as HTMLElement).style.background = isSoleSelected 
+                    ? 'rgba(10, 132, 255, 0.12)' 
+                    : (isChecked && !isCombined ? 'rgba(10, 132, 255, 0.08)' : 'transparent');
                 }}
+                title={`Click to switch exclusively to ${acc.accountName} (${acc.broker})`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
-                  {/* Checkbox with blue checkmark */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '9px', flexGrow: 1 }}>
+                  {/* Checkbox with blue checkmark - clicking checkbox toggles multi-selection */}
                   <div
+                    onClick={(e) => handleToggleCheckbox(acc.id, e)}
+                    title={isChecked ? "Uncheck to deselect" : "Check to multi-select"}
                     style={{
                       width: '18px',
                       height: '18px',
@@ -288,7 +295,8 @@ export function AccountFilterDropdown({
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0,
-                      transition: 'all 0.15s ease'
+                      transition: 'all 0.15s ease',
+                      cursor: 'pointer'
                     }}
                   >
                     {isChecked && <Check size={12} color="#ffffff" strokeWidth={3.5} />}
@@ -321,27 +329,30 @@ export function AccountFilterDropdown({
                   </div>
                 </div>
 
-                {/* "Only" button shortcut */}
-                <button
-                  type="button"
-                  className="only-btn"
-                  onClick={(e) => handleSelectOnly(acc.id, e)}
-                  style={{
-                    opacity: 0,
-                    transition: 'opacity 0.15s ease',
-                    fontSize: '0.65rem',
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: '5px',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--primary)',
-                    cursor: 'pointer'
-                  }}
-                  title={`Select only ${acc.accountName} (${acc.broker})`}
-                >
-                  Only
-                </button>
+                {/* "Active" badge or "Select" button shortcut */}
+                {isSoleSelected ? (
+                  <span style={{ fontSize: '0.62rem', color: 'var(--primary)', fontWeight: 700, background: 'rgba(10, 132, 255, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                    Active
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => handleSelectAccount(acc.id, e)}
+                    style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: '5px',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--primary)',
+                      cursor: 'pointer'
+                    }}
+                    title={`Switch exclusively to ${acc.accountName} (${acc.broker})`}
+                  >
+                    Select
+                  </button>
+                )}
               </div>
             );
           })}

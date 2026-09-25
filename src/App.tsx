@@ -296,36 +296,64 @@ export default function App() {
   }, [brokerAccounts, sessionUser]);
 
   const handleSelectedAccountsChange = (newSelectedIds: string[]) => {
-    setSelectedAccountIds(newSelectedIds);
-    const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
-    localStorage.setItem('traders_diary_selected_accounts', JSON.stringify(newSelectedIds));
-    localStorage.setItem(`traders_diary_selected_accounts_${userKey}`, JSON.stringify(newSelectedIds));
+    // Sanitize: ensure only IDs that belong to activeAccountIds are kept
+    const sanitized = newSelectedIds.filter(id => activeAccountIds.includes(id));
+    const effective = sanitized.length > 0 ? sanitized : activeAccountIds;
+    setSelectedAccountIds(effective);
 
-    const isAll = activeAccountIds.length > 0 && activeAccountIds.every(id => newSelectedIds.includes(id));
-    const newActive = isAll ? 'Combined' : (newSelectedIds.length === 1 ? newSelectedIds[0] : newSelectedIds.join(','));
+    const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
+    localStorage.setItem('traders_diary_selected_accounts', JSON.stringify(effective));
+    localStorage.setItem(`traders_diary_selected_accounts_${userKey}`, JSON.stringify(effective));
+
+    const isAll = activeAccountIds.length > 0 && activeAccountIds.every(id => effective.includes(id));
+    const newActive = isAll ? 'Combined' : (effective.length === 1 ? effective[0] : effective.join(','));
     setActiveAccountId(newActive);
     localStorage.setItem('traders_diary_active_account', newActive);
     localStorage.setItem(`traders_diary_active_account_${userKey}`, newActive);
   };
 
-  const trades = allTrades.filter(t => !t.brokerAccountId || activeAccountIds.includes(t.brokerAccountId));
-  const capitalAdjustments = allAdjustments.filter(a => !a.brokerAccountId || activeAccountIds.includes(a.brokerAccountId));
-  const investments = allInvestments.filter(i => !i.brokerAccountId || activeAccountIds.includes(i.brokerAccountId));
+  const trades = allTrades.filter(t => 
+    !t.brokerAccountId || 
+    activeAccountIds.includes(t.brokerAccountId) ||
+    brokerAccounts.some(a => a.active && a.broker === t.broker)
+  );
+  const capitalAdjustments = allAdjustments.filter(a => 
+    !a.brokerAccountId || 
+    activeAccountIds.includes(a.brokerAccountId) ||
+    brokerAccounts.some(a => a.active && a.broker === a.broker)
+  );
+  const investments = allInvestments.filter(i => 
+    !i.brokerAccountId || 
+    activeAccountIds.includes(i.brokerAccountId) ||
+    brokerAccounts.some(a => a.active && a.broker === i.broker)
+  );
 
-  const isCombinedView = activeAccountId === 'Combined' || selectedAccountIds.length === 0 || selectedAccountIds.length === activeAccountIds.length;
-  const effectiveSelectedIds = isCombinedView ? activeAccountIds : (selectedAccountIds.length > 0 ? selectedAccountIds : activeAccountId.split(',').filter(Boolean));
+  const validSelected = selectedAccountIds.filter(id => activeAccountIds.includes(id));
+  const isCombinedView = activeAccountId === 'Combined' || 
+                         validSelected.length === 0 || 
+                         (activeAccountIds.length > 0 && activeAccountIds.every(id => validSelected.includes(id)));
+  const effectiveSelectedIds = isCombinedView ? activeAccountIds : validSelected;
+  const selectedBrokers = brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).map(a => a.broker);
 
   const filteredTrades = isCombinedView
     ? trades
-    : trades.filter((t) => effectiveSelectedIds.includes(t.brokerAccountId || ''));
+    : trades.filter((t) => {
+        if (t.brokerAccountId && effectiveSelectedIds.includes(t.brokerAccountId)) return true;
+        if (!t.brokerAccountId && t.broker && selectedBrokers.includes(t.broker)) return true;
+        return false;
+      });
 
   const filteredAdjustments = isCombinedView
     ? capitalAdjustments
-    : capitalAdjustments.filter((a) => effectiveSelectedIds.includes(a.brokerAccountId || ''));
+    : capitalAdjustments.filter((a) => {
+        if (a.brokerAccountId && effectiveSelectedIds.includes(a.brokerAccountId)) return true;
+        if (!a.brokerAccountId && a.broker && selectedBrokers.includes(a.broker)) return true;
+        return false;
+      });
 
   const filteredBaseCapital = isCombinedView
     ? baseCapital
-    : brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).reduce((sum, a) => sum + (a.startingCapital || 0), 0);
+    : brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
 
   const totalNetPnL = filteredTrades.reduce((acc, t) => acc + t.netPnL, 0);
   const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);

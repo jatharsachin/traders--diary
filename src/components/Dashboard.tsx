@@ -63,9 +63,21 @@ export function Dashboard({
   } = useTradeStore();
 
   const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
-  const activeTrades = allTrades.filter(t => t.brokerAccountId && activeAccountIds.includes(t.brokerAccountId));
-  const capitalAdjustments = allAdjustments.filter(a => !a.brokerAccountId || activeAccountIds.includes(a.brokerAccountId));
-  const investments = allInvestments.filter(i => !i.brokerAccountId || activeAccountIds.includes(i.brokerAccountId));
+  const currentActiveBrokers = brokerAccounts.filter(a => a.active).map(a => a.broker);
+  const activeTrades = allTrades.filter(t => 
+    (t.brokerAccountId && activeAccountIds.includes(t.brokerAccountId)) ||
+    (!t.brokerAccountId && t.broker && currentActiveBrokers.includes(t.broker))
+  );
+  const capitalAdjustments = allAdjustments.filter(a => 
+    !a.brokerAccountId || 
+    activeAccountIds.includes(a.brokerAccountId) ||
+    (a.broker && currentActiveBrokers.includes(a.broker))
+  );
+  const investments = allInvestments.filter(i => 
+    !i.brokerAccountId || 
+    activeAccountIds.includes(i.brokerAccountId) ||
+    (i.broker && currentActiveBrokers.includes(i.broker))
+  );
   
   const [selectedBroker, setSelectedBroker] = useState<string>('All');
   const [selectedSegment, setSelectedSegment] = useState<string>('All');
@@ -124,16 +136,21 @@ export function Dashboard({
 
 
 
-  const isMatchAccount = (accId?: string) => {
+  const isMatchAccount = (accId?: string, brokerName?: string) => {
     if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    if (!accId) return false;
-    return activeAccountId === accId || activeAccountId.split(',').includes(accId);
+    const targetIds = activeAccountId.split(',').filter(Boolean);
+    if (accId && targetIds.includes(accId)) return true;
+    if (brokerName) {
+      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
+      return selectedAccs.some(a => a.broker === brokerName);
+    }
+    return false;
   };
 
   const getStartingCapitalForActiveFY = () => {
     let startCap = 0;
     if (activeAccountId !== 'Combined') {
-      startCap = brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+      startCap = brokerAccounts.filter(a => isMatchAccount(a.id, a.broker)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
     } else {
       startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
     }
@@ -146,11 +163,11 @@ export function Dashboard({
     const startStr = `${startYear}-04-01`;
 
     const priorTradesPnL = activeTrades
-      .filter((t) => (t.exitDate || t.date) < startStr && isMatchAccount(t.brokerAccountId))
+      .filter((t) => (t.exitDate || t.date) < startStr && isMatchAccount(t.brokerAccountId, t.broker))
       .reduce((acc, t) => acc + t.netPnL, 0);
 
     const priorAdjustments = capitalAdjustments
-      .filter((a) => a.date < startStr && isMatchAccount(a.brokerAccountId))
+      .filter((a) => a.date < startStr && isMatchAccount(a.brokerAccountId, a.broker))
       .reduce((acc, a) => {
         if (a.type === 'DEPOSIT') return acc + a.amount;
         return acc - a.amount;
@@ -164,24 +181,19 @@ export function Dashboard({
   // Calculate effectiveBaseCapital with proper individual/combined fallbacks
   const fallbackCapital = activeAccountId === 'Combined'
     ? brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0)
-    : brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    : brokerAccounts.filter(a => isMatchAccount(a.id, a.broker)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
 
   const effectiveBaseCapital = (Number(activeBaseCapital) || Number(fallbackCapital) || 1);
 
   const rawTradesByFY = useMemo(() => {
-    return filterTradesByFY(activeTrades, selectedFY).filter((t) => {
-      const isImported = t.strategy === 'Auto Imported' || 
-                         t.broker === 'Kotak Neo' || 
-                         (t.notes && t.notes.toLowerCase().includes('imported'));
-      return !isImported;
-    });
+    return filterTradesByFY(activeTrades, selectedFY);
   }, [activeTrades, selectedFY]);
 
   const rawTrades = useMemo(() => {
     return activeAccountId === 'Combined'
       ? rawTradesByFY
-      : rawTradesByFY.filter((t) => isMatchAccount(t.brokerAccountId));
-  }, [rawTradesByFY, activeAccountId]);
+      : rawTradesByFY.filter((t) => isMatchAccount(t.brokerAccountId, t.broker));
+  }, [rawTradesByFY, activeAccountId, brokerAccounts]);
 
   const trades = useMemo(() => {
     return rawTrades.filter((t) => {
@@ -269,7 +281,7 @@ export function Dashboard({
 
   // Get deposits and withdrawals during the selected FY period
   const currentPeriodAdjustments = capitalAdjustments.filter((a) => {
-    const matchesAccount = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
+    const matchesAccount = isMatchAccount(a.brokerAccountId, a.broker);
     if (!matchesAccount) return false;
     if (selectedFY === 'All') return true;
     const match = selectedFY.match(/FY (\d{4})/);
@@ -424,17 +436,17 @@ export function Dashboard({
 
     let startCap = 0;
     if (activeAccountId !== 'Combined') {
-      startCap = brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+      startCap = brokerAccounts.filter(a => isMatchAccount(a.id, a.broker)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
     } else {
       startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
     }
 
     const priorTradesPnL = activeTrades
-      .filter((t) => t.date < cutoffStr && isMatchAccount(t.brokerAccountId))
+      .filter((t) => t.date < cutoffStr && isMatchAccount(t.brokerAccountId, t.broker))
       .reduce((acc, t) => acc + t.netPnL, 0);
 
     const priorAdjustments = capitalAdjustments
-      .filter((a) => a.date < cutoffStr && isMatchAccount(a.brokerAccountId))
+      .filter((a) => a.date < cutoffStr && isMatchAccount(a.brokerAccountId, a.broker))
       .reduce((acc, a) => {
         if (a.type === 'DEPOSIT') return acc + a.amount;
         return acc - a.amount;
@@ -443,7 +455,7 @@ export function Dashboard({
     const beginningCapital = startCap + priorTradesPnL + priorAdjustments;
 
     const periodAdjustments = capitalAdjustments.filter((a) => {
-      const matchesAccount = isMatchAccount(a.brokerAccountId);
+      const matchesAccount = isMatchAccount(a.brokerAccountId, a.broker);
       return matchesAccount && a.date >= cutoffStr && a.date <= anchorDate.toISOString().split('T')[0];
     });
 
@@ -480,13 +492,13 @@ export function Dashboard({
 
     let startCap = 0;
     if (activeAccountId !== 'Combined') {
-      startCap = brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+      startCap = brokerAccounts.filter(a => isMatchAccount(a.id, a.broker)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
     } else {
       startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
     }
 
     const periodAdjustments = capitalAdjustments.filter((a) => {
-      return isMatchAccount(a.brokerAccountId);
+      return isMatchAccount(a.brokerAccountId, a.broker);
     });
 
     let weightedCashFlows = 0;
@@ -816,12 +828,12 @@ export function Dashboard({
     
     // Calculate actual current capital exactly like App.tsx
     const filteredBaseCapital = activeAccountId === 'Combined'
-      ? brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0)
-      : (brokerAccounts.find((a) => a.id === activeAccountId)?.startingCapital || 0);
+      ? brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + a.startingCapital, 0)
+      : brokerAccounts.filter(a => isMatchAccount(a.id, a.broker)).reduce((sum, a) => sum + a.startingCapital, 0);
 
     const filteredAdjustments = activeAccountId === 'Combined'
       ? capitalAdjustments
-      : capitalAdjustments.filter((a) => a.brokerAccountId === activeAccountId);
+      : capitalAdjustments.filter((a) => isMatchAccount(a.brokerAccountId, a.broker));
 
     const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
     const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
