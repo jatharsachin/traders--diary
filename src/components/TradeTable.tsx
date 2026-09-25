@@ -745,6 +745,7 @@ export function TradeTable({
                     <option value="Moving SL">Moving SL</option>
                     <option value="Early Exit">Early Exit</option>
                     <option value="No Setup">No Setup</option>
+                    <option value="10K Rule">10K Rule</option>
                   </select>
                 </div>
 

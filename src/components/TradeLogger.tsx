@@ -60,7 +60,8 @@ const TRADING_RULES = [
   'API & Tech OK',
   'Exit Plan Followed',
   'No Manual Override',
-  'Slippage Checked'
+  'Slippage Checked',
+  '10K Rule'
 ];
 
 const EMOTIONS: { value: Emotion; label: string; emoji: string }[] = [
@@ -83,8 +84,7 @@ const MISTAKES: Mistake[] = [
   'Greed Hold',
   'Manual Intervention',
   'Tech / API Issue',
-  '10K',
-  '10K Drawdown'
+  '10K Rule'
 ];
 
 export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: TradeLoggerProps) {
