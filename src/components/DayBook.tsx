@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
@@ -26,14 +26,10 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
   oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
   const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
 
-  const [dateRange, setDateRange] = useState<'today' | '30days' | 'custom'>('30days');
-  const [customStartDate, setCustomStartDate] = useState(oneMonthAgoStr);
-  const [customEndDate, setCustomEndDate] = useState(todayStr);
+  const [startDate, setStartDate] = useState(oneMonthAgoStr);
+  const [endDate, setEndDate] = useState(todayStr);
   const [sortAscending, setSortAscending] = useState(false);
   const [showRunningBalance, setShowRunningBalance] = useState(true);
-
-  const startDate = dateRange === 'custom' ? customStartDate : (dateRange === 'today' ? todayStr : oneMonthAgoStr);
-  const endDate = dateRange === 'custom' ? customEndDate : todayStr;
 
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
@@ -54,6 +50,38 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
     }
     return { minDate: undefined, maxDate: undefined };
   })();
+
+  // Synchronize date limits with selected FY
+  useEffect(() => {
+    if (minDate && maxDate) {
+      if (startDate < minDate || startDate > maxDate) {
+        setStartDate(minDate);
+      }
+      if (endDate < minDate || endDate > maxDate) {
+        setEndDate(todayStr <= maxDate && todayStr >= minDate ? todayStr : maxDate);
+      }
+    }
+  }, [selectedFY, minDate, maxDate]);
+
+  const handleQuickRange = (range: string) => {
+    if (range === 'today') {
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    } else if (range === '30days') {
+      setStartDate(oneMonthAgoStr);
+      setEndDate(todayStr);
+    } else if (range === 'month') {
+      const now = new Date();
+      const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      setStartDate(firstDay);
+      setEndDate(todayStr);
+    } else if (range === 'fy') {
+      if (minDate && maxDate) {
+        setStartDate(minDate);
+        setEndDate(todayStr <= maxDate && todayStr >= minDate ? todayStr : maxDate);
+      }
+    }
+  };
   
   // Inline editing states for narration/particulars
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -462,16 +490,24 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Range Inputs */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Range Inputs & Quick Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <input 
               type="date" 
               value={startDate} 
               min={minDate}
               max={maxDate}
-              onChange={(e) => setStartDate(e.target.value)} 
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) return;
+                setStartDate(val);
+                if (endDate && val > endDate) {
+                  setEndDate(val);
+                }
+              }} 
+              onClick={(e) => (e.target as any).showPicker?.()}
               className="form-input" 
-              style={{ padding: '4px 8px', fontSize: '0.78rem', height: '32px', width: '130px' }} 
+              style={{ padding: '4px 8px', fontSize: '0.78rem', height: '32px', width: '135px', cursor: 'pointer' }} 
             />
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>to</span>
             <input 
@@ -479,10 +515,39 @@ export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
               value={endDate} 
               min={minDate}
               max={maxDate}
-              onChange={(e) => setEndDate(e.target.value)} 
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) return;
+                setEndDate(val);
+                if (startDate && val < startDate) {
+                  setStartDate(val);
+                }
+              }} 
+              onClick={(e) => (e.target as any).showPicker?.()}
               className="form-input" 
-              style={{ padding: '4px 8px', fontSize: '0.78rem', height: '32px', width: '130px' }} 
+              style={{ padding: '4px 8px', fontSize: '0.78rem', height: '32px', width: '135px', cursor: 'pointer' }} 
             />
+
+            <select
+              className="form-select"
+              style={{ 
+                padding: '4px 8px', 
+                fontSize: '0.74rem', 
+                height: '32px', 
+                borderRadius: '8px', 
+                cursor: 'pointer', 
+                background: 'var(--bg-card)', 
+                color: 'var(--text-main)', 
+                border: '1px solid var(--border-color)' 
+              }}
+              onChange={(e) => handleQuickRange(e.target.value)}
+              defaultValue="30days"
+            >
+              <option value="30days">Past 30 Days</option>
+              <option value="today">Today</option>
+              <option value="month">This Month</option>
+              {minDate && <option value="fy">Full Financial Year</option>}
+            </select>
           </div>
 
 
