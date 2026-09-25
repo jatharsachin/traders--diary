@@ -1265,17 +1265,18 @@ export function TradingCalendar({
         key={`week-${w.weekNum}`} 
         className={cellClass} 
         onClick={() => setSelectedWeekNum(w.weekNum === selectedWeekNum ? null : w.weekNum)}
-        style={{ height: '106px', minHeight: '106px', maxHeight: '106px', boxSizing: 'border-box' }}
+        style={{ height: '88px', minHeight: '88px', maxHeight: '88px', boxSizing: 'border-box' }}
       >
-        <span className="day-number" style={{ fontSize: '0.8rem' }}>W{w.weekNum}</span>
+        <span className="day-number" style={{ fontSize: '0.74rem', top: '6px', left: '8px' }}>W{w.weekNum}</span>
         
         <div 
           style={{ 
-            fontSize: '0.65rem', 
+            fontSize: '0.62rem', 
             color: 'var(--text-muted)', 
             alignSelf: 'flex-start',
-            marginTop: '18px',
-            fontWeight: 550
+            marginTop: '13px',
+            fontWeight: 550,
+            lineHeight: 1.1
           }}
         >
           {w.formattedRange}
@@ -2479,19 +2480,19 @@ export function TradingCalendar({
         .weekly-grid {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
-          grid-auto-rows: 106px;
+          grid-auto-rows: 88px;
           gap: 8px;
         }
         @media (max-width: 900px) {
           .weekly-grid {
             grid-template-columns: repeat(4, 1fr);
-            grid-auto-rows: 106px;
+            grid-auto-rows: 88px;
           }
         }
         @media (max-width: 600px) {
           .weekly-grid {
             grid-template-columns: repeat(3, 1fr);
-            grid-auto-rows: 96px;
+            grid-auto-rows: 80px;
           }
         }
         .yearly-grid {
@@ -2536,16 +2537,25 @@ export function TradingCalendar({
           user-select: none;
         }
         .calendar-day.weekly-day {
-          height: 106px !important;
-          min-height: 106px !important;
-          max-height: 106px !important;
+          height: 88px !important;
+          min-height: 88px !important;
+          max-height: 88px !important;
+          padding: 7px 9px !important;
           box-sizing: border-box !important;
+        }
+        .calendar-day.weekly-day .day-pnl {
+          font-size: 0.88rem;
+          padding-bottom: 0px;
         }
         @media (max-width: 600px) {
           .calendar-day.weekly-day {
-            height: 96px !important;
-            min-height: 96px !important;
-            max-height: 96px !important;
+            height: 80px !important;
+            min-height: 80px !important;
+            max-height: 80px !important;
+            padding: 6px 7px !important;
+          }
+          .calendar-day.weekly-day .day-pnl {
+            font-size: 0.78rem;
           }
         }
         .calendar-day.yearly-day {
