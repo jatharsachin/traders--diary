@@ -1265,7 +1265,7 @@ export function TradingCalendar({
         key={`week-${w.weekNum}`} 
         className={cellClass} 
         onClick={() => setSelectedWeekNum(w.weekNum === selectedWeekNum ? null : w.weekNum)}
-        style={{ minHeight: '95px' }}
+        style={{ height: '106px', minHeight: '106px', maxHeight: '106px', boxSizing: 'border-box' }}
       >
         <span className="day-number" style={{ fontSize: '0.8rem' }}>W{w.weekNum}</span>
         
@@ -1463,7 +1463,7 @@ export function TradingCalendar({
         key={`month-${m.monthNum}`} 
         className={cellClass} 
         onClick={() => setSelectedMonthNum(m.monthNum === selectedMonthNum ? null : m.monthNum)}
-        style={{ minHeight: '95px' }}
+        style={{ height: '108px', minHeight: '108px', maxHeight: '108px', boxSizing: 'border-box' }}
       >
         <span className="day-number" style={{ fontSize: '0.85rem' }}>{m.name}</span>
         
@@ -2479,31 +2479,37 @@ export function TradingCalendar({
         .weekly-grid {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
+          grid-auto-rows: 106px;
           gap: 8px;
         }
         @media (max-width: 900px) {
           .weekly-grid {
             grid-template-columns: repeat(4, 1fr);
+            grid-auto-rows: 106px;
           }
         }
         @media (max-width: 600px) {
           .weekly-grid {
             grid-template-columns: repeat(3, 1fr);
+            grid-auto-rows: 96px;
           }
         }
         .yearly-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
+          grid-auto-rows: 108px;
           gap: 12px;
         }
         @media (max-width: 768px) {
           .yearly-grid {
             grid-template-columns: repeat(3, 1fr);
+            grid-auto-rows: 108px;
           }
         }
         @media (max-width: 480px) {
           .yearly-grid {
             grid-template-columns: repeat(2, 1fr);
+            grid-auto-rows: 100px;
           }
         }
         .calendar-day {
@@ -2519,6 +2525,7 @@ export function TradingCalendar({
           justify-content: flex-end;
           align-items: flex-end;
           position: relative;
+          box-sizing: border-box;
           transition: 
             transform var(--transition-ios-spring), 
             box-shadow var(--transition-ios-spring), 
@@ -2527,6 +2534,25 @@ export function TradingCalendar({
             opacity var(--transition-glass);
           cursor: pointer;
           user-select: none;
+        }
+        .calendar-day.weekly-day {
+          height: 106px !important;
+          min-height: 106px !important;
+          max-height: 106px !important;
+          box-sizing: border-box !important;
+        }
+        @media (max-width: 600px) {
+          .calendar-day.weekly-day {
+            height: 96px !important;
+            min-height: 96px !important;
+            max-height: 96px !important;
+          }
+        }
+        .calendar-day.yearly-day {
+          height: 108px !important;
+          min-height: 108px !important;
+          max-height: 108px !important;
+          box-sizing: border-box !important;
         }
         .calendar-day.empty {
           border-color: transparent;
