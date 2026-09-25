@@ -1267,29 +1267,29 @@ export function TradingCalendar({
         onClick={() => setSelectedWeekNum(w.weekNum === selectedWeekNum ? null : w.weekNum)}
         style={{ height: '88px', minHeight: '88px', maxHeight: '88px', boxSizing: 'border-box' }}
       >
-        <span className="day-number" style={{ fontSize: '0.74rem', top: '6px', left: '8px' }}>W{w.weekNum}</span>
+        <span className="day-number" style={{ fontSize: '0.84rem', top: '6px', left: '9px', fontWeight: 700 }}>W{w.weekNum}</span>
         
         <div 
           style={{ 
-            fontSize: '0.62rem', 
+            fontSize: '0.70rem', 
             color: 'var(--text-muted)', 
             alignSelf: 'flex-start',
-            marginTop: '13px',
-            fontWeight: 550,
-            lineHeight: 1.1
+            marginTop: '15px',
+            fontWeight: 600,
+            lineHeight: 1.15
           }}
         >
           {w.formattedRange}
         </div>
 
-        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', marginTop: 'auto' }}>
+        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', marginTop: 'auto' }}>
           {hasTrades && (
             <>
               <div>
                 <span className="pnl-desktop">
                   {isPnlVisible ? (w.netPnL > 0 ? '+' : '') : ''}
                   {isPnlVisible ? Math.round(w.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                  <span style={{ fontSize: '0.70rem', opacity: 0.9, marginLeft: '3px' }}>
                     ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
                   </span>
                 </span>
@@ -1297,7 +1297,7 @@ export function TradingCalendar({
                   {isPnlVisible ? formatCompactPnLMobile(w.netPnL) : (
                     <>
                       ••••
-                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                      <span style={{ fontSize: '0.62rem', opacity: 0.9, marginLeft: '3px' }}>
                         ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
                       </span>
                     </>
@@ -1307,11 +1307,11 @@ export function TradingCalendar({
 
               <div 
                 style={{ 
-                  fontSize: '0.62rem', 
+                  fontSize: '0.68rem', 
                   color: 'var(--text-dim)', 
                   fontWeight: 600, 
                   fontFamily: 'var(--font-mono)', 
-                  marginTop: '1px' 
+                  marginTop: '0px' 
                 }}
                 title={`Week Charges: ₹${Math.round(w.charges).toLocaleString('en-IN')}`}
               >
@@ -2544,7 +2544,7 @@ export function TradingCalendar({
           box-sizing: border-box !important;
         }
         .calendar-day.weekly-day .day-pnl {
-          font-size: 0.88rem;
+          font-size: 0.98rem;
           padding-bottom: 0px;
         }
         @media (max-width: 600px) {
@@ -2555,7 +2555,7 @@ export function TradingCalendar({
             padding: 6px 7px !important;
           }
           .calendar-day.weekly-day .day-pnl {
-            font-size: 0.78rem;
+            font-size: 0.84rem;
           }
         }
         .calendar-day.yearly-day {
