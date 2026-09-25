@@ -258,30 +258,47 @@ body {
   /* Keep standard card containers completely stable without shifting */
   transform: translateZ(0);
   backface-visibility: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 :root.light .glass-card {
   box-shadow: var(--shadow-card);
 }
 
-/* Base card hover is completely static and solid - zero hover animation, zero glass background shifting */
-.glass-card:hover {
-  background: var(--bg-card);
+/* Base card & section hover across the software - crisp active border highlight */
+.glass-card:hover,
+.card:hover,
+.metric-card:hover,
+.dashboard-card:hover,
+.sub-card:hover,
+.account-card:hover,
+.stat-card:hover,
+.broker-card:hover,
+.journal-pos-card:hover,
+.rule-card:hover {
+  border-color: var(--border-color-active) !important;
 }
 
-/* Metric KPI cards and interactive components - calm, stable, no glass animation or popping on hover */
+/* Metric KPI cards and interactive components - calm, stable, crisp border on hover */
 .glass-card.metric-card,
-.glass-card.interactive {
+.glass-card.interactive,
+.metric-card,
+.sub-card,
+.account-card,
+.broker-card,
+.journal-pos-card,
+.stat-box-spring {
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .glass-card.metric-card:hover,
-.glass-card.interactive:hover {
+.glass-card.interactive:hover,
+.stat-box-spring:hover {
   background: var(--bg-card);
   transform: none;
   box-shadow: var(--shadow-card);
-  border-color: var(--border-color-active);
+  border-color: var(--border-color-active) !important;
 }
 
 .glass-card.metric-card:active,
@@ -769,10 +786,6 @@ h1, h2, h3, h4 {
   transition: background-color var(--transition-fast);
 }
 
-.custom-table tr:hover td {
-  background-color: rgba(120, 120, 120, 0.04);
-}
-
 /* Modal overlay & translucent wobbly glass content */
 .modal-overlay {
   position: fixed !important;
@@ -942,20 +955,31 @@ h1, h2, h3, h4 {
     border-color 0.25s cubic-bezier(0.1, 0.85, 0.25, 1);
 }
 
+.custom-table tbody tr,
+.custom-table tr {
+  cursor: pointer;
+}
+
+.custom-table tbody tr:hover td,
 .custom-table tr:hover td {
   background-color: var(--primary-glow) !important;
   color: var(--text-main) !important;
+  box-shadow: inset 0 1.5px 0 var(--border-color-active), inset 0 -1.5px 0 var(--border-color-active) !important;
 }
 
-/* Native capsule rounded hover style */
+/* Native capsule rounded border hover style for table rows */
+.custom-table tbody tr:hover td:first-child,
 .custom-table tr:hover td:first-child {
   border-top-left-radius: 8px;
   border-bottom-left-radius: 8px;
+  box-shadow: inset 1.5px 0 0 var(--border-color-active), inset 0 1.5px 0 var(--border-color-active), inset 0 -1.5px 0 var(--border-color-active) !important;
 }
 
+.custom-table tbody tr:hover td:last-child,
 .custom-table tr:hover td:last-child {
   border-top-right-radius: 8px;
   border-bottom-right-radius: 8px;
+  box-shadow: inset -1.5px 0 0 var(--border-color-active), inset 0 1.5px 0 var(--border-color-active), inset 0 -1.5px 0 var(--border-color-active) !important;
 }
 
 /* MS Excel Smooth Selected Row with green/blue indicator ring */

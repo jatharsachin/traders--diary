@@ -733,6 +733,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                       return (
                         <div 
                           key={pos.id}
+                          className="journal-pos-card"
                           style={{
                             padding: '14px 16px',
                             borderRadius: '14px',
@@ -970,6 +971,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
                     return (
                       <div 
                         key={trade.id}
+                        className="journal-pos-card"
                         style={{
                           padding: '14px 16px',
                           borderRadius: '14px',

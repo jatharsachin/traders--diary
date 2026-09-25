@@ -2570,6 +2570,7 @@ export function TradingCalendar({
           background: var(--bg-card-hover);
           transform: translateY(-4px) scale(1.04);
           box-shadow: var(--shadow-glow);
+          border-color: var(--border-color-active) !important;
           z-index: 5;
         }
         .calendar-day:active {

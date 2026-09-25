@@ -43,6 +43,7 @@ export const BrokerPerformanceSection: React.FC<BrokerPerformanceSectionProps> =
           {brokerStats.map((stat) => (
             <div 
               key={stat.name}
+              className="broker-card sub-card"
               style={{
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid var(--border-color)',
