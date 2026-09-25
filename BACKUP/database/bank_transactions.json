@@ -1,0 +1,122 @@
+[
+  {
+    "id": "btx-adj-1788264191163-et3l8wib0",
+    "date": "2026-09-01",
+    "time": "07:20",
+    "type": "WITHDRAWAL",
+    "notes": "capital from kotak",
+    "amount": 82445,
+    "category": "Broker Pay-in",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "btx-adj-1788148624544-p8axi7nqz",
+    "date": "2026-08-31",
+    "time": "09:26",
+    "type": "WITHDRAWAL",
+    "notes": "Added Capital By Rupali",
+    "amount": 23000,
+    "category": "Broker Pay-in",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "btx-1787971876884-0kz9c",
+    "date": "2026-08-28",
+    "time": "13:18",
+    "type": "DEPOSIT",
+    "notes": "From Rupali",
+    "amount": 23000,
+    "category": "Direct Deposit",
+    "bankAccountId": "bank-1782552796982-fcjkh"
+  },
+  {
+    "id": "btx-adj-1787971476670-4ddgp71ca",
+    "date": "2026-08-29",
+    "time": "08:11",
+    "type": "DEPOSIT",
+    "notes": "Kotak Neo Withdrawl",
+    "amount": 82445,
+    "category": "Broker Pay-out",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-1782542003548-x2p4d"
+  },
+  {
+    "id": "btx-1783223711856-2uh9p",
+    "date": "2026-07-05",
+    "time": "09:22",
+    "type": "WITHDRAWAL",
+    "notes": "Funds added after quaterly settlement",
+    "amount": 507395,
+    "category": "Broker Pay-in",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "btx-adj-1783217345937-y00y01qk8",
+    "date": "2026-07-04",
+    "time": "07:35",
+    "type": "DEPOSIT",
+    "notes": "Quarterly Settlement",
+    "amount": 507395.01,
+    "category": "Broker Pay-out",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "btx-adj-1783217296728-cnr1dflw3",
+    "date": "2026-06-02",
+    "time": "07:35",
+    "type": "DEPOSIT",
+    "notes": "Fund Withdrawal",
+    "amount": 10000,
+    "category": "Broker Pay-out",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "btx-adj-1783217256064-g54tpc7mu",
+    "date": "2026-04-20",
+    "time": "07:35",
+    "type": "WITHDRAWAL",
+    "notes": "Funds added after quaterly settlement",
+    "amount": 282908,
+    "category": "Broker Pay-in",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "btx-adj-1783217186449-1hdzhfm3m",
+    "date": "2026-04-18",
+    "time": "07:35",
+    "type": "DEPOSIT",
+    "notes": "Quarterly Settlement",
+    "amount": 282907.61,
+    "category": "Broker Pay-out",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "btx-adj-1783211384416-ykj3xbpzb",
+    "date": "2026-04-01",
+    "time": "05:58",
+    "type": "WITHDRAWAL",
+    "notes": "Capital Added",
+    "amount": 280000,
+    "category": "Broker Pay-in",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "btx-adj-1783211368210-h1ol7wbtk",
+    "date": "2026-04-01",
+    "time": "05:58",
+    "type": "WITHDRAWAL",
+    "notes": "Capital Added",
+    "amount": 370000,
+    "category": "Broker Pay-in",
+    "bankAccountId": "bank-1782552796982-fcjkh",
+    "brokerAccountId": "acc-1782542003548-x2p4d"
+  }
+]

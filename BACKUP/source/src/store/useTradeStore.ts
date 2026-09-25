@@ -1,0 +1,2089 @@
+import { create } from 'zustand';
+import type { 
+  Trade, Setup, Broker, CapitalAdjustment, Investment, BrokerAccount, BankAccount, 
+  SubscriptionExpense, BankTransaction, BrokerChargesConfig, DailyContractNote 
+} from '../types';
+import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
+import { 
+  syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, 
+  getSupabaseClient, fetchMetaBatchFromCloud
+} from '../utils/supabaseClient';
+import { getFinancialYear } from '../utils/fyHelper';
+
+const getCurrentLiveFY = () => {
+  const today = new Date().toISOString().split('T')[0];
+  return getFinancialYear(today);
+};
+
+const checkFYAndConfirm = (targetFY: string, actionType: string): boolean => {
+  const currentLive = getCurrentLiveFY();
+  if (targetFY !== currentLive) {
+    return window.confirm(`Warning: You are performing a ${actionType} action in a historical/non-current financial year (${targetFY}). Are you sure you want to proceed?`);
+  }
+  return true;
+};
+
+const notifyFYSave = (targetFY: string) => {
+  const currentLive = getCurrentLiveFY();
+  if (targetFY !== currentLive) {
+    setTimeout(() => {
+      alert(`Success: Data successfully saved for Financial Year ${targetFY}!`);
+    }, 100);
+  }
+};
+
+interface TradeStore {
+  trades: Trade[];
+  setups: Setup[];
+  baseCapital: number;
+  capitalAdjustments: CapitalAdjustment[];
+  theme: 'light' | 'dark';
+  setBaseCapital: (capital: number) => void;
+  toggleTheme: () => void;
+  setTheme: (theme: 'light' | 'dark') => void;
+  addTrade: (tradeData: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>) => void;
+  editTrade: (id: string, tradeData: Partial<Trade>) => void;
+  deleteTrade: (id: string) => void;
+  addSetup: (setup: Setup) => void;
+  editSetup: (oldName: string, updatedSetup: Setup) => void;
+  deleteSetup: (name: string) => void;
+  addCapitalAdjustment: (adj: Omit<CapitalAdjustment, 'id'>) => void;
+  deleteCapitalAdjustment: (id: string) => void;
+  editCapitalAdjustment: (id: string, notes: string) => void;
+  resetToMockData: () => void;
+  pullTradesFromCloud: () => Promise<boolean>;
+
+  // Investments
+  investments: Investment[];
+  addInvestment: (invData: Omit<Investment, 'id'>) => void;
+  editInvestment: (id: string, invData: Partial<Investment>) => void;
+  deleteInvestment: (id: string) => void;
+  exitInvestment: (id: string, exitPrice: number, exitDate: string, exitNotes: string, exitQty?: number) => void;
+  updateInvestmentsList: (updatedList: Investment[]) => void;
+  syncAllInvestmentPrices: () => Promise<{ updatedCount: number; failedSymbols: string[] }>;
+
+  // Daily Contract Notes & Charges
+  contractNotes: DailyContractNote[];
+  addOrUpdateContractNote: (note: Omit<DailyContractNote, 'id' | 'totalCharges'>) => void;
+  deleteContractNote: (id: string) => void;
+
+  // Supabase SaaS Auth Settings
+  sessionUser: any;
+  setSessionUser: (user: any) => void;
+  signUpUser: (email: string, pass: string, metadata?: { first_name?: string; last_name?: string; mobile?: string }) => Promise<{ error: any }>;
+  signInUser: (email: string, pass: string) => Promise<{ error: any }>;
+  signOutUser: () => Promise<{ error: any }>;
+  sendPasswordResetEmail: (email: string) => Promise<{ error: any }>;
+  updatePassword: (password: string) => Promise<{ error: any }>;
+  loadUserData: (userId: string) => void;
+
+  // Privacy Settings
+  isPnlVisible: boolean;
+  togglePnlVisibility: () => void;
+
+  // Weekly Retrospectives
+  weeklyRetrospectives: Record<string, string>;
+  saveWeeklyRetrospective: (weekId: string, notes: string) => void;
+
+  // Financial Year Filter
+  selectedFY: string;
+  setSelectedFY: (fy: string) => void;
+  lockedFYs: string[];
+  toggleLockFY: (fy: string) => void;
+  clearFYData: (fy: string) => void;
+  noTradeDays: string[];
+  toggleNoTradeDay: (date: string) => void;
+
+  bulkImportTrades: (
+    imported: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>[],
+    overwrite: boolean
+  ) => void;
+
+  // Profile and Broker settings
+  userName: string;
+  userAvatar: string;
+  activeBrokers: Broker[];
+  defaultBroker: Broker;
+  setProfile: (name: string, avatar: string) => void;
+  setActiveBrokers: (brokers: Broker[]) => void;
+  setDefaultBroker: (broker: Broker) => void;
+
+  // NEW MULTI-USER & BANK LEDGER PROPERTIES
+  brokerAccounts: BrokerAccount[];
+  bankAccounts: BankAccount[];
+  subscriptionExpenses: SubscriptionExpense[];
+  bankTransactions: BankTransaction[];
+  brokerCharges: BrokerChargesConfig[];
+
+  addBrokerAccount: (account: Omit<BrokerAccount, 'id'>) => void;
+  editBrokerAccount: (id: string, accountData: Partial<BrokerAccount>) => void;
+  deleteBrokerAccount: (id: string) => void;
+
+  addBankAccount: (bank: Omit<BankAccount, 'id'>) => void;
+  editBankAccount: (id: string, bankData: Partial<BankAccount>) => void;
+  deleteBankAccount: (id: string) => void;
+
+  addSubscriptionExpense: (expense: Omit<SubscriptionExpense, 'id'>) => void;
+  editSubscriptionExpense: (id: string, expenseData: Partial<SubscriptionExpense>) => void;
+  deleteSubscriptionExpense: (id: string) => void;
+
+  updateBrokerCharges: (charges: BrokerChargesConfig[]) => void;
+  
+  // Bank transaction direct adjustments
+  addDirectBankTransaction: (tx: Omit<BankTransaction, 'id'>) => void;
+  deleteDirectBankTransaction: (id: string) => void;
+  editDirectBankTransaction: (id: string, txData: Partial<BankTransaction>) => void;
+}
+
+const DEFAULT_SETUPS: Setup[] = [
+  { name: 'EMA Crossover', description: 'Trading based on 9 and 15 EMA cross on 5-min chart' },
+  { name: 'Support Reversal', description: 'Buying at key daily/weekly support levels' },
+  { name: 'ORB Breakout', description: 'Opening Range Breakout of first 15 mins' },
+  { name: 'VWAP Pullback', description: 'Entering on pullbacks to the VWAP line' },
+  { name: 'Price Action Breakout', description: 'Trading flag and pole or cup and handle pattern breakouts' },
+];
+
+const DEFAULT_BROKER_ACCOUNTS: BrokerAccount[] = [
+  { id: 'acc-1', broker: 'Zerodha', accountName: 'Sachin', startingCapital: 500000, active: true },
+  { id: 'acc-2', broker: 'Dhan', accountName: 'Sachin', startingCapital: 200000, active: true },
+  { id: 'acc-3', broker: 'Dhan', accountName: 'Rupali', startingCapital: 100000, active: true },
+];
+
+const DEFAULT_BANK_ACCOUNTS: BankAccount[] = [
+  { id: 'bank-1', bankName: 'SBI', accountHolderName: 'Sachin', startingBalance: 150000, active: true },
+  { id: 'bank-2', bankName: 'HDFC', accountHolderName: 'Rupali', startingBalance: 80000, active: true },
+];
+
+const DEFAULT_BROKER_CHARGES: BrokerChargesConfig[] = [
+  { broker: 'Zerodha', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Groww', deliveryRatePct: 0.05, deliveryMaxFee: 20, intradayRatePct: 0.05, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.05, futuresMaxFee: 20 },
+  { broker: 'Angel One', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Upstox', deliveryRatePct: 0.1, deliveryMaxFee: 20, intradayRatePct: 0.05, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.05, futuresMaxFee: 20 },
+  { broker: 'Fyers', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Dhan', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Kotak Neo', deliveryRatePct: 0, deliveryMaxFee: 0, intradayRatePct: 0, intradayMaxFee: 0, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+  { broker: 'Other', deliveryRatePct: 0.1, deliveryMaxFee: 20, intradayRatePct: 0.03, intradayMaxFee: 20, optionsFlatFee: 20, futuresRatePct: 0.03, futuresMaxFee: 20 },
+];
+
+const DEFAULT_SUBSCRIPTION_EXPENSES: SubscriptionExpense[] = [
+  { id: 'sub-1', name: 'Tradetron Algo Basic', amount: 1200, date: '2026-06-01', paymentSource: 'Bank', bankAccountId: 'bank-1', notes: 'Monthly algo platform fee', frequency: 'Monthly' },
+  { id: 'sub-2', name: 'Sensibull Options Pro', amount: 800, date: '2026-06-05', paymentSource: 'Broker', brokerAccountId: 'acc-1', notes: 'Options analysis subscription', frequency: 'Monthly' },
+];
+
+// Helper to determine index-specific option/future expiry days based on NSE/BSE rules
+const checkIfExpiryDay = (symbol: string, dateStr: string): boolean => {
+  const sym = symbol.toUpperCase().trim();
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return false;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+  const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday
+
+  // 1. NSE indices (Nifty, Bank Nifty, Finnifty, Midcap Nifty) expire on Thursday (or Tuesday for historical)
+  if (sym.includes('NIFTY') || sym.includes('BANKNIFTY') || sym.includes('FINNIFTY') || sym.includes('MIDCPNIFTY')) {
+    return dayOfWeek === 4 || dayOfWeek === 2;
+  }
+
+  // 2. BSE indices (Sensex, Bankex) expire on Thursday or Friday
+  if (sym.includes('SENSEX') || sym.includes('BANKEX')) {
+    return dayOfWeek === 4 || dayOfWeek === 5;
+  }
+
+  // 3. Stock options expire on the last Thursday of the month
+  if (dayOfWeek === 4) {
+    const nextWeek = new Date(year, month, day + 7);
+    return nextWeek.getMonth() !== month;
+  }
+
+  return false;
+};
+
+// Helper to compute calculated fields for a trade
+const computeTradeCalculations = (
+  trade: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'> & {
+    strikePrice?: number;
+    optionType?: 'CE' | 'PE' | 'None';
+    setupType?: 'Breakout' | 'Pullback' | 'Reversal' | 'Range Bound' | 'None';
+    useManualCharges?: boolean;
+    manualBrokerage?: number;
+    manualTaxes?: number;
+    holdingType?: 'Short Term' | 'Long Term';
+    broker?: Broker;
+    brokerage?: number;
+    taxes?: number;
+  },
+  chargesConfig?: BrokerChargesConfig
+) => {
+  const { date, entryTime, exitTime, exitDate, segment, product, action, qty, entryPrice, exitPrice, stopLoss } = trade;
+
+  // 1. Expiry Day Detection based on symbol and index trading calendar rules
+  const isExpiryDay = checkIfExpiryDay(trade.symbol, date);
+
+  // 2. Holding Duration Calculation in Minutes
+  let durationMinutes = 0;
+  const actualExitDate = exitDate || date;
+  
+  const getCleanTime = (t: string) => {
+    if (!t) return '00:00';
+    const parts = t.trim().split(':');
+    if (parts.length >= 2) {
+      return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+    }
+    return '00:00';
+  };
+
+  const cleanEntryTime = getCleanTime(entryTime);
+  const cleanExitTime = getCleanTime(exitTime);
+
+  const entryDateTimeStr = `${date}T${cleanEntryTime}:00`;
+  const exitDateTimeStr = `${actualExitDate}T${cleanExitTime}:00`;
+  
+  const entryDateObj = new Date(entryDateTimeStr);
+  const exitDateObj = new Date(exitDateTimeStr);
+  
+  if (!isNaN(entryDateObj.getTime()) && !isNaN(exitDateObj.getTime())) {
+    const diffMs = exitDateObj.getTime() - entryDateObj.getTime();
+    durationMinutes = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+  } else {
+    try {
+      const entryParts = cleanEntryTime.split(':');
+      const exitParts = cleanExitTime.split(':');
+      const entryMins = parseInt(entryParts[0], 10) * 60 + parseInt(entryParts[1], 10);
+      const exitMins = parseInt(exitParts[0], 10) * 60 + parseInt(exitParts[1], 10);
+      
+      let dayDiff = 0;
+      if (actualExitDate && actualExitDate !== date) {
+        const d1 = new Date(date);
+        const d2 = new Date(actualExitDate);
+        if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+          dayDiff = Math.max(0, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+        }
+      }
+      
+      durationMinutes = (dayDiff * 24 * 60) + exitMins - entryMins;
+      if (durationMinutes < 0) durationMinutes = 0;
+    } catch (e) {
+      durationMinutes = 0;
+    }
+  } 
+
+  // Gross PnL (accounting for partial exit legs if present)
+  let effectiveExitPrice = exitPrice;
+  if (trade.partialExits && trade.partialExits.length > 0) {
+    const totalPartialQty = trade.partialExits.reduce((sum, leg) => sum + leg.qty, 0);
+    const totalPartialVal = trade.partialExits.reduce((sum, leg) => sum + (leg.qty * leg.price), 0);
+    if (totalPartialQty > 0) {
+      effectiveExitPrice = totalPartialVal / totalPartialQty;
+    }
+  }
+
+  const grossPnL = action === 'BUY' 
+    ? (effectiveExitPrice - entryPrice) * qty 
+    : (entryPrice - effectiveExitPrice) * qty;
+
+  // Taxes & Brokerage: NEVER auto-calculate!
+  // Brokerage and taxes are only recorded when manually entered or updated by the user (e.g. via Contract Notes / Calendar).
+  let brokerage = 0;
+  let taxes = 0;
+  let totalCharges = 0;
+
+  if (trade.useManualCharges) {
+    brokerage = Number(trade.manualBrokerage) || 0;
+    taxes = Number(trade.manualTaxes) || 0;
+    totalCharges = brokerage + taxes;
+  } else if (trade.brokerage !== undefined || trade.taxes !== undefined) {
+    // Preserve existing trade charges if already present on trade (for edit / 100% data safety)
+    brokerage = Number(trade.brokerage) || 0;
+    taxes = Number(trade.taxes) || 0;
+    totalCharges = brokerage + taxes;
+  } else {
+    // Default for newly logged trades: 0 charges until user manually enters them.
+    brokerage = 0;
+    taxes = 0;
+    totalCharges = 0;
+  }
+  const netPnL = grossPnL - totalCharges;
+
+  // ROI: (Net PnL / Capital Deployed) * 100
+  const capital = entryPrice * qty;
+  const roi = capital > 0 ? (netPnL / capital) * 100 : 0;
+
+  // Risk-to-Reward Ratio (calculated only if a valid stopLoss > 0 is provided)
+  const riskPoints = (stopLoss && stopLoss > 0) ? Math.abs(entryPrice - stopLoss) : 0;
+  const rewardPoints = action === 'BUY' ? (effectiveExitPrice - entryPrice) : (entryPrice - effectiveExitPrice);
+  const actualRR = riskPoints > 0 ? rewardPoints / riskPoints : 0;
+
+  return {
+    isExpiryDay,
+    durationMinutes,
+    grossPnL: Math.round(grossPnL * 100) / 100,
+    brokerage: Math.round(brokerage * 100) / 100,
+    taxes: Math.round(taxes * 100) / 100,
+    netPnL: Math.round(netPnL * 100) / 100,
+    roi: Math.round(roi * 100) / 100,
+    actualRR: Math.round(actualRR * 100) / 100,
+  };
+};
+
+const updateBaseCapital = (accounts: BrokerAccount[]) => {
+  return accounts.filter(a => a.active).reduce((sum, a) => sum + a.startingCapital, 0);
+};
+
+export const useTradeStore = create<TradeStore>((set, get) => {
+  const getMockInvestments = (): Investment[] => {
+    return [];
+  };
+
+  // Helper to get user-scoped key
+  const getScopedKey = (baseKey: string) => {
+    try {
+      const state = typeof get === 'function' ? get() : null;
+      const userId = state?.sessionUser?.id;
+      return userId ? `${baseKey}_${userId}` : baseKey;
+    } catch (e) {
+      return baseKey;
+    }
+  };
+
+  // Load initial data from LocalStorage with Migrations
+  const loadBrokerAccounts = (): BrokerAccount[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_broker_accounts'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          let changed = false;
+          const updated = parsed.map(a => {
+            if (a && a.accountName === 'Wife') {
+              a.accountName = 'Rupali';
+              changed = true;
+            }
+            return a;
+          }).filter(Boolean) as BrokerAccount[];
+          if (changed) {
+            localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
+          }
+          return updated;
+        }
+      } catch (e) {
+        console.error('Failed to parse broker accounts', e);
+      }
+    }
+    localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(DEFAULT_BROKER_ACCOUNTS));
+    return DEFAULT_BROKER_ACCOUNTS;
+  };
+
+  const loadBankAccounts = (): BankAccount[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_bank_accounts'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          let changed = false;
+          const updated = parsed.map(b => {
+            if (b && b.accountHolderName === 'Wife') {
+              b.accountHolderName = 'Rupali';
+              changed = true;
+            }
+            return b;
+          }).filter(Boolean) as BankAccount[];
+          if (changed) {
+            localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
+          }
+          return updated;
+        }
+      } catch (e) {
+        console.error('Failed to parse bank accounts', e);
+      }
+    }
+    localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(DEFAULT_BANK_ACCOUNTS));
+    return DEFAULT_BANK_ACCOUNTS;
+  };
+
+  const loadBrokerCharges = (): BrokerChargesConfig[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_broker_charges'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.error('Failed to parse broker charges', e);
+      }
+    }
+    localStorage.setItem(getScopedKey('traders_diary_broker_charges'), JSON.stringify(DEFAULT_BROKER_CHARGES));
+    return DEFAULT_BROKER_CHARGES;
+  };
+
+  const loadSubscriptionExpenses = (): SubscriptionExpense[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_subscription_expenses'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse subscription expenses', e);
+      }
+    }
+    localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(DEFAULT_SUBSCRIPTION_EXPENSES));
+    return DEFAULT_SUBSCRIPTION_EXPENSES;
+  };
+
+  const loadBankTransactions = (): BankTransaction[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_bank_transactions'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse bank transactions', e);
+      }
+    }
+    localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify([]));
+    return [];
+  };
+
+  const loadTrades = (accountsList: BrokerAccount[]): Trade[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_trades'));
+    let tradesList: Trade[] = [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          tradesList = parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse trades', e);
+        tradesList = [];
+      }
+    }
+
+    let migrated = false;
+    const safeAccounts = Array.isArray(accountsList) && accountsList.length > 0 ? accountsList : DEFAULT_BROKER_ACCOUNTS;
+    const updated = (tradesList || []).map((t) => {
+      if (!t) return null;
+      let changed = false;
+      const currentAccount = safeAccounts.find(a => a.id === t.brokerAccountId);
+      if (!t.brokerAccountId || !currentAccount || currentAccount.broker !== t.broker) {
+        const matched = safeAccounts.find(a => a.broker === t.broker && a.active);
+        if (matched) {
+          t.brokerAccountId = matched.id;
+          changed = true;
+        } else if (!t.brokerAccountId) {
+          t.brokerAccountId = safeAccounts[0]?.id || 'acc-1';
+          changed = true;
+        }
+      }
+      
+      if (t.segment === 'F&O') {
+        const symUpper = (t.symbol || '').toUpperCase();
+        const symMatch = symUpper.match(/\b(\d{4,6})\s*(CE|PE)\b/);
+        if (symMatch) {
+          if (!t.strikePrice || t.strikePrice === 0) {
+            t.strikePrice = parseFloat(symMatch[1]);
+            changed = true;
+          }
+          if (!t.optionType || t.optionType === 'None') {
+            t.optionType = symMatch[2] as 'CE' | 'PE';
+            changed = true;
+          }
+        } else if (!t.optionType || t.optionType === 'None') {
+          if (symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL')) {
+            t.optionType = 'CE';
+            changed = true;
+          } else if (symUpper.includes(' PE') || symUpper.endsWith('PE') || symUpper.includes('PUT')) {
+            t.optionType = 'PE';
+            changed = true;
+          }
+        }
+      }
+      
+      const config = t.brokerAccountId ? DEFAULT_BROKER_CHARGES.find(c => c.broker === safeAccounts.find(a => a.id === t.brokerAccountId)?.broker) : undefined;
+      const computed = computeTradeCalculations(t, config);
+
+      if (t.durationMinutes !== computed.durationMinutes || isNaN(t.durationMinutes) || t.isExpiryDay !== computed.isExpiryDay) {
+        t.durationMinutes = computed.durationMinutes;
+        t.isExpiryDay = computed.isExpiryDay;
+        changed = true;
+      }
+      
+      if (changed) {
+        migrated = true;
+      }
+      return t;
+    }).filter(Boolean) as Trade[];
+
+    if (migrated || !saved) {
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updated));
+    }
+    return updated;
+  };
+
+  const loadBaseCapital = (accountsList: BrokerAccount[]): number => {
+    return updateBaseCapital(accountsList);
+  };
+
+  const loadTheme = (): 'light' | 'dark' => {
+    const saved = localStorage.getItem('traders_diary_theme');
+    return (saved && ['light', 'dark'].includes(saved)) ? (saved as any) : 'dark';
+  };
+
+  const loadSelectedFY = (): string => {
+    const saved = localStorage.getItem('traders_diary_selected_fy');
+    return saved || getCurrentLiveFY();
+  };
+
+  const loadAdjustments = (accountsList: BrokerAccount[], banksList: BankAccount[]): CapitalAdjustment[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_adjustments'));
+    let adjList: CapitalAdjustment[] = [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          adjList = parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse adjustments', e);
+      }
+    }
+
+    let migrated = false;
+    const safeAccounts = Array.isArray(accountsList) && accountsList.length > 0 ? accountsList : DEFAULT_BROKER_ACCOUNTS;
+    const safeBanks = Array.isArray(banksList) && banksList.length > 0 ? banksList : DEFAULT_BANK_ACCOUNTS;
+
+    const updated = (adjList || []).map((a) => {
+      if (!a) return null;
+      if (!a.brokerAccountId) {
+        const matched = safeAccounts.find(acc => acc.broker === a.broker);
+        a.brokerAccountId = matched ? matched.id : (safeAccounts[0]?.id || 'acc-1');
+        migrated = true;
+      }
+      if (!a.bankAccountId) {
+        a.bankAccountId = safeBanks[0]?.id || 'bank-1';
+        migrated = true;
+      }
+      return a;
+    }).filter(Boolean) as CapitalAdjustment[];
+
+    const bankTxSaved = localStorage.getItem(getScopedKey('traders_diary_bank_transactions'));
+    if (bankTxSaved) {
+      try {
+        const bankTxs = JSON.parse(bankTxSaved);
+        if (Array.isArray(bankTxs)) {
+          bankTxs.forEach(tx => {
+            if (tx && (tx.category === 'Broker Pay-in' || tx.category === 'Broker Pay-out') && tx.brokerAccountId) {
+              const exists = updated.some(a => a.id === `adj-${tx.id}`);
+              if (!exists) {
+                const matchedAcc = safeAccounts.find(a => a.id === tx.brokerAccountId);
+                const adjType = (tx.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
+                const newAdj: CapitalAdjustment = {
+                  id: `adj-${tx.id}`,
+                  date: tx.date,
+                  time: tx.time,
+                  type: adjType,
+                  amount: tx.amount,
+                  notes: tx.notes || 'Auto-generated transfer entry',
+                  broker: matchedAcc ? matchedAcc.broker : 'Other',
+                  brokerAccountId: tx.brokerAccountId,
+                  bankAccountId: tx.bankAccountId
+                };
+                updated.push(newAdj);
+                migrated = true;
+              }
+            }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to parse bank transactions for auto-heal', e);
+      }
+    }
+
+    if (migrated || !saved) {
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
+    }
+    return updated;
+  };
+
+  const loadInvestments = (): Investment[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_investments'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse investments', e);
+      }
+    }
+    return getMockInvestments();
+  };
+
+  const loadContractNotes = (): DailyContractNote[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_contract_notes'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse contract notes', e);
+      }
+    }
+    return [];
+  };
+
+  const loadPnlVisibility = (): boolean => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_pnl_visibility'));
+    return saved !== null ? JSON.parse(saved) : true;
+  };
+
+  const loadWeeklyRetrospectives = (): Record<string, string> => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_weekly_retrospectives'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse weekly retrospectives', e);
+      }
+    }
+    return {};
+  };
+
+  const loadUserName = (): string => {
+    return localStorage.getItem(getScopedKey('traders_diary_user_name')) || 'Sachin';
+  };
+
+  const loadUserAvatar = (): string => {
+    return localStorage.getItem(getScopedKey('traders_diary_user_avatar')) || 'bull';
+  };
+
+  const loadActiveBrokers = (): Broker[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_active_brokers'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse active brokers', e);
+      }
+    }
+    return ['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other'];
+  };
+
+  const loadDefaultBroker = (): Broker => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_default_broker'));
+    if (saved && ['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other'].includes(saved)) {
+      return saved as Broker;
+    }
+    return 'Zerodha';
+  };
+
+  const loadLockedFYs = (): string[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_locked_fys'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse locked FYs', e);
+      }
+    }
+    return ['FY 2024-25', 'FY 2025-26'];
+  };
+
+  const loadNoTradeDays = (): string[] => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_notradedays'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse no trade days', e);
+      }
+    }
+    return [];
+  };
+
+  // Seed default collections first to make sure they exist
+  const initialAccounts = loadBrokerAccounts();
+  const initialBanks = loadBankAccounts();
+  const initialCharges = loadBrokerCharges();
+  const initialExpenses = loadSubscriptionExpenses();
+  const initialBankTx = loadBankTransactions();
+
+  return {
+    brokerAccounts: initialAccounts,
+    bankAccounts: initialBanks,
+    brokerCharges: initialCharges,
+    subscriptionExpenses: initialExpenses,
+    bankTransactions: initialBankTx,
+
+    trades: loadTrades(initialAccounts),
+    setups: DEFAULT_SETUPS,
+    baseCapital: loadBaseCapital(initialAccounts),
+    capitalAdjustments: loadAdjustments(initialAccounts, initialBanks),
+    theme: loadTheme(),
+    investments: loadInvestments(),
+    contractNotes: loadContractNotes(),
+    sessionUser: null,
+    isPnlVisible: loadPnlVisibility(),
+    weeklyRetrospectives: loadWeeklyRetrospectives(),
+    selectedFY: loadSelectedFY(),
+    lockedFYs: loadLockedFYs(),
+    noTradeDays: loadNoTradeDays(),
+    userName: loadUserName(),
+    userAvatar: loadUserAvatar(),
+    activeBrokers: loadActiveBrokers(),
+    defaultBroker: loadDefaultBroker(),
+
+    setSessionUser: (user) => set((state) => {
+      const shouldResetFY = !state.sessionUser && user;
+      return {
+        sessionUser: user,
+        ...(shouldResetFY ? { selectedFY: getCurrentLiveFY() } : {}),
+        noTradeDays: loadNoTradeDays()
+      };
+    }),
+    setSelectedFY: (fy) => {
+      localStorage.setItem(getScopedKey('traders_diary_selected_fy'), fy);
+      set({ selectedFY: fy });
+    },
+    toggleNoTradeDay: (date) => set((state) => {
+      const exists = state.noTradeDays.includes(date);
+      const nextNoTradeDays = exists 
+        ? state.noTradeDays.filter(d => d !== date)
+        : [...state.noTradeDays, date];
+      localStorage.setItem(getScopedKey('traders_diary_notradedays'), JSON.stringify(nextNoTradeDays));
+      syncMetaToCloud('notradedays', nextNoTradeDays);
+      return { noTradeDays: nextNoTradeDays };
+    }),
+    toggleLockFY: (fy) => set((state) => {
+      const isLocked = state.lockedFYs.includes(fy);
+      const nextLocked = isLocked 
+        ? state.lockedFYs.filter(f => f !== fy)
+        : [...state.lockedFYs, fy];
+      localStorage.setItem(getScopedKey('traders_diary_locked_fys'), JSON.stringify(nextLocked));
+      return { lockedFYs: nextLocked };
+    }),
+    clearFYData: (fy) => set((state) => {
+      const match = fy.match(/FY (\d{4})/);
+      if (!match) return {};
+      const startYear = parseInt(match[1], 10);
+      const endYear = startYear + 1;
+      const startStr = `${startYear}-04-01`;
+      const endStr = `${endYear}-03-31`;
+
+      const remainingTrades = state.trades.filter(t => t.date < startStr || t.date > endStr);
+      const remainingAdjustments = state.capitalAdjustments.filter(a => a.date < startStr || a.date > endStr);
+
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(remainingTrades));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(remainingAdjustments));
+
+      // Sync capital adjustments to cloud metadata
+      syncMetaToCloud('capital_adjustments', remainingAdjustments);
+
+      // Async delete trades from cloud
+      const deletedTrades = state.trades.filter(t => t.date >= startStr && t.date <= endStr);
+      deletedTrades.forEach(t => {
+        syncTradeToCloud('delete', { id: t.id });
+      });
+
+      return { 
+        trades: remainingTrades,
+        capitalAdjustments: remainingAdjustments
+      };
+    }),
+
+    setBaseCapital: (capital) => set(() => {
+      // Legacy compatibility
+      localStorage.setItem('traders_diary_capital', capital.toString());
+      return { baseCapital: capital };
+    }),
+
+    toggleTheme: () => set((state) => {
+      const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem(getScopedKey('traders_diary_theme'), nextTheme);
+      return { theme: nextTheme };
+    }),
+
+    setTheme: (theme) => set(() => {
+      localStorage.setItem(getScopedKey('traders_diary_theme'), theme);
+      return { theme };
+    }),
+
+    addTrade: (tradeData) => set((state) => {
+      const tradeFY = getFinancialYear(tradeData.date);
+      if (state.lockedFYs.includes(tradeFY)) {
+        alert(`Cannot add trade: The financial year "${tradeFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+      if (state.selectedFY !== 'All' && tradeFY !== state.selectedFY) {
+        alert(`Cannot add trade: The date ${tradeData.date} does not fall within the active financial year "${state.selectedFY}".`);
+        return {};
+      }
+      if (!checkFYAndConfirm(tradeFY, 'Add Trade')) {
+        return {};
+      }
+      const chargesConfig = state.brokerCharges.find((c) => c.broker === tradeData.broker);
+      const calculated = computeTradeCalculations(tradeData, chargesConfig);
+      const newTrade: Trade = {
+        ...tradeData,
+        id: `trade-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        ...calculated,
+      };
+      const updatedTrades = [...state.trades, newTrade];
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+      
+      // Async Cloud Sync
+      syncTradeToCloud('insert', newTrade);
+
+      notifyFYSave(tradeFY);
+      return { trades: updatedTrades };
+    }),
+
+    editTrade: (id, tradeData) => set((state) => {
+      const targetTrade = state.trades.find(t => t.id === id);
+      if (targetTrade) {
+        const oldFY = getFinancialYear(targetTrade.date);
+        if (state.lockedFYs.includes(oldFY)) {
+          alert(`Cannot edit trade: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+        if (tradeData.date) {
+          const newFY = getFinancialYear(tradeData.date);
+          if (state.lockedFYs.includes(newFY)) {
+            alert(`Cannot edit trade: The target financial year "${newFY}" is locked. Unlock it in Profile settings.`);
+            return {};
+          }
+          if (state.selectedFY !== 'All' && newFY !== state.selectedFY) {
+            alert(`Cannot edit trade: The target date ${tradeData.date} does not fall within the active financial year "${state.selectedFY}".`);
+            return {};
+          }
+          if (!checkFYAndConfirm(newFY, 'Edit Trade')) {
+            return {};
+          }
+        } else {
+          if (!checkFYAndConfirm(oldFY, 'Edit Trade')) {
+            return {};
+          }
+        }
+      }
+      let targetFY = '';
+      const updatedTrades = state.trades.map((t) => {
+        if (t.id === id) {
+          const merged = { ...t, ...tradeData };
+          targetFY = getFinancialYear(merged.date);
+          const chargesConfig = state.brokerCharges.find((c) => c.broker === merged.broker);
+          const calculated = computeTradeCalculations({
+            date: merged.date,
+            entryTime: merged.entryTime,
+            exitTime: merged.exitTime,
+            exitDate: merged.exitDate,
+            segment: merged.segment,
+            product: merged.product,
+            action: merged.action,
+            symbol: merged.symbol,
+            qty: merged.qty,
+            entryPrice: merged.entryPrice,
+            exitPrice: merged.exitPrice,
+            slippagePoints: merged.slippagePoints,
+            stopLoss: merged.stopLoss,
+            target: merged.target,
+            strategy: merged.strategy,
+            rulesFollowed: merged.rulesFollowed,
+            emotion: merged.emotion,
+            mistake: merged.mistake,
+            notes: merged.notes,
+            chartUrl: merged.chartUrl,
+            strikePrice: merged.strikePrice,
+            optionType: merged.optionType,
+            setupType: merged.setupType,
+            useManualCharges: merged.useManualCharges,
+            manualBrokerage: merged.manualBrokerage,
+            manualTaxes: merged.manualTaxes,
+            holdingType: merged.holdingType,
+            broker: merged.broker,
+            brokerage: merged.brokerage,
+            taxes: merged.taxes,
+          }, chargesConfig);
+          const updatedTrade = { ...merged, ...calculated };
+          
+          // Async Cloud Sync
+          syncTradeToCloud('update', updatedTrade);
+
+          return updatedTrade;
+        }
+        return t;
+      });
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+      if (targetFY) {
+        notifyFYSave(targetFY);
+      }
+      return { trades: updatedTrades };
+    }),
+
+    deleteTrade: (id) => set((state) => {
+      const targetTrade = state.trades.find(t => t.id === id);
+      if (targetTrade) {
+        const oldFY = getFinancialYear(targetTrade.date);
+        if (state.lockedFYs.includes(oldFY)) {
+          alert(`Cannot delete trade: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+        if (!checkFYAndConfirm(oldFY, 'Delete Trade')) {
+          return {};
+        }
+        const updatedTrades = state.trades.filter((t) => t.id !== id);
+        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+        
+        // Async Cloud Sync
+        syncTradeToCloud('delete', { id });
+
+        notifyFYSave(oldFY);
+        return { trades: updatedTrades };
+      }
+      return {};
+    }),
+
+    addSetup: (setup) => set((state) => {
+      const updatedSetups = [...state.setups, setup];
+      localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(updatedSetups));
+      syncMetaToCloud('setups', updatedSetups);
+      return { setups: updatedSetups };
+    }),
+
+    editSetup: (oldName, updatedSetup) => set((state) => {
+      const updatedSetups = state.setups.map((s) => s.name === oldName ? updatedSetup : s);
+      
+      let tradesMigrated = false;
+      const updatedTrades = state.trades.map((t) => {
+        if (t.strategy === oldName) {
+          tradesMigrated = true;
+          return { ...t, strategy: updatedSetup.name };
+        }
+        return t;
+      });
+
+      localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(updatedSetups));
+      syncMetaToCloud('setups', updatedSetups);
+
+      if (tradesMigrated) {
+        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+        // Upsert renamed trades to Supabase
+        const matching = updatedTrades.filter(t => t.strategy === updatedSetup.name);
+        matching.forEach(t => syncTradeToCloud('update', t));
+      }
+
+      return { 
+        setups: updatedSetups,
+        ...(tradesMigrated ? { trades: updatedTrades } : {})
+      };
+    }),
+
+    deleteSetup: (name) => set((state) => {
+      const updatedSetups = state.setups.filter((s) => s.name !== name);
+      localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(updatedSetups));
+      syncMetaToCloud('setups', updatedSetups);
+      return { setups: updatedSetups };
+    }),
+
+    addCapitalAdjustment: (adj) => set((state) => {
+      const adjFY = getFinancialYear(adj.date);
+      if (state.lockedFYs.includes(adjFY)) {
+        alert(`Cannot add entry: The financial year "${adjFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+      if (state.selectedFY !== 'All' && adjFY !== state.selectedFY) {
+        alert(`Cannot add entry: The date ${adj.date} does not fall within the active financial year "${state.selectedFY}".`);
+        return {};
+      }
+      if (!checkFYAndConfirm(adjFY, 'Add Capital Flow')) {
+        return {};
+      }
+      const newAdj: CapitalAdjustment = {
+        ...adj,
+        id: `adj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      };
+      
+      const updated = [newAdj, ...state.capitalAdjustments];
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
+      syncMetaToCloud('capital_adjustments', updated);
+
+      // Link to Bank Ledger Transaction (Double-entry)
+      let updatedBankTx = state.bankTransactions;
+      if (adj.bankAccountId) {
+        const newBankTx: BankTransaction = {
+          id: `btx-${newAdj.id}`,
+          date: adj.date,
+          time: adj.time,
+          bankAccountId: adj.bankAccountId,
+          type: adj.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT', // opposite direction
+          amount: adj.amount,
+          category: adj.type === 'DEPOSIT' ? 'Broker Pay-in' : 'Broker Pay-out',
+          notes: adj.notes || `${adj.type === 'DEPOSIT' ? 'Pay-in to' : 'Pay-out from'} ${adj.broker || 'broker'} account`,
+          brokerAccountId: adj.brokerAccountId,
+        };
+        updatedBankTx = [newBankTx, ...state.bankTransactions];
+        localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+        syncMetaToCloud('bank_transactions', updatedBankTx);
+      }
+
+      notifyFYSave(adjFY);
+      return { capitalAdjustments: updated, bankTransactions: updatedBankTx };
+    }),
+
+    deleteCapitalAdjustment: (id) => set((state) => {
+      const targetAdj = state.capitalAdjustments.find(a => a.id === id);
+      if (targetAdj) {
+        const oldFY = getFinancialYear(targetAdj.date);
+        if (state.lockedFYs.includes(oldFY)) {
+          alert(`Cannot delete entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+        if (!checkFYAndConfirm(oldFY, 'Delete Capital Flow')) {
+          return {};
+        }
+        const updated = state.capitalAdjustments.filter((a) => a.id !== id);
+        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
+        syncMetaToCloud('capital_adjustments', updated);
+
+        // Clean up linked double-entry Bank Transaction
+        const btxId = id.startsWith('adj-btx-') ? id.replace('adj-', '') : (id.startsWith('adj-') ? id.replace('adj-', 'btx-') : `btx-${id}`);
+        const updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== btxId && tx.id !== `btx-${id}` && tx.id !== id.replace('adj-', ''));
+        localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+        syncMetaToCloud('bank_transactions', updatedBankTx);
+
+        notifyFYSave(oldFY);
+        return { capitalAdjustments: updated, bankTransactions: updatedBankTx };
+      }
+      return {};
+    }),
+
+    editCapitalAdjustment: (id, notes) => set((state) => {
+      const oldAdj = state.capitalAdjustments.find(a => a.id === id);
+      if (oldAdj) {
+        const oldFY = getFinancialYear(oldAdj.date);
+        if (state.lockedFYs.includes(oldFY)) {
+          alert(`Cannot edit entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+        if (!checkFYAndConfirm(oldFY, 'Edit Capital Flow')) {
+          return {};
+        }
+        const updated = state.capitalAdjustments.map((a) => {
+          if (a.id === id) {
+            return { ...a, notes };
+          }
+          return a;
+        });
+        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updated));
+        syncMetaToCloud('capital_adjustments', updated);
+        notifyFYSave(oldFY);
+        return { capitalAdjustments: updated };
+      }
+      return {};
+    }),
+
+    resetToMockData: () => set((state) => {
+      const isUserLoggedIn = !!state.sessionUser?.id;
+      const mock: Trade[] = []; // Clear trades by default or reset
+      const mockInv: Investment[] = [];
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(mock));
+      localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(DEFAULT_SETUPS));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify([]));
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(mockInv));
+      localStorage.setItem(getScopedKey('traders_diary_weekly_retrospectives'), JSON.stringify({}));
+      
+      // Reset new structures
+      localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(DEFAULT_BROKER_ACCOUNTS));
+      localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(DEFAULT_BANK_ACCOUNTS));
+      localStorage.setItem(getScopedKey('traders_diary_broker_charges'), JSON.stringify(DEFAULT_BROKER_CHARGES));
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(DEFAULT_SUBSCRIPTION_EXPENSES));
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify([]));
+      localStorage.setItem(getScopedKey('traders_diary_notradedays'), JSON.stringify([]));
+
+      // CRITICAL DATA SAFETY FIX:
+      // Only sync mock defaults if user is NOT logged in (Guest mode).
+      // If user is logged in, resetting local cache should NEVER overwrite online Supabase database.
+      if (!isUserLoggedIn) {
+        syncMetaToCloud('setups', DEFAULT_SETUPS);
+        syncMetaToCloud('capital_adjustments', []);
+        syncMetaToCloud('broker_accounts', DEFAULT_BROKER_ACCOUNTS);
+        syncMetaToCloud('bank_accounts', DEFAULT_BANK_ACCOUNTS);
+        syncMetaToCloud('broker_charges', DEFAULT_BROKER_CHARGES);
+        syncMetaToCloud('subscription_expenses', DEFAULT_SUBSCRIPTION_EXPENSES);
+        syncMetaToCloud('bank_transactions', []);
+        syncMetaToCloud('notradedays', []);
+      }
+
+      return { 
+        trades: mock, 
+        setups: DEFAULT_SETUPS, 
+        capitalAdjustments: [], 
+        investments: mockInv, 
+        weeklyRetrospectives: {},
+        brokerAccounts: DEFAULT_BROKER_ACCOUNTS,
+        bankAccounts: DEFAULT_BANK_ACCOUNTS,
+        brokerCharges: DEFAULT_BROKER_CHARGES,
+        subscriptionExpenses: DEFAULT_SUBSCRIPTION_EXPENSES,
+        bankTransactions: [],
+        noTradeDays: [],
+        baseCapital: updateBaseCapital(DEFAULT_BROKER_ACCOUNTS)
+      };
+    }),
+
+    pullTradesFromCloud: async () => {
+      const userId = get().sessionUser?.id;
+      if (!userId) return false;
+
+      // 1. Fetch from cloud
+      const cloudTrades = await fetchTradesFromCloud();
+      if (cloudTrades === null) {
+        console.error("Cloud trades fetch failed. Aborting sync to protect local data.");
+        return false;
+      }
+
+      const cloudMeta = await fetchMetaBatchFromCloud();
+      if (cloudMeta === null) {
+        console.error("Cloud metadata batch fetch failed. Aborting sync to protect local data.");
+        return false;
+      }
+
+      // Sync Trades: Cloud-first priority (Cloud updates local database)
+      set({ trades: cloudTrades });
+      localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
+
+      // Helper function for metadata keys using cloud-first priority
+      const processMetaKey = async (key: string, storeSetter: (val: any) => void, localKey: string, defaultValue: any) => {
+        const cloudVal = cloudMeta[key];
+        
+        if (cloudVal !== undefined && cloudVal !== null) {
+          // Cloud has data: use it to overwrite local data (priority)
+          storeSetter(cloudVal);
+          localStorage.setItem(localKey, JSON.stringify(cloudVal));
+        } else {
+          // Cloud is empty/new: push local data to cloud if it has custom values
+          const localValStr = localStorage.getItem(localKey);
+          const localVal = localValStr ? JSON.parse(localValStr) : null;
+          
+          const isLocalDefaultOrEmpty = !localVal ||
+            JSON.stringify(localVal) === JSON.stringify(defaultValue) ||
+            (Array.isArray(localVal) && localVal.length === 0) ||
+            (typeof localVal === 'object' && Object.keys(localVal).length === 0);
+
+          if (localVal && !isLocalDefaultOrEmpty) {
+            await syncMetaToCloud(key, localVal);
+            storeSetter(localVal);
+          } else {
+            storeSetter(defaultValue);
+            localStorage.setItem(localKey, JSON.stringify(defaultValue));
+          }
+        }
+      };
+
+      // Setups
+      await processMetaKey('setups', (val) => set({ setups: val }), `traders_diary_setups_${userId}`, DEFAULT_SETUPS);
+
+      // Investments
+      await processMetaKey('investments', (val) => set({ investments: val }), `traders_diary_investments_${userId}`, []);
+
+      // Capital Adjustments
+      await processMetaKey('capital_adjustments', (val) => set({ capitalAdjustments: val }), `traders_diary_adjustments_${userId}`, []);
+
+      // Weekly Retrospectives
+      await processMetaKey('weekly_retrospectives', (val) => set({ weeklyRetrospectives: val }), `traders_diary_weekly_retrospectives_${userId}`, {});
+
+      // Broker Accounts
+      await processMetaKey('broker_accounts', (val) => set({ brokerAccounts: val, baseCapital: updateBaseCapital(val) }), `traders_diary_broker_accounts_${userId}`, DEFAULT_BROKER_ACCOUNTS);
+
+      // Bank Accounts
+      await processMetaKey('bank_accounts', (val) => set({ bankAccounts: val }), `traders_diary_bank_accounts_${userId}`, DEFAULT_BANK_ACCOUNTS);
+
+      // Broker Charges
+      await processMetaKey('broker_charges', (val) => set({ brokerCharges: val }), `traders_diary_broker_charges_${userId}`, DEFAULT_BROKER_CHARGES);
+
+      // Expenses
+      await processMetaKey('subscription_expenses', (val) => set({ subscriptionExpenses: val }), `traders_diary_subscription_expenses_${userId}`, DEFAULT_SUBSCRIPTION_EXPENSES);
+
+      // Bank Transactions
+      await processMetaKey('bank_transactions', (val) => set({ bankTransactions: val }), `traders_diary_bank_transactions_${userId}`, []);
+
+      // No Trade Days
+      await processMetaKey('notradedays', (val) => set({ noTradeDays: val }), `traders_diary_notradedays_${userId}`, []);
+
+      // Mark the sync initialization as completed
+      localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');
+
+      return true;
+    },
+
+    // Investments Action implementations
+    addInvestment: (invData) => set((state) => {
+      const newInv: Investment = {
+        ...invData,
+        status: 'ACTIVE',
+        id: `inv-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      const updated = [...state.investments, newInv];
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updated));
+      syncMetaToCloud('investments', updated);
+      return { investments: updated };
+    }),
+
+    editInvestment: (id, invData) => set((state) => {
+      const updated = state.investments.map((i) => i.id === id ? { ...i, ...invData } : i);
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updated));
+      syncMetaToCloud('investments', updated);
+      return { investments: updated };
+    }),
+
+    deleteInvestment: (id) => set((state) => {
+      const updated = state.investments.filter((i) => i.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updated));
+      syncMetaToCloud('investments', updated);
+      return { investments: updated };
+    }),
+
+    exitInvestment: (id, exitPrice, exitDate, exitNotes, exitQty) => set((state) => {
+      const newExits: Investment[] = [];
+      const updated = state.investments.map((i) => {
+        if (i.id === id) {
+          const qtyToExit = exitQty !== undefined ? exitQty : i.qty;
+          if (qtyToExit < i.qty && qtyToExit > 0) {
+            const partialExitRecord: Investment = {
+              ...i,
+              id: `inv-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+              qty: qtyToExit,
+              status: 'EXITED' as const,
+              exitPrice,
+              exitDate,
+              exitNotes: `[Partial Exit of ${qtyToExit}/${i.qty}] ${exitNotes}`.trim()
+            };
+            newExits.push(partialExitRecord);
+            return {
+              ...i,
+              qty: i.qty - qtyToExit,
+              notes: `${i.notes}\n[Partial exit of ${qtyToExit} units on ${exitDate} @ ₹${exitPrice}]`.trim()
+            };
+          } else {
+            return {
+              ...i,
+              status: 'EXITED' as const,
+              exitPrice,
+              exitDate,
+              exitNotes
+            };
+          }
+        }
+        return i;
+      });
+
+      const finalInvestments = [...updated, ...newExits];
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(finalInvestments));
+      syncMetaToCloud('investments', finalInvestments);
+      return { investments: finalInvestments };
+    }),
+
+    updateInvestmentsList: (updatedList) => set(() => {
+      localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updatedList));
+      syncMetaToCloud('investments', updatedList);
+      return { investments: updatedList };
+    }),
+
+    syncAllInvestmentPrices: async () => {
+      const state = get();
+      const activeInvs = state.investments.filter((i) => i.status === 'ACTIVE' || !i.status);
+      if (activeInvs.length === 0) return { updatedCount: 0, failedSymbols: [] };
+
+      let updatedCount = 0;
+      const failedSymbols: string[] = [];
+
+      const fetchLatestPriceFromYahoo = async (symbol: string): Promise<number | null> => {
+        const cleanSymbol = symbol.trim().toUpperCase();
+        let tickerSymbol = cleanSymbol.replace(/\s+/g, '');
+        // Strip -GB suffix for Sovereign Gold Bonds if present
+        if (tickerSymbol.startsWith('SGB') && tickerSymbol.endsWith('-GB')) {
+          tickerSymbol = tickerSymbol.substring(0, tickerSymbol.length - 3);
+        }
+        const ticker = tickerSymbol.includes('.') ? tickerSymbol : `${tickerSymbol}.NS`;
+
+        const urls = [
+          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`,
+          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`
+        ];
+        
+        const isLocalhost = window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1' || 
+                            window.location.hostname === '';
+
+        const proxies = [];
+        if (!isLocalhost) {
+          proxies.push((targetUrl: string) => `/api/yahoo-proxy?url=${encodeURIComponent(targetUrl)}`);
+        }
+        proxies.push(
+          (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+          (targetUrl: string) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+          (targetUrl: string) => `https://api.codetabs.com/v1/proxy?url=${encodeURIComponent(targetUrl)}`
+        );
+
+        const fetchWithTimeout = async (urlStr: string, timeoutMs: number = 3000) => {
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), timeoutMs);
+          try {
+            const response = await fetch(urlStr, { signal: controller.signal });
+            clearTimeout(id);
+            return response;
+          } catch (e) {
+            clearTimeout(id);
+            throw e;
+          }
+        };
+
+        for (const url of urls) {
+          for (const getProxyUrl of proxies) {
+            try {
+              const proxyUrl = getProxyUrl(url);
+              const response = await fetchWithTimeout(proxyUrl, 3000);
+              if (!response.ok) continue;
+              const json = await response.json();
+              
+              let data: any;
+              if (json && json.contents) {
+                data = JSON.parse(json.contents);
+              } else {
+                data = json;
+              }
+
+              // Check chart response format
+              const chartPrice = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+              if (chartPrice && typeof chartPrice === 'number') {
+                return chartPrice;
+              }
+
+              // Check quote response format
+              const quotePrice = data?.quoteResponse?.result?.[0]?.regularMarketPrice;
+              if (quotePrice && typeof quotePrice === 'number') {
+                return quotePrice;
+              }
+            } catch (e) {
+              console.warn(`Proxy fetch failed for ${ticker} on ${url}:`, e);
+            }
+          }
+        }
+        return null;
+      };
+
+      const updatedList = await Promise.all(
+        state.investments.map(async (inv) => {
+          if (inv.status === 'ACTIVE' || !inv.status) {
+            const livePrice = await fetchLatestPriceFromYahoo(inv.symbol);
+            if (livePrice !== null) {
+              updatedCount++;
+              return { ...inv, currentPrice: livePrice, status: 'ACTIVE' as const };
+            } else {
+              failedSymbols.push(inv.symbol);
+            }
+          }
+          return inv;
+        })
+      );
+
+      if (updatedCount > 0) {
+        set({ investments: updatedList });
+        localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(updatedList));
+        syncMetaToCloud('investments', updatedList);
+      }
+
+      return { updatedCount, failedSymbols };
+    },
+
+    loadUserData: (userId) => {
+      const getOrMigrate = (baseKey: string, defaultVal: any) => {
+        const scopedKey = `${baseKey}_${userId}`;
+        const savedScoped = localStorage.getItem(scopedKey);
+        if (savedScoped) {
+          try {
+            return JSON.parse(savedScoped);
+          } catch (e) {
+            console.error(`Failed to parse ${scopedKey}`, e);
+          }
+        }
+        
+        const savedGuest = localStorage.getItem(baseKey);
+        if (savedGuest) {
+          try {
+            const parsed = JSON.parse(savedGuest);
+            localStorage.setItem(scopedKey, savedGuest);
+            return parsed;
+          } catch (e) {
+            console.error(`Failed to parse guest key ${baseKey}`, e);
+          }
+        }
+        
+        localStorage.setItem(scopedKey, JSON.stringify(defaultVal));
+        return defaultVal;
+      };
+
+      const rawBrokerAccs = getOrMigrate('traders_diary_broker_accounts', DEFAULT_BROKER_ACCOUNTS) as BrokerAccount[];
+      const brokerAccounts = rawBrokerAccs.map(a => {
+        if (a.accountName === 'Wife') a.accountName = 'Rupali';
+        return a;
+      });
+
+      const rawBankAccs = getOrMigrate('traders_diary_bank_accounts', DEFAULT_BANK_ACCOUNTS) as BankAccount[];
+      const bankAccounts = rawBankAccs.map(b => {
+        if (b.accountHolderName === 'Wife') b.accountHolderName = 'Rupali';
+        return b;
+      });
+      const brokerCharges = getOrMigrate('traders_diary_broker_charges', DEFAULT_BROKER_CHARGES);
+      const subscriptionExpenses = getOrMigrate('traders_diary_subscription_expenses', DEFAULT_SUBSCRIPTION_EXPENSES);
+      const bankTransactions = getOrMigrate('traders_diary_bank_transactions', []);
+
+      const trades = loadTrades(brokerAccounts);
+      const setups = getOrMigrate('traders_diary_setups', DEFAULT_SETUPS);
+      const baseCapital = updateBaseCapital(brokerAccounts);
+      const capitalAdjustments = loadAdjustments(brokerAccounts, bankAccounts);
+      const investments = getOrMigrate('traders_diary_investments', getMockInvestments());
+      const weeklyRetrospectives = getOrMigrate('traders_diary_weekly_retrospectives', {});
+
+      
+
+      const userName = localStorage.getItem(`traders_diary_user_name_${userId}`) || localStorage.getItem('traders_diary_user_name') || 'Sachin';
+      const userAvatar = localStorage.getItem(`traders_diary_user_avatar_${userId}`) || localStorage.getItem('traders_diary_user_avatar') || 'bull';
+      const activeBrokers = getOrMigrate('traders_diary_active_brokers', ['Zerodha', 'Groww', 'Angel One', 'Upstox', 'Fyers', 'Dhan', 'Kotak Neo', 'Other']);
+      const defaultBroker = localStorage.getItem(`traders_diary_default_broker_${userId}`) || localStorage.getItem('traders_diary_default_broker') || 'Zerodha';
+
+      const lockedFYs = getOrMigrate('traders_diary_locked_fys', ['FY 2024-25', 'FY 2025-26']);
+      const theme = localStorage.getItem(`traders_diary_theme_${userId}`) || localStorage.getItem('traders_diary_theme') || 'dark';
+      const isPnlVisible = localStorage.getItem(`traders_diary_pnl_visibility_${userId}`) !== null 
+        ? JSON.parse(localStorage.getItem(`traders_diary_pnl_visibility_${userId}`)!) 
+        : (localStorage.getItem('traders_diary_pnl_visibility') !== null ? JSON.parse(localStorage.getItem('traders_diary_pnl_visibility')!) : true);
+      const noTradeDays = getOrMigrate('traders_diary_notradedays', []);
+
+      set({
+        trades,
+        setups,
+        baseCapital,
+        capitalAdjustments,
+        investments,
+        weeklyRetrospectives,
+        userName,
+        userAvatar,
+        activeBrokers,
+        defaultBroker: defaultBroker as Broker,
+        brokerAccounts,
+        bankAccounts,
+        brokerCharges,
+        subscriptionExpenses,
+        bankTransactions,
+        lockedFYs,
+        theme: theme as 'light' | 'dark',
+        isPnlVisible,
+        noTradeDays
+      });
+
+      get().pullTradesFromCloud();
+    },
+
+    saveWeeklyRetrospective: (weekId, notes) => set((state) => {
+      const updated = { ...state.weeklyRetrospectives, [weekId]: notes };
+      localStorage.setItem(getScopedKey('traders_diary_weekly_retrospectives'), JSON.stringify(updated));
+      syncMetaToCloud('weekly_retrospectives', updated);
+      return { weeklyRetrospectives: updated };
+    }),
+
+    bulkImportTrades: (imported, overwrite) => set((state) => {
+      const parsedTrades = imported.map((t, idx) => {
+        const chargesConfig = state.brokerCharges.find((c) => c.broker === t.broker);
+        const calculated = computeTradeCalculations(t, chargesConfig);
+        const matchedAcc = state.brokerAccounts.find(a => a.broker === t.broker);
+        const brokerAccountId = t.brokerAccountId || (matchedAcc ? matchedAcc.id : (state.brokerAccounts[0]?.id || 'acc-1'));
+        return {
+          ...t,
+          brokerAccountId,
+          id: `trade-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+          ...calculated
+        };
+      });
+
+      const updatedTrades = overwrite ? parsedTrades : [...state.trades, ...parsedTrades];
+      localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+      
+      // Batch sync
+      if (overwrite) {
+        syncMetaToCloud('trades_overwrite_sync', updatedTrades); 
+      } else {
+        parsedTrades.forEach(t => syncTradeToCloud('insert', t));
+      }
+
+      return { trades: updatedTrades };
+    }),
+
+    setProfile: (name, avatar) => {
+      localStorage.setItem(getScopedKey('traders_diary_user_name'), name);
+      localStorage.setItem(getScopedKey('traders_diary_user_avatar'), avatar);
+      set({ userName: name, userAvatar: avatar });
+    },
+
+    setActiveBrokers: (brokers) => {
+      localStorage.setItem(getScopedKey('traders_diary_active_brokers'), JSON.stringify(brokers));
+      set({ activeBrokers: brokers });
+    },
+
+    setDefaultBroker: (broker) => {
+      localStorage.setItem(getScopedKey('traders_diary_default_broker'), broker);
+      set({ defaultBroker: broker });
+    },
+
+    // NEW ACTIONS IMPLEMENTATION
+
+    addBrokerAccount: (account) => set((state) => {
+      const newAcc: BrokerAccount = {
+        ...account,
+        id: `acc-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      const updated = [...state.brokerAccounts, newAcc];
+      localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('broker_accounts', updated);
+      return { 
+        brokerAccounts: updated, 
+        baseCapital: updateBaseCapital(updated) 
+      };
+    }),
+
+    editBrokerAccount: (id, accountData) => set((state) => {
+      const updated = state.brokerAccounts.map((a) => a.id === id ? { ...a, ...accountData } : a);
+      localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('broker_accounts', updated);
+      return { 
+        brokerAccounts: updated, 
+        baseCapital: updateBaseCapital(updated) 
+      };
+    }),
+
+    deleteBrokerAccount: (id) => set((state) => {
+      const updated = state.brokerAccounts.filter((a) => a.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_broker_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('broker_accounts', updated);
+      return { 
+        brokerAccounts: updated, 
+        baseCapital: updateBaseCapital(updated) 
+      };
+    }),
+
+    addBankAccount: (bank) => set((state) => {
+      const newBank: BankAccount = {
+        ...bank,
+        id: `bank-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      const updated = [...state.bankAccounts, newBank];
+      localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('bank_accounts', updated);
+      return { bankAccounts: updated };
+    }),
+
+    editBankAccount: (id, bankData) => set((state) => {
+      const updated = state.bankAccounts.map((b) => b.id === id ? { ...b, ...bankData } : b);
+      localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('bank_accounts', updated);
+      return { bankAccounts: updated };
+    }),
+
+    deleteBankAccount: (id) => set((state) => {
+      const updated = state.bankAccounts.filter((b) => b.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_bank_accounts'), JSON.stringify(updated));
+      syncMetaToCloud('bank_accounts', updated);
+      return { bankAccounts: updated };
+    }),
+
+    addSubscriptionExpense: (expense) => set((state) => {
+      const newExp: SubscriptionExpense = {
+        ...expense,
+        id: `exp-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      const updatedExpenses = [...state.subscriptionExpenses, newExp];
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
+      syncMetaToCloud('subscription_expenses', updatedExpenses);
+
+      // Handle pay from Bank
+      let updatedBankTx = state.bankTransactions;
+      if (expense.paymentSource === 'Bank' && expense.bankAccountId) {
+        const newBankTx: BankTransaction = {
+          id: `btx-${newExp.id}`,
+          date: expense.date,
+          time: '12:00',
+          bankAccountId: expense.bankAccountId,
+          type: 'WITHDRAWAL',
+          amount: expense.amount,
+          category: 'Subscription/Expense',
+          notes: `Paid: ${expense.name}. ${expense.notes}`,
+          expenseId: newExp.id,
+        };
+        updatedBankTx = [newBankTx, ...state.bankTransactions];
+        localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+        syncMetaToCloud('bank_transactions', updatedBankTx);
+      }
+
+      // Handle pay from Broker
+      let updatedAdjustments = state.capitalAdjustments;
+      if (expense.paymentSource === 'Broker' && expense.brokerAccountId) {
+        const matchingAcc = state.brokerAccounts.find(a => a.id === expense.brokerAccountId);
+        const newAdj: CapitalAdjustment = {
+          id: `adj-${newExp.id}`,
+          date: expense.date,
+          time: '12:00',
+          type: 'WITHDRAWAL',
+          amount: expense.amount,
+          notes: `Subscription/Expense: ${expense.name}`,
+          broker: matchingAcc?.broker || 'Other',
+          brokerAccountId: expense.brokerAccountId
+        };
+        updatedAdjustments = [newAdj, ...state.capitalAdjustments];
+        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+        syncMetaToCloud('capital_adjustments', updatedAdjustments);
+      }
+
+       return { 
+        subscriptionExpenses: updatedExpenses, 
+        bankTransactions: updatedBankTx,
+        capitalAdjustments: updatedAdjustments
+      };
+    }),
+
+    editSubscriptionExpense: (id, expenseData) => set((state) => {
+      const oldExp = state.subscriptionExpenses.find((e) => e.id === id);
+      if (!oldExp) return {};
+
+      const updatedExpenses = state.subscriptionExpenses.map((e) => {
+        if (e.id === id) {
+          return { ...e, ...expenseData };
+        }
+        return e;
+      });
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
+      syncMetaToCloud('subscription_expenses', updatedExpenses);
+
+      const targetExpense = { ...oldExp, ...expenseData };
+
+      // Manage linked double entry bank transaction
+      let updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== `btx-${id}`);
+      if (targetExpense.paymentSource === 'Bank' && targetExpense.bankAccountId) {
+        const newBankTx: BankTransaction = {
+          id: `btx-${id}`,
+          date: targetExpense.date,
+          time: '12:00',
+          bankAccountId: targetExpense.bankAccountId,
+          type: 'WITHDRAWAL',
+          amount: targetExpense.amount,
+          category: 'Subscription/Expense',
+          notes: `Paid: ${targetExpense.name}. ${targetExpense.notes || ''}`,
+          expenseId: id,
+        };
+        updatedBankTx = [newBankTx, ...updatedBankTx];
+      }
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+      syncMetaToCloud('bank_transactions', updatedBankTx);
+
+      // Manage linked double entry capital adjustment
+      let updatedAdjustments = state.capitalAdjustments.filter((a) => a.id !== `adj-${id}`);
+      if (targetExpense.paymentSource === 'Broker' && targetExpense.brokerAccountId) {
+        const matchingAcc = state.brokerAccounts.find(a => a.id === targetExpense.brokerAccountId);
+        const newAdj: CapitalAdjustment = {
+          id: `adj-${id}`,
+          date: targetExpense.date,
+          time: '12:00',
+          type: 'WITHDRAWAL',
+          amount: targetExpense.amount,
+          notes: `Subscription/Expense: ${targetExpense.name}`,
+          broker: matchingAcc?.broker || 'Other',
+          brokerAccountId: targetExpense.brokerAccountId
+        };
+        updatedAdjustments = [newAdj, ...updatedAdjustments];
+      }
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+      syncMetaToCloud('capital_adjustments', updatedAdjustments);
+
+      return {
+        subscriptionExpenses: updatedExpenses,
+        bankTransactions: updatedBankTx,
+        capitalAdjustments: updatedAdjustments
+      };
+    }),
+
+    deleteSubscriptionExpense: (id) => set((state) => {
+      const updatedExpenses = state.subscriptionExpenses.filter((e) => e.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
+      syncMetaToCloud('subscription_expenses', updatedExpenses);
+
+      // Clean up linked double entry transaction
+      const updatedBankTx = state.bankTransactions.filter((tx) => tx.id !== `btx-${id}`);
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTx));
+      syncMetaToCloud('bank_transactions', updatedBankTx);
+
+      // Clean up linked double entry capital adjustment
+      const updatedAdjustments = state.capitalAdjustments.filter((a) => a.id !== `adj-${id}`);
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+      syncMetaToCloud('capital_adjustments', updatedAdjustments);
+
+      return { 
+        subscriptionExpenses: updatedExpenses, 
+        bankTransactions: updatedBankTx,
+        capitalAdjustments: updatedAdjustments
+      };
+    }),
+
+    updateBrokerCharges: (charges) => set(() => {
+      localStorage.setItem(getScopedKey('traders_diary_broker_charges'), JSON.stringify(charges));
+      syncMetaToCloud('broker_charges', charges);
+      return { brokerCharges: charges };
+    }),
+
+    addDirectBankTransaction: (tx) => set((state) => {
+      const btxId = `btx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      const newTx: BankTransaction = {
+        ...tx,
+        id: btxId
+      };
+      
+      const updatedBankTxList = [newTx, ...state.bankTransactions];
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTxList));
+      syncMetaToCloud('bank_transactions', updatedBankTxList);
+
+      let updatedAdjustments = state.capitalAdjustments;
+      if ((tx.category === 'Broker Pay-in' || tx.category === 'Broker Pay-out') && tx.brokerAccountId) {
+        const matchedAcc = state.brokerAccounts.find(a => a.id === tx.brokerAccountId);
+        const adjType = (tx.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
+        const newAdj: CapitalAdjustment = {
+          id: `adj-${btxId}`,
+          date: tx.date,
+          time: tx.time,
+          type: adjType,
+          amount: tx.amount,
+          notes: tx.notes,
+          broker: matchedAcc ? matchedAcc.broker : 'Other',
+          brokerAccountId: tx.brokerAccountId,
+          bankAccountId: tx.bankAccountId
+        };
+        updatedAdjustments = [newAdj, ...state.capitalAdjustments];
+        localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+        syncMetaToCloud('capital_adjustments', updatedAdjustments);
+      }
+
+      return { 
+        bankTransactions: updatedBankTxList,
+        capitalAdjustments: updatedAdjustments,
+        baseCapital: updateBaseCapital(state.brokerAccounts)
+      };
+    }),
+
+    deleteDirectBankTransaction: (id) => set((state) => {
+      const oldTx = state.bankTransactions.find(t => t.id === id);
+      if (!oldTx) return {};
+
+      const oldFY = getFinancialYear(oldTx.date);
+      if (state.lockedFYs.includes(oldFY)) {
+        alert(`Cannot delete entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+
+      const updated = state.bankTransactions.filter((t) => t.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updated));
+      syncMetaToCloud('bank_transactions', updated);
+
+      // Clean up linked adjustments
+      const adjId = id.startsWith('btx-adj-') ? id.replace('btx-adj-', 'adj-') : `adj-${id}`;
+      const updatedAdjustments = state.capitalAdjustments.filter((a) => a.id !== adjId && a.id !== id.replace('btx-', ''));
+      localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+      syncMetaToCloud('capital_adjustments', updatedAdjustments);
+
+      // Clean up linked subscription expenses
+      const subId = id.startsWith('btx-sub-') 
+        ? id.replace('btx-sub-', '') 
+        : id.startsWith('btx-exp-') 
+        ? id.replace('btx-', '') 
+        : id;
+      const updatedExpenses = state.subscriptionExpenses.filter((s) => s.id !== subId && s.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_subscription_expenses'), JSON.stringify(updatedExpenses));
+      syncMetaToCloud('subscription_expenses', updatedExpenses);
+
+      return { 
+        bankTransactions: updated, 
+        capitalAdjustments: updatedAdjustments,
+        subscriptionExpenses: updatedExpenses,
+        baseCapital: updateBaseCapital(state.brokerAccounts)
+      };
+    }),
+
+    editDirectBankTransaction: (id, txData) => set((state) => {
+      const oldTx = state.bankTransactions.find(t => t.id === id);
+      if (!oldTx) return {};
+
+      const oldFY = getFinancialYear(oldTx.date);
+      if (state.lockedFYs.includes(oldFY)) {
+        alert(`Cannot edit entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+      if (txData.date) {
+        const newFY = getFinancialYear(txData.date);
+        if (state.lockedFYs.includes(newFY)) {
+          alert(`Cannot edit entry: The target financial year "${newFY}" is locked. Unlock it in Profile settings.`);
+          return {};
+        }
+      }
+
+      const updatedTxList = state.bankTransactions.map((tx) => {
+        if (tx.id === id) {
+          return { ...tx, ...txData };
+        }
+        return tx;
+      });
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedTxList));
+      syncMetaToCloud('bank_transactions', updatedTxList);
+
+      let updatedAdjustments = state.capitalAdjustments;
+      const targetCategory = txData.category !== undefined ? txData.category : oldTx.category;
+      const targetType = txData.type !== undefined ? txData.type : oldTx.type;
+      const targetAmount = txData.amount !== undefined ? txData.amount : oldTx.amount;
+      const targetNotes = txData.notes !== undefined ? txData.notes : oldTx.notes;
+      const targetDate = txData.date || oldTx.date;
+      const targetTime = txData.time || oldTx.time;
+      const targetBrokerAccountId = txData.brokerAccountId || oldTx.brokerAccountId;
+      const targetBankAccountId = txData.bankAccountId || oldTx.bankAccountId;
+
+      const adjId = id.startsWith('btx-adj-') ? id.replace('btx-adj-', 'adj-') : `adj-${id}`;
+      const hasAdj = state.capitalAdjustments.some(a => a.id === adjId);
+      const adjType = (targetType === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
+
+      if (targetCategory === 'Broker Pay-in' || targetCategory === 'Broker Pay-out') {
+        if (targetBrokerAccountId) {
+          const matchedAcc = state.brokerAccounts.find(a => a.id === targetBrokerAccountId);
+          const newAdjData: CapitalAdjustment = {
+            id: adjId,
+            date: targetDate,
+            time: targetTime,
+            type: adjType,
+            amount: targetAmount,
+            notes: targetNotes,
+            broker: matchedAcc ? matchedAcc.broker : 'Other',
+            brokerAccountId: targetBrokerAccountId,
+            bankAccountId: targetBankAccountId
+          };
+          if (hasAdj) {
+            updatedAdjustments = state.capitalAdjustments.map(a => a.id === adjId ? newAdjData : a);
+          } else {
+            updatedAdjustments = [newAdjData, ...state.capitalAdjustments];
+          }
+          localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+          syncMetaToCloud('capital_adjustments', updatedAdjustments);
+        }
+      } else {
+        // Changed to a non-broker category, so remove the linked adjustment if it exists
+        if (hasAdj) {
+          updatedAdjustments = state.capitalAdjustments.filter(a => a.id !== adjId);
+          localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify(updatedAdjustments));
+          syncMetaToCloud('capital_adjustments', updatedAdjustments);
+        }
+      }
+
+      return { 
+        bankTransactions: updatedTxList,
+        capitalAdjustments: updatedAdjustments,
+        baseCapital: updateBaseCapital(state.brokerAccounts)
+      };
+    }),
+
+    addOrUpdateContractNote: (noteData) => set((state) => {
+      const totalCharges = Math.round(((noteData.brokerage || 0) + (noteData.taxes || 0)) * 100) / 100;
+      const noteId = `cn-${noteData.date}-${noteData.brokerAccountId || noteData.broker}`;
+      
+      const newNote: DailyContractNote = {
+        ...noteData,
+        id: noteId,
+        totalCharges,
+        appliedToTrades: true
+      };
+
+      const filteredNotes = state.contractNotes.filter(n => n.id !== noteId);
+      const updatedNotes = [newNote, ...filteredNotes];
+      localStorage.setItem(getScopedKey('traders_diary_contract_notes'), JSON.stringify(updatedNotes));
+      syncMetaToCloud('contract_notes', updatedNotes);
+
+      // Distribute charges accurately to that day's trades for this account/broker
+      const dayTrades = state.trades.filter(t => {
+        const tradeDate = t.exitDate || t.date;
+        if (tradeDate !== noteData.date) return false;
+        if (noteData.brokerAccountId && t.brokerAccountId && t.brokerAccountId !== noteData.brokerAccountId) return false;
+        if (!noteData.brokerAccountId && t.broker && t.broker !== noteData.broker) return false;
+        return true;
+      });
+
+      if (dayTrades.length > 0) {
+        const totalTurnover = dayTrades.reduce((sum, t) => sum + (t.entryPrice * t.qty) + (t.exitPrice * t.qty), 0);
+        
+        const updatedTrades = state.trades.map(t => {
+          const tradeDate = t.exitDate || t.date;
+          if (tradeDate === noteData.date && (
+            (noteData.brokerAccountId && t.brokerAccountId === noteData.brokerAccountId) ||
+            (!noteData.brokerAccountId && t.broker === noteData.broker) ||
+            (!noteData.brokerAccountId && !t.brokerAccountId)
+          )) {
+            const tradeTurnover = (t.entryPrice * t.qty) + (t.exitPrice * t.qty);
+            const proportion = totalTurnover > 0 ? (tradeTurnover / totalTurnover) : (1 / dayTrades.length);
+            
+            const allocBrokerage = Math.round((noteData.brokerage * proportion) * 100) / 100;
+            const allocTaxes = Math.round((noteData.taxes * proportion) * 100) / 100;
+            const allocTotalCharges = Math.round((allocBrokerage + allocTaxes) * 100) / 100;
+            const netPnL = Math.round((t.grossPnL - allocTotalCharges) * 100) / 100;
+
+            const updatedT: Trade = {
+              ...t,
+              useManualCharges: true,
+              manualBrokerage: allocBrokerage,
+              manualTaxes: allocTaxes,
+              brokerage: allocBrokerage,
+              taxes: allocTaxes,
+              netPnL
+            };
+            syncTradeToCloud('update', updatedT);
+            return updatedT;
+          }
+          return t;
+        });
+
+        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+        return { 
+          contractNotes: updatedNotes,
+          trades: updatedTrades 
+        };
+      }
+
+      return { contractNotes: updatedNotes };
+    }),
+
+    deleteContractNote: (id) => set((state) => {
+      const targetNote = state.contractNotes.find(n => n.id === id);
+      const updatedNotes = state.contractNotes.filter(n => n.id !== id);
+      localStorage.setItem(getScopedKey('traders_diary_contract_notes'), JSON.stringify(updatedNotes));
+      syncMetaToCloud('contract_notes', updatedNotes);
+
+      if (targetNote) {
+        const updatedTrades = state.trades.map(t => {
+          const tradeDate = t.exitDate || t.date;
+          if (tradeDate === targetNote.date && (
+            (targetNote.brokerAccountId && t.brokerAccountId === targetNote.brokerAccountId) ||
+            (!targetNote.brokerAccountId && t.broker === targetNote.broker) ||
+            (!targetNote.brokerAccountId && !t.brokerAccountId)
+          )) {
+            const updatedT: Trade = {
+              ...t,
+              useManualCharges: false,
+              manualBrokerage: 0,
+              manualTaxes: 0,
+              brokerage: 0,
+              taxes: 0,
+              netPnL: t.grossPnL
+            };
+            syncTradeToCloud('update', updatedT);
+            return updatedT;
+          }
+          return t;
+        });
+        localStorage.setItem(getScopedKey('traders_diary_trades'), JSON.stringify(updatedTrades));
+        return { contractNotes: updatedNotes, trades: updatedTrades };
+      }
+
+      return { contractNotes: updatedNotes };
+    }),
+
+    signUpUser: async (email, pass, metadata) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signUp({ 
+          email, 
+          password: pass,
+          options: {
+            data: metadata || {}
+          }
+        });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    signInUser: async (email, pass) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signInWithPassword({ email, password: pass });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    signOutUser: async () => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.signOut();
+        if (error) return { error };
+        set({
+          sessionUser: null,
+          trades: [],
+          setups: DEFAULT_SETUPS,
+          baseCapital: 500000,
+          capitalAdjustments: [],
+          investments: [],
+          contractNotes: [],
+          weeklyRetrospectives: {},
+          selectedFY: getCurrentLiveFY(),
+          noTradeDays: loadNoTradeDays(),
+          lockedFYs: loadLockedFYs(),
+          theme: loadTheme(),
+          isPnlVisible: loadPnlVisibility()
+        });
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    sendPasswordResetEmail: async (email) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin
+        });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    updatePassword: async (password) => {
+      const client = getSupabaseClient();
+      if (!client) return { error: new Error('Supabase client not configured') };
+      try {
+        const { error } = await client.auth.updateUser({ password });
+        if (error) return { error };
+        return { error: null };
+      } catch (e: any) {
+        return { error: e };
+      }
+    },
+
+    togglePnlVisibility: () => set((state) => {
+      const nextVisible = !state.isPnlVisible;
+      localStorage.setItem(getScopedKey('traders_diary_pnl_visibility'), JSON.stringify(nextVisible));
+      return { isPnlVisible: nextVisible };
+    }),
+  };
+});

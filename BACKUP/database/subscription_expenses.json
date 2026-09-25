@@ -1,0 +1,82 @@
+[
+  {
+    "id": "exp-1782632002331-6gzfa",
+    "date": "2026-03-06",
+    "name": "Stratzy - Algo Subscription Charges",
+    "notes": "Damper Credit Spread",
+    "amount": 649,
+    "frequency": "Monthly",
+    "paymentSource": "Broker",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "exp-1782632109331-srtbe",
+    "date": "2026-04-01",
+    "name": "Stratzy - Algo Subscription Charges",
+    "notes": "Damper Credit Spread",
+    "amount": 767,
+    "frequency": "Monthly",
+    "paymentSource": "Broker",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "exp-1783225602033-h85r1",
+    "date": "2026-05-20",
+    "name": "Stratzy - Algo Subscription Charges",
+    "notes": "Vaccum Grid (35%SL)",
+    "amount": 1049,
+    "frequency": "Monthly",
+    "paymentSource": "Broker",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "exp-1783225693872-zhwfm",
+    "date": "2026-06-22",
+    "name": "Stratzy - Algo Subscription Charges",
+    "notes": "Vaccum Grid (35% SL)",
+    "amount": 1149,
+    "frequency": "Monthly",
+    "paymentSource": "Broker",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "exp-1783312613327-cysyu",
+    "date": "2026-05-06",
+    "name": "Stratzy - Algo Subscription Charges",
+    "notes": "Damper Credit Spread",
+    "amount": 650,
+    "frequency": "Monthly",
+    "paymentSource": "Broker",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "exp-1785228935250-6tly2",
+    "date": "2026-07-23",
+    "name": "Stratzy - Algo Subscription Charges",
+    "notes": "Vaccum Grid (35% SL)",
+    "amount": 1149,
+    "frequency": "Monthly",
+    "paymentSource": "Broker",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "exp-1787538545100-0hcde",
+    "date": "2026-08-24",
+    "name": "Stratzy - Algo Subscription Charges",
+    "notes": "Vaccum Grid (35% SL)",
+    "amount": 5999,
+    "frequency": "Yearly",
+    "paymentSource": "Broker",
+    "brokerAccountId": "acc-2"
+  },
+  {
+    "id": "exp-1788145102339-0wci1",
+    "date": "2026-08-31",
+    "name": "Stratzy - Algo Subscription Charges",
+    "notes": "Zen Credit Spread Overnight",
+    "amount": 749,
+    "frequency": "Monthly",
+    "paymentSource": "Broker",
+    "brokerAccountId": "acc-2"
+  }
+]

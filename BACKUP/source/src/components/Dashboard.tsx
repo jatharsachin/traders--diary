@@ -1,0 +1,2449 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useTradeStore } from '../store/useTradeStore';
+import { getTradeMistakes } from '../types';
+import { 
+  Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
+  ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
+  Eye, EyeOff, Save, Award, TrendingDown, BookOpen, Calendar
+} from 'lucide-react';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
+import { filterTradesByFY } from '../utils/fyHelper';
+import { OFFLINE_NSE_HOLIDAYS } from './TradingCalendar';
+import { ExecutiveReportModal } from './ExecutiveReportModal';
+import { WeeklyJournalModal } from './WeeklyJournalModal';
+import { TradingHeatmap } from './dashboard/TradingHeatmap';
+import { RecentTradingDaysStrip } from './dashboard/RecentTradingDaysStrip';
+import { NetPnLPrimaryCard } from './dashboard/NetPnLPrimaryCard';
+import { EquityCurveChart } from './dashboard/EquityCurveChart';
+import { BrokerPerformanceSection } from './dashboard/BrokerPerformanceSection';
+
+
+const parseLocalDate = (dateStr: string) => {
+  if (!dateStr) return new Date();
+  const parts = dateStr.split('-');
+  if (parts.length >= 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return new Date(y, m, d);
+    }
+  }
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
+export function Dashboard({ 
+  activeAccountId = 'Combined', 
+  onNavigateToTab,
+  onSelectDateFilter,
+  onEditTrade
+}: { 
+  activeAccountId?: string; 
+  onNavigateToTab?: (tab: any) => void;
+  onSelectDateFilter?: (date: string) => void;
+  onEditTrade?: (id: string) => void;
+}) {
+  const {
+    trades: allTrades,
+    investments: allInvestments, 
+    isPnlVisible, 
+    togglePnlVisibility, 
+    weeklyRetrospectives, 
+    saveWeeklyRetrospective,
+    selectedFY,
+    activeBrokers,
+    userName,
+    userAvatar,
+    brokerAccounts,
+    capitalAdjustments: allAdjustments,
+    noTradeDays,
+    toggleNoTradeDay,
+    subscriptionExpenses
+  } = useTradeStore();
+
+  const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
+  const activeTrades = allTrades.filter(t => t.brokerAccountId && activeAccountIds.includes(t.brokerAccountId));
+  const capitalAdjustments = allAdjustments.filter(a => !a.brokerAccountId || activeAccountIds.includes(a.brokerAccountId));
+  const investments = allInvestments.filter(i => !i.brokerAccountId || activeAccountIds.includes(i.brokerAccountId));
+  
+  const [selectedBroker, setSelectedBroker] = useState<string>('All');
+  const [selectedSegment, setSelectedSegment] = useState<string>('All');
+  const [showCombined, setShowCombined] = useState(false);
+  const [selectedChartMonth, setSelectedChartMonth] = useState<string>('');
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
+
+  // 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries
+  const getMissingLogDates = (): string[] => {
+    const dates: string[] = [];
+    const now = new Date();
+    // Create a local midnight Date object
+    let checkDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Start checking from yesterday
+    checkDate.setDate(checkDate.getDate() - 1);
+    
+    // Helper to format local YYYY-MM-DD
+    const formatLocalYYYYMMDD = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    // Check up to 5 market days
+    while (dates.length < 5) {
+      const dayOfWeek = checkDate.getDay(); // 0 = Sun, 6 = Sat
+      const dateStr = formatLocalYYYYMMDD(checkDate);
+      
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isNseHoliday = !!OFFLINE_NSE_HOLIDAYS[dateStr];
+      
+      if (!isWeekend && !isNseHoliday) {
+        const hasTrade = activeTrades.some(t => t.date === dateStr);
+        const hasAdjustment = capitalAdjustments.some(a => a.date === dateStr);
+        const isNoTradeDay = noTradeDays.includes(dateStr);
+        
+        if (!hasTrade && !hasAdjustment && !isNoTradeDay) {
+          dates.push(dateStr);
+        }
+      }
+      
+      checkDate.setDate(checkDate.getDate() - 1);
+      // Safety limit: don't loop back indefinitely (max 30 days history check)
+      const diffTime = Math.abs(now.getTime() - checkDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 30) {
+        break;
+      }
+    }
+    return dates;
+  };
+
+  const missingLogDates = getMissingLogDates();
+
+
+
+  const isMatchAccount = (accId?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId) return true;
+    if (!accId) return false;
+    return activeAccountId === accId || activeAccountId.split(',').includes(accId);
+  };
+
+  const getStartingCapitalForActiveFY = () => {
+    let startCap = 0;
+    if (activeAccountId !== 'Combined') {
+      startCap = brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    } else {
+      startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    }
+
+    if (selectedFY === 'All') return startCap;
+
+    const match = selectedFY.match(/FY (\d{4})/);
+    if (!match) return startCap;
+    const startYear = parseInt(match[1], 10);
+    const startStr = `${startYear}-04-01`;
+
+    const priorTradesPnL = activeTrades
+      .filter((t) => (t.exitDate || t.date) < startStr && isMatchAccount(t.brokerAccountId))
+      .reduce((acc, t) => acc + t.netPnL, 0);
+
+    const priorAdjustments = capitalAdjustments
+      .filter((a) => a.date < startStr && isMatchAccount(a.brokerAccountId))
+      .reduce((acc, a) => {
+        if (a.type === 'DEPOSIT') return acc + a.amount;
+        return acc - a.amount;
+      }, 0);
+
+    return startCap + priorTradesPnL + priorAdjustments;
+  };
+
+  const activeBaseCapital = getStartingCapitalForActiveFY();
+  
+  // Calculate effectiveBaseCapital with proper individual/combined fallbacks
+  const fallbackCapital = activeAccountId === 'Combined'
+    ? brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0)
+    : brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+
+  const effectiveBaseCapital = (Number(activeBaseCapital) || Number(fallbackCapital) || 1);
+
+  const rawTradesByFY = useMemo(() => {
+    return filterTradesByFY(activeTrades, selectedFY).filter((t) => {
+      const isImported = t.strategy === 'Auto Imported' || 
+                         t.broker === 'Kotak Neo' || 
+                         (t.notes && t.notes.toLowerCase().includes('imported'));
+      return !isImported;
+    });
+  }, [activeTrades, selectedFY]);
+
+  const rawTrades = useMemo(() => {
+    return activeAccountId === 'Combined'
+      ? rawTradesByFY
+      : rawTradesByFY.filter((t) => isMatchAccount(t.brokerAccountId));
+  }, [rawTradesByFY, activeAccountId]);
+
+  const trades = useMemo(() => {
+    return rawTrades.filter((t) => {
+      const matchesBroker = selectedBroker === 'All' || (t.broker || 'Other') === selectedBroker;
+      if (!matchesBroker) return false;
+      if (selectedSegment === 'All') return true;
+      if (selectedSegment === 'Options') {
+        return t.segment === 'F&O' && (
+          (t.optionType && t.optionType !== 'None') ||
+          (t.strikePrice !== undefined && t.strikePrice > 0) ||
+          /CE|PE|\bCALL\b|\bPUT\b/i.test(t.symbol || '') ||
+          (!t.symbol?.toUpperCase().includes('FUT') && t.entryPrice < 3000)
+        );
+      }
+      if (selectedSegment === 'Futures') {
+        const isOpt = t.segment === 'F&O' && (
+          (t.optionType && t.optionType !== 'None') ||
+          (t.strikePrice !== undefined && t.strikePrice > 0) ||
+          /CE|PE|\bCALL\b|\bPUT\b/i.test(t.symbol || '') ||
+          (!t.symbol?.toUpperCase().includes('FUT') && t.entryPrice < 3000)
+        );
+        return t.segment === 'F&O' && !isOpt;
+      }
+      if (selectedSegment === 'Equity') {
+        return t.segment === 'Equity';
+      }
+      if (selectedSegment === 'Commodity') {
+        return t.segment === 'Commodity';
+      }
+      if (selectedSegment === 'Currency') {
+        return t.segment === 'Currency';
+      }
+      return true;
+    });
+  }, [rawTrades, selectedBroker, selectedSegment]);
+
+  const totalTrades = trades.length;
+  const winningTrades = trades.filter((t) => t.netPnL > 0);
+  const losingTrades = trades.filter((t) => t.netPnL < 0);
+  
+  const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0;
+  
+  const totalGrossPnL = trades.reduce((acc, t) => acc + t.grossPnL, 0);
+  const totalCharges = trades.reduce((acc, t) => acc + t.brokerage + t.taxes, 0);
+  const totalBrokerage = trades.reduce((acc, t) => acc + t.brokerage, 0);
+  const totalTaxes = trades.reduce((acc, t) => acc + t.taxes, 0);
+  const totalNetPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
+
+  const activeFYSubExpenses = useMemo(() => {
+    return subscriptionExpenses.filter((sub) => {
+      if (selectedFY !== 'All') {
+        const match = selectedFY.match(/FY (\d{4})/);
+        if (match) {
+          const startYear = parseInt(match[1], 10);
+          const startStr = `${startYear}-04-01`;
+          const endStr = `${startYear + 1}-03-31`;
+          if (sub.date < startStr || sub.date > endStr) return false;
+        }
+      }
+      if (activeAccountId !== 'Combined') {
+        if (sub.paymentSource === 'Broker' && !isMatchAccount(sub.brokerAccountId)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [subscriptionExpenses, selectedFY, activeAccountId]);
+
+  const totalSubExpenses = useMemo(() => {
+    return activeFYSubExpenses.reduce((sum, s) => sum + (s.amount || 0), 0);
+  }, [activeFYSubExpenses]);
+
+  const netBottomLinePnL = totalNetPnL - totalSubExpenses;
+
+  // Investment stats (filtering by status to support exits)
+  const activeInvestments = investments.filter(inv => inv.status !== 'EXITED');
+  const exitedInvestments = investments.filter(inv => inv.status === 'EXITED');
+
+  const totalInvInvested = activeInvestments.reduce((acc, inv) => acc + (inv.buyPrice * inv.qty), 0);
+  const totalInvCurrent = activeInvestments.reduce((acc, inv) => acc + (inv.currentPrice * inv.qty), 0);
+  const activeReturns = totalInvCurrent - totalInvInvested;
+  
+  const realizedInvReturns = exitedInvestments.reduce((acc, inv) => acc + (((inv.exitPrice || 0) - inv.buyPrice) * inv.qty), 0);
+  const totalInvReturns = activeReturns + realizedInvReturns;
+
+  // Get deposits and withdrawals during the selected FY period
+  const currentPeriodAdjustments = capitalAdjustments.filter((a) => {
+    const matchesAccount = activeAccountId === 'Combined' ? true : a.brokerAccountId === activeAccountId;
+    if (!matchesAccount) return false;
+    if (selectedFY === 'All') return true;
+    const match = selectedFY.match(/FY (\d{4})/);
+    if (!match) return true;
+    const startYear = parseInt(match[1], 10);
+    const startStr = `${startYear}-04-01`;
+    const endStr = `${startYear + 1}-03-31`;
+    return a.date >= startStr && a.date <= endStr;
+  });
+
+  const periodDeposits = currentPeriodAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const periodWithdrawals = currentPeriodAdjustments.filter(a => a.type === 'WITHDRAWAL').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const netPeriodAdjustments = periodDeposits - periodWithdrawals;
+
+  // Deployed capital is effectiveBaseCapital (starting capital at start of FY) + net deposits during FY
+  const activeDeployedCapital = Math.max(1, effectiveBaseCapital + netPeriodAdjustments);
+
+  // Combined calculations using activeBaseCapital
+  const displayNetPnL = showCombined ? (totalNetPnL + totalInvReturns) : totalNetPnL;
+
+  const tradingReturnPct = (totalNetPnL / activeDeployedCapital) * 100;
+  const combinedReturnPct = (activeDeployedCapital + totalInvInvested) > 0 ? ((totalNetPnL + totalInvReturns) / (activeDeployedCapital + totalInvInvested)) * 100 : 0;
+
+  const grossProfit = trades.reduce((acc, t) => (t.netPnL > 0 ? acc + t.netPnL : acc), 0);
+  const grossLoss = Math.abs(trades.reduce((acc, t) => (t.netPnL < 0 ? acc + t.netPnL : acc), 0));
+  const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? Infinity : 1.0);
+  
+  const avgWin = winningTrades.length > 0 ? (grossProfit / winningTrades.length) : 0;
+  const avgLoss = losingTrades.length > 0 ? (grossLoss / losingTrades.length) : 0;
+  const winRateRatio = winningTrades.length / (totalTrades || 1);
+  const lossRateRatio = losingTrades.length / (totalTrades || 1);
+  const expectancy = (winRateRatio * avgWin) - (lossRateRatio * avgLoss);
+
+  const parseTimeToMinutes = (timeStr: string): number => {
+    if (!timeStr) return 0;
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) {
+      const parts = timeStr.split(':');
+      const h = parseInt(parts[0], 10) || 0;
+      const m = parseInt(parts[1], 10) || 0;
+      return h * 60 + m;
+    }
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3]?.toUpperCase();
+
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  const sortTradesChronologically = (tradesList: typeof trades) => {
+    return [...tradesList].sort((a, b) => {
+      const aDate = a.exitDate || a.date;
+      const bDate = b.exitDate || b.date;
+      if (aDate !== bDate) {
+        return aDate.localeCompare(bDate);
+      }
+      return parseTimeToMinutes(a.exitTime || a.entryTime) - parseTimeToMinutes(b.exitTime || b.entryTime);
+    });
+  };
+
+  const getMaxDrawdown = () => {
+    let peak = 0;
+    let maxDD = 0;
+    let cumulativePnL = 0;
+    const chronoTrades = sortTradesChronologically(trades);
+    chronoTrades.forEach((t) => {
+      cumulativePnL += t.netPnL;
+      if (cumulativePnL > peak) {
+        peak = cumulativePnL;
+      }
+      const dd = peak - cumulativePnL;
+      if (dd > maxDD) {
+        maxDD = dd;
+      }
+    });
+    return maxDD;
+  };
+  const maxDrawdown = useMemo(() => getMaxDrawdown(), [trades]);
+
+  const getStreakAnalysis = () => {
+    let maxWinStreak = 0;
+    let maxLossStreak = 0;
+    let currentWinStreak = 0;
+    let currentLossStreak = 0;
+
+    const dailyMap: Record<string, number> = {};
+    trades.forEach((t) => {
+      const d = t.exitDate || t.date;
+      dailyMap[d] = (dailyMap[d] || 0) + t.netPnL;
+    });
+
+    const sortedDays = Object.entries(dailyMap).sort((a, b) => a[0].localeCompare(b[0]));
+    sortedDays.forEach(([_, dayPnL]) => {
+      if (dayPnL > 0) {
+        currentWinStreak++;
+        currentLossStreak = 0;
+        if (currentWinStreak > maxWinStreak) {
+          maxWinStreak = currentWinStreak;
+        }
+      } else if (dayPnL < 0) {
+        currentLossStreak++;
+        currentWinStreak = 0;
+        if (currentLossStreak > maxLossStreak) {
+          maxLossStreak = currentLossStreak;
+        }
+      }
+    });
+    return { maxWinStreak, maxLossStreak };
+  };
+  const { maxWinStreak, maxLossStreak } = useMemo(() => getStreakAnalysis(), [trades]);
+  
+  // Sort trades oldest to newest
+  const sortedTrades = useMemo(() => sortTradesChronologically(trades), [trades]);
+
+  // Calculate CAGR & Returns by period
+  const anchorDate = useMemo(() => new Date(), []);
+
+  // Monthly stats for dropdown select
+  const availableMonths = Array.from(new Set(sortedTrades.map(t => (t.exitDate || t.date).substring(0, 7)))).sort().reverse();
+  const activeChartMonth = selectedChartMonth || (availableMonths[0] || new Date().toISOString().substring(0, 7));
+  const selectedMonthTrades = sortedTrades.filter(t => (t.exitDate || t.date).startsWith(activeChartMonth));
+  const selectedMonthPnL = selectedMonthTrades.reduce((sum, t) => sum + t.netPnL, 0);
+
+  // Average Trades Volume Calculations
+  const uniqueDays = new Set(trades.map(t => (t.exitDate || t.date))).size || 1;
+  const avgTradesPerDay = trades.length / uniqueDays;
+
+  // Group by week YYYY-Www
+  const getWeekIdentifier = (dateStr: string) => {
+    const d = parseLocalDate(dateStr);
+    const oneJan = new Date(d.getFullYear(), 0, 1);
+    const numberOfDays = Math.floor((d.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
+    const week = Math.ceil((d.getDay() + 1 + numberOfDays) / 7);
+    return `${d.getFullYear()}-W${week}`;
+  };
+  const uniqueWeeks = new Set(trades.map(t => getWeekIdentifier(t.exitDate || t.date))).size || 1;
+  const avgTradesPerWeek = trades.length / uniqueWeeks;
+
+  const uniqueMonths = new Set(trades.map(t => (t.exitDate || t.date).substring(0, 7))).size || 1;
+  const avgTradesPerMonth = trades.length / uniqueMonths;
+
+  const getModifiedDietzReturn = (days: number) => {
+    const cutoffDate = new Date(anchorDate);
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+    const periodTrades = sortedTrades.filter((t) => (t.exitDate || t.date) >= cutoffStr);
+    const pnl = periodTrades.reduce((acc, t) => acc + t.netPnL, 0);
+
+    let startCap = 0;
+    if (activeAccountId !== 'Combined') {
+      startCap = brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    } else {
+      startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    }
+
+    const priorTradesPnL = activeTrades
+      .filter((t) => t.date < cutoffStr && isMatchAccount(t.brokerAccountId))
+      .reduce((acc, t) => acc + t.netPnL, 0);
+
+    const priorAdjustments = capitalAdjustments
+      .filter((a) => a.date < cutoffStr && isMatchAccount(a.brokerAccountId))
+      .reduce((acc, a) => {
+        if (a.type === 'DEPOSIT') return acc + a.amount;
+        return acc - a.amount;
+      }, 0);
+
+    const beginningCapital = startCap + priorTradesPnL + priorAdjustments;
+
+    const periodAdjustments = capitalAdjustments.filter((a) => {
+      const matchesAccount = isMatchAccount(a.brokerAccountId);
+      return matchesAccount && a.date >= cutoffStr && a.date <= anchorDate.toISOString().split('T')[0];
+    });
+
+    const totalDays = Math.max(1, days);
+    let weightedCashFlows = 0;
+
+    periodAdjustments.forEach((a) => {
+      const adjDate = parseLocalDate(a.date);
+      const daysFromStart = Math.max(0, Math.floor((adjDate.getTime() - cutoffDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const weight = Math.max(0, Math.min(1, (totalDays - daysFromStart) / totalDays));
+      const amount = Number(a.amount) || 0;
+      if (a.type === 'DEPOSIT') {
+        weightedCashFlows += amount * weight;
+      } else {
+        weightedCashFlows -= amount * weight;
+      }
+    });
+
+    const averageDeployedCapital = Math.max(1, beginningCapital + weightedCashFlows);
+    const pct = (pnl / averageDeployedCapital) * 100;
+
+    return { pnl, pct, averageDeployedCapital };
+  };
+
+  const m1 = useMemo(() => getModifiedDietzReturn(30), [sortedTrades, capitalAdjustments, activeAccountId, brokerAccounts, activeTrades, anchorDate]);
+  const m3 = useMemo(() => getModifiedDietzReturn(90), [sortedTrades, capitalAdjustments, activeAccountId, brokerAccounts, activeTrades, anchorDate]);
+
+  const getAllTimeModifiedDietzReturn = () => {
+    const firstTradeDate = sortedTrades[0] ? parseLocalDate(sortedTrades[0].date) : new Date();
+    const firstAdjustmentDate = capitalAdjustments[0] ? parseLocalDate(capitalAdjustments[0].date) : new Date();
+    const startDate = new Date(Math.min(firstTradeDate.getTime(), firstAdjustmentDate.getTime()));
+    
+    const totalDays = Math.max(1, Math.ceil((anchorDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+    let startCap = 0;
+    if (activeAccountId !== 'Combined') {
+      startCap = brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    } else {
+      startCap = brokerAccounts.filter(a => a.active).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    }
+
+    const periodAdjustments = capitalAdjustments.filter((a) => {
+      return isMatchAccount(a.brokerAccountId);
+    });
+
+    let weightedCashFlows = 0;
+    periodAdjustments.forEach((a) => {
+      const adjDate = parseLocalDate(a.date);
+      const daysFromStart = Math.max(0, Math.floor((adjDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const weight = Math.max(0, Math.min(1, (totalDays - daysFromStart) / totalDays));
+      const amount = Number(a.amount) || 0;
+      if (a.type === 'DEPOSIT') {
+        weightedCashFlows += amount * weight;
+      } else {
+        weightedCashFlows -= amount * weight;
+      }
+    });
+
+    const averageDeployedCapital = Math.max(1, startCap + weightedCashFlows);
+    const pct = (displayNetPnL / averageDeployedCapital) * 100;
+
+    return { pct, averageDeployedCapital };
+  };
+
+  const allTimeReturn = useMemo(() => getAllTimeModifiedDietzReturn(), [sortedTrades, capitalAdjustments, activeAccountId, brokerAccounts, anchorDate, displayNetPnL]);
+  const allTimePct = allTimeReturn.pct;
+  const allTimeDeployedCapital = allTimeReturn.averageDeployedCapital;
+
+  const firstTradeDate = useMemo(() => parseLocalDate(sortedTrades[0]?.date || new Date().toISOString().split('T')[0]), [sortedTrades]);
+  const timeDiffMs = useMemo(() => anchorDate.getTime() - firstTradeDate.getTime(), [anchorDate, firstTradeDate]);
+  const yearsDiff = timeDiffMs / (1000 * 60 * 60 * 24 * 365.25);
+  const isExtrapolated = yearsDiff < 1.0;
+  const cagr = useMemo(() => {
+    return yearsDiff > 0.04
+      ? (Math.pow(Math.max(0.1, (allTimeDeployedCapital + displayNetPnL) / allTimeDeployedCapital), 1 / yearsDiff) - 1) * 100
+      : allTimePct;
+  }, [yearsDiff, allTimeDeployedCapital, displayNetPnL, allTimePct]);
+
+  // Options Holding Details
+  const optionTrades = useMemo(() => {
+    return trades.filter((t) => {
+      if (t.segment !== 'F&O') return false;
+      const hasOptionType = t.optionType && t.optionType !== 'None';
+      const symUpper = (t.symbol || '').toUpperCase();
+      const isCE = symUpper.includes(' CE') || symUpper.endsWith('CE') || symUpper.includes('CALL');
+      const isPE = symUpper.includes(' PE') || symUpper.endsWith('PE') || symUpper.includes('PUT');
+      return hasOptionType || isCE || isPE;
+    });
+  }, [trades]);
+
+  const avgOptionDuration = useMemo(() => {
+    return optionTrades.length > 0
+      ? optionTrades.reduce((acc, t) => acc + (t.durationMinutes || 0), 0) / optionTrades.length
+      : 0;
+  }, [optionTrades]);
+
+  const brokerageLeakage = grossProfit > 0 ? (totalCharges / grossProfit) * 100 : 0;
+
+  // Recent 5-7 Trading Days Summary for Welcome Banner Calendar Strip
+  const recentTradingDays = useMemo(() => {
+    // Collect all distinct dates that had trades in rawTrades or are marked as no-trade days
+    const tradeDateSet = new Set<string>();
+    rawTrades.forEach((t) => {
+      const d = t.exitDate || t.date;
+      if (d) tradeDateSet.add(d);
+    });
+    noTradeDays.forEach((d) => {
+      if (d) tradeDateSet.add(d);
+    });
+
+    // Sort dates in descending order (most recent first)
+    const sortedAllDates = Array.from(tradeDateSet).sort((a, b) => b.localeCompare(a));
+    // Filter to ensure only weekdays (Mon-Fri) and take the latest 5 days, then reverse to chronological (left to right)
+    const targetDates = sortedAllDates
+      .filter((dateStr) => {
+        const d = parseLocalDate(dateStr);
+        const dayOfWeek = d.getDay();
+        return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday to Friday only
+      })
+      .slice(0, 5)
+      .reverse();
+
+    return targetDates.map((dateStr) => {
+      const dObj = parseLocalDate(dateStr);
+      const dayName = dObj.toLocaleDateString('en-IN', { weekday: 'short' });
+      const dayNum = dObj.getDate();
+      const monthShort = dObj.toLocaleDateString('en-IN', { month: 'short' });
+      
+      const dayTrades = rawTrades.filter((t) => (t.exitDate || t.date) === dateStr);
+      const isNoTrade = noTradeDays.includes(dateStr) && dayTrades.length === 0;
+      const dayNetPnL = dayTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
+      const dayGrossPnL = dayTrades.reduce((sum, t) => sum + (t.grossPnL || 0), 0);
+      const dayCharges = dayTrades.reduce((sum, t) => sum + ((t.brokerage || 0) + (t.taxes || 0)), 0);
+
+      return {
+        dateStr,
+        dayName,
+        dayNum,
+        monthShort,
+        count: dayTrades.length,
+        isNoTrade,
+        netPnL: Math.round(dayNetPnL * 100) / 100,
+        grossPnL: Math.round(dayGrossPnL * 100) / 100,
+        charges: Math.round(dayCharges * 100) / 100
+      };
+    });
+  }, [rawTrades, noTradeDays]);
+
+  // Total P&L and stats of exactly the days shown in the Recent Trading Days strip
+  const recentDaysTotal = useMemo(() => {
+    const totalNetPnL = recentTradingDays.reduce((sum, d) => sum + d.netPnL, 0);
+    const totalGrossPnL = recentTradingDays.reduce((sum, d) => sum + d.grossPnL, 0);
+    const totalCharges = recentTradingDays.reduce((sum, d) => sum + d.charges, 0);
+    const totalTrades = recentTradingDays.reduce((sum, d) => sum + d.count, 0);
+
+    return {
+      netPnL: Math.round(totalNetPnL * 100) / 100,
+      grossPnL: Math.round(totalGrossPnL * 100) / 100,
+      charges: Math.round(totalCharges * 100) / 100,
+      tradeCount: totalTrades,
+      daysCount: recentTradingDays.length
+    };
+  }, [recentTradingDays]);
+
+  // Broker-wise Performance statistics calculations
+  const getBrokerwiseStats = () => {
+    const brokerMap: Record<string, { 
+      netPnL: number; 
+      totalTrades: number; 
+      wins: number; 
+      losses: number; 
+      charges: number; 
+      investmentPnL: number;
+      activeInvestmentValue: number;
+    }> = {};
+    
+    rawTrades.forEach((t) => {
+      const b = t.broker || 'Other';
+      const acc = brokerAccounts.find(a => a.id === t.brokerAccountId) || brokerAccounts.find(a => a.broker === b);
+      const accName = acc ? acc.accountName : (userName || 'Primary');
+      const key = `${b} (${accName})`;
+      if (!brokerMap[key]) {
+        brokerMap[key] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0, investmentPnL: 0, activeInvestmentValue: 0 };
+      }
+      brokerMap[key].netPnL += t.netPnL;
+      brokerMap[key].totalTrades += 1;
+      brokerMap[key].charges += (t.brokerage + t.taxes);
+      if (t.netPnL > 0) {
+        brokerMap[key].wins += 1;
+      } else if (t.netPnL < 0) {
+        brokerMap[key].losses += 1;
+      }
+    });
+
+    investments.forEach((inv) => {
+      const b = inv.broker || 'Other';
+      const acc = brokerAccounts.find(a => a.id === inv.brokerAccountId) || brokerAccounts.find(a => a.broker === b);
+      const accName = acc ? acc.accountName : (userName || 'Primary');
+      const key = `${b} (${accName})`;
+      if (!brokerMap[key]) {
+        brokerMap[key] = { netPnL: 0, totalTrades: 0, wins: 0, losses: 0, charges: 0, investmentPnL: 0, activeInvestmentValue: 0 };
+      }
+      if (inv.status === 'EXITED') {
+        const realized = ((inv.exitPrice || 0) - inv.buyPrice) * inv.qty;
+        brokerMap[key].investmentPnL += realized;
+      } else {
+        const unrealized = (inv.currentPrice - inv.buyPrice) * inv.qty;
+        brokerMap[key].investmentPnL += unrealized;
+        brokerMap[key].activeInvestmentValue += (inv.currentPrice * inv.qty);
+      }
+    });
+
+    return Object.entries(brokerMap).map(([name, data]) => {
+      const wr = data.totalTrades > 0 ? (data.wins / data.totalTrades) * 100 : 0;
+      const brokerName = name.split(' (')[0];
+      return {
+        name,
+        brokerName,
+        ...data,
+        winRate: wr
+      };
+    }).sort((a, b) => (b.netPnL + b.investmentPnL) - (a.netPnL + a.investmentPnL));
+  };
+
+  const brokerStats = useMemo(() => getBrokerwiseStats(), [rawTrades, investments, brokerAccounts]);
+
+  // Max Drawdown & Consistency stats
+  const calculateMaxDrawdown = () => {
+    let peak = 0;
+    let currentCumulative = 0;
+    let maxDrawdown = 0;
+
+    for (const t of sortedTrades) {
+      currentCumulative += t.netPnL;
+      if (currentCumulative > peak) peak = currentCumulative;
+      const drawdown = peak - currentCumulative;
+      if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    }
+    return maxDrawdown;
+  };
+
+  const maxDDRupees = useMemo(() => calculateMaxDrawdown(), [sortedTrades]);
+  const maxDDPct = useMemo(() => (maxDDRupees / activeDeployedCapital) * 100, [maxDDRupees, activeDeployedCapital]);
+
+  // Win Days calculation
+  const dailyPnL = useMemo(() => {
+    const pnlMap: Record<string, number> = {};
+    sortedTrades.forEach((t) => {
+      const d = t.exitDate || t.date;
+      pnlMap[d] = (pnlMap[d] || 0) + t.netPnL;
+    });
+    return pnlMap;
+  }, [sortedTrades]);
+
+  // Extreme Days calculation
+  const getExtremeDays = () => {
+    let bestDate = 'No Trades';
+    let bestPnL = 0;
+    let worstDate = 'No Trades';
+    let worstPnL = 0;
+
+    Object.entries(dailyPnL).forEach(([date, pnl]) => {
+      if (pnl > bestPnL) {
+        bestPnL = pnl;
+        bestDate = date;
+      }
+      if (pnl < worstPnL) {
+        worstPnL = pnl;
+        worstDate = date;
+      }
+    });
+
+    const formatDateShort = (dateStr: string) => {
+      if (dateStr === 'No Trades') return 'N/A';
+      const d = parseLocalDate(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    };
+
+    return {
+      bestDay: { date: formatDateShort(bestDate), pnl: bestPnL },
+      worstDay: { date: formatDateShort(worstDate), pnl: worstPnL }
+    };
+  };
+  const { bestDay, worstDay } = useMemo(() => getExtremeDays(), [dailyPnL]);
+
+  const daysList = useMemo(() => Object.values(dailyPnL), [dailyPnL]);
+  const winDaysCount = useMemo(() => daysList.filter((d) => d > 0).length, [daysList]);
+  const winDaysPct = useMemo(() => daysList.length > 0 ? (winDaysCount / daysList.length) * 100 : 0, [daysList, winDaysCount]);
+
+  // Day-level Streaks calculation
+  const dayStreaks = useMemo(() => {
+    let maxWins = 0;
+    let maxLosses = 0;
+    let currentWins = 0;
+    let currentLosses = 0;
+
+    const sortedDays = Object.entries(dailyPnL).sort((a, b) => a[0].localeCompare(b[0]));
+
+    sortedDays.forEach(([_, dayPnL]) => {
+      if (dayPnL > 0) {
+        currentWins++;
+        currentLosses = 0;
+        if (currentWins > maxWins) maxWins = currentWins;
+      } else if (dayPnL < 0) {
+        currentLosses++;
+        currentWins = 0;
+        if (currentLosses > maxLosses) maxLosses = currentLosses;
+      }
+    });
+    return { maxWins, maxLosses };
+  }, [dailyPnL]);
+
+  // Trade-level Streaks calculation
+  const tradeStreaks = useMemo(() => {
+    let maxWins = 0;
+    let maxLosses = 0;
+    let currentWins = 0;
+    let currentLosses = 0;
+
+    sortedTrades.forEach((t) => {
+      if (t.netPnL > 0) {
+        currentWins++;
+        currentLosses = 0;
+        if (currentWins > maxWins) maxWins = currentWins;
+      } else if (t.netPnL < 0) {
+        currentLosses++;
+        currentWins = 0;
+        if (currentLosses > maxLosses) maxLosses = currentLosses;
+      }
+    });
+    return { maxWins, maxLosses };
+  }, [sortedTrades]);
+
+  const maxConsecWins = dayStreaks.maxWins;
+  const maxConsecLosses = dayStreaks.maxLosses;
+  const maxTradeWins = tradeStreaks.maxWins;
+  const maxTradeLosses = tradeStreaks.maxLosses;
+
+  // Sharpe Ratio
+  const calculateSharpeRatio = () => {
+    const dailyReturns = daysList.map((d) => d / activeDeployedCapital);
+    if (dailyReturns.length === 0) return 0;
+
+    const dailyRf = 0.06 / 252;
+    const excessReturns = dailyReturns.map((r) => r - dailyRf);
+    const meanExcess = excessReturns.reduce((acc, r) => acc + r, 0) / excessReturns.length;
+
+    const meanReturn = dailyReturns.reduce((acc, r) => acc + r, 0) / dailyReturns.length;
+    const variance = dailyReturns.reduce((acc, r) => acc + Math.pow(r - meanReturn, 2), 0) / dailyReturns.length;
+    const stdDev = Math.sqrt(variance);
+
+    return stdDev > 0 ? (meanExcess / stdDev) * Math.sqrt(252) : 0;
+  };
+
+  const sharpe = useMemo(() => calculateSharpeRatio(), [daysList, activeDeployedCapital]);
+
+  const formatCurrency = (val: number) => {
+    const isNegative = val < 0;
+    const absVal = Math.abs(val);
+    const formatter = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    });
+    return (isNegative ? '-' : '') + formatter.format(absVal);
+  };
+  const getEquityCurveData = () => {
+    const allFyTrades = [...sortedTrades];
+    
+    // Calculate actual current capital exactly like App.tsx
+    const filteredBaseCapital = activeAccountId === 'Combined'
+      ? brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0)
+      : (brokerAccounts.find((a) => a.id === activeAccountId)?.startingCapital || 0);
+
+    const filteredAdjustments = activeAccountId === 'Combined'
+      ? capitalAdjustments
+      : capitalAdjustments.filter((a) => a.brokerAccountId === activeAccountId);
+
+    const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
+    const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
+    
+    const totalNetPnLFy = allFyTrades.reduce((acc, t) => acc + t.netPnL, 0);
+    const actualCurrentCapital = filteredBaseCapital + totalNetPnLFy + totalDeposits - totalWithdrawals;
+    const startingCapital = actualCurrentCapital - totalNetPnLFy;
+
+    let cumulative = startingCapital;
+
+    const curvePoints = allFyTrades.map((t, index) => {
+      cumulative += t.netPnL;
+      return {
+        tradeIndex: index + 1,
+        date: t.date,
+        symbol: t.symbol,
+        netPnL: t.netPnL,
+        tradingPnL: Math.round(cumulative * 100) / 100
+      };
+    });
+
+    if (curvePoints.length === 0) {
+      return [{
+        tradeIndex: 0,
+        date: new Date().toISOString().split('T')[0],
+        symbol: 'Initial Capital',
+        netPnL: 0,
+        tradingPnL: Math.round(startingCapital * 100) / 100
+      }];
+    }
+
+    if (timeRange === 'All') {
+      return [
+        {
+          tradeIndex: 0,
+          date: allFyTrades[0]?.date || new Date().toISOString().split('T')[0],
+          symbol: 'Initial Capital',
+          netPnL: 0,
+          tradingPnL: Math.round(startingCapital * 100) / 100
+        },
+        ...curvePoints
+      ];
+    }
+
+    const daysMap = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
+    const days = daysMap[timeRange as keyof typeof daysMap];
+    const cutoff = new Date(anchorDate);
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    const filteredPoints = curvePoints.filter(pt => pt.date >= cutoffStr);
+    const priorPoints = curvePoints.filter(pt => pt.date < cutoffStr);
+    const startingCapitalForRange = priorPoints.length > 0 
+      ? priorPoints[priorPoints.length - 1].tradingPnL 
+      : startingCapital;
+
+    return [
+      {
+        tradeIndex: 0,
+        date: cutoffStr,
+        symbol: 'Range Start',
+        netPnL: 0,
+        tradingPnL: Math.round(startingCapitalForRange * 100) / 100
+      },
+      ...filteredPoints
+    ];
+  };
+
+  // 2. Mistake Audit Data Preparation
+  const getMistakeData = () => {
+    const mistakeMap: Record<string, { count: number; loss: number }> = {};
+
+    trades.forEach((t) => {
+      const mList = getTradeMistakes(t);
+      mList.forEach((m) => {
+        if (!mistakeMap[m]) {
+          mistakeMap[m] = { count: 0, loss: 0 };
+        }
+        mistakeMap[m].count += 1;
+        if (t.netPnL < 0) {
+          mistakeMap[m].loss += Math.abs(t.netPnL);
+        }
+      });
+    });
+
+    return Object.entries(mistakeMap).map(([name, data]) => ({
+      name,
+      count: data.count,
+      loss: Math.round(data.loss),
+    })).sort((a, b) => b.loss - a.loss);
+  };
+
+  const getEmotionStatsData = () => {
+    const emotionMap: Record<string, { count: number; wins: number; netPnL: number }> = {
+      Calm: { count: 0, wins: 0, netPnL: 0 },
+      Greedy: { count: 0, wins: 0, netPnL: 0 },
+      Fearful: { count: 0, wins: 0, netPnL: 0 },
+      Impatient: { count: 0, wins: 0, netPnL: 0 },
+      Revengeful: { count: 0, wins: 0, netPnL: 0 }
+    };
+
+    trades.forEach((t) => {
+      const e = t.emotion || 'Calm';
+      if (emotionMap[e]) {
+        emotionMap[e].count += 1;
+        if (t.netPnL > 0) {
+          emotionMap[e].wins += 1;
+        }
+        emotionMap[e].netPnL += t.netPnL;
+      }
+    });
+
+    return Object.entries(emotionMap).map(([name, data]) => ({
+      name,
+      count: data.count,
+      winRate: data.count > 0 ? (data.wins / data.count) * 100 : 0,
+      netPnL: Math.round(data.netPnL)
+    }));
+  };
+
+  const getAssetAllocationData = () => {
+    const allocationMap: Record<string, number> = {
+      ETF: 0,
+      BOND: 0,
+      EQUITY: 0
+    };
+    
+    activeInvestments.forEach((inv) => {
+      allocationMap[inv.type] = (allocationMap[inv.type] || 0) + (inv.currentPrice * inv.qty);
+    });
+
+    return Object.entries(allocationMap).map(([name, value]) => ({
+      name: name === 'EQUITY' ? 'Stocks' : name,
+      value: Math.round(value)
+    })).filter(item => item.value > 0);
+  };
+
+  const getSegmentAllocationData = () => {
+    const segmentMap: Record<string, number> = {
+      Equity: 0,
+      'F&O': 0,
+      Commodity: 0,
+      Currency: 0
+    };
+    trades.forEach((t) => {
+      segmentMap[t.segment] = (segmentMap[t.segment] || 0) + Math.abs(t.netPnL);
+    });
+    return Object.entries(segmentMap).map(([name, value]) => ({
+      name,
+      value: Math.round(value)
+    })).filter(item => item.value > 0);
+  };
+
+  const getWeeklySummaryList = () => {
+    const anchor = anchorDate;
+    let currentYear = anchor.getFullYear();
+    if (anchor.getMonth() < 3) {
+      currentYear -= 1;
+    }
+    const fyStart = new Date(currentYear, 3, 1); // April 1st
+    
+    const weeksMap: Record<string, { weekId: string; weekNum: number; startDate: Date; endDate: Date; trades: any[] }> = {};
+    
+    // Generate all 52 weeks
+    let ptr = new Date(fyStart);
+    for (let w = 1; w <= 52; w++) {
+      const start = new Date(ptr);
+      const end = new Date(ptr);
+      end.setDate(ptr.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      
+      const weekId = `${currentYear}-W${w.toString().padStart(2, '0')}`;
+      weeksMap[weekId] = {
+        weekId,
+        weekNum: w,
+        startDate: start,
+        endDate: end,
+        trades: []
+      };
+      ptr.setDate(ptr.getDate() + 7);
+    }
+    
+    // Populate trades
+    trades.forEach((t) => {
+      const tDate = parseLocalDate(t.date);
+      for (const w of Object.values(weeksMap)) {
+        if (tDate >= w.startDate && tDate <= w.endDate) {
+          w.trades.push(t);
+          break;
+        }
+      }
+    });
+    
+    return Object.values(weeksMap).map((w) => {
+      const netPnL = w.trades.reduce((acc, t) => acc + t.netPnL, 0);
+      const wins = w.trades.filter((t) => t.netPnL > 0).length;
+      const winRate = w.trades.length > 0 ? (wins / w.trades.length) * 100 : 0;
+      
+      // Mistake cost
+      const mistakeCost = w.trades.reduce((acc, t) => (t.netPnL < 0 && getTradeMistakes(t).length > 0 ? acc + Math.abs(t.netPnL) : acc), 0);
+      
+      // Dominant emotion
+      const emap: Record<string, number> = {};
+      w.trades.forEach(t => emap[t.emotion] = (emap[t.emotion] || 0) + 1);
+      const dominantEmotion = Object.entries(emap).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
+
+      const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const formattedRange = `${w.startDate.getDate()} ${monthsShort[w.startDate.getMonth()]} - ${w.endDate.getDate()} ${monthsShort[w.endDate.getMonth()]}`;
+
+      return {
+        ...w,
+        netPnL,
+        winRate,
+        mistakeCost,
+        dominantEmotion,
+        formattedRange
+      };
+    }).filter(w => w.trades.length > 0 || w.weekNum <= getCurrentFYWeekNum(fyStart));
+  };
+
+  const getCurrentFYWeekNum = (fyStart: Date) => {
+    const today = new Date();
+    if (today < fyStart) return 1;
+    const diffTime = Math.abs(today.getTime() - fyStart.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const week = Math.ceil(diffDays / 7);
+    return Math.min(52, week);
+  };
+
+  const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | '1Y' | 'All'>('All');
+
+  const getFilterButtonStats = () => {
+    const stats1M = getModifiedDietzReturn(30);
+    const stats3M = getModifiedDietzReturn(90);
+    const stats6M = getModifiedDietzReturn(180);
+    const stats1Y = getModifiedDietzReturn(365);
+
+    return {
+      '1M': { pnl: stats1M.pnl, pct: stats1M.pct },
+      '3M': { pnl: stats3M.pnl, pct: stats3M.pct },
+      '6M': { pnl: stats6M.pnl, pct: stats6M.pct },
+      '1Y': { pnl: stats1Y.pnl, pct: stats1Y.pct },
+      'All': { pnl: displayNetPnL, pct: allTimePct }
+    };
+  };
+
+  const buttonStats = useMemo(() => getFilterButtonStats(), [sortedTrades, capitalAdjustments, activeAccountId, brokerAccounts, activeTrades, anchorDate, displayNetPnL, allTimePct]);
+  const equityData = useMemo(() => getEquityCurveData(), [sortedTrades, activeAccountId, brokerAccounts, capitalAdjustments, timeRange]);
+  const mistakeData = useMemo(() => getMistakeData(), [trades]);
+  const emotionStatsData = useMemo(() => getEmotionStatsData(), [trades]);
+  const assetAllocationData = useMemo(() => getAssetAllocationData(), [activeInvestments]);
+  const segmentAllocationData = useMemo(() => getSegmentAllocationData(), [trades]);
+
+  // Weekly retrospective panel state
+  const [selectedRetroWeekId, setSelectedRetroWeekId] = useState<string>('');
+  const [retroNotes, setRetroNotes] = useState<string>('');
+  
+  const weeklySummaries = useMemo(() => getWeeklySummaryList(), [trades, anchorDate]);
+  const activeRetroWeek = weeklySummaries.find(w => w.weekId === selectedRetroWeekId);
+
+  // Sync retro notes state with store when selected week changes or when store updates
+  useEffect(() => {
+    if (selectedRetroWeekId) {
+      setRetroNotes((weeklyRetrospectives && weeklyRetrospectives[selectedRetroWeekId]) || '');
+    }
+  }, [selectedRetroWeekId, weeklyRetrospectives]);
+
+  // Set default retro week
+  useEffect(() => {
+    if (weeklySummaries.length > 0 && !selectedRetroWeekId) {
+      const today = new Date();
+      const currentWeek = weeklySummaries.find(w => today >= w.startDate && today <= w.endDate) || weeklySummaries[weeklySummaries.length - 1];
+      if (currentWeek) {
+        setSelectedRetroWeekId(currentWeek.weekId);
+      }
+    }
+  }, [trades, weeklySummaries, selectedRetroWeekId]);
+
+  const handleSaveRetro = () => {
+    if (!selectedRetroWeekId) return;
+    saveWeeklyRetrospective(selectedRetroWeekId, retroNotes);
+    alert('Weekly Retrospective saved successfully!');
+  };
+
+  const getCoachTip = (mistakeCost: number, dominantEmotion: string) => {
+    if (mistakeCost === 0) {
+      return "Excellent execution discipline this week! Keep executing your setups without hesitation. You followed your rules perfectly.";
+    }
+    if (dominantEmotion === 'Greedy' || dominantEmotion === 'Impatient') {
+      return `Impatient/Greedy execution cost you ₹${mistakeCost.toLocaleString('en-IN')} in mistake penalties. Focus on wait-triggers. Do not chase moving candles.`;
+    }
+    if (dominantEmotion === 'Fearful') {
+      return "Fear-based exits are locking in sub-optimal risk-to-reward ratios. Practice setting your SL/Target on terminal and letting the trade run to its mathematical limit.";
+    }
+    return `Execution leaks cost you ₹${mistakeCost.toLocaleString('en-IN')} in mistake penalties. Next week, review your setups checklist before taking any entry.`;
+  };
+
+  // Discipline Rating Calculation
+  const totalTradesWithMistakes = trades.filter((t) => getTradeMistakes(t).length > 0).length;
+  const disciplineScore = totalTrades > 0 
+    ? ((totalTrades - totalTradesWithMistakes) / totalTrades) * 100 
+    : 100;
+
+  const getDisciplineGrade = (score: number) => {
+    if (score >= 95) return { grade: 'A+', color: 'var(--color-win)', desc: 'Flawless Execution!' };
+    if (score >= 90) return { grade: 'A', color: '#34d399', desc: 'Highly Disciplined.' };
+    if (score >= 80) return { grade: 'B', color: '#60a5fa', desc: 'Good focus. Avoid minor slips.' };
+    if (score >= 70) return { grade: 'C', color: '#fb923c', desc: 'Average. Emotional entries detected.' };
+    return { grade: 'D', color: 'var(--color-loss)', desc: 'Discipline leak! Review trading plan.' };
+  };
+  const disciplineInfo = getDisciplineGrade(disciplineScore);
+  const CustomEquityTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      if (data.tradeIndex === 0) return null;
+      
+      const formatDateTooltip = (dateStr: string) => {
+        if (!dateStr || dateStr === 'Start') return 'Start';
+        const d = parseLocalDate(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      };
+
+      const val = data.tradingPnL || 0;
+      const isPositive = val >= 0;
+
+      return (
+        <div 
+          className="glass-card" 
+          style={{ 
+            background: 'var(--bg-tooltip-opaque)', 
+            border: '1.5px solid var(--border-color-active)', 
+            borderRadius: '12px',
+            padding: '10px 14px', 
+            boxShadow: 'var(--shadow-glow)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '4px',
+            minWidth: '150px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>{formatDateTooltip(data.date)}</span>
+            <span 
+              className={`badge ${isPositive ? 'badge-win' : 'badge-loss'}`}
+              style={{ fontSize: '0.62rem', padding: '1px 6px' }}
+            >
+              {isPositive ? 'GROWTH' : 'DRAWDOWN'}
+            </span>
+          </div>
+          <div style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: isPositive ? 'var(--color-win)' : 'var(--color-loss)' }}>
+            {isPnlVisible ? `${isPositive ? '+' : ''}${formatCurrency(val)}` : '••••••'}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomMistakeTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="glass-card" style={{ background: 'var(--bg-tooltip-opaque)', border: '1px solid var(--border-color)', padding: '10px', boxShadow: 'var(--shadow-glow)' }}>
+          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-loss)' }}>{data.name}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px', fontSize: '0.8rem', color: 'var(--text-main)' }}>
+            <span>Total Occurrences: {data.count}</span>
+            <span style={{ color: 'var(--color-loss)' }}>Total Losses: {isPnlVisible ? formatCurrency(data.loss) : '••••'}</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const isCustomAvatar = userAvatar && (userAvatar.startsWith('data:image/') || userAvatar.startsWith('http'));
+
+  return (
+    <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      
+      {/* 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries */}
+      {missingLogDates.length > 0 && (
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '16px 20px', 
+            background: 'rgba(239, 68, 68, 0.08)', 
+            border: '1.5px solid rgba(239, 68, 68, 0.25)', 
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-loss)' }}>
+            <AlertTriangle size={22} />
+            <h3 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0 }}>Coach Reminder: Missing Log Entries</h3>
+          </div>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+            We noticed you have no trade or capital adjustments logged for the following recent market day(s). Keeping your journal entry streak active is key to success! Please select an action for each date:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+            {missingLogDates.map(date => {
+              const formattedDate = parseLocalDate(date).toLocaleDateString('en-IN', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              });
+              return (
+                <div 
+                  key={date} 
+                  style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '8px 12px', 
+                    background: 'rgba(255,255,255,0.02)', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border-color)',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}
+                >
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                    {formattedDate}
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => onNavigateToTab?.('logs')}
+                      className="btn btn-primary" 
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      Log Trade
+                    </button>
+                    <button 
+                      onClick={() => toggleNoTradeDay(date)}
+                      className="btn btn-secondary" 
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}
+                    >
+                      Mark No-Trade Day
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
+      {/* Weekend Review Ritual Banner (Shown on Weekends Saturday/Sunday) */}
+      {(() => {
+        const dayOfWeek = new Date().getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const reminderPref = localStorage.getItem('traders_diary_weekend_reminder');
+        const isEnabled = reminderPref !== 'false';
+        if (!isWeekend || !isEnabled) return null;
+
+        return (
+          <div 
+            className="glass-card animate-tab-panel"
+            style={{
+              padding: '12px 18px',
+              marginBottom: '14px',
+              borderRadius: '14px',
+              border: '1.5px solid rgba(10, 132, 255, 0.4)',
+              background: 'linear-gradient(135deg, rgba(10, 132, 255, 0.12) 0%, rgba(191, 90, 242, 0.08) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              boxShadow: '0 8px 24px -6px rgba(10, 132, 255, 0.25)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'rgba(10, 132, 255, 0.2)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.25rem',
+                flexShrink: 0,
+                border: '1px solid rgba(10, 132, 255, 0.35)'
+              }}>
+                🗓️
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: '0.92rem', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
+                    Weekend Routine: Review Weekly Notes & Mistakes
+                  </strong>
+                  <span style={{ fontSize: '0.66rem', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', background: 'rgba(10, 132, 255, 0.2)', color: 'var(--primary)', border: '1px solid rgba(10, 132, 255, 0.35)' }}>
+                    Weekend Routine
+                  </span>
+                </div>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Market is closed. Audit your trade notes and execution errors from this week to eliminate repeat mistakes next week!
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => setIsJournalModalOpen(true)}
+                className="btn btn-primary"
+                style={{ padding: '7px 16px', fontSize: '0.78rem', gap: '6px', fontWeight: 700 }}
+              >
+                <BookOpen size={15} />
+                <span>Review Notes & Mistakes</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Redesigned Welcome Banner */}
+      <div 
+        className="glass-card animate-tab-panel" 
+        style={{ 
+          padding: '10px 16px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          background: 'var(--bg-card)',
+          border: '1.5px solid var(--border-color)',
+          borderRadius: '12px',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          gap: '10px',
+          boxShadow: 'var(--shadow-card)'
+        }}
+      >
+        {/* 1. User Greeting & Profile */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            {isCustomAvatar ? (
+              <img
+                src={userAvatar}
+                alt="Profile"
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid var(--primary)',
+                  boxShadow: 'var(--shadow-glow)'
+                }}
+              />
+            ) : (
+              <div 
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--primary-glow)',
+                  border: '2px solid var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.4rem',
+                  boxShadow: 'var(--shadow-glow)'
+                }}
+              >
+                {userAvatar === 'bull' ? '🐂' :
+                 userAvatar === 'bear' ? '🐻' :
+                 userAvatar === 'trader' ? '👨‍💻' :
+                 userAvatar === 'gold' ? '🏆' :
+                 userAvatar === 'coin' ? '🪙' :
+                 userAvatar === 'clock' ? '⏱️' :
+                 userAvatar === 'rocket' ? '🚀' :
+                 userAvatar === 'shield' ? '🛡️' : '👨‍💻'}
+              </div>
+            )}
+            {isCustomAvatar && (
+              <span 
+                style={{ 
+                  position: 'absolute', 
+                  bottom: '-2px', 
+                  right: '-2px', 
+                  fontSize: '0.8rem',
+                  background: 'var(--bg-card)',
+                  borderRadius: '50%',
+                  width: '18px',
+                  height: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                👤
+              </span>
+            )}
+          </div>
+
+          <div>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0, whiteSpace: 'nowrap' }}>
+              Welcome back, {userName || 'Sachin'}!
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+              <div 
+                style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '5px', 
+                  background: 'rgba(255,255,255,0.03)', 
+                  padding: '2px 7px', 
+                  borderRadius: '9999px', 
+                  border: '1px solid var(--border-color)',
+                  fontSize: '0.66rem',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: disciplineInfo.color, boxShadow: `0 0 6px ${disciplineInfo.color}` }} />
+                <span style={{ color: 'var(--text-muted)' }}>Discipline:</span>
+                <strong style={{ color: disciplineInfo.color }}>{disciplineInfo.grade} ({disciplineScore.toFixed(0)}%)</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* 2. Realized Net P&L Primary Summary Card */}
+        <NetPnLPrimaryCard
+          displayNetPnL={displayNetPnL}
+          showCombined={showCombined}
+          combinedReturnPct={combinedReturnPct}
+          tradingReturnPct={tradingReturnPct}
+          totalSubExpenses={totalSubExpenses}
+          netBottomLinePnL={netBottomLinePnL}
+          totalGrossPnL={totalGrossPnL}
+          totalBrokerage={totalBrokerage}
+          totalTaxes={totalTaxes}
+          totalNetPnL={totalNetPnL}
+          totalInvReturns={totalInvReturns}
+          isPnlVisible={isPnlVisible}
+          formatCurrency={formatCurrency}
+        />
+
+        {/* 3. Recent Trading Days P&L Calendar Strip */}
+        <RecentTradingDaysStrip
+          recentTradingDays={recentTradingDays}
+          recentDaysTotal={recentDaysTotal}
+          isPnlVisible={isPnlVisible}
+          onSelectDateFilter={onSelectDateFilter}
+          onNavigateToTab={onNavigateToTab}
+        />
+
+        {/* 4. Active Statement FY Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <div 
+            style={{
+              background: 'linear-gradient(135deg, var(--primary-glow) 0%, rgba(59, 130, 246, 0.04) 100%)',
+              border: '1.5px solid var(--primary)',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              minWidth: '80px',
+              boxShadow: '0 2px 8px rgba(59, 130, 246, 0.08)'
+            }}
+          >
+            <div style={{ fontSize: '0.54rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+              Active FY
+            </div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 850, color: 'var(--primary)', letterSpacing: '-0.02em', marginTop: '1px' }}>
+              {selectedFY}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Portfolio Selector Control Bar */}
+      <div 
+        className="glass-card" 
+        style={{ 
+          padding: '12px 20px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Briefcase size={18} color="var(--primary)" />
+          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+            {showCombined ? 'Combined Wealth View (Trading + Delivery Investments)' : 'Active Trading Account View'}
+          </span>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Broker Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Broker:</span>
+            <select
+              value={selectedBroker}
+              onChange={(e) => setSelectedBroker(e.target.value)}
+              className="form-select"
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.78rem',
+                height: '32px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                minWidth: '120px'
+              }}
+            >
+              <option value="All">All Brokers</option>
+              {activeBrokers.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Segment Filter Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Segment:</span>
+            <select
+              value={selectedSegment}
+              onChange={(e) => setSelectedSegment(e.target.value)}
+              className="form-select"
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.78rem',
+                height: '32px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                minWidth: '135px'
+              }}
+            >
+              <option value="All">All Segments</option>
+              <option value="Options">⚡ Options</option>
+              <option value="Futures">📈 Futures</option>
+              <option value="Equity">💼 Equity Cash</option>
+              <option value="Commodity">🪙 Commodity</option>
+              <option value="Currency">💱 Currency</option>
+            </select>
+          </div>
+
+          {/* Active FY Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Active FY:</span>
+            <span className="badge badge-primary-subtle" style={{ fontSize: '0.78rem', fontWeight: 650, padding: '3px 8px' }}>
+              {selectedFY}
+            </span>
+          </div>
+
+          {/* Eyeball Toggle Button */}
+          <button 
+            onClick={togglePnlVisibility}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              border: '1px solid var(--border-color)',
+              background: 'transparent',
+              color: 'var(--text-main)'
+            }}
+            title={isPnlVisible ? "Hide P&L Numbers" : "Show P&L Numbers"}
+          >
+            {isPnlVisible ? <EyeOff size={16} /> : <Eye size={16} color="var(--primary)" />}
+            <span>{isPnlVisible ? 'Hide P&L' : 'Show P&L'}</span>
+          </button>
+
+          <button 
+            onClick={() => setShowCombined(!showCombined)}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              border: showCombined ? '1px solid var(--border-color-active)' : '1px solid var(--border-color)',
+              background: showCombined ? 'var(--primary-glow)' : 'transparent',
+              color: showCombined ? 'var(--primary)' : 'var(--text-main)'
+            }}
+          >
+            {showCombined ? <ToggleRight size={18} color="var(--primary)" /> : <ToggleLeft size={18} />}
+            <span>Combined View</span>
+          </button>
+
+          <button 
+            onClick={() => setIsJournalModalOpen(true)}
+            className="btn btn-secondary"
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'rgba(59, 130, 246, 0.1)',
+              color: 'var(--primary)',
+              fontWeight: 650
+            }}
+            title="Open Weekend Review: Trade Notes & Mistakes Audit"
+          >
+            <BookOpen size={15} color="var(--primary)" />
+            <span>Weekend Review</span>
+          </button>
+
+          <button 
+            onClick={() => setIsReportModalOpen(true)}
+            className="btn btn-primary"
+            style={{ 
+              padding: '6px 14px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              fontWeight: 650
+            }}
+            title="Generate & Export Executive Performance Card / PDF Report"
+          >
+            <Award size={15} />
+            <span>Executive Report</span>
+          </button>
+        </div>
+      </div>
+      {/* Equity Curve Chart */}
+      <EquityCurveChart
+        buttonStats={buttonStats}
+        timeRange={timeRange}
+        setTimeRange={setTimeRange}
+        activeChartMonth={activeChartMonth}
+        setSelectedChartMonth={setSelectedChartMonth}
+        availableMonths={availableMonths}
+        selectedMonthPnL={selectedMonthPnL}
+        equityData={equityData}
+        isPnlVisible={isPnlVisible}
+        formatCurrency={formatCurrency}
+      />
+
+      {/* GitHub-style Trading Performance Heatmap */}
+      <TradingHeatmap
+        rawTrades={rawTrades}
+        selectedFY={selectedFY}
+        selectedBroker={selectedBroker}
+        noTradeDays={noTradeDays}
+        isPnlVisible={isPnlVisible}
+        trades={trades}
+        investments={investments}
+        onSelectDateFilter={onSelectDateFilter}
+      />
+
+      {/* Grid 2: Return Periods & Consistency Streaks */}
+      <div className="grid-2col-12-1" style={{ marginBottom: '24px' }}>
+        
+        {/* Card 1: Performance Returns Duration */}
+        <div className="glass-card" style={{ padding: '24px', borderTop: '2.5px solid var(--primary)', position: 'relative' }}>
+          <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <CalendarRange size={18} color="var(--primary)" />
+            Returns Breakdown
+          </h3>
+          <div className="grid-2col-equal-small" style={{ gap: '14px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>1 Month Return</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '4px', fontFamily: 'var(--font-mono)', color: m1.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(m1.pnl) : '••••'} <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>({m1.pct.toFixed(1)}%)</span>
+              </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>3 Months Return</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '4px', fontFamily: 'var(--font-mono)', color: m3.pnl >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(m3.pnl) : '••••'} <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>({m3.pct.toFixed(1)}%)</span>
+              </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>All Time P&L</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '4px', fontFamily: 'var(--font-mono)', color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                {isPnlVisible ? formatCurrency(totalNetPnL) : '••••'} <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>({allTimePct.toFixed(1)}%)</span>
+              </div>
+            </div>
+             <div style={{ background: 'rgba(255,255,255,0.015)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '62px' }}>
+               <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                 Annualized CAGR {isExtrapolated && <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>(Projected)</span>}
+               </div>
+               <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '2px', fontFamily: 'var(--font-mono)', color: cagr >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                 {cagr.toFixed(1)}%
+               </div>
+               {isExtrapolated && (
+                 <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                   *Extrapolated run-rate
+                 </div>
+               )}
+             </div>
+          </div>
+        </div>
+
+        {/* Card 2: Consistency & Streaks */}
+        <div className="glass-card" style={{ padding: '24px', borderTop: '2.5px solid var(--color-win)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+          <div>
+            <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ShieldCheck size={18} color="var(--color-win)" />
+              Consistency Audit
+            </h3>
+            
+            <div className="grid-2col-equal-small" style={{ gap: '14px', marginBottom: '16px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.015)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Trading Days Win %</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-win)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
+                  {winDaysPct.toFixed(1)}%
+                </div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.015)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Total Trades</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
+                  {totalTrades}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Days Streak Block */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Calendar size={13} color="var(--color-win)" /> Days Streak:
+                </span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--color-win)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    {maxConsecWins}W Days
+                  </span>
+                  <span style={{ color: 'var(--text-dim)' }}>/</span>
+                  <span style={{ color: 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    {maxConsecLosses}L Days
+                  </span>
+                </div>
+              </div>
+              {/* Days Progress Bar */}
+              <div style={{ display: 'flex', height: '6px', borderRadius: '9999px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', padding: '1px' }}>
+                <div 
+                  style={{ 
+                    flex: maxConsecWins || 1, 
+                    background: 'linear-gradient(90deg, #15803d 0%, #30d158 100%)', 
+                    borderRadius: '9999px',
+                    boxShadow: '0 0 6px rgba(48, 209, 88, 0.35)',
+                    transition: 'all 0.3s ease' 
+                  }} 
+                  title={`Days Win Streak: ${maxConsecWins} days`}
+                />
+                <div style={{ width: '2px' }} />
+                <div 
+                  style={{ 
+                    flex: maxConsecLosses || 1, 
+                    background: 'linear-gradient(90deg, #ff453a 0%, #dc2626 100%)', 
+                    borderRadius: '9999px',
+                    boxShadow: '0 0 6px rgba(255, 69, 58, 0.35)',
+                    transition: 'all 0.3s ease' 
+                  }} 
+                  title={`Days Loss Streak: ${maxConsecLosses} days`}
+                />
+              </div>
+            </div>
+
+            {/* Trades Streak Block */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Flame size={13} color="#f59e0b" /> Trades Streak:
+                </span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--color-win)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    {maxTradeWins}W Trades
+                  </span>
+                  <span style={{ color: 'var(--text-dim)' }}>/</span>
+                  <span style={{ color: 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    {maxTradeLosses}L Trades
+                  </span>
+                </div>
+              </div>
+              {/* Trades Progress Bar */}
+              <div style={{ display: 'flex', height: '6px', borderRadius: '9999px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)', padding: '1px' }}>
+                <div 
+                  style={{ 
+                    flex: maxTradeWins || 1, 
+                    background: 'linear-gradient(90deg, #15803d 0%, #30d158 100%)', 
+                    borderRadius: '9999px',
+                    boxShadow: '0 0 6px rgba(48, 209, 88, 0.35)',
+                    transition: 'all 0.3s ease' 
+                  }} 
+                  title={`Trades Win Streak: ${maxTradeWins} trades`}
+                />
+                <div style={{ width: '2px' }} />
+                <div 
+                  style={{ 
+                    flex: maxTradeLosses || 1, 
+                    background: 'linear-gradient(90deg, #ff453a 0%, #dc2626 100%)', 
+                    borderRadius: '9999px',
+                    boxShadow: '0 0 6px rgba(255, 69, 58, 0.35)',
+                    transition: 'all 0.3s ease' 
+                  }} 
+                  title={`Trades Loss Streak: ${maxTradeLosses} trades`}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Core Performance & Risk Metrics */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', marginTop: '6px' }}>
+        <TrendingUp size={18} color="var(--primary)" />
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+          Core Performance & Risk Metrics
+        </h3>
+      </div>
+
+      {/* Secondary Metrics (Row 1 - 3 Columns) */}
+      <div className="metrics-grid-3col">
+        {/* KPI 2: Success Rate */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Percent size={18} color="var(--primary)" />
+            <span>Success Rate</span>
+          </div>
+          <div>
+            <div className="metric-value text-white">
+              {winRate.toFixed(1)}%
+            </div>
+            <div className="metric-subtext">
+              {winningTrades.length} Green / {losingTrades.length} Red (Total: {totalTrades})
+            </div>
+          </div>
+        </div>
+        {/* KPI 3: Options Scalping Stats */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Clock size={18} color="#fb7185" />
+            <span>Avg hold time / Leakage</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span>{avgOptionDuration.toFixed(1)}m</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: brokerageLeakage > 20 ? 'var(--color-loss)' : 'var(--color-win)' }}>{brokerageLeakage.toFixed(0)}%</span>
+            </div>
+            <div className="metric-subtext">
+              Avg. scalp hold / Profit leaked to charges
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Sharpe & Risk Ratio */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Scale size={18} color="#fb923c" />
+            <span>Sharpe & Drawdown</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span>{sharpe.toFixed(2)}</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: 'var(--color-loss)' }}>-{maxDDPct.toFixed(1)}%</span>
+            </div>
+            <div className="metric-subtext">
+              Sharpe ratio / Max portfolio drawdown %
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid 2: Key Performance Indicators (Row 2 - 6 Columns Responsive) */}
+      <div className="metrics-grid-row2">
+        {/* Metric 1: Profit Factor */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Scale size={18} color="var(--primary)" />
+            <span>Profit Factor</span>
+          </div>
+          <div>
+            <div className="metric-value text-white">
+              {profitFactor === Infinity ? '∞' : profitFactor.toFixed(2)}
+            </div>
+            <div className="metric-subtext">
+              Gross Win / Gross Loss ratio. &gt; 1.5 is healthy
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 2: Expectancy */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Award size={18} color="#34d399" />
+            <span>Expectancy</span>
+          </div>
+          <div>
+            <div className="metric-value" style={{ color: expectancy >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+              {isPnlVisible ? formatCurrency(expectancy) : '••••'}
+            </div>
+            <div className="metric-subtext">
+              Expected net return per trade executed
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 3: Max Drawdown */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <TrendingDown size={18} color="var(--color-loss)" />
+            <span>Peak Drawdown</span>
+          </div>
+          <div>
+            <div className="metric-value" style={{ color: 'var(--color-loss)' }}>
+              {isPnlVisible ? formatCurrency(maxDrawdown) : '••••'}
+            </div>
+            <div className="metric-subtext">
+              Max peak-to-trough drop in capital
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 4: Max Win/Loss Streak */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <Flame size={18} color="#fb923c" />
+            <span>Streak (Days)</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.45rem' }}>
+              <span style={{ color: 'var(--color-win)' }}>{maxConsecWins}W</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 8px' }}>/</span>
+              <span style={{ color: 'var(--color-loss)' }}>{maxConsecLosses}L</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '6px' }}>Days</span>
+            </div>
+            <div className="metric-subtext">
+              Consecutive winning vs losing trading days
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 5: Best & Worst Days Card */}
+        <div className="glass-card metric-card" style={{ minWidth: 0 }}>
+          <div className="metric-title" style={{ color: 'var(--text-muted)' }}>
+            <Award size={16} color="#eab308" />
+            <span>Best / Worst Days</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '1px 0', minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', minWidth: 0 }}>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', fontWeight: 650 }}>
+                🟩 {bestDay.date !== 'N/A' && bestDay.date !== 'No Trades' ? bestDay.date : 'Best Day'}
+              </span>
+              <strong style={{ fontSize: '0.78rem', color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+                {bestDay.pnl > 0 ? (isPnlVisible ? `+${formatCurrency(bestDay.pnl)}` : '••••') : '₹0'}
+              </strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', minWidth: 0 }}>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', fontWeight: 650 }}>
+                🟥 {worstDay.date !== 'N/A' && worstDay.date !== 'No Trades' ? worstDay.date : 'Worst Day'}
+              </span>
+              <strong style={{ fontSize: '0.78rem', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                {worstDay.pnl < 0 ? (isPnlVisible ? formatCurrency(worstDay.pnl) : '••••') : '₹0'}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 5: Trade Volume Averages */}
+        <div className="glass-card metric-card">
+          <div className="metric-title">
+            <TrendingUp size={18} color="var(--primary)" />
+            <span>Avg Trades (D/W/M)</span>
+          </div>
+          <div>
+            <div className="metric-value text-white" style={{ fontSize: '1.38rem', fontFamily: 'var(--font-mono)' }}>
+              {avgTradesPerDay.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerWeek.toFixed(1)} <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>/</span> {avgTradesPerMonth.toFixed(1)}
+            </div>
+            <div className="metric-subtext">
+              Daily / Weekly / Monthly averages
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card: Broker-wise performance stats */}
+      <BrokerPerformanceSection
+        brokerStats={brokerStats}
+        selectedFY={selectedFY}
+        isPnlVisible={isPnlVisible}
+      />
+
+      {/* Weekly Trade Review & Retrospective Panel */}
+      <div className="glass-card" style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CalendarRange size={22} color="var(--primary)" />
+              Weekly Performance Retrospective & Coach
+            </h3>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+              Select a week to review performance stats, get AI discipline coach tips, and save retro remarks
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Select Week:</span>
+            <select
+              value={selectedRetroWeekId}
+              onChange={(e) => setSelectedRetroWeekId(e.target.value)}
+              className="form-select"
+              style={{ width: '220px', height: '32px', padding: '0 8px', fontSize: '0.78rem' }}
+            >
+              {weeklySummaries.map((w) => (
+                <option key={w.weekId} value={w.weekId}>
+                  Week {w.weekNum} ({w.formattedRange})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {activeRetroWeek ? (
+          <div className="grid-2col-13-2">
+            {/* Left Column: Weekly Stats Summary */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Weekly Net P&L</div>
+                <div 
+                  style={{ 
+                    fontSize: '1.25rem', 
+                    fontWeight: 800, 
+                    fontFamily: 'var(--font-mono)',
+                    color: activeRetroWeek.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)',
+                    marginTop: '4px'
+                  }}
+                >
+                  {activeRetroWeek.trades.length > 0 ? (
+                    <>
+                      {activeRetroWeek.netPnL >= 0 ? '+' : ''}
+                      {isPnlVisible ? formatCurrency(activeRetroWeek.netPnL) : '••••'}
+                    </>
+                  ) : (
+                    'No trades'
+                  )}
+                </div>
+              </div>
+
+              <div className="grid-2col-equal-small" style={{ gap: '10px' }}>
+                <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Win Rate</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '2px', color: 'var(--text-main)' }}>
+                    {activeRetroWeek.trades.length > 0 ? `${activeRetroWeek.winRate.toFixed(0)}%` : '-'}
+                  </div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                    {activeRetroWeek.trades.length} trades
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Emotion</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '2px', color: 'var(--text-main)' }}>
+                    {activeRetroWeek.trades.length > 0 ? activeRetroWeek.dominantEmotion : '-'}
+                  </div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                    Dominant mood
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Mistake Penalties</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-loss)', marginTop: '2px' }}>
+                  {activeRetroWeek.mistakeCost > 0 ? (
+                    isPnlVisible ? `-${formatCurrency(activeRetroWeek.mistakeCost)}` : '-••••'
+                  ) : (
+                    '₹0 (Perfect Discipline)'
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Retrospective Notes & Coach */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Discipline Coach Alert */}
+              <div 
+                style={{ 
+                  background: 'var(--primary-glow)', 
+                  border: '1px solid var(--border-color-active)', 
+                  padding: '12px 16px', 
+                  borderRadius: '10px',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-main)',
+                  display: 'flex',
+                  alignItems: 'start',
+                  gap: '8px'
+                }}
+              >
+                <Sparkles size={18} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '3px', color: 'var(--primary)' }}>Discipline Coach Tip:</strong>
+                  {getCoachTip(activeRetroWeek.mistakeCost, activeRetroWeek.dominantEmotion)}
+                </div>
+              </div>
+
+              {/* Remarks textarea */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px' }}>My Retrospective Notes & Lessons</label>
+                <textarea
+                  placeholder="Write notes about what went well, mistakes to avoid next week, mental states, and performance goals..."
+                  value={retroNotes}
+                  onChange={(e) => setRetroNotes(e.target.value)}
+                  className="form-input"
+                  style={{ minHeight: '90px', padding: '10px', fontSize: '0.82rem', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-primary" onClick={handleSaveRetro} style={{ height: '32px', fontSize: '0.78rem' }}>
+                  <Save size={15} />
+                  <span>Save Retrospective</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.82rem', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+            No trade activity recorded yet in this week range.
+          </div>
+        )}
+      </div>
+
+
+      {/* Grid 3: Advanced Analytics Charts */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+        {/* Behavioral Audit Grid (Mistake Cost & Discipline Scorecard) */}
+        <div className="grid-2col-equal">
+          
+          {/* Chart: Mistake Cost Analysis */}
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <AlertTriangle size={22} color="var(--color-loss)" />
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Mistake Financial Leakage Analysis</h3>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                  Total realized losses categorized by identified execution mistakes
+                </p>
+              </div>
+            </div>
+
+            {mistakeData.length > 0 ? (
+              <div className="chart-container-medium">
+                <ResponsiveContainer>
+                  <BarChart data={mistakeData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                    <XAxis dataKey="name" stroke="var(--text-dim)" fontSize={11} tickLine={false} />
+                    <YAxis stroke="var(--text-dim)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => isPnlVisible ? `₹${value}` : '••••'} />
+                    <Tooltip content={<CustomMistakeTooltip />} />
+                    <Bar dataKey="loss" radius={[6, 6, 0, 0]}>
+                      {mistakeData.map((_entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill="var(--color-loss)" 
+                          fillOpacity={0.6 + (0.4 * (mistakeData.length - index) / (mistakeData.length || 1))} 
+                          stroke="var(--color-loss)"
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.85rem', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px dashed var(--border-color)', height: '230px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                No mistakes tracked. Maintain this discipline!
+              </div>
+            )}
+          </div>
+
+          {/* Discipline Scorecard */}
+          <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <Sparkles size={22} color="var(--primary)" />
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Cognitive Discipline Audit</h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                    Behavioral evaluation rating based on execution mistakes
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '10px' }}>
+                <div 
+                  style={{ 
+                    width: '76px', 
+                    height: '76px', 
+                    borderRadius: '50%', 
+                    border: `3px solid ${disciplineInfo.color}`, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(255,255,255,0.02)',
+                    boxShadow: 'var(--shadow-glow)',
+                    flexShrink: 0
+                  }}
+                >
+                  <span style={{ fontSize: '1.8rem', fontWeight: 900, color: disciplineInfo.color, lineHeight: 1 }}>
+                    {disciplineInfo.grade}
+                  </span>
+                </div>
+                <div style={{ flexGrow: 1 }}>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 750, color: 'var(--text-main)' }}>
+                    {disciplineScore.toFixed(0)}% Rule Compliance
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: disciplineInfo.color, fontWeight: 600, marginTop: '2px', margin: 0 }}>
+                    {disciplineInfo.desc}
+                  </p>
+                </div>
+              </div>
+
+              {/* Dynamic Compliance Progress Bar */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <span>Checklist Compliance Level</span>
+                  <span>{disciplineScore.toFixed(0)}%</span>
+                </div>
+                <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--border-color)', overflow: 'hidden' }}>
+                  <div 
+                    style={{ 
+                      width: `${disciplineScore}%`, 
+                      height: '100%', 
+                      borderRadius: '4px', 
+                      background: disciplineInfo.color,
+                      boxShadow: `0 0 8px ${disciplineInfo.color}`,
+                      transition: 'width 0.4s ease'
+                    }} 
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic behavioral coaching insight */}
+              <div 
+                style={{ 
+                  marginTop: '16px', 
+                  padding: '10px 12px', 
+                  borderRadius: '8px', 
+                  background: 'rgba(255,255,255,0.02)', 
+                  borderLeft: `3.5px solid ${disciplineInfo.color}`,
+                  fontSize: '0.72rem',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '2px' }}>Audit Feedback:</strong>
+                {disciplineScore >= 90 ? (
+                  "Outstanding execution! You are strictly sticking to your plan. Keep maintaining this checklist discipline before every trade entry."
+                ) : disciplineScore >= 75 ? (
+                  "Good performance, but minor rule deviations logged. Double check your setup triggers to restrict impulsive executions."
+                ) : (
+                  "Caution: High mistake rate. Pause trading and review your emotional triggers before you take any more positions."
+                )}
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.75rem', marginTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Total Trades Audited:</span>
+                <strong style={{ color: 'var(--text-main)' }}>{totalTrades}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Trades with Mistakes:</span>
+                <strong style={{ color: totalTradesWithMistakes > 0 ? 'var(--color-loss)' : 'var(--color-win)' }}>{totalTradesWithMistakes}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Discipline Grade Standard:</span>
+                <strong style={{ color: 'var(--primary)' }}>TradeDiary Discipline Standard</strong>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Dynamic Behavioral & Allocation Insights */}
+        <div className="grid-2col-12-1">
+          {/* Emotions P&L Impact */}
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={22} color="var(--primary)" />
+              Psychological Mood P&L Impact
+            </h3>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
+              Realized net P&L accumulated under different execution mindsets.
+            </p>
+            <div className="chart-container-medium">
+              <ResponsiveContainer>
+                <BarChart 
+                  data={emotionStatsData} 
+                  layout="vertical"
+                  margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                  <XAxis type="number" stroke="var(--text-dim)" fontSize={10} tickLine={false} tickFormatter={(v) => isPnlVisible ? `₹${Math.round(v)}` : '••••'} />
+                  <YAxis dataKey="name" type="category" stroke="var(--text-dim)" fontSize={11} tickLine={false} />
+                  <Tooltip 
+                    formatter={(value: any) => [isPnlVisible ? `₹${value.toLocaleString('en-IN')}` : '••••', 'Net P&L']}
+                    contentStyle={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }}
+                  />
+                  <Bar dataKey="netPnL" radius={[0, 4, 4, 0]}>
+                    {emotionStatsData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'} 
+                        fillOpacity={0.8}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ color: 'var(--text-dim)', borderBottom: '1px solid var(--border-color)' }}>
+                    <th style={{ padding: '6px 4px' }}>Execution Mindset</th>
+                    <th style={{ padding: '6px 4px', textAlign: 'center' }}>Trades</th>
+                    <th style={{ padding: '6px 4px', textAlign: 'center' }}>Win Rate</th>
+                    <th style={{ padding: '6px 4px', textAlign: 'right' }}>Net P&L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emotionStatsData.map((e) => (
+                    <tr key={e.name} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                      <td style={{ padding: '8px 4px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        {e.name === 'Calm' ? '🧘 Calm & Disciplined' :
+                         e.name === 'Greedy' ? '🤑 Greedy' :
+                         e.name === 'Fearful' ? '😰 Fearful' :
+                         e.name === 'Impatient' ? '⏱️ Impatient' :
+                         '😡 Revenge Trading'}
+                      </td>
+                      <td style={{ padding: '8px 4px', textAlign: 'center', color: 'var(--text-muted)' }}>{e.count}</td>
+                      <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 600, color: e.winRate >= 50 ? 'var(--color-win)' : 'var(--text-muted)' }}>
+                        {e.winRate.toFixed(1)}%
+                      </td>
+                      <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700, color: e.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                        {isPnlVisible ? formatCurrency(e.netPnL) : '••••'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Asset Allocation or Segment Allocation */}
+          <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Briefcase size={22} color="var(--primary)" />
+              {showCombined ? 'Asset Allocation' : 'Trading Volume Allocation'}
+            </h3>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
+              {showCombined 
+                ? 'Portfolio distribution of ETFs, Government Bonds, and Stocks.' 
+                : 'P&L contribution weight across execution segments (Equity, F&O, etc.).'
+              }
+            </p>
+            <div className="chart-container-medium" style={{ position: 'relative' }}>
+              {(showCombined ? assetAllocationData : segmentAllocationData).length > 0 ? (
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={showCombined ? assetAllocationData : segmentAllocationData}
+                      cx="50%"
+                      cy="45%"
+                      innerRadius={45}
+                      outerRadius={65}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {(showCombined ? assetAllocationData : segmentAllocationData).map((_entry, index) => {
+                        const COLORS = ['#007aff', '#34c759', '#ff9500', '#af52de'];
+                        return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />;
+                      })}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: any) => isPnlVisible ? `₹${value.toLocaleString('en-IN')}` : '••••'}
+                      contentStyle={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }}
+                    />
+                    <Legend verticalAlign="bottom" height={36} iconSize={8} iconType="circle" wrapperStyle={{ fontSize: '0.72rem' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.82rem', border: '1px dashed var(--border-color)', borderRadius: '8px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  No allocation data available. Log trades or buy assets to view chart.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Category 5 Modals */}
+      <ExecutiveReportModal 
+        isOpen={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+      />
+
+      <WeeklyJournalModal 
+        isOpen={isJournalModalOpen} 
+        onClose={() => setIsJournalModalOpen(false)} 
+        onEditTrade={onEditTrade}
+      />
+
+    </div>
+  );
+}

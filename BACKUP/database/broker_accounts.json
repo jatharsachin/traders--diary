@@ -1,0 +1,16 @@
+[
+  {
+    "id": "acc-2",
+    "active": true,
+    "broker": "Dhan",
+    "accountName": "Sachin",
+    "startingCapital": 0
+  },
+  {
+    "id": "acc-1782542003548-x2p4d",
+    "active": true,
+    "broker": "Kotak Neo",
+    "accountName": "Sachin",
+    "startingCapital": 0
+  }
+]

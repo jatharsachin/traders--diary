@@ -1,0 +1,15 @@
+2026/09/25-17:54:22.732 18fc Reusing MANIFEST C:\Users\Sachin\AppData\Local\Microsoft\Edge\User Data\Default\Local Storage\leveldb/MANIFEST-000001
+2026/09/25-17:54:22.736 18fc Recovering log #199
+2026/09/25-17:54:22.741 18fc Reusing old log C:\Users\Sachin\AppData\Local\Microsoft\Edge\User Data\Default\Local Storage\leveldb/000199.log 
+2026/09/25-18:00:16.139 18f8 Level-0 table #203: started
+2026/09/25-18:00:16.142 18f8 Level-0 table #203: 39004 bytes OK
+2026/09/25-18:00:16.144 18f8 Delete type=0 #199
+2026/09/25-18:00:16.144 18fc Compacting 4@0 + 1@1 files
+2026/09/25-18:00:16.152 18fc Generated table #204@0: 1054 keys, 369894 bytes
+2026/09/25-18:00:16.152 18fc Compacted 4@0 + 1@1 files => 369894 bytes
+2026/09/25-18:00:16.153 18fc compacted to: files[ 0 1 2 0 0 0 0 ]
+2026/09/25-18:00:16.153 18fc Delete type=2 #194
+2026/09/25-18:00:16.153 18fc Delete type=2 #196
+2026/09/25-18:00:16.153 18fc Delete type=2 #198
+2026/09/25-18:00:16.153 18fc Delete type=2 #200
+2026/09/25-18:00:16.153 18fc Delete type=2 #203

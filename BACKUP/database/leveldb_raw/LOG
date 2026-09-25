@@ -1,0 +1,93 @@
+2026/09/25-19:46:31.904 231c Reusing MANIFEST C:\Users\Sachin\AppData\Local\Microsoft\Edge\User Data\Default\Local Storage\leveldb/MANIFEST-000001
+2026/09/25-19:46:31.907 231c Recovering log #202
+2026/09/25-19:46:31.913 231c Reusing old log C:\Users\Sachin\AppData\Local\Microsoft\Edge\User Data\Default\Local Storage\leveldb/000202.log 
+2026/09/25-19:47:01.322 35a8 Level-0 table #207: started
+2026/09/25-19:47:01.327 35a8 Level-0 table #207: 63552 bytes OK
+2026/09/25-19:47:01.328 35a8 Delete type=0 #202
+2026/09/25-19:47:31.931 35a8 Level-0 table #209: started
+2026/09/25-19:47:31.934 35a8 Level-0 table #209: 38819 bytes OK
+2026/09/25-19:47:31.935 35a8 Delete type=0 #206
+2026/09/25-19:48:55.351 35a8 Level-0 table #211: started
+2026/09/25-19:48:55.355 35a8 Level-0 table #211: 45962 bytes OK
+2026/09/25-19:48:55.356 35a8 Delete type=0 #208
+2026/09/25-19:53:45.382 35a8 Level-0 table #213: started
+2026/09/25-19:53:45.388 35a8 Level-0 table #213: 38703 bytes OK
+2026/09/25-19:53:45.389 35a8 Delete type=0 #210
+2026/09/25-19:53:45.390 231c Compacting 4@0 + 1@1 files
+2026/09/25-19:53:45.401 231c Generated table #214@0: 1060 keys, 371782 bytes
+2026/09/25-19:53:45.401 231c Compacted 4@0 + 1@1 files => 371782 bytes
+2026/09/25-19:53:45.402 231c compacted to: files[ 0 1 2 0 0 0 0 ]
+2026/09/25-19:53:45.403 231c Delete type=2 #204
+2026/09/25-19:53:45.403 231c Delete type=2 #207
+2026/09/25-19:53:45.403 231c Delete type=2 #209
+2026/09/25-19:53:45.403 231c Delete type=2 #211
+2026/09/25-19:53:45.403 231c Delete type=2 #213
+2026/09/25-19:53:48.833 35a8 Level-0 table #216: started
+2026/09/25-19:53:48.837 35a8 Level-0 table #216: 21210 bytes OK
+2026/09/25-19:53:48.838 35a8 Delete type=0 #212
+2026/09/25-19:54:15.961 35a8 Level-0 table #218: started
+2026/09/25-19:54:15.965 35a8 Level-0 table #218: 24272 bytes OK
+2026/09/25-19:54:15.966 35a8 Delete type=0 #215
+2026/09/25-19:54:42.887 35a8 Level-0 table #220: started
+2026/09/25-19:54:42.890 35a8 Level-0 table #220: 16182 bytes OK
+2026/09/25-19:54:42.892 35a8 Delete type=0 #217
+2026/09/25-19:56:46.512 35a8 Level-0 table #222: started
+2026/09/25-19:56:46.516 35a8 Level-0 table #222: 64324 bytes OK
+2026/09/25-19:56:46.517 35a8 Delete type=0 #219
+2026/09/25-19:56:46.518 231c Compacting 4@0 + 1@1 files
+2026/09/25-19:56:46.525 231c Generated table #223@0: 1060 keys, 373304 bytes
+2026/09/25-19:56:46.525 231c Compacted 4@0 + 1@1 files => 373304 bytes
+2026/09/25-19:56:46.525 231c compacted to: files[ 0 1 2 0 0 0 0 ]
+2026/09/25-19:56:46.526 231c Delete type=2 #214
+2026/09/25-19:56:46.526 231c Delete type=2 #216
+2026/09/25-19:56:46.526 231c Delete type=2 #218
+2026/09/25-19:56:46.526 231c Delete type=2 #220
+2026/09/25-19:56:46.526 231c Delete type=2 #222
+2026/09/25-19:58:42.897 35a8 Level-0 table #225: started
+2026/09/25-19:58:42.901 35a8 Level-0 table #225: 46512 bytes OK
+2026/09/25-19:58:42.902 35a8 Delete type=0 #221
+2026/09/25-20:04:26.246 35a8 Level-0 table #227: started
+2026/09/25-20:04:26.252 35a8 Level-0 table #227: 46630 bytes OK
+2026/09/25-20:04:26.253 35a8 Delete type=0 #224
+2026/09/25-20:07:02.266 35a8 Level-0 table #229: started
+2026/09/25-20:07:02.270 35a8 Level-0 table #229: 39442 bytes OK
+2026/09/25-20:07:02.271 35a8 Delete type=0 #226
+2026/09/25-20:10:31.754 35a8 Level-0 table #231: started
+2026/09/25-20:10:31.759 35a8 Level-0 table #231: 39466 bytes OK
+2026/09/25-20:10:31.760 35a8 Delete type=0 #228
+2026/09/25-20:10:31.761 231c Compacting 4@0 + 1@1 files
+2026/09/25-20:10:31.769 231c Generated table #232@0: 1061 keys, 372237 bytes
+2026/09/25-20:10:31.769 231c Compacted 4@0 + 1@1 files => 372237 bytes
+2026/09/25-20:10:31.769 231c compacted to: files[ 0 1 2 0 0 0 0 ]
+2026/09/25-20:10:31.770 231c Delete type=2 #223
+2026/09/25-20:10:31.770 231c Delete type=2 #225
+2026/09/25-20:10:31.770 231c Delete type=2 #227
+2026/09/25-20:10:31.770 231c Delete type=2 #229
+2026/09/25-20:10:31.770 231c Delete type=2 #231
+2026/09/25-20:10:53.221 35a8 Level-0 table #234: started
+2026/09/25-20:10:53.228 35a8 Level-0 table #234: 38800 bytes OK
+2026/09/25-20:10:53.229 35a8 Delete type=0 #230
+2026/09/25-20:18:38.657 35a8 Level-0 table #236: started
+2026/09/25-20:18:38.661 35a8 Level-0 table #236: 39663 bytes OK
+2026/09/25-20:18:38.662 35a8 Delete type=0 #233
+2026/09/25-20:21:35.302 35a8 Level-0 table #238: started
+2026/09/25-20:21:35.306 35a8 Level-0 table #238: 38703 bytes OK
+2026/09/25-20:21:35.307 35a8 Delete type=0 #235
+2026/09/25-20:21:41.917 35a8 Level-0 table #240: started
+2026/09/25-20:21:41.920 35a8 Level-0 table #240: 39388 bytes OK
+2026/09/25-20:21:41.922 35a8 Delete type=0 #237
+2026/09/25-20:21:41.922 35a8 Compacting 4@0 + 1@1 files
+2026/09/25-20:21:41.931 35a8 Generated table #241@0: 1065 keys, 372449 bytes
+2026/09/25-20:21:41.931 35a8 Compacted 4@0 + 1@1 files => 372449 bytes
+2026/09/25-20:21:41.931 35a8 compacted to: files[ 0 1 2 0 0 0 0 ]
+2026/09/25-20:21:41.932 35a8 Delete type=2 #232
+2026/09/25-20:21:41.932 35a8 Delete type=2 #234
+2026/09/25-20:21:41.932 35a8 Delete type=2 #236
+2026/09/25-20:21:41.932 35a8 Delete type=2 #238
+2026/09/25-20:21:41.932 35a8 Delete type=2 #240
+2026/09/25-20:21:47.333 35a8 Level-0 table #243: started
+2026/09/25-20:21:47.336 35a8 Level-0 table #243: 38771 bytes OK
+2026/09/25-20:21:47.337 35a8 Delete type=0 #239
+2026/09/25-20:21:54.195 35a8 Level-0 table #245: started
+2026/09/25-20:21:54.200 35a8 Level-0 table #245: 39389 bytes OK
+2026/09/25-20:21:54.201 35a8 Delete type=0 #242
