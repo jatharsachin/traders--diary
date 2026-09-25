@@ -1267,15 +1267,15 @@ export function TradingCalendar({
         onClick={() => setSelectedWeekNum(w.weekNum === selectedWeekNum ? null : w.weekNum)}
         style={{ height: '88px', minHeight: '88px', maxHeight: '88px', boxSizing: 'border-box' }}
       >
-        <span className="day-number" style={{ fontSize: '0.84rem', top: '6px', left: '9px', fontWeight: 700 }}>W{w.weekNum}</span>
+        <span className="day-number" style={{ fontSize: '0.92rem', top: '5px', left: '8px', fontWeight: 800 }}>W{w.weekNum}</span>
         
         <div 
           style={{ 
-            fontSize: '0.70rem', 
+            fontSize: '0.78rem', 
             color: 'var(--text-muted)', 
             alignSelf: 'flex-start',
             marginTop: '15px',
-            fontWeight: 600,
+            fontWeight: 650,
             lineHeight: 1.15
           }}
         >
@@ -1289,7 +1289,7 @@ export function TradingCalendar({
                 <span className="pnl-desktop">
                   {isPnlVisible ? (w.netPnL > 0 ? '+' : '') : ''}
                   {isPnlVisible ? Math.round(w.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.70rem', opacity: 0.9, marginLeft: '3px' }}>
+                  <span style={{ fontSize: '0.76rem', opacity: 0.9, marginLeft: '3px' }}>
                     ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
                   </span>
                 </span>
@@ -1297,7 +1297,7 @@ export function TradingCalendar({
                   {isPnlVisible ? formatCompactPnLMobile(w.netPnL) : (
                     <>
                       ••••
-                      <span style={{ fontSize: '0.62rem', opacity: 0.9, marginLeft: '3px' }}>
+                      <span style={{ fontSize: '0.68rem', opacity: 0.9, marginLeft: '3px' }}>
                         ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
                       </span>
                     </>
@@ -1307,9 +1307,9 @@ export function TradingCalendar({
 
               <div 
                 style={{ 
-                  fontSize: '0.68rem', 
+                  fontSize: '0.74rem', 
                   color: 'var(--text-dim)', 
-                  fontWeight: 600, 
+                  fontWeight: 650, 
                   fontFamily: 'var(--font-mono)', 
                   marginTop: '0px' 
                 }}
@@ -2540,11 +2540,11 @@ export function TradingCalendar({
           height: 88px !important;
           min-height: 88px !important;
           max-height: 88px !important;
-          padding: 7px 9px !important;
+          padding: 6px 9px !important;
           box-sizing: border-box !important;
         }
         .calendar-day.weekly-day .day-pnl {
-          font-size: 0.98rem;
+          font-size: 1.10rem;
           padding-bottom: 0px;
         }
         @media (max-width: 600px) {
@@ -2552,10 +2552,10 @@ export function TradingCalendar({
             height: 80px !important;
             min-height: 80px !important;
             max-height: 80px !important;
-            padding: 6px 7px !important;
+            padding: 5px 6px !important;
           }
           .calendar-day.weekly-day .day-pnl {
-            font-size: 0.84rem;
+            font-size: 0.92rem;
           }
         }
         .calendar-day.yearly-day {
