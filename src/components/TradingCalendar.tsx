@@ -460,12 +460,12 @@ export function TradingCalendar({
         )}
 
         {isNoTradeDay && (!summary || summary.count === 0) && (
-          <div style={{ fontSize: '0.62rem', color: '#60a5fa', marginTop: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '2px', alignSelf: 'flex-start' }}>
+          <div style={{ fontSize: '0.74rem', color: '#60a5fa', marginTop: '18px', fontWeight: 650, display: 'flex', alignItems: 'center', gap: '2px', alignSelf: 'flex-start' }}>
             🛡️ <span className="pnl-desktop">No Trade Day</span>
           </div>
         )}
 
-        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', marginTop: 'auto' }}>
+        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', marginTop: 'auto' }}>
           {summary && summary.count > 0 && (() => {
             const dayRoi = summary.deployedCapital > 0 ? (summary.netPnL / summary.deployedCapital) * 100 : 0;
             return (
@@ -473,7 +473,7 @@ export function TradingCalendar({
                 <span className="pnl-desktop">
                   {isPnlVisible ? (summary.netPnL > 0 ? '+' : '') : ''}
                   {isPnlVisible ? Math.round(summary.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.62rem', opacity: 0.85, marginLeft: '2.5px' }}>
+                  <span style={{ fontSize: '0.76rem', opacity: 0.9, marginLeft: '3px' }}>
                     ({summary.netPnL >= 0 ? '+' : ''}{dayRoi.toFixed(1)}%)
                   </span>
                 </span>
@@ -481,7 +481,7 @@ export function TradingCalendar({
                   {isPnlVisible ? formatCompactPnLMobile(summary.netPnL) : (
                     <>
                       ••••
-                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                      <span style={{ fontSize: '0.68rem', opacity: 0.9, marginLeft: '3px' }}>
                         ({summary.netPnL >= 0 ? '+' : ''}{dayRoi.toFixed(1)}%)
                       </span>
                     </>
@@ -494,11 +494,11 @@ export function TradingCalendar({
           {summary && summary.count > 0 && (
             <div 
               style={{ 
-                fontSize: '0.62rem', 
+                fontSize: '0.74rem', 
                 color: 'var(--text-dim)', 
-                fontWeight: 600, 
+                fontWeight: 650, 
                 fontFamily: 'var(--font-mono)', 
-                marginTop: '1px',
+                marginTop: '0px',
                 cursor: 'pointer'
               }}
               onClick={(e) => {
@@ -514,18 +514,18 @@ export function TradingCalendar({
           {summary && summary.invested > 0 && (
             <div 
               style={{ 
-                fontSize: summary.count > 0 ? '0.72rem' : '0.88rem', 
+                fontSize: summary.count > 0 ? '0.78rem' : '0.92rem', 
                 color: 'var(--primary)', 
                 fontWeight: 750,
                 fontFamily: 'var(--font-mono)',
                 background: 'rgba(10, 132, 255, 0.14)',
                 border: '1px solid rgba(10, 132, 255, 0.3)',
-                padding: '1px 6px',
-                borderRadius: '5px',
+                padding: '2px 7px',
+                borderRadius: '6px',
                 whiteSpace: 'nowrap',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '2px'
+                gap: '3px'
               }}
               title={`Invested Purchase (Buy): ${formatCurrency(summary.invested)}`}
             >
@@ -537,18 +537,18 @@ export function TradingCalendar({
           {summary && summary.exited > 0 && (
             <div 
               style={{ 
-                fontSize: summary.count > 0 ? '0.72rem' : '0.88rem', 
+                fontSize: summary.count > 0 ? '0.78rem' : '0.92rem', 
                 color: 'var(--color-win)', 
                 fontWeight: 750,
                 fontFamily: 'var(--font-mono)',
                 background: 'rgba(48, 209, 88, 0.14)',
                 border: '1px solid rgba(48, 209, 88, 0.3)',
-                padding: '1px 6px',
-                borderRadius: '5px',
+                padding: '2px 7px',
+                borderRadius: '6px',
                 whiteSpace: 'nowrap',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '2px'
+                gap: '3px'
               }}
               title={`Investment Exit (Sell): ${formatCurrency(summary.exited)}`}
             >
@@ -1466,28 +1466,29 @@ export function TradingCalendar({
         onClick={() => setSelectedMonthNum(m.monthNum === selectedMonthNum ? null : m.monthNum)}
         style={{ height: '108px', minHeight: '108px', maxHeight: '108px', boxSizing: 'border-box' }}
       >
-        <span className="day-number" style={{ fontSize: '0.85rem' }}>{m.name}</span>
+        <span className="day-number" style={{ fontSize: '0.92rem', top: '7px', left: '10px', fontWeight: 800 }}>{m.name}</span>
         
         <div 
           style={{ 
-            fontSize: '0.68rem', 
+            fontSize: '0.78rem', 
             color: 'var(--text-muted)', 
             alignSelf: 'flex-start',
-            marginTop: '20px',
-            fontWeight: 550
+            marginTop: '16px',
+            fontWeight: 650,
+            lineHeight: 1.15
           }}
         >
           {m.year}
         </div>
 
-        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', marginTop: 'auto' }}>
+        <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', marginTop: 'auto' }}>
           {hasTrades && (
             <>
               <div>
                 <span className="pnl-desktop">
                   {isPnlVisible ? (m.netPnL > 0 ? '+' : '') : ''}
                   {isPnlVisible ? Math.round(m.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.65rem', opacity: 0.85, marginLeft: '2px' }}>
+                  <span style={{ fontSize: '0.76rem', opacity: 0.9, marginLeft: '3px' }}>
                     ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
                   </span>
                 </span>
@@ -1495,7 +1496,7 @@ export function TradingCalendar({
                   {isPnlVisible ? formatCompactPnLMobile(m.netPnL) : (
                     <>
                       ••••
-                      <span style={{ fontSize: '0.58rem', opacity: 0.85, marginLeft: '2px' }}>
+                      <span style={{ fontSize: '0.68rem', opacity: 0.9, marginLeft: '3px' }}>
                         ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
                       </span>
                     </>
@@ -1505,11 +1506,11 @@ export function TradingCalendar({
 
               <div 
                 style={{ 
-                  fontSize: '0.62rem', 
+                  fontSize: '0.74rem', 
                   color: 'var(--text-dim)', 
-                  fontWeight: 600, 
+                  fontWeight: 650, 
                   fontFamily: 'var(--font-mono)', 
-                  marginTop: '1px' 
+                  marginTop: '0px' 
                 }}
                 title={`Month Charges: ₹${Math.round(m.charges).toLocaleString('en-IN')}`}
               >
@@ -2562,7 +2563,17 @@ export function TradingCalendar({
           height: 108px !important;
           min-height: 108px !important;
           max-height: 108px !important;
+          padding: 7px 10px !important;
           box-sizing: border-box !important;
+        }
+        .calendar-day.yearly-day .day-pnl {
+          font-size: 1.10rem;
+          padding-bottom: 0px;
+        }
+        @media (max-width: 600px) {
+          .calendar-day.yearly-day .day-pnl {
+            font-size: 0.92rem;
+          }
         }
         .calendar-day.empty {
           border-color: transparent;
@@ -2591,7 +2602,7 @@ export function TradingCalendar({
           font-weight: 800;
         }
         .day-holiday-label {
-          font-size: 0.62rem;
+          font-size: 0.74rem;
           color: var(--color-neutral);
           font-weight: 700;
           max-width: 90%;
@@ -2641,11 +2652,11 @@ export function TradingCalendar({
         }
         .day-number {
           position: absolute;
-          top: 8px;
-          left: 12px;
+          top: 7px;
+          left: 10px;
           font-size: 0.92rem;
           color: var(--text-muted);
-          font-weight: 600;
+          font-weight: 750;
         }
         .calendar-day.has-trades .day-number {
           color: var(--text-main);
