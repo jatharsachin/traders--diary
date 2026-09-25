@@ -295,6 +295,36 @@ export default function App() {
     }
   }, [brokerAccounts, sessionUser]);
 
+  // Global interactive iOS Water Droplet Ripple Effect
+  useEffect(() => {
+    const handleGlobalRipple = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest?.('.btn, .sidebar-tab-btn, .glass-card, .metric-card, .ios-glass-btn, .pill-btn, .modal-close-btn') as HTMLElement | null;
+      if (!target) return;
+
+      const rect = target.getBoundingClientRect();
+      const ripple = document.createElement('span');
+      ripple.className = 'water-ripple';
+      
+      const size = Math.max(rect.width, rect.height) * 1.5;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+
+      target.appendChild(ripple);
+
+      setTimeout(() => {
+        ripple.remove();
+      }, 750);
+    };
+
+    document.addEventListener('click', handleGlobalRipple);
+    return () => document.removeEventListener('click', handleGlobalRipple);
+  }, []);
+
   const handleSelectedAccountsChange = (newSelectedIds: string[]) => {
     setSelectedAccountIds(newSelectedIds);
     const userKey = sessionUser?.id || localStorage.getItem('traders_diary_last_auth_user') || 'guest';
@@ -603,6 +633,11 @@ export default function App() {
 
   return (
     <div className={useTwoRowHeader ? "app-layout top-nav-layout app-container" : "app-layout sidebar-layout"}>
+      {/* iOS 18 Liquid Glass Ambient Refraction Glow Orbs */}
+      <div className="ambient-orb orb-1" aria-hidden="true" />
+      <div className="ambient-orb orb-2" aria-hidden="true" />
+      <div className="ambient-orb orb-3" aria-hidden="true" />
+
       {!useTwoRowHeader && isMobileSidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setIsMobileSidebarOpen(false)} />
       )}
@@ -660,7 +695,10 @@ export default function App() {
                       }} 
                     />
                   </div>
-                  <h1 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, whiteSpace: 'nowrap', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>TradeDiary Pro</h1>
+                  <h1 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, whiteSpace: 'nowrap', letterSpacing: '-0.02em', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>TradeDiary Pro</span>
+                    <span className="water-droplet-badge" title="iOS Liquid Glass & Water Droplet Active" />
+                  </h1>
                 </div>
                 <button 
                   onClick={() => {
@@ -963,7 +1001,8 @@ export default function App() {
 
               <div>
                 <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-                  {userName || 'Sachin'}'s Trade Diary
+                  <span>{userName || 'Sachin'}'s Trade Diary</span>
+                  <span className="water-droplet-badge" title="iOS Liquid Glass & Water Droplet Active" />
                   <select
                     value={selectedFY}
                     onChange={(e) => setSelectedFY(e.target.value)}
