@@ -252,58 +252,41 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 18px;
   padding: 16px;
-  box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.12),
-    var(--shadow-card);
-  backdrop-filter: blur(30px) saturate(190%);
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  box-shadow: var(--shadow-card);
   position: relative;
   overflow: hidden;
-  /* Keep standard card containers stable and prevent wobbly shifting on hover */
+  /* Keep standard card containers completely stable without shifting */
   transform: translateZ(0);
   backface-visibility: hidden;
-  transition: 
-    background-color var(--transition-glass), 
-    border-color var(--transition-glass),
-    box-shadow var(--transition-glass);
 }
 
 :root.light .glass-card {
-  box-shadow: 
-    inset 0 1px 0.5px rgba(255, 255, 255, 0.4),
-    var(--shadow-card);
+  box-shadow: var(--shadow-card);
 }
 
-/* Base card hover is clean and stable (smooth background color transition only, no reflection/glare) */
+/* Base card hover is completely static and solid - zero hover animation, zero glass background shifting */
 .glass-card:hover {
-  background: var(--bg-card-hover);
+  background: var(--bg-card);
 }
 
-/* Metric KPI cards and interactive glass components that scale/pop on hover */
+/* Metric KPI cards and interactive components - calm, stable, no glass animation or popping on hover */
 .glass-card.metric-card,
 .glass-card.interactive {
   cursor: pointer;
-  transition: 
-    transform var(--transition-ios-spring), 
-    box-shadow var(--transition-ios-spring), 
-    background-color var(--transition-glass), 
-    border-color var(--transition-glass);
+  transition: border-color 0.2s ease;
 }
 
 .glass-card.metric-card:hover,
 .glass-card.interactive:hover {
-  background: var(--bg-card-hover);
-  transform: translateY(-4px) scale(1.025);
-  box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.08),
-    var(--shadow-glow);
+  background: var(--bg-card);
+  transform: none;
+  box-shadow: var(--shadow-card);
   border-color: var(--border-color-active);
 }
 
 .glass-card.metric-card:active,
 .glass-card.interactive:active {
-  transform: scale(0.96) translateY(0);
-  transition: transform 0.08s ease;
+  transform: none;
 }
 
 .glow-green {
@@ -1020,17 +1003,16 @@ h1, h2, h3, h4 {
   }
 }
 
-/* Spring animation for calendar streaks boxes */
+/* Calendar streaks boxes - calm and stable */
 .stat-box-spring {
-  transition: transform var(--transition-ios-spring), box-shadow var(--transition-ios-spring), background-color var(--transition-glass);
+  transition: border-color 0.2s ease;
 }
 .stat-box-spring:hover {
-  transform: scale(1.15) rotate(2deg);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2) !important;
-  background: rgba(255, 255, 255, 0.05) !important;
+  transform: none;
+  box-shadow: none !important;
 }
 .stat-box-spring:active {
-  transform: scale(0.92);
+  transform: none;
 }
 
 /* ==========================================
