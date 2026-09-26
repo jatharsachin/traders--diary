@@ -44,143 +44,6 @@
   --bg-tooltip-opaque: #1c1c1e;
 }
 
-:root.light {
-  /* Light Theme variables - Eye-Comfort Soft Warm Paper & Slate Palette */
-  --bg-color: #e9ecf2;
-  --bg-card: rgba(255, 255, 255, 0.94);
-  --bg-card-hover: #ffffff;
-  --border-color: rgba(0, 0, 0, 0.09);
-  --border-color-active: #0071e3;
-  
-  --primary: #0071e3; /* Apple System Blue (Light) */
-  --primary-hover: #005bb5;
-  --primary-glow: rgba(0, 113, 227, 0.16);
-  
-  --text-main: #1d1d1f;
-  --text-muted: #515665;
-  --text-dim: #798194;
-  
-  --color-win: #15803d; /* Soft Deep Forest Green */
-  --color-win-bg: rgba(22, 163, 74, 0.09);
-  --color-win-border: rgba(22, 163, 74, 0.22);
-  
-  --color-loss: #dc2626; /* Soft Crimson Red */
-  --color-loss-bg: rgba(220, 38, 38, 0.08);
-  --color-loss-border: rgba(220, 38, 38, 0.22);
-  
-  --color-neutral: #8b5cf6;
-  --color-neutral-bg: rgba(139, 92, 246, 0.08);
-  
-  --shadow-glow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 14px rgba(0, 0, 0, 0.04);
-  --bg-tooltip-opaque: #ffffff;
-}
-
-/* Emerald Theme */
-:root[data-theme="emerald"] {
-  --bg-color: #060d0a;
-  --bg-card: rgba(14, 28, 20, 0.72);
-  --bg-card-hover: rgba(22, 38, 28, 0.82);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-color-active: #10b981;
-  
-  --primary: #10b981; /* Emerald Green */
-  --primary-hover: #059669;
-  --primary-glow: rgba(16, 185, 129, 0.2);
-  
-  --text-main: #e6f4ea;
-  --text-muted: #8fa89b;
-  --text-dim: #6b8577;
-  
-  --color-win: #34d399;
-  --color-win-bg: rgba(52, 211, 153, 0.12);
-  --color-win-border: rgba(52, 211, 153, 0.25);
-  
-  --color-loss: #f87171;
-  --color-loss-bg: rgba(248, 113, 113, 0.12);
-  --color-loss-border: rgba(248, 113, 113, 0.25);
-  
-  --color-neutral: #60a5fa;
-  --color-neutral-bg: rgba(96, 165, 250, 0.12);
-  --bg-tooltip-opaque: #0e1c14;
-}
-:root[data-theme="emerald"] body::before {
-  background: radial-gradient(circle, #10b981 0%, rgba(16, 185, 129, 0) 70%) !important;
-}
-:root[data-theme="emerald"] body::after {
-  background: radial-gradient(circle, #059669 0%, rgba(5, 96, 105, 0) 70%) !important;
-}
-
-/* Cyberpunk Neon */
-:root[data-theme="cyberpunk"] {
-  --bg-color: #07030f;
-  --bg-card: rgba(18, 10, 36, 0.72);
-  --bg-card-hover: rgba(28, 16, 54, 0.82);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-color-active: #d946ef;
-  
-  --primary: #d946ef; /* Neon Pink/Fuchsia */
-  --primary-hover: #c084fc;
-  --primary-glow: rgba(217, 70, 239, 0.2);
-  
-  --text-main: #fae8ff;
-  --text-muted: #c084fc;
-  --text-dim: #a855f7;
-  
-  --color-win: #38bdf8; /* Cyan */
-  --color-win-bg: rgba(56, 189, 248, 0.12);
-  --color-win-border: rgba(56, 189, 248, 0.25);
-  
-  --color-loss: #f43f5e; /* Hot Pink */
-  --color-loss-bg: rgba(244, 63, 94, 0.12);
-  --color-loss-border: rgba(244, 63, 94, 0.25);
-  
-  --color-neutral: #e11d48;
-  --color-neutral-bg: rgba(225, 29, 72, 0.12);
-  --bg-tooltip-opaque: #120a24;
-}
-:root[data-theme="cyberpunk"] body::before {
-  background: radial-gradient(circle, #d946ef 0%, rgba(217, 70, 239, 0) 70%) !important;
-}
-:root[data-theme="cyberpunk"] body::after {
-  background: radial-gradient(circle, #38bdf8 0%, rgba(56, 189, 248, 0) 70%) !important;
-}
-
-/* Nordic Frost */
-:root[data-theme="nordic"] {
-  --bg-color: #0f131a;
-  --bg-card: rgba(26, 32, 44, 0.72);
-  --bg-card-hover: rgba(35, 43, 59, 0.82);
-  --border-color: rgba(255, 255, 255, 0.06);
-  --border-color-active: #60a5fa;
-  
-  --primary: #60a5fa; /* Frost Blue */
-  --primary-hover: #3b82f6;
-  --primary-glow: rgba(96, 165, 250, 0.2);
-  
-  --text-main: #f0f4f8;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
-  
-  --color-win: #34d399;
-  --color-win-bg: rgba(52, 211, 153, 0.12);
-  --color-win-border: rgba(52, 211, 153, 0.25);
-  
-  --color-loss: #f87171;
-  --color-loss-bg: rgba(248, 113, 113, 0.12);
-  --color-loss-border: rgba(248, 113, 113, 0.25);
-  
-  --color-neutral: #818cf8;
-  --color-neutral-bg: rgba(129, 140, 248, 0.12);
-  --bg-tooltip-opaque: #1a202c;
-}
-:root[data-theme="nordic"] body::before {
-  background: radial-gradient(circle, #60a5fa 0%, rgba(96, 165, 250, 0) 70%) !important;
-}
-:root[data-theme="nordic"] body::after {
-  background: radial-gradient(circle, #475569 0%, rgba(71, 85, 105, 0) 70%) !important;
-}
-
 
 /* Background Liquid Blobs for Glassmorphism */
 body::before, body::after {
@@ -206,16 +69,6 @@ body::after {
   bottom: -150px;
   left: -100px;
   background: radial-gradient(circle, #bf5af2 0%, rgba(191, 90, 242, 0) 70%);
-}
-
-:root.light body::before {
-  background: radial-gradient(circle, #0071e3 0%, rgba(0, 113, 227, 0) 75%);
-  opacity: 0.05;
-}
-
-:root.light body::after {
-  background: radial-gradient(circle, #bf5af2 0%, rgba(191, 90, 242, 0) 75%);
-  opacity: 0.04;
 }
 
 /* Smooth globally applied transitions */
@@ -262,10 +115,6 @@ body {
   transform: translateZ(0);
   backface-visibility: hidden;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-:root.light .glass-card {
-  box-shadow: var(--shadow-card);
 }
 
 /* Base card & section hover across the software - crisp active border highlight */
@@ -393,15 +242,6 @@ h1, h2, h3, h4 {
     0 2px 4px rgba(0, 0, 0, 0.18), 
     0 4px 12px var(--primary-glow) !important;
   text-shadow: 0 -0.5px 1px rgba(0, 0, 0, 0.15);
-  animation: iosTabPop 0.45s var(--transition-ios-bounce) forwards;
-}
-
-:root.light .nav-tab.active {
-  background: var(--primary) !important;
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.35), 
-    0 2px 4px rgba(0, 0, 0, 0.12), 
-    0 4px 10px var(--primary-glow) !important;
   animation: iosTabPop 0.45s var(--transition-ios-bounce) forwards;
 }
 
@@ -687,25 +527,6 @@ h1, h2, h3, h4 {
     0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
-:root.light .btn-primary {
-  background: linear-gradient(to bottom, #3399ff 0%, #007aff 100%);
-  border-color: #0066cc;
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.3), 
-    0 1px 2px rgba(0, 0, 0, 0.1), 
-    0 2px 6px rgba(0, 122, 255, 0.15);
-}
-:root.light .btn-primary:hover {
-  background: linear-gradient(to bottom, #4da6ff 0%, #1a88ff 100%);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.4), 
-    0 2px 5px rgba(0, 0, 0, 0.15), 
-    0 4px 12px rgba(0, 122, 255, 0.25);
-}
-:root.light .btn-primary:active {
-  background: linear-gradient(to bottom, #0066cc 0%, #007aff 100%);
-}
-
 .btn-secondary {
   background: linear-gradient(to bottom, var(--bg-card-hover) 0%, var(--bg-card) 100%);
   color: var(--text-main);
@@ -822,14 +643,6 @@ h1, h2, h3, h4 {
   box-shadow: 
     inset 0 1px 1px rgba(255, 255, 255, 0.14),
     0 24px 60px rgba(0, 0, 0, 0.85);
-}
-
-:root.light .modal-content {
-  background: #ffffff !important;
-  border-color: rgba(0, 0, 0, 0.12);
-  box-shadow: 
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.6),
-    0 20px 48px rgba(0, 0, 0, 0.18);
 }
 
 .modal-header {
@@ -1007,10 +820,6 @@ h1, h2, h3, h4 {
   border-top-right-radius: 8px;
   border-bottom-right-radius: 8px;
   box-shadow: inset -2px 0 0 var(--primary), inset 0 1.5px 0 var(--primary), inset 0 -1.5px 0 var(--primary) !important;
-}
-
-:root.light .custom-table tr.selected-row td {
-  background-color: rgba(0, 122, 255, 0.12) !important;
 }
 
 @keyframes iosTabPop {
@@ -1241,11 +1050,7 @@ h1, h2, h3, h4 {
   margin: -24px -24px 24px -24px;
   border-bottom: 1px solid var(--border-color);
 }
-
 :root {
-  --bg-sticky: var(--bg-color);
-}
-:root.light {
   --bg-sticky: var(--bg-color);
 }
 
@@ -1349,23 +1154,6 @@ h1, h2, h3, h4 {
 /* Zebra striping for premium tables */
 .custom-table tbody tr:nth-child(even) td:not([rowspan]) {
   background-color: rgba(255, 255, 255, 0.025) !important;
-}
-
-:root.light .custom-table tbody tr:nth-child(even) td:not([rowspan]) {
-  background-color: rgba(0, 0, 0, 0.018) !important;
-}
-
-:root.light .custom-table th {
-  background-color: rgba(0, 0, 0, 0.035) !important;
-  color: var(--text-muted) !important;
-}
-
-:root.light .form-input, 
-:root.light .form-select, 
-:root.light .form-textarea {
-  background: #ffffff !important;
-  border-color: rgba(0, 0, 0, 0.12) !important;
-  color: var(--text-main) !important;
 }
 
 /* --- Left Sidebar Navigation Layout --- */
@@ -1490,10 +1278,6 @@ h1, h2, h3, h4 {
   background: rgba(120, 120, 128, 0.14);
   color: var(--text-main);
   transform: translateX(3px);
-}
-
-:root.light .sidebar-tab-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
 }
 
 .sidebar-tab-btn:active {
@@ -1696,12 +1480,6 @@ h1, h2, h3, h4 {
   height: 1px;
   background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
   pointer-events: none;
-}
-
-:root.light .ios-wallet-card {
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
-    0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 /* Authentic Apple iOS Toggle Switch */

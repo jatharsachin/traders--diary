@@ -75,8 +75,6 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
     setProfile,
     activeBrokers,
     setActiveBrokers,
-    theme,
-    setTheme,
     
     // NEW STATES & ACTIONS
     brokerAccounts,
@@ -602,45 +600,6 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                           </div>
                           {customPicError && <div style={{ color: 'var(--color-loss)', fontSize: '0.62rem', marginTop: '2px' }}>{customPicError}</div>}
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: '14px' }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '6px' }}>Premium Theme Preset</label>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {[
-                          { id: 'dark', label: 'Dark Theme', colors: ['#0b0b0d', '#0a84ff'] },
-                          { id: 'light', label: 'Light Theme', colors: ['#ffffff', '#007aff'] }
-                        ].map((t) => {
-                          const isSelected = theme === t.id;
-                          return (
-                            <button
-                              type="button"
-                              key={t.id}
-                              onClick={() => setTheme(t.id as any)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontSize: '0.72rem',
-                                background: isSelected ? 'var(--primary-glow)' : 'rgba(255, 255, 255, 0.02)',
-                                border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                                flex: '1 0 130px',
-                                justifyContent: 'flex-start'
-                              }}
-                            >
-                              <div style={{ display: 'flex', gap: '3px' }}>
-                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: t.colors[0], border: '1px solid rgba(255,255,255,0.2)' }} />
-                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: t.colors[1] }} />
-                              </div>
-                              <span style={{ fontWeight: isSelected ? 700 : 500 }}>{t.label}</span>
-                            </button>
-                          );
-                        })}
                       </div>
                     </div>
 

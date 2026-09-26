@@ -15,7 +15,7 @@ import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
 import { BROKER_LOGOS } from './utils/brandLogos';
 import { AccountFilterDropdown } from './components/AccountFilterDropdown';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Sun, Moon, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
@@ -232,8 +232,6 @@ export default function App() {
   const { 
     trades: allTrades, 
     baseCapital, 
-    theme, 
-    toggleTheme,
     capitalAdjustments: allAdjustments,
     sessionUser,
     setSessionUser,
@@ -593,15 +591,15 @@ export default function App() {
     }
   }, [syncAllInvestmentPrices]);
 
-  // Handle HTML Class and data-theme attributes for premium themes
+  // Enforce permanent Dark Theme
   useEffect(() => {
-    if (theme === 'light') {
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-    }
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.classList.remove('light');
+    document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', 'dark');
+    try {
+      localStorage.removeItem('traders_diary_theme');
+    } catch {}
+  }, []);
 
 
 
@@ -845,18 +843,8 @@ export default function App() {
 
           {/* Sidebar Footer */}
           <div className="sidebar-footer" style={{ flexShrink: 0 }}>
-            {/* Theme Toggle */}
-            <button 
-              onClick={toggleTheme}
-              className="btn btn-secondary"
-              style={{ width: '32px', height: '32px', padding: 0, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-              title="Toggle Theme"
-            >
-              {theme === 'dark' ? <Sun size={13} color="var(--primary)" /> : <Moon size={13} color="var(--primary)" />}
-            </button>
-
             {/* Profile trigger */}
-            <div style={{ position: 'relative', flexGrow: isSidebarCollapsed ? 0 : 1, display: 'flex', justifyContent: isSidebarCollapsed ? 'center' : 'flex-end' }}>
+            <div style={{ position: 'relative', flexGrow: 1, display: 'flex', justifyContent: isSidebarCollapsed ? 'center' : 'flex-start' }}>
               <div 
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 style={{ 
@@ -1028,27 +1016,6 @@ export default function App() {
 
             {/* Theme, Notification, and User Profile Info */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-              {/* Theme Toggle Button */}
-              <button 
-                onClick={toggleTheme}
-                className="btn btn-secondary"
-                style={{ 
-                  width: '48px', 
-                  height: '48px', 
-                  padding: 0, 
-                  borderRadius: '12px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  background: 'var(--bg-card)',
-                  border: '1.5px solid var(--border-color)',
-                  cursor: 'pointer'
-                }}
-                title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-              >
-                {theme === 'dark' ? <Sun size={16} color="var(--primary)" /> : <Moon size={16} color="var(--primary)" />}
-              </button>
-
               {/* Bell Icon & Notification Center */}
               <div style={{ position: 'relative' }}>
                 <button 

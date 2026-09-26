@@ -37,10 +37,10 @@ interface TradeStore {
   setups: Setup[];
   baseCapital: number;
   capitalAdjustments: CapitalAdjustment[];
-  theme: 'light' | 'dark';
+  theme: 'dark';
   setBaseCapital: (capital: number) => void;
-  toggleTheme: () => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+  toggleTheme?: () => void;
+  setTheme?: (theme?: any) => void;
   addTrade: (tradeData: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>) => void;
   editTrade: (id: string, tradeData: Partial<Trade>) => void;
   deleteTrade: (id: string) => void;
@@ -524,9 +524,11 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return updateBaseCapital(accountsList);
   };
 
-  const loadTheme = (): 'light' | 'dark' => {
-    const saved = localStorage.getItem('traders_diary_theme');
-    return (saved && ['light', 'dark'].includes(saved)) ? (saved as any) : 'dark';
+  const loadTheme = (): 'dark' => {
+    try {
+      localStorage.removeItem('traders_diary_theme');
+    } catch {}
+    return 'dark';
   };
 
   const loadSelectedFY = (): string => {
@@ -802,16 +804,9 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       return { baseCapital: capital };
     }),
 
-    toggleTheme: () => set((state) => {
-      const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
-      localStorage.setItem(getScopedKey('traders_diary_theme'), nextTheme);
-      return { theme: nextTheme };
-    }),
+    toggleTheme: () => set(() => ({ theme: 'dark' })),
 
-    setTheme: (theme) => set(() => {
-      localStorage.setItem(getScopedKey('traders_diary_theme'), theme);
-      return { theme };
-    }),
+    setTheme: () => set(() => ({ theme: 'dark' })),
 
     addTrade: (tradeData) => set((state) => {
       const tradeFY = getFinancialYear(tradeData.date);
@@ -1456,7 +1451,6 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const defaultBroker = localStorage.getItem(`traders_diary_default_broker_${userId}`) || localStorage.getItem('traders_diary_default_broker') || 'Zerodha';
 
       const lockedFYs = getOrMigrate('traders_diary_locked_fys', ['FY 2024-25', 'FY 2025-26']);
-      const theme = localStorage.getItem(`traders_diary_theme_${userId}`) || localStorage.getItem('traders_diary_theme') || 'dark';
       const isPnlVisible = localStorage.getItem(`traders_diary_pnl_visibility_${userId}`) !== null 
         ? JSON.parse(localStorage.getItem(`traders_diary_pnl_visibility_${userId}`)!) 
         : (localStorage.getItem('traders_diary_pnl_visibility') !== null ? JSON.parse(localStorage.getItem('traders_diary_pnl_visibility')!) : true);
@@ -1479,7 +1473,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         subscriptionExpenses,
         bankTransactions,
         lockedFYs,
-        theme: theme as 'light' | 'dark',
+        theme: 'dark',
         isPnlVisible,
         noTradeDays
       });
