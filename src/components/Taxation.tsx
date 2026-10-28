@@ -7,15 +7,21 @@ import {
 } from 'lucide-react';
 
 export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
-  const { trades: allTrades, selectedFY } = useTradeStore();
+  const { trades: allTrades, selectedFY, brokerAccounts } = useTradeStore();
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
-  const isMatchAccount = (id?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId || !id) return true;
-    return activeAccountId === id || activeAccountId.split(',').includes(id);
+  const isMatchAccount = (accId?: string, brokerName?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId) return true;
+    const targetIds = activeAccountId.split(',').filter(Boolean);
+    if (accId && targetIds.includes(accId)) return true;
+    if (brokerName) {
+      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
+      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
+    }
+    return false;
   };
   const trades = activeAccountId === 'Combined'
     ? fyTrades
-    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId));
+    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
 
   // --- INDIAN TAXATION COMPUTATIONS ---
   

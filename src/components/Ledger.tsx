@@ -193,14 +193,20 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   let trades = filterTradesByFY(allTrades, selectedFY);
   let capitalAdjustments = filterTradesByFY(allCapitalAdjustments as any, selectedFY) as any as CapitalAdjustment[];
 
-  const isMatchAccount = (id?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId || !id) return true;
-    return activeAccountId === id || activeAccountId.split(',').includes(id);
+  const isMatchAccount = (accId?: string, brokerName?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId) return true;
+    const targetIds = activeAccountId.split(',').filter(Boolean);
+    if (accId && targetIds.includes(accId)) return true;
+    if (brokerName) {
+      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
+      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
+    }
+    return false;
   };
 
   // Apply active account scopes
   if (activeAccountId !== 'Combined') {
-    trades = trades.filter((t) => isMatchAccount(t.brokerAccountId));
+    trades = trades.filter((t) => isMatchAccount(t.brokerAccountId, t.broker));
     capitalAdjustments = capitalAdjustments.filter((a) => isMatchAccount(a.brokerAccountId));
   } else if (selectedBrokerFilter !== 'All') {
     trades = trades.filter((t) => t.broker === selectedBrokerFilter);
@@ -413,7 +419,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const getFYOpeningBalance = () => {
     let startingCap = 0;
     if (activeAccountId !== 'Combined') {
-      startingCap = brokerAccounts.filter(a => isMatchAccount(a.id)).reduce((sum, a) => sum + a.startingCapital, 0);
+      startingCap = brokerAccounts.filter(a => isMatchAccount(a.id, a.broker)).reduce((sum, a) => sum + a.startingCapital, 0);
     } else if (selectedBrokerFilter !== 'All') {
       startingCap = brokerAccounts.filter(a => a.broker === selectedBrokerFilter).reduce((sum, a) => sum + a.startingCapital, 0);
     } else {
@@ -663,7 +669,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
           const monthPrefix = today.toISOString().substring(0, 7);
           const filteredTrades = activeAccountId === 'Combined' 
             ? allTrades
-            : allTrades.filter(t => t.brokerAccountId === activeAccountId);
+            : allTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
           const monthPnL = filteredTrades
             .filter(t => t.date.startsWith(monthPrefix))
             .reduce((sum, t) => sum + t.netPnL, 0);

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 
 
 
@@ -13,10 +13,9 @@ import { AuthScreen } from './components/AuthScreen';
 
 import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
-import { BROKER_LOGOS } from './utils/brandLogos';
 import { AccountFilterDropdown } from './components/AccountFilterDropdown';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, ShieldCheck, Bell, LogOut, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet, AlertTriangle } from 'lucide-react';
-import { isSupabaseConfigured, getSupabaseClient } from './utils/supabaseClient';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
 
@@ -122,6 +121,7 @@ export default function App() {
     return localStorage.getItem('traders_diary_sidebar_collapsed') === 'true';
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const hasAutoSyncedInvestments = useRef(false);
 
   // Live clock and Nifty live index ticker
   const [liveTime, setLiveTime] = useState<string>('');
@@ -573,7 +573,9 @@ export default function App() {
 
   // Centralized Investments Price Sync on Startup
   useEffect(() => {
-    if (investments.some(inv => inv.status === 'ACTIVE' || !(inv as any).status)) {
+    if (hasAutoSyncedInvestments.current) return;
+    if (allInvestments.some(inv => inv.status === 'ACTIVE' || !(inv as any).status)) {
+      hasAutoSyncedInvestments.current = true;
       const triggerPriceSync = async () => {
         try {
           const { updatedCount, failedSymbols } = await syncAllInvestmentPrices();
@@ -589,7 +591,7 @@ export default function App() {
       };
       triggerPriceSync();
     }
-  }, [syncAllInvestmentPrices]);
+  }, [allInvestments, syncAllInvestmentPrices]);
 
   // Enforce permanent Dark Theme
   useEffect(() => {

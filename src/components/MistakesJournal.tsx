@@ -35,18 +35,23 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
   } = useTradeStore();
 
   // Filter scoped to account
-  const isMatchAccount = (brokerAccId?: string) => {
+  const isMatchAccount = (accId?: string, brokerName?: string) => {
     if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    if (!brokerAccId) return false;
-    return activeAccountId === brokerAccId || activeAccountId.split(',').includes(brokerAccId);
+    const targetIds = activeAccountId.split(',').filter(Boolean);
+    if (accId && targetIds.includes(accId)) return true;
+    if (brokerName) {
+      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
+      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
+    }
+    return false;
   };
 
   const fyTrades = useMemo(() => filterTradesByFY(allTrades, selectedFY), [allTrades, selectedFY]);
   const accountTrades = useMemo(() => {
     return activeAccountId === 'Combined'
       ? fyTrades
-      : fyTrades.filter(t => isMatchAccount(t.brokerAccountId));
-  }, [fyTrades, activeAccountId]);
+      : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
+  }, [fyTrades, activeAccountId, brokerAccounts]);
 
   // Group hedged spread legs into unified positions to avoid duplicate cards and notes
   const accountPositions = useMemo(() => {

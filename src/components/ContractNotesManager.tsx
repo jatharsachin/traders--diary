@@ -178,6 +178,17 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
   };
 
   // Filtered trades for current FY and active account
+  const isMatchAccount = (accId?: string, brokerName?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId) return true;
+    const targetIds = activeAccountId.split(',').filter(Boolean);
+    if (accId && targetIds.includes(accId)) return true;
+    if (brokerName) {
+      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
+      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
+    }
+    return false;
+  };
+
   const fyTrades = useMemo(() => {
     return allTrades.filter(t => {
       if (selectedFY !== 'All') {
@@ -185,9 +196,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
         if (fy !== selectedFY) return false;
       }
       if (activeAccountId !== 'Combined') {
-        if (t.brokerAccountId) return t.brokerAccountId === activeAccountId;
-        const acc = brokerAccounts.find(a => a.id === activeAccountId);
-        if (acc && t.broker) return t.broker.toLowerCase() === acc.broker.toLowerCase();
+        return isMatchAccount(t.brokerAccountId, t.broker);
       }
       return true;
     });
@@ -207,7 +216,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
         const fy = getFinancialYear(cn.date);
         if (fy !== selectedFY) return;
       }
-      if (activeAccountId !== 'Combined' && cn.brokerAccountId && cn.brokerAccountId !== activeAccountId) {
+      if (activeAccountId !== 'Combined' && !isMatchAccount(cn.brokerAccountId)) {
         return;
       }
       if (!daysMap[cn.date]) {
@@ -221,7 +230,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
       const tradesForDay = daysMap[date] || [];
       const cn = (contractNotes || []).find(n => {
         if (n.date !== date) return false;
-        if (activeAccountId !== 'Combined' && n.brokerAccountId) return n.brokerAccountId === activeAccountId;
+        if (activeAccountId !== 'Combined' && !isMatchAccount(n.brokerAccountId)) return false;
         return true;
       });
 

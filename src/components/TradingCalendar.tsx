@@ -108,24 +108,25 @@ export function TradingCalendar({
   } = useTradeStore();
 
 
-  const isMatchAccount = (brokerAccId?: string) => {
+  const isMatchAccount = (accId?: string, brokerName?: string) => {
     if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    if (!brokerAccId) return false;
-    return activeAccountId === brokerAccId || activeAccountId.split(',').includes(brokerAccId);
+    const targetIds = activeAccountId.split(',').filter(Boolean);
+    if (accId && targetIds.includes(accId)) return true;
+    if (brokerName) {
+      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
+      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
+    }
+    return false;
   };
 
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
   const trades = activeAccountId === 'Combined'
     ? fyTrades
-    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId));
+    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
 
   const investments = activeAccountId === 'Combined'
     ? allInvestments
-    : allInvestments.filter(i => {
-        if (i.brokerAccountId && isMatchAccount(i.brokerAccountId)) return true;
-        const matchedAccs = brokerAccounts.filter(a => isMatchAccount(a.id));
-        return matchedAccs.some(a => (i.broker?.toLowerCase() === a.broker.toLowerCase()));
-      });
+    : allInvestments.filter(i => isMatchAccount(i.brokerAccountId, i.broker));
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026
   const [activePnlTab, setActivePnlTab] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');

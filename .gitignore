@@ -35,3 +35,6 @@ temp_leveldb_read/
 # Local backup secrets guard
 BACKUP/**/*.backup
 BACKUP/**/.env*
+
+# Local agent skills and configuration
+.agents/
