@@ -581,47 +581,49 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
           </button>
         </div>
       ) : (
-        <>
-          <style>{`
-            .journal-dynamic-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
-              grid-auto-flow: dense;
-              gap: 10px;
-              align-items: start;
-            }
-            @media (min-width: 1100px) {
-              .journal-card-wide {
-                grid-column: span 2;
-              }
-            }
-            @media (max-width: 1099px) {
-              .journal-card-wide {
-                grid-column: span 1;
-              }
-            }
-          `}</style>
-          <div className="journal-dynamic-grid">
-            {filteredJournalDays.map(day => {
-              const isProfit = day.dayNetPnL >= 0;
-              const hasBothColumns = day.hasDayNotes && day.hasTradeNotes;
-              const isWide = hasBothColumns || day.strategyNotes.length >= 6;
+        <div 
+          style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px' 
+          }}
+        >
+          {filteredJournalDays.map(day => {
+            const isProfit = day.dayNetPnL >= 0;
+            const hasBothColumns = day.hasDayNotes && day.hasTradeNotes;
 
-              return (
-                <div
-                  key={day.date}
-                  className={isWide ? 'journal-card-wide' : 'journal-card-compact'}
-                  style={{
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid var(--border-color)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-                  }}
-                >
+            // Dynamically proportion columns based on actual data volume in each column
+            let leftRatio = 50;
+            if (hasBothColumns) {
+              const stripHtml = (html?: string) => (html || '').replace(/<[^>]*>/g, '').trim();
+              const leftText = stripHtml(day.dailyNote?.notes) + ' ' + (day.dailyNote?.lessons || '') + ' ' + (day.dailyNote?.planForTomorrow || '');
+              const leftLength = leftText.trim().length;
+
+              const rightText = day.strategyNotes.map(s => `${s.strategy} ${s.note}`).join(' ');
+              const rightLength = rightText.trim().length;
+
+              const total = leftLength + rightLength;
+              if (total > 0) {
+                // Clamped between 26% and 65% so columns automatically grow/shrink to fit data
+                const calculatedPercent = (leftLength / total) * 100;
+                leftRatio = Math.round(Math.min(Math.max(calculatedPercent, 26), 65));
+              }
+            }
+
+            return (
+              <div
+                key={day.date}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                }}
+              >
                 {/* Day Card Header Bar */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -698,12 +700,12 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   </div>
                 </div>
 
-                {/* Card Content: 2-Column Split (Left: Day-End Reflections, Right: Trade Notes) */}
+                {/* Card Content: Dynamic Column Widths according to data volume */}
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: hasBothColumns ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr',
-                    gap: '8px',
+                    gridTemplateColumns: hasBothColumns ? `minmax(220px, ${leftRatio}%) minmax(0, 1fr)` : '1fr',
+                    gap: '10px',
                     alignItems: 'start'
                   }}
                 >
@@ -864,8 +866,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
               </div>
             );
           })}
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
