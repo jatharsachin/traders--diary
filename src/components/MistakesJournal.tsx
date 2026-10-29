@@ -54,7 +54,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'mistakes' | 'notes' | 'losses'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'notes' | 'losses'>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
 
@@ -219,7 +219,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
   };
 
   // =========================================================================
-  // UNIFIED JOURNAL DAYS: Merging Day-End Notes & Trade Mistakes into one feed
+  // UNIFIED JOURNAL DAYS: Day-End Notes & Trade Log Notes
   // =========================================================================
   const journalDays = useMemo(() => {
     const datesSet = new Set<string>();
@@ -237,7 +237,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
       if (d) datesSet.add(d);
     });
 
-    // 3. Map each date into a comprehensive day journal card
+    // 3. Map each date into a clean day journal card
     const dayEntries = Array.from(datesSet).map(date => {
       const noteTrades = accountTrades.filter(t => (t.exitDate || t.date) === date);
       const dayNetPnL = noteTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
@@ -258,13 +258,8 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         strategy: string;
         note: string;
         strategyPnL: number;
-        mistakes: string[];
-        emotion?: string;
-        hasMistake: boolean;
       }> = [];
       const seenEntries = new Set<string>();
-
-      let dayMistakesCount = 0;
 
       for (const pos of groupedPositions) {
         // Skip orphan hedge leg if it's already redundant
@@ -274,21 +269,14 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
 
         const rawNote = pos.notes || pos.leg1.notes || pos.leg2?.notes || '';
         const cleaned = cleanHedgeNote(rawNote).trim();
-        const mistakes = pos.mistakes || [];
-        if (mistakes.length > 0) {
-          dayMistakesCount += mistakes.length;
-        }
-        const emotion = pos.emotion || pos.leg1.emotion || pos.leg2?.emotion;
-        const hasNote = Boolean(cleaned);
-        const hasMistake = mistakes.length > 0;
 
-        // Skip if no note, no mistake, and no emotion
-        if (!hasNote && !hasMistake && !emotion) {
+        // Include only if a trade note actually exists
+        if (!cleaned) {
           continue;
         }
 
         const stratName = pos.strategy || pos.leg1.strategy || pos.leg2?.strategy || pos.leg1.symbol || 'General Trade';
-        const dedupeKey = `${stratName.toLowerCase()}:::${cleaned.toLowerCase()}:::${mistakes.join(',')}:::${emotion || ''}`;
+        const dedupeKey = `${stratName.toLowerCase()}:::${cleaned.toLowerCase()}`;
         if (seenEntries.has(dedupeKey)) continue;
         seenEntries.add(dedupeKey);
 
@@ -298,17 +286,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
           id: pos.id,
           strategy: stratName,
           note: cleaned,
-          strategyPnL: stratPnL,
-          mistakes,
-          emotion,
-          hasMistake
+          strategyPnL: stratPnL
         });
       }
 
       const dNote = dailyNotes?.[date];
       const hasDayNotes = Boolean(dNote && (dNote.notes?.trim() || dNote.lessons?.trim() || dNote.planForTomorrow?.trim()));
-      const hasTradeNotesOrMistakes = strategyNotesForDay.length > 0;
-      const hasMistakes = dayMistakesCount > 0;
+      const hasTradeNotes = strategyNotesForDay.length > 0;
 
       const dateObj = (() => {
         try {
@@ -334,15 +318,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         hasDayNotes,
         tradesCount,
         dayNetPnL,
-        mistakesCount: dayMistakesCount,
-        hasMistakes,
         strategyNotes: strategyNotesForDay,
-        hasTradeNotesOrMistakes
+        hasTradeNotes
       };
     });
 
-    // Only include days with actual journal notes, trade notes, or mistakes
-    return dayEntries.filter(d => d.hasDayNotes || d.hasTradeNotesOrMistakes);
+    // Only include days with actual journal notes or trade notes
+    return dayEntries.filter(d => d.hasDayNotes || d.hasTradeNotes);
   }, [dailyNotes, accountTrades]);
 
   // Months available
@@ -360,14 +342,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
   const filteredJournalDays = useMemo(() => {
     return journalDays.filter(day => {
       // Type pill filter
-      if (typeFilter === 'mistakes' && !day.hasMistakes) return false;
-      if (typeFilter === 'notes' && !day.hasDayNotes && !day.strategyNotes.some(s => Boolean(s.note))) return false;
+      if (typeFilter === 'notes' && !day.hasDayNotes && day.strategyNotes.length === 0) return false;
       if (typeFilter === 'losses' && day.dayNetPnL >= 0) return false;
 
       // Month filter
       if (selectedMonth !== 'All' && !day.date.startsWith(selectedMonth)) return false;
 
-      // Search query (date, reflections, lessons, plan, strategy, notes, mistakes, emotion)
+      // Search query (date, reflections, lessons, plan, strategy, notes)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const inDate = day.date.toLowerCase().includes(q) || day.formattedDate.toLowerCase().includes(q);
@@ -376,9 +357,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                            (day.dailyNote?.planForTomorrow || '').toLowerCase().includes(q);
         const inStrat = day.strategyNotes.some(s => 
           s.strategy.toLowerCase().includes(q) || 
-          s.note.toLowerCase().includes(q) || 
-          s.mistakes.some(m => m.toLowerCase().includes(q)) ||
-          (s.emotion || '').toLowerCase().includes(q)
+          s.note.toLowerCase().includes(q)
         );
         if (!inDate && !inDayNotes && !inStrat) return false;
       }
@@ -392,8 +371,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
   }, [journalDays, typeFilter, selectedMonth, searchQuery, sortOrder]);
 
   // Metric counts for filter pills
-  const mistakeDaysCount = useMemo(() => journalDays.filter(d => d.hasMistakes).length, [journalDays]);
-  const notedDaysCount = useMemo(() => journalDays.filter(d => d.hasDayNotes || d.strategyNotes.some(s => Boolean(s.note))).length, [journalDays]);
+  const notedDaysCount = useMemo(() => journalDays.filter(d => d.hasDayNotes || d.strategyNotes.length > 0).length, [journalDays]);
   const lossDaysCount = useMemo(() => journalDays.filter(d => d.dayNetPnL < 0).length, [journalDays]);
 
   return (
@@ -473,7 +451,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search in notes, mistakes, lessons, plan..."
+            placeholder="Search in notes, lessons, plan, strategies..."
             style={{
               width: '100%',
               background: 'var(--bg-card)',
@@ -511,22 +489,6 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
             }}
           >
             All Days ({journalDays.length})
-          </button>
-
-          <button
-            onClick={() => setTypeFilter('mistakes')}
-            className="btn"
-            style={{
-              padding: '2px 9px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              borderRadius: '9999px',
-              background: typeFilter === 'mistakes' ? '#ef4444' : 'rgba(255,255,255,0.04)',
-              color: typeFilter === 'mistakes' ? '#fff' : 'var(--text-muted)',
-              border: '1px solid ' + (typeFilter === 'mistakes' ? '#ef4444' : 'var(--border-color)')
-            }}
-          >
-            ⚠️ Mistakes ({mistakeDaysCount})
           </button>
 
           <button
@@ -677,10 +639,10 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         >
           <BookOpenCheck size={40} color="var(--text-dim)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
           <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
-            {searchQuery ? 'No journal notes or mistakes matched your search' : 'No Journal Notes or Mistakes Found'}
+            {searchQuery ? 'No journal notes matched your search' : 'No Journal Notes Found'}
           </h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '380px', margin: '0 auto 16px' }}>
-            Log trades with notes and mistakes, or record day reflections to see them organized here.
+            Log trade notes or record day reflections to see them organized here.
           </p>
           <button
             onClick={() => onOpenNoteModal?.(new Date().toISOString().split('T')[0])}
@@ -702,7 +664,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         >
           {filteredJournalDays.map(day => {
             const isProfit = day.dayNetPnL >= 0;
-            const hasBothColumns = day.hasDayNotes && day.hasTradeNotesOrMistakes;
+            const hasBothColumns = day.hasDayNotes && day.hasTradeNotes;
 
             return (
               <div
@@ -711,7 +673,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   padding: '8px 10px',
                   borderRadius: '8px',
                   background: 'rgba(255, 255, 255, 0.02)',
-                  border: day.hasMistakes ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+                  border: '1px solid var(--border-color)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '4px',
@@ -751,33 +713,6 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                         • 0 trades
                       </span>
                     )}
-
-                    {/* Mistakes Badge */}
-                    {day.hasMistakes ? (
-                      <span style={{ 
-                        fontSize: '0.66rem', 
-                        fontWeight: 750, 
-                        padding: '1px 6px', 
-                        borderRadius: '9999px',
-                        background: 'rgba(239, 68, 68, 0.18)',
-                        color: '#f87171',
-                        border: '1px solid rgba(239, 68, 68, 0.35)'
-                      }}>
-                        ⚠️ {day.mistakesCount} {day.mistakesCount === 1 ? 'Mistake' : 'Mistakes'}
-                      </span>
-                    ) : day.tradesCount > 0 ? (
-                      <span style={{ 
-                        fontSize: '0.65rem', 
-                        fontWeight: 650, 
-                        padding: '1px 6px', 
-                        borderRadius: '9999px',
-                        background: 'rgba(48, 209, 88, 0.12)',
-                        color: '#4ade80',
-                        border: '1px solid rgba(48, 209, 88, 0.25)'
-                      }}>
-                        🛡️ Clean
-                      </span>
-                    ) : null}
                   </div>
 
                   {/* Actions: Edit / Write Day Note & Delete */}
@@ -821,7 +756,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   </div>
                 </div>
 
-                {/* Card Content: 2-Column Split (Left: Day-End Reflections, Right: Trade Notes & Mistakes) */}
+                {/* Card Content: 2-Column Split (Left: Day-End Reflections, Right: Trade Notes) */}
                 <div
                   style={{
                     display: 'grid',
@@ -893,8 +828,8 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                     </div>
                   )}
 
-                  {/* Right Column: Trade Log Notes & Mistakes */}
-                  {day.hasTradeNotesOrMistakes && (
+                  {/* Right Column: Trade Log Notes */}
+                  {day.hasTradeNotes && (
                     <div 
                       style={{ 
                         padding: '6px 8px', 
@@ -910,7 +845,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                       }}
                     >
                       <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '1px' }}>
-                        Trade Notes & Mistakes ({day.strategyNotes.length}):
+                        Trade Log Notes ({day.strategyNotes.length}):
                       </span>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -923,11 +858,10 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                               gap: '5px', 
                               fontSize: '0.78rem', 
                               lineHeight: 1.35,
-                              padding: '1px 2px',
-                              flexWrap: 'wrap'
+                              padding: '1px 2px'
                             }}
                           >
-                            <span style={{ color: item.hasMistake ? '#f87171' : '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
+                            <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
                             <span 
                               style={{ 
                                 fontWeight: 700, 
@@ -954,52 +888,11 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                               {isPnlVisible ? `${item.strategyPnL >= 0 ? '+' : ''}₹${Math.round(item.strategyPnL).toLocaleString('en-IN')}` : '••••'}
                             </span>
 
-                            {/* Mistake Tags */}
-                            {item.mistakes && item.mistakes.map(m => (
-                              <span 
-                                key={m}
-                                style={{
-                                  fontSize: '0.64rem',
-                                  fontWeight: 750,
-                                  padding: '0 5px',
-                                  borderRadius: '9999px',
-                                  background: 'rgba(239, 68, 68, 0.18)',
-                                  color: '#fca5a5',
-                                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                ⚠️ {m}
-                              </span>
-                            ))}
-
-                            {/* Emotion Tag */}
-                            {item.emotion && (
-                              <span 
-                                style={{
-                                  fontSize: '0.64rem',
-                                  fontWeight: 650,
-                                  padding: '0 5px',
-                                  borderRadius: '9999px',
-                                  background: 'rgba(191, 90, 242, 0.12)',
-                                  color: '#d8b4fe',
-                                  border: '1px solid rgba(191, 90, 242, 0.25)',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                {item.emotion}
-                              </span>
-                            )}
-
                             {/* Note Text */}
-                            {item.note && (
-                              <>
-                                <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>:</span>
-                                <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
-                                  {item.note}
-                                </span>
-                              </>
-                            )}
+                            <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>:</span>
+                            <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
+                              {item.note}
+                            </span>
 
                             {/* Edit shortcut */}
                             {onEditTrade && (
