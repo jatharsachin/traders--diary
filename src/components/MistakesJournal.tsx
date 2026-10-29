@@ -170,23 +170,41 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
   const renderFormattedNoteText = (text: string) => {
     if (!text) return null;
 
+    const isBlankTemplateItem = (s: string) => {
+      const plain = s.replace(/<[^>]*>/g, '').trim();
+      return /^[•\-\*]\s*[^:]+:\s*$/.test(plain);
+    };
+
     // If text contains HTML tags from WYSIWYG editor, render directly with tight compact line-height!
     if (text.includes('<') && (text.includes('<b>') || text.includes('<strong>') || text.includes('<i>') || text.includes('<u>') || text.includes('<span') || text.includes('<div>') || text.includes('<ul>') || text.includes('<ol>') || text.includes('<br'))) {
+      let cleanedHtml = text;
+      // Strip empty template tags like <div>• Market Trend:</div> or <p>• Traps / Mistakes:</p> to save massive blank vertical space
+      cleanedHtml = cleanedHtml.replace(/<(div|p|li)>[•\-\*]\s*[^:<]+:\s*<\/\1>/gi, '');
+
       return (
         <div 
           className="journal-compact-content"
           style={{ fontSize: '0.82rem', lineHeight: 1.35, color: '#f1f5f9', wordBreak: 'break-word' }}
           dangerouslySetInnerHTML={{ 
-            __html: `<style>.journal-compact-content p, .journal-compact-content div { margin: 0; padding: 0; line-height: 1.35; } .journal-compact-content ul, .journal-compact-content ol { margin: 2px 0 2px 14px; padding: 0; } .journal-compact-content li { margin-bottom: 2px; line-height: 1.35; }</style>${text}` 
+            __html: `<style>.journal-compact-content p, .journal-compact-content div { margin: 0; padding: 0; line-height: 1.35; } .journal-compact-content ul, .journal-compact-content ol { margin: 2px 0 2px 14px; padding: 0; } .journal-compact-content li { margin-bottom: 2px; line-height: 1.35; }</style>${cleanedHtml}` 
           }}
         />
       );
     }
 
     const lines = text.split('\n');
+    const hasPopulatedLine = lines.some(l => {
+      const t = l.trim();
+      return t && !isBlankTemplateItem(t);
+    });
+
+    const displayLines = hasPopulatedLine
+      ? lines.filter(l => !isBlankTemplateItem(l.trim()))
+      : lines;
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.82rem', lineHeight: 1.35, color: '#f1f5f9' }}>
-        {lines.map((line, idx) => {
+        {displayLines.map((line, idx) => {
           const trimmed = line.trim();
           if (!trimmed) {
             return <div key={idx} style={{ height: '3px' }} />;
@@ -396,106 +414,98 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
   };
 
   return (
-    <div className="glass-card animate-tab-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* 1. Header Bar with Title, Subtitle, Segmented Switcher, and Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div className="glass-card animate-tab-panel" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* 1. Compact Header Bar: Title, Inline Subtabs, and Action Controls */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ 
-            width: '42px', 
-            height: '42px', 
-            borderRadius: '12px', 
+            width: '28px', 
+            height: '28px', 
+            borderRadius: '8px', 
             background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%)', 
             color: '#38bdf8',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '1.35rem',
-            border: '1.5px solid rgba(56, 189, 248, 0.35)',
-            boxShadow: '0 4px 16px rgba(56, 189, 248, 0.15)'
+            border: '1px solid rgba(56, 189, 248, 0.3)'
           }}>
-            <BookOpenCheck size={22} color="#38bdf8" />
+            <BookOpenCheck size={16} color="#38bdf8" />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
-                Journal & Notes
-              </h2>
-            </div>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Daily reflections, market observations, and execution mistake audits.
-            </p>
-          </div>
-        </div>
+          <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--text-main)' }}>
+            Journal & Notes
+          </h2>
 
-        {/* Minimal Apple-style Sub-tab Switcher */}
-        <div style={{ 
-          display: 'inline-flex', 
-          background: 'rgba(255, 255, 255, 0.04)', 
-          padding: '3px', 
-          borderRadius: '10px', 
-          border: '1px solid var(--border-color)' 
-        }}>
-          <button
-            onClick={() => handleSwitchView('dayNotes')}
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.8rem',
-              fontWeight: journalView === 'dayNotes' ? 700 : 500,
-              borderRadius: '7px',
-              border: 'none',
-              background: journalView === 'dayNotes' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
-              color: journalView === 'dayNotes' ? '#38bdf8' : 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <BookOpenCheck size={14} />
-            <span>Day-End Notes ({dailyNotesList.length})</span>
-          </button>
-          <button
-            onClick={() => handleSwitchView('tradeNotes')}
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.8rem',
-              fontWeight: journalView === 'tradeNotes' ? 700 : 500,
-              borderRadius: '7px',
-              border: 'none',
-              background: journalView === 'tradeNotes' ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
-              color: journalView === 'tradeNotes' ? '#f87171' : 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <AlertTriangle size={14} />
-            <span>Trade Mistakes & Logs ({notedPositions.length})</span>
-          </button>
+          {/* Minimal Apple-style Sub-tab Switcher inline right next to title */}
+          <div style={{ 
+            display: 'inline-flex', 
+            background: 'rgba(255, 255, 255, 0.04)', 
+            padding: '2px', 
+            borderRadius: '8px', 
+            border: '1px solid var(--border-color)',
+            marginLeft: '4px'
+          }}>
+            <button
+              onClick={() => handleSwitchView('dayNotes')}
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.74rem',
+                fontWeight: journalView === 'dayNotes' ? 700 : 500,
+                borderRadius: '6px',
+                border: 'none',
+                background: journalView === 'dayNotes' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
+                color: journalView === 'dayNotes' ? '#38bdf8' : 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <BookOpenCheck size={13} />
+              <span>Day-End Notes ({dailyNotesList.length})</span>
+            </button>
+            <button
+              onClick={() => handleSwitchView('tradeNotes')}
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.74rem',
+                fontWeight: journalView === 'tradeNotes' ? 700 : 500,
+                borderRadius: '6px',
+                border: 'none',
+                background: journalView === 'tradeNotes' ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
+                color: journalView === 'tradeNotes' ? '#f87171' : 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <AlertTriangle size={13} />
+              <span>Trade Mistakes ({notedPositions.length})</span>
+            </button>
+          </div>
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button 
             onClick={togglePnlVisibility}
             className="btn btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '4px 9px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '5px' }}
             title={isPnlVisible ? "Hide P&L Numbers" : "Show P&L Numbers"}
           >
-            {isPnlVisible ? <EyeOff size={15} /> : <Eye size={15} color="var(--primary)" />}
+            {isPnlVisible ? <EyeOff size={13} /> : <Eye size={13} color="var(--primary)" />}
             <span>{isPnlVisible ? 'Hide P&L' : 'Show P&L'}</span>
           </button>
 
           <button
             onClick={() => window.print()}
             className="btn btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '4px 9px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '5px' }}
             title="Print or Export Journal to PDF"
           >
-            <Printer size={15} />
+            <Printer size={13} />
             <span className="hide-mobile">Print / PDF</span>
           </button>
         </div>
@@ -503,7 +513,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
 
       {/* Day-End Notes Tab View */}
       {journalView === 'dayNotes' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {/* Action & Search Bar */}
           <div 
             style={{ 
@@ -511,19 +521,19 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
               justifyContent: 'space-between', 
               alignItems: 'center', 
               flexWrap: 'wrap', 
-              gap: '12px',
-              padding: '12px 16px',
+              gap: '8px',
+              padding: '6px 10px',
               background: 'rgba(255, 255, 255, 0.02)',
-              borderRadius: '12px',
+              borderRadius: '8px',
               border: '1px solid var(--border-color)'
             }}
           >
             {/* Search */}
-            <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '400px' }}>
+            <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: '340px' }}>
               <Search 
-                size={14} 
+                size={13} 
                 color="var(--text-dim)" 
-                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} 
+                style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} 
               />
               <input
                 type="text"
@@ -535,23 +545,23 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   background: 'var(--bg-card)',
                   color: 'var(--text-main)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: '9999px',
-                  padding: '6px 12px 6px 34px',
-                  fontSize: '0.8rem',
+                  borderRadius: '6px',
+                  padding: '4px 10px 4px 28px',
+                  fontSize: '0.76rem',
                   outline: 'none'
                 }}
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                  style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
                 >
-                  <X size={13} />
+                  <X size={12} />
                 </button>
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Layout Switcher: Grid vs List */}
               <div 
                 style={{ 
@@ -559,7 +569,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   alignItems: 'center', 
                   background: 'rgba(255, 255, 255, 0.04)', 
                   padding: '2px', 
-                  borderRadius: '8px', 
+                  borderRadius: '6px', 
                   border: '1px solid var(--border-color)' 
                 }}
               >
@@ -567,10 +577,10 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   type="button"
                   onClick={() => handleToggleLayout('grid')}
                   style={{
-                    padding: '5px 9px',
-                    fontSize: '0.74rem',
+                    padding: '3px 8px',
+                    fontSize: '0.72rem',
                     fontWeight: notesLayout === 'grid' ? 700 : 500,
-                    borderRadius: '6px',
+                    borderRadius: '5px',
                     border: 'none',
                     background: notesLayout === 'grid' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
                     color: notesLayout === 'grid' ? '#38bdf8' : 'var(--text-muted)',
@@ -582,17 +592,17 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   }}
                   title="Compact Grid View (Multi-Day)"
                 >
-                  <LayoutGrid size={13} />
+                  <LayoutGrid size={12} />
                   <span>Compact Grid</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleToggleLayout('list')}
                   style={{
-                    padding: '5px 9px',
-                    fontSize: '0.74rem',
+                    padding: '3px 8px',
+                    fontSize: '0.72rem',
                     fontWeight: notesLayout === 'list' ? 700 : 500,
-                    borderRadius: '6px',
+                    borderRadius: '5px',
                     border: 'none',
                     background: notesLayout === 'list' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
                     color: notesLayout === 'list' ? '#38bdf8' : 'var(--text-muted)',
@@ -604,7 +614,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   }}
                   title="Single-Column List View"
                 >
-                  <List size={13} />
+                  <List size={12} />
                   <span>List</span>
                 </button>
               </div>
@@ -613,11 +623,11 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
               <button
                 onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
                 className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                style={{ padding: '4px 9px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                 title="Sort Newest / Oldest"
               >
-                <ArrowUpDown size={13} />
-                <span>{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
+                <ArrowUpDown size={12} />
+                <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
               </button>
 
               {/* + Write Day Note button */}
@@ -625,16 +635,16 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                 onClick={() => onOpenNoteModal?.(new Date().toISOString().split('T')[0])}
                 className="btn btn-primary"
                 style={{
-                  padding: '6px 14px',
-                  fontSize: '0.8rem',
+                  padding: '4px 10px',
+                  fontSize: '0.75rem',
                   fontWeight: 700,
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  gap: '4px'
                 }}
               >
-                <Plus size={15} />
+                <Plus size={14} />
                 <span>Write Day Note</span>
               </button>
             </div>
@@ -671,8 +681,8 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
             <div 
               style={{ 
                 display: 'grid', 
-                gridTemplateColumns: notesLayout === 'grid' ? 'repeat(auto-fill, minmax(360px, 1fr))' : '1fr', 
-                gap: '12px',
+                gridTemplateColumns: notesLayout === 'grid' ? 'repeat(auto-fill, minmax(320px, 1fr))' : '1fr', 
+                gap: '8px',
                 alignItems: 'start'
               }}
             >
@@ -742,26 +752,26 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   <div
                     key={note.date}
                     style={{
-                      padding: '10px 12px',
-                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
                       background: 'rgba(255, 255, 255, 0.02)',
                       border: '1px solid var(--border-color)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '6px',
+                      gap: '4px',
                       boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
                     }}
                   >
                     {/* Card Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>
                           {formattedDate}
                         </span>
 
                         {/* Trade context summary */}
                         {noteTrades.length > 0 ? (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <span>•</span>
                             <span>{noteTrades.length}T</span>
                             <span>•</span>
@@ -774,7 +784,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                             </span>
                           </span>
                         ) : (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
                             • 0 trades
                           </span>
                         )}
@@ -786,11 +796,11 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                           onClick={() => onOpenNoteModal?.(note.date)}
                           className="btn btn-secondary"
                           style={{
-                            padding: '3px 8px',
-                            fontSize: '0.72rem',
+                            padding: '2px 7px',
+                            fontSize: '0.7rem',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '3px',
                             color: '#38bdf8',
                             borderColor: 'rgba(56, 189, 248, 0.3)',
                             background: 'rgba(56, 189, 248, 0.06)'
@@ -805,8 +815,8 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                           onClick={() => handleDeleteDailyNote(note.date)}
                           className="btn btn-secondary"
                           style={{
-                            padding: '3px 6px',
-                            fontSize: '0.72rem',
+                            padding: '2px 5px',
+                            fontSize: '0.7rem',
                             color: '#f87171',
                             borderColor: 'rgba(239, 68, 68, 0.3)',
                             display: 'flex',
