@@ -28,7 +28,6 @@ export function DailyNotesModal({
   const getTodayStr = () => new Date().toISOString().split('T')[0];
 
   const [selectedDate, setSelectedDate] = useState<string>(initialDate || getTodayStr());
-  const [notesText, setNotesText] = useState<string>('');
   const [lessonsText, setLessonsText] = useState<string>('');
   const [planForTomorrow, setPlanForTomorrow] = useState<string>('');
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -38,61 +37,43 @@ export function DailyNotesModal({
     return localStorage.getItem('traders_diary_notes_font_family') || 'sans';
   });
   const [editorFontSize, setEditorFontSize] = useState<string>(() => {
-    return localStorage.getItem('traders_diary_notes_font_size') || '0.9rem';
+    return localStorage.getItem('traders_diary_notes_font_size') || '16px';
   });
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [selectedTextColor, setSelectedTextColor] = useState<string>('#38bdf8');
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const getFontFamilyStyle = (fontKey: string) => {
+    switch (fontKey) {
+      case 'mono':
+        return 'Consolas, "Courier New", monospace';
+      case 'serif':
+        return 'Georgia, Cambria, "Times New Roman", serif';
+      case 'trebuchet':
+        return '"Trebuchet MS", "Lucida Grande", sans-serif';
+      default:
+        return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    }
+  };
 
   const handleFontFamilyChange = (font: string) => {
     setEditorFontFamily(font);
     localStorage.setItem('traders_diary_notes_font_family', font);
+    if (editorRef.current) {
+      editorRef.current.style.fontFamily = getFontFamilyStyle(font);
+    }
   };
 
   const handleFontSizeChange = (size: string) => {
     setEditorFontSize(size);
     localStorage.setItem('traders_diary_notes_font_size', size);
-  };
-
-  const applyTextColor = (colorHex: string) => {
-    setSelectedTextColor(colorHex);
-    setIsColorPickerOpen(false);
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const selection = text.substring(start, end);
-
-    const prefix = `<span style="color:${colorHex}">`;
-    const suffix = `</span>`;
-    const replacement = selection ? `${prefix}${selection}${suffix}` : `${prefix}highlighted text${suffix}`;
-    const newText = text.substring(0, start) + replacement + text.substring(end);
-
-    setNotesText(newText);
-    setTimeout(() => {
-      textarea.focus();
-      const newCursorStart = start + prefix.length;
-      const newCursorEnd = selection ? newCursorStart + selection.length : newCursorStart + 16;
-      textarea.setSelectionRange(newCursorStart, newCursorEnd);
-    }, 10);
-  };
-
-  const getFontFamilyStyle = () => {
-    switch (editorFontFamily) {
-      case 'mono':
-        return 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
-      case 'serif':
-        return 'Georgia, Cambria, "Times New Roman", Times, serif';
-      case 'inter':
-        return '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      default:
-        return 'inherit';
+    if (editorRef.current) {
+      editorRef.current.style.fontSize = size;
     }
   };
 
-  // Sync initial date when modal opens
+  // Sync initial date & content when modal opens or date changes
   useEffect(() => {
     if (isOpen) {
       const targetDate = initialDate || getTodayStr();
@@ -102,15 +83,23 @@ export function DailyNotesModal({
     }
   }, [isOpen, initialDate]);
 
-  // Load note data whenever selectedDate changes
   const loadNoteForDate = (dateStr: string) => {
     const existing = dailyNotes[dateStr];
     if (existing) {
-      setNotesText(existing.notes || '');
+      const notes = existing.notes || '';
+      if (editorRef.current) {
+        if (notes && !notes.includes('<')) {
+          editorRef.current.innerHTML = notes.replace(/\n/g, '<br/>');
+        } else {
+          editorRef.current.innerHTML = notes;
+        }
+      }
       setLessonsText(existing.lessons || '');
       setPlanForTomorrow(existing.planForTomorrow || '');
     } else {
-      setNotesText('');
+      if (editorRef.current) {
+        editorRef.current.innerHTML = '';
+      }
       setLessonsText('');
       setPlanForTomorrow('');
     }
@@ -147,163 +136,54 @@ export function DailyNotesModal({
     setSelectedDate(getTodayStr());
   };
 
-  // Textarea formatting toolbar helpers
-  const insertAtCursor = (prefix: string, suffix: string = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const selection = text.substring(start, end);
-
-    const replacement = selection ? `${prefix}${selection}${suffix}` : `${prefix}${suffix}`;
-    const newText = text.substring(0, start) + replacement + text.substring(end);
-    
-    setNotesText(newText);
-    
-    setTimeout(() => {
-      textarea.focus();
-      const newCursorPos = start + prefix.length + (selection ? selection.length : 0);
-      textarea.setSelectionRange(newCursorPos, newCursorPos);
-    }, 10);
+  // WYSIWYG Document Executive Formatter
+  const executeFormat = (command: string, value: string | undefined = undefined) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, value);
   };
 
-  const insertBullet = () => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const text = textarea.value;
-    const lastNewline = text.lastIndexOf('\n', start - 1);
-    const isLineStart = start === 0 || lastNewline === start - 1;
-    insertAtCursor(isLineStart ? '• ' : '\n• ');
-  };
-
-  const insertNumbering = () => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const text = textarea.value;
-    const lastNewline = text.lastIndexOf('\n', start - 1);
-    const isLineStart = start === 0 || lastNewline === start - 1;
-    insertAtCursor(isLineStart ? '1. ' : '\n1. ');
-  };
-
-  const insertCheckbox = () => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const text = textarea.value;
-    const lastNewline = text.lastIndexOf('\n', start - 1);
-    const isLineStart = start === 0 || lastNewline === start - 1;
-    insertAtCursor(isLineStart ? '☐ ' : '\n☐ ');
-  };
-
-  const insertTemplatePoint = (pointName: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const text = textarea.value;
-    const lastNewline = text.lastIndexOf('\n', start - 1);
-    const isLineStart = start === 0 || lastNewline === start - 1;
-    const prefix = isLineStart ? `• ${pointName}: ` : `\n• ${pointName}: `;
-    insertAtCursor(prefix);
-  };
-
-  // Smart key handler (MS Word shortcuts + auto-continues bullet points and numbered lists)
-  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // MS Word style keyboard shortcuts
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-      e.preventDefault();
-      insertAtCursor('**', '**');
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
-      e.preventDefault();
-      insertAtCursor('*', '*');
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
-      e.preventDefault();
-      insertAtCursor('<u>', '</u>');
-      return;
-    }
-
-    if (e.key === 'Enter') {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      const start = textarea.selectionStart;
-      const text = textarea.value;
-      const lineStart = text.lastIndexOf('\n', start - 1) + 1;
-      const currentLine = text.substring(lineStart, start);
-
-      const bulletMatch = currentLine.match(/^(\s*)(•|-|\*)\s+/);
-      const numMatch = currentLine.match(/^(\s*)(\d+)\.\s+/);
-      const todoMatch = currentLine.match(/^(\s*)(☐|\[ \]|\[x\])\s+/);
-
-      if (bulletMatch) {
-        if (currentLine.trim() === bulletMatch[2]) {
-          e.preventDefault();
-          const newText = text.substring(0, lineStart) + text.substring(start);
-          setNotesText(newText);
-          setTimeout(() => textarea.setSelectionRange(lineStart, lineStart), 0);
-        } else {
-          e.preventDefault();
-          const nextBullet = `\n${bulletMatch[1]}• `;
-          const newText = text.substring(0, start) + nextBullet + text.substring(start);
-          setNotesText(newText);
-          setTimeout(() => {
-            const nextPos = start + nextBullet.length;
-            textarea.setSelectionRange(nextPos, nextPos);
-          }, 0);
-        }
-      } else if (numMatch) {
-        const num = parseInt(numMatch[2]);
-        if (currentLine.trim() === `${num}.`) {
-          e.preventDefault();
-          const newText = text.substring(0, lineStart) + text.substring(start);
-          setNotesText(newText);
-          setTimeout(() => textarea.setSelectionRange(lineStart, lineStart), 0);
-        } else {
-          e.preventDefault();
-          const nextNum = `\n${numMatch[1]}${num + 1}. `;
-          const newText = text.substring(0, start) + nextNum + text.substring(start);
-          setNotesText(newText);
-          setTimeout(() => {
-            const nextPos = start + nextNum.length;
-            textarea.setSelectionRange(nextPos, nextPos);
-          }, 0);
-        }
-      } else if (todoMatch) {
-        if (currentLine.trim() === todoMatch[2]) {
-          e.preventDefault();
-          const newText = text.substring(0, lineStart) + text.substring(start);
-          setNotesText(newText);
-          setTimeout(() => textarea.setSelectionRange(lineStart, lineStart), 0);
-        } else {
-          e.preventDefault();
-          const nextTodo = `\n${todoMatch[1]}☐ `;
-          const newText = text.substring(0, start) + nextTodo + text.substring(start);
-          setNotesText(newText);
-          setTimeout(() => {
-            const nextPos = start + nextTodo.length;
-            textarea.setSelectionRange(nextPos, nextPos);
-          }, 0);
-        }
+  // Insert HTML at cursor inside contentEditable
+  const insertHtmlAtCursor = (htmlSnippet: string) => {
+    editorRef.current?.focus();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const el = document.createElement('div');
+      el.innerHTML = htmlSnippet;
+      const frag = document.createDocumentFragment();
+      let node: Node | null;
+      let lastNode: Node | null = null;
+      while ((node = el.firstChild)) {
+        lastNode = frag.appendChild(node);
+      }
+      range.insertNode(frag);
+      if (lastNode) {
+        range.setStartAfter(lastNode);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    } else {
+      if (editorRef.current) {
+        editorRef.current.innerHTML += htmlSnippet;
       }
     }
   };
 
   // Save handler
   const handleSave = () => {
-    if (!notesText.trim() && !lessonsText.trim() && !planForTomorrow.trim()) {
+    const editorContent = editorRef.current ? editorRef.current.innerHTML.trim() : '';
+    const plainText = editorRef.current ? (editorRef.current.innerText || '').trim() : '';
+
+    if (!plainText && !lessonsText.trim() && !planForTomorrow.trim()) {
       setFeedbackMsg({ type: 'error', text: 'Please enter your notes before saving.' });
       return;
     }
 
     saveDailyNote(selectedDate, {
       date: selectedDate,
-      notes: notesText.trim(),
+      notes: editorContent,
       lessons: lessonsText.trim(),
       planForTomorrow: planForTomorrow.trim(),
     });
@@ -320,7 +200,9 @@ export function DailyNotesModal({
     if (!dailyNotes[selectedDate]) return;
     if (window.confirm(`Are you sure you want to delete the Day-End Note for ${selectedDate}?`)) {
       deleteDailyNote(selectedDate);
-      setNotesText('');
+      if (editorRef.current) {
+        editorRef.current.innerHTML = '';
+      }
       setLessonsText('');
       setPlanForTomorrow('');
       setFeedbackMsg({ type: 'success', text: `Note deleted.` });
@@ -349,16 +231,15 @@ export function DailyNotesModal({
   });
 
   const isToday = selectedDate === getTodayStr();
-  const hasExistingNote = !!dailyNotes[selectedDate]?.notes;
 
   return createPortal(
     <div className="modal-overlay" style={{ zIndex: 99999 }} onClick={onClose}>
       <div 
         className="modal-content glass-card animate-scale-up" 
         style={{ 
-          width: '740px', 
+          width: '780px', 
           maxWidth: '96vw', 
-          maxHeight: '90vh',
+          maxHeight: '92vh',
           padding: 0,
           display: 'flex', 
           flexDirection: 'column', 
@@ -517,223 +398,226 @@ export function DailyNotesModal({
             {/* MS Word-Style Toolbar & Quick Points */}
             <div 
               style={{ 
-                padding: '6px 10px', 
+                padding: '8px 10px', 
                 borderBottom: '1px solid var(--border-color)', 
                 background: 'rgba(255, 255, 255, 0.02)',
                 display: 'flex', 
-                alignItems: 'center', 
-                gap: '6px',
-                flexWrap: 'wrap'
+                flexDirection: 'column',
+                gap: '8px'
               }}
             >
-              {/* Font Family & Size Selectors */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <select
-                  value={editorFontFamily}
-                  onChange={(e) => handleFontFamilyChange(e.target.value)}
-                  style={{
-                    background: 'var(--bg-card)',
-                    color: 'var(--text-main)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    padding: '3px 6px',
-                    fontSize: '0.72rem',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                  title="Font Family"
-                >
-                  <option value="sans">Font: Default</option>
-                  <option value="inter">Font: Modern</option>
-                  <option value="mono">Font: Terminal / Code</option>
-                  <option value="serif">Font: Classic Serif</option>
-                </select>
+              {/* Row 1: MS Word Formatting Controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {/* Font Family & Size Selectors */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <select
+                    value={editorFontFamily}
+                    onChange={(e) => handleFontFamilyChange(e.target.value)}
+                    style={{
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      padding: '4px 6px',
+                      fontSize: '0.74rem',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                    title="Font Family"
+                  >
+                    <option value="sans">Font: Default (Clean)</option>
+                    <option value="mono">Font: Terminal / Code (Courier)</option>
+                    <option value="serif">Font: Classic Serif (Georgia)</option>
+                    <option value="trebuchet">Font: Modern (Trebuchet)</option>
+                  </select>
 
-                <select
-                  value={editorFontSize}
-                  onChange={(e) => handleFontSizeChange(e.target.value)}
-                  style={{
-                    background: 'var(--bg-card)',
-                    color: 'var(--text-main)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    padding: '3px 6px',
-                    fontSize: '0.72rem',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                  title="Font Size"
-                >
-                  <option value="0.82rem">Size: Small</option>
-                  <option value="0.9rem">Size: Normal</option>
-                  <option value="1.02rem">Size: Medium</option>
-                  <option value="1.15rem">Size: Large</option>
-                </select>
-              </div>
+                  <select
+                    value={editorFontSize}
+                    onChange={(e) => handleFontSizeChange(e.target.value)}
+                    style={{
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      padding: '4px 6px',
+                      fontSize: '0.74rem',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                    title="Font Size"
+                  >
+                    <option value="13px">Size: Small (13px)</option>
+                    <option value="16px">Size: Normal (16px)</option>
+                    <option value="20px">Size: Large (20px)</option>
+                    <option value="24px">Size: Extra Large (24px)</option>
+                  </select>
+                </div>
 
-              <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
+                <div style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 2px' }} />
 
-              {/* MS Word-Style Formatting Tools */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <button
-                  type="button"
-                  onClick={() => insertAtCursor('**', '**')}
-                  className="btn btn-secondary"
-                  style={{ padding: '3px 7px', fontSize: '0.74rem', fontWeight: 800, minWidth: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title="Bold (Ctrl+B / **text**)"
-                >
-                  <Bold size={13} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => insertAtCursor('*', '*')}
-                  className="btn btn-secondary"
-                  style={{ padding: '3px 7px', fontSize: '0.74rem', minWidth: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title="Italic (Ctrl+I / *text*)"
-                >
-                  <Italic size={13} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => insertAtCursor('<u>', '</u>')}
-                  className="btn btn-secondary"
-                  style={{ padding: '3px 7px', fontSize: '0.74rem', minWidth: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title="Underline (Ctrl+U / <u>text</u>)"
-                >
-                  <Underline size={13} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => insertAtCursor('~~', '~~')}
-                  className="btn btn-secondary"
-                  style={{ padding: '3px 7px', fontSize: '0.74rem', minWidth: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title="Strikethrough (~~text~~)"
-                >
-                  <Strikethrough size={13} />
-                </button>
-
-                {/* Font Color Picker Popover */}
-                <div style={{ position: 'relative' }}>
+                {/* MS Word-Style Formatting Tools */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                   <button
                     type="button"
-                    onClick={() => setIsColorPickerOpen(prev => !prev)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => executeFormat('bold')}
                     className="btn btn-secondary"
-                    style={{ 
-                      padding: '3px 7px', 
-                      fontSize: '0.74rem', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '4px',
-                      borderColor: isColorPickerOpen ? '#38bdf8' : 'var(--border-color)' 
-                    }}
-                    title="Font Color (Text Highlight)"
+                    style={{ padding: '3px 8px', fontSize: '0.76rem', fontWeight: 850, minWidth: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Bold (Ctrl+B)"
                   >
-                    <Palette size={13} color={selectedTextColor} />
-                    <span 
-                      style={{ 
-                        width: '9px', 
-                        height: '9px', 
-                        borderRadius: '50%', 
-                        background: selectedTextColor,
-                        boxShadow: `0 0 6px ${selectedTextColor}88`
-                      }} 
-                    />
+                    <Bold size={13} />
                   </button>
 
-                  {isColorPickerOpen && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: '0',
-                        marginTop: '6px',
-                        background: 'rgba(20, 20, 26, 0.98)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '10px',
-                        padding: '8px',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 22px)',
-                        gap: '6px',
-                        zIndex: 100,
-                        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                        backdropFilter: 'blur(16px)'
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => executeFormat('italic')}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 8px', fontSize: '0.76rem', minWidth: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Italic (Ctrl+I)"
+                  >
+                    <Italic size={13} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => executeFormat('underline')}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 8px', fontSize: '0.76rem', minWidth: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Underline (Ctrl+U)"
+                  >
+                    <Underline size={13} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => executeFormat('strikeThrough')}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 8px', fontSize: '0.76rem', minWidth: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Strikethrough"
+                  >
+                    <Strikethrough size={13} />
+                  </button>
+
+                  {/* Font Color Picker Popover */}
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setIsColorPickerOpen(prev => !prev);
                       }}
+                      className="btn btn-secondary"
+                      style={{ 
+                        padding: '3px 8px', 
+                        fontSize: '0.74rem', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '5px',
+                        borderColor: isColorPickerOpen ? '#38bdf8' : 'var(--border-color)' 
+                      }}
+                      title="Font Color (Text Highlight)"
                     >
-                      {[
-                        { hex: '#ffffff', name: 'White' },
-                        { hex: '#10b981', name: 'Green (Profit/Win)' },
-                        { hex: '#ef4444', name: 'Red (Loss/Error)' },
-                        { hex: '#38bdf8', name: 'Sky Blue (Trend/Levels)' },
-                        { hex: '#f59e0b', name: 'Amber (Trap/Warning)' },
-                        { hex: '#a855f7', name: 'Purple (Mindset)' },
-                        { hex: '#f97316', name: 'Orange (Trigger)' },
-                        { hex: '#14b8a6', name: 'Teal (Observation)' },
-                      ].map(color => (
-                        <button
-                          key={color.hex}
-                          type="button"
-                          onClick={() => applyTextColor(color.hex)}
-                          style={{
-                            width: '22px',
-                            height: '22px',
-                            borderRadius: '50%',
-                            background: color.hex,
-                            border: selectedTextColor === color.hex ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.2)',
-                            cursor: 'pointer',
-                            transition: 'transform 0.15s ease'
-                          }}
-                          title={color.name}
-                        />
-                      ))}
-                    </div>
-                  )}
+                      <Palette size={13} color={selectedTextColor} />
+                      <span 
+                        style={{ 
+                          width: '10px', 
+                          height: '10px', 
+                          borderRadius: '50%', 
+                          background: selectedTextColor,
+                          boxShadow: `0 0 6px ${selectedTextColor}88`
+                        }} 
+                      />
+                    </button>
+
+                    {isColorPickerOpen && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: '0',
+                          marginTop: '6px',
+                          background: 'rgba(20, 20, 26, 0.98)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '10px',
+                          padding: '8px',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, 22px)',
+                          gap: '6px',
+                          zIndex: 100,
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                          backdropFilter: 'blur(16px)'
+                        }}
+                      >
+                        {[
+                          { hex: '#ffffff', name: 'White' },
+                          { hex: '#10b981', name: 'Green (Profit/Win)' },
+                          { hex: '#ef4444', name: 'Red (Loss/Error)' },
+                          { hex: '#38bdf8', name: 'Sky Blue (Trend/Levels)' },
+                          { hex: '#f59e0b', name: 'Amber (Trap/Warning)' },
+                          { hex: '#a855f7', name: 'Purple (Mindset)' },
+                          { hex: '#f97316', name: 'Orange (Trigger)' },
+                          { hex: '#14b8a6', name: 'Teal (Observation)' },
+                        ].map(color => (
+                          <button
+                            key={color.hex}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setSelectedTextColor(color.hex);
+                              setIsColorPickerOpen(false);
+                              executeFormat('foreColor', color.hex);
+                            }}
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '50%',
+                              background: color.hex,
+                              border: selectedTextColor === color.hex ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.2)',
+                              cursor: 'pointer',
+                              transition: 'transform 0.15s ease'
+                            }}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 2px' }} />
+
+                {/* Lists and Tasks */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => executeFormat('insertUnorderedList')}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    title="Bullet List"
+                  >
+                    <List size={13} color="#38bdf8" />
+                    <span>Bullet</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => executeFormat('insertOrderedList')}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    title="Numbered List"
+                  >
+                    <ListOrdered size={13} color="#38bdf8" />
+                    <span>Number</span>
+                  </button>
                 </div>
               </div>
 
-              <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
-
-              {/* Lists and Tasks */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <button
-                  type="button"
-                  onClick={insertBullet}
-                  className="btn btn-secondary"
-                  style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  title="Bullet List (• Bullet)"
-                >
-                  <List size={13} color="#38bdf8" />
-                  <span>Bullet</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={insertNumbering}
-                  className="btn btn-secondary"
-                  style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  title="Numbered List (1. 2. 3.)"
-                >
-                  <ListOrdered size={13} color="#38bdf8" />
-                  <span>Number</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={insertCheckbox}
-                  className="btn btn-secondary"
-                  style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  title="Checkbox (☐ Task)"
-                >
-                  <CheckSquare size={13} color="#10b981" />
-                  <span>Task</span>
-                </button>
-              </div>
-
-              <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
-
-              {/* Quick Structure Points */}
+              {/* Row 2: Quick Structure Points */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Quick Insert:
@@ -750,7 +634,10 @@ export function DailyNotesModal({
                   <button
                     key={point.label}
                     type="button"
-                    onClick={() => insertTemplatePoint(point.text)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      insertHtmlAtCursor(`<div>• <b>${point.text}:</b>&nbsp;</div>`);
+                    }}
                     className="btn btn-secondary"
                     style={{
                       padding: '2px 8px',
@@ -772,15 +659,18 @@ export function DailyNotesModal({
 
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    const fullTemplate = `• Market Opening: \n• Market Trend: \n• What went well: \n• Traps / Mistakes: \n• Mindset: \n• Tomorrow's Focus: `;
-                    if (!notesText.trim()) {
-                      setNotesText(fullTemplate);
-                    } else {
-                      const prefix = notesText.endsWith('\n') ? '' : '\n';
-                      setNotesText(prev => prev + prefix + fullTemplate);
+                    const fullTemplate = `<div>• <b>Market Opening:</b>&nbsp;</div><div>• <b>Market Trend:</b>&nbsp;</div><div>• <b>What went well:</b>&nbsp;</div><div>• <b>Traps / Mistakes:</b>&nbsp;</div><div>• <b>Mindset:</b>&nbsp;</div><div>• <b>Tomorrow's Focus:</b>&nbsp;</div>`;
+                    if (editorRef.current) {
+                      const plain = editorRef.current.innerText || '';
+                      if (!plain.trim()) {
+                        editorRef.current.innerHTML = fullTemplate;
+                      } else {
+                        editorRef.current.innerHTML += `<br/>${fullTemplate}`;
+                      }
+                      editorRef.current.focus();
                     }
-                    setTimeout(() => textareaRef.current?.focus(), 10);
                   }}
                   className="btn btn-secondary"
                   style={{
@@ -802,25 +692,25 @@ export function DailyNotesModal({
               </div>
             </div>
 
-            {/* Clean Textarea */}
-            <textarea
-              ref={textareaRef}
-              value={notesText}
-              onChange={(e) => setNotesText(e.target.value)}
-              onKeyDown={handleTextareaKeyDown}
-              placeholder="दिवसभरातील महत्त्वाच्या नोंदी इथे लिहा...&#10;• Market Opening: &#10;• Market Trend: &#10;• Execution & Setup: &#10;• Mindset & Psychology: "
-              rows={9}
+            {/* WYSIWYG contentEditable Document Area */}
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
               style={{
                 width: '100%',
+                minHeight: '220px',
+                maxHeight: '400px',
+                overflowY: 'auto',
                 background: 'transparent',
                 color: 'var(--text-main)',
                 border: 'none',
-                padding: '12px 14px',
+                padding: '14px 16px',
                 fontSize: editorFontSize,
-                fontFamily: getFontFamilyStyle(),
+                fontFamily: getFontFamilyStyle(editorFontFamily),
                 lineHeight: 1.65,
                 outline: 'none',
-                resize: 'vertical'
+                wordBreak: 'break-word'
               }}
             />
           </div>
@@ -842,7 +732,7 @@ export function DailyNotesModal({
                   color: 'var(--text-main)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
-                  padding: '6px 10px',
+                  padding: '7px 10px',
                   fontSize: '0.8rem',
                   outline: 'none',
                   fontFamily: 'inherit'
@@ -865,7 +755,7 @@ export function DailyNotesModal({
                   color: 'var(--text-main)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
-                  padding: '6px 10px',
+                  padding: '7px 10px',
                   fontSize: '0.8rem',
                   outline: 'none',
                   fontFamily: 'inherit'
@@ -878,29 +768,30 @@ export function DailyNotesModal({
         {/* Minimal Footer */}
         <div 
           style={{ 
-            padding: '10px 18px', 
+            padding: '12px 18px', 
             borderTop: '1px solid var(--border-color)', 
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center',
-            background: 'rgba(0, 0, 0, 0.35)' 
+            background: 'rgba(255, 255, 255, 0.02)' 
           }}
         >
           <div>
-            {hasExistingNote && (
+            {dailyNotes[selectedDate] && (
               <button
                 type="button"
                 onClick={handleDelete}
                 className="btn btn-secondary"
                 style={{ 
-                  padding: '5px 10px', 
-                  fontSize: '0.75rem', 
+                  padding: '6px 12px', 
+                  fontSize: '0.78rem', 
                   color: '#ef4444', 
                   borderColor: 'rgba(239, 68, 68, 0.3)',
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px' 
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px' 
                 }}
+                title="Delete this note"
               >
                 <Trash2 size={13} />
                 <span>Delete</span>
@@ -917,19 +808,19 @@ export function DailyNotesModal({
             >
               Close
             </button>
+
             <button
               type="button"
               onClick={handleSave}
               className="btn btn-primary"
               style={{ 
-                padding: '6px 18px', 
-                fontSize: '0.82rem', 
-                fontWeight: 700, 
-                display: 'flex', 
-                alignItems: 'center', 
+                padding: '6px 16px', 
+                fontSize: '0.8rem', 
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
                 gap: '6px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0a84ff 0%, #0071e3 100%)'
+                borderRadius: '8px'
               }}
             >
               <Save size={14} />

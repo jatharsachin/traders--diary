@@ -159,6 +159,17 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
   // Helper to format bullets, numbers, and checkboxes cleanly in daily notes
   const renderFormattedNoteText = (text: string) => {
     if (!text) return null;
+
+    // If text contains HTML tags from WYSIWYG editor, render directly!
+    if (text.includes('<') && (text.includes('<b>') || text.includes('<strong>') || text.includes('<i>') || text.includes('<u>') || text.includes('<span') || text.includes('<div>') || text.includes('<ul>') || text.includes('<ol>') || text.includes('<br'))) {
+      return (
+        <div 
+          style={{ fontSize: '0.92rem', lineHeight: 1.65, color: '#f1f5f9', wordBreak: 'break-word' }}
+          dangerouslySetInnerHTML={{ __html: text }}
+        />
+      );
+    }
+
     const lines = text.split('\n');
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.92rem', lineHeight: 1.65, color: '#f1f5f9' }}>
