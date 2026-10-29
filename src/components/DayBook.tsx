@@ -3,14 +3,15 @@ import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { groupHedgedTrades } from '../utils/tradeGrouping';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown
+  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown, BookOpenCheck
 } from 'lucide-react';
 
 interface DayBookProps {
   activeAccountId?: string;
+  onOpenDailyNotes?: (date: string) => void;
 }
 
-export function DayBook({ activeAccountId = 'Combined' }: DayBookProps) {
+export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayBookProps) {
   const { 
     trades: allTrades, 
     capitalAdjustments: allAdjustments, 

@@ -188,3 +188,15 @@ export function formatTradeMistakes(t: { mistake?: string; mistakes?: (Mistake |
   if (list.length === 0) return 'No Mistake';
   return list.join(', ');
 }
+
+export interface DailyNote {
+  date: string; // 'YYYY-MM-DD'
+  notes: string; // Primary Day-End notes & summary
+  rating?: number; // 1 to 5 stars
+  mood?: string; // e.g. 'Calm & Disciplined', 'FOMO', 'Patient', etc.
+  rulesFollowed?: 'YES' | 'NO' | 'PARTIAL' | string;
+  lessons?: string; // Key takeaway / learning of the day
+  planForTomorrow?: string; // Focus & watchlist for tomorrow
+  updatedAt?: string; // ISO timestamp
+}
+

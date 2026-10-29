@@ -103,6 +103,7 @@ export function TradingCalendar({
     noTradeDays,
     toggleNoTradeDay,
     contractNotes,
+    dailyNotes,
     addOrUpdateContractNote,
     lockedFYs
   } = useTradeStore();
@@ -452,7 +453,25 @@ export function TradingCalendar({
         onClick={() => setSelectedDate(cellDateStr)}
         title={holidayName ? `Holiday: ${holidayName}` : isNoTradeDay ? 'Disciplined No-Trade Day' : undefined}
       >
-        <span className="day-number">{d}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <span className="day-number">{d}</span>
+          {dailyNotes && dailyNotes[cellDateStr]?.notes && (
+            <span 
+              style={{ 
+                fontSize: '0.7rem', 
+                color: '#38bdf8', 
+                background: 'rgba(56, 189, 248, 0.16)', 
+                padding: '1px 4px', 
+                borderRadius: '4px',
+                lineHeight: 1,
+                cursor: 'pointer'
+              }}
+              title={`Day-End Note: ${dailyNotes[cellDateStr].notes.slice(0, 80)}...`}
+            >
+              📝
+            </span>
+          )}
+        </div>
         
         {holidayName && (
           <div className="day-holiday-label" title={holidayName}>
@@ -2286,26 +2305,49 @@ export function TradingCalendar({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               {selectedDate && (
-                <button 
-                  className="btn btn-primary" 
-                  style={{ 
-                    padding: '5px 12px', 
-                    fontSize: '0.78rem', 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '6px',
-                    backgroundColor: 'var(--primary)',
-                    color: '#fff',
-                    borderRadius: '6px',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => handleOpenReconcile(selectedDate)}
-                  title="Enter/edit broker contract note charges for this date"
-                >
-                  <Receipt size={14} />
-                  <span>⚡ Edit Day's Charges / Contract Note</span>
-                </button>
+                <>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ 
+                      padding: '5px 12px', 
+                      fontSize: '0.78rem', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: dailyNotes && dailyNotes[selectedDate]?.notes ? 'rgba(56, 189, 248, 0.18)' : 'var(--bg-card)',
+                      borderColor: dailyNotes && dailyNotes[selectedDate]?.notes ? '#38bdf8' : 'var(--border-color)',
+                      color: dailyNotes && dailyNotes[selectedDate]?.notes ? '#38bdf8' : 'var(--text-main)'
+                    }}
+                    onClick={() => onOpenDailyNotes && onOpenDailyNotes(selectedDate)}
+                    title="View or record Day-End Notes (Divasachi Note & Reflection)"
+                  >
+                    <BookOpen size={14} color="#38bdf8" />
+                    <span>{dailyNotes && dailyNotes[selectedDate]?.notes ? '📝 View Day-End Note' : '📝 + Add Day-End Note'}</span>
+                  </button>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ 
+                      padding: '5px 12px', 
+                      fontSize: '0.78rem', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      backgroundColor: 'var(--primary)',
+                      color: '#fff',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleOpenReconcile(selectedDate)}
+                    title="Enter/edit broker contract note charges for this date"
+                  >
+                    <Receipt size={14} />
+                    <span>⚡ Edit Day's Charges / Contract Note</span>
+                  </button>
+                </>
               )}
               <button 
                 className="btn btn-secondary" 

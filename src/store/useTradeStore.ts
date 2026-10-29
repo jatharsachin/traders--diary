@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { 
   Trade, Setup, Broker, CapitalAdjustment, Investment, BrokerAccount, BankAccount, 
-  SubscriptionExpense, BankTransaction, BrokerChargesConfig, DailyContractNote 
+  SubscriptionExpense, BankTransaction, BrokerChargesConfig, DailyContractNote, DailyNote 
 } from '../types';
 import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
 import { 
@@ -80,6 +80,11 @@ interface TradeStore {
   // Privacy Settings
   isPnlVisible: boolean;
   togglePnlVisibility: () => void;
+
+  // Day-End Notes (Daily Journal)
+  dailyNotes: Record<string, DailyNote>;
+  saveDailyNote: (date: string, noteData: Partial<DailyNote>) => void;
+  deleteDailyNote: (date: string) => void;
 
   // Weekly Retrospectives
   weeklyRetrospectives: Record<string, string>;
@@ -638,6 +643,21 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     return saved !== null ? JSON.parse(saved) : true;
   };
 
+  const loadDailyNotes = (): Record<string, DailyNote> => {
+    const saved = localStorage.getItem(getScopedKey('traders_diary_daily_notes'));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse daily notes', e);
+      }
+    }
+    return {};
+  };
+
   const loadWeeklyRetrospectives = (): Record<string, string> => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_weekly_retrospectives'));
     if (saved) {
@@ -731,6 +751,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     contractNotes: loadContractNotes(),
     sessionUser: null,
     isPnlVisible: loadPnlVisibility(),
+    dailyNotes: loadDailyNotes(),
     weeklyRetrospectives: loadWeeklyRetrospectives(),
     selectedFY: loadSelectedFY(),
     lockedFYs: loadLockedFYs(),
@@ -1089,6 +1110,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       localStorage.setItem(getScopedKey('traders_diary_setups'), JSON.stringify(DEFAULT_SETUPS));
       localStorage.setItem(getScopedKey('traders_diary_adjustments'), JSON.stringify([]));
       localStorage.setItem(getScopedKey('traders_diary_investments'), JSON.stringify(mockInv));
+      localStorage.setItem(getScopedKey('traders_diary_daily_notes'), JSON.stringify({}));
       localStorage.setItem(getScopedKey('traders_diary_weekly_retrospectives'), JSON.stringify({}));
       
       // Reset new structures
@@ -1118,6 +1140,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         setups: DEFAULT_SETUPS, 
         capitalAdjustments: [], 
         investments: mockInv, 
+        dailyNotes: {},
         weeklyRetrospectives: {},
         brokerAccounts: DEFAULT_BROKER_ACCOUNTS,
         bankAccounts: DEFAULT_BANK_ACCOUNTS,
@@ -1186,6 +1209,9 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
       // Capital Adjustments
       await processMetaKey('capital_adjustments', (val) => set({ capitalAdjustments: val }), `traders_diary_adjustments_${userId}`, []);
+
+      // Day-End Notes
+      await processMetaKey('daily_notes', (val) => set({ dailyNotes: val }), `traders_diary_daily_notes_${userId}`, {});
 
       // Weekly Retrospectives
       await processMetaKey('weekly_retrospectives', (val) => set({ weeklyRetrospectives: val }), `traders_diary_weekly_retrospectives_${userId}`, {});
@@ -1441,6 +1467,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const baseCapital = updateBaseCapital(brokerAccounts);
       const capitalAdjustments = loadAdjustments(brokerAccounts, bankAccounts);
       const investments = getOrMigrate('traders_diary_investments', getMockInvestments());
+      const dailyNotes = getOrMigrate('traders_diary_daily_notes', {});
       const weeklyRetrospectives = getOrMigrate('traders_diary_weekly_retrospectives', {});
 
       
@@ -1462,6 +1489,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         baseCapital,
         capitalAdjustments,
         investments,
+        dailyNotes,
         weeklyRetrospectives,
         userName,
         userAvatar,
@@ -1480,6 +1508,28 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
       get().pullTradesFromCloud();
     },
+
+    saveDailyNote: (date, noteData) => set((state) => {
+      const current = state.dailyNotes[date] || { date, notes: '' };
+      const updatedNote: DailyNote = {
+        ...current,
+        ...noteData,
+        date,
+        updatedAt: new Date().toISOString()
+      };
+      const updated = { ...state.dailyNotes, [date]: updatedNote };
+      localStorage.setItem(getScopedKey('traders_diary_daily_notes'), JSON.stringify(updated));
+      syncMetaToCloud('daily_notes', updated);
+      return { dailyNotes: updated };
+    }),
+
+    deleteDailyNote: (date) => set((state) => {
+      const updated = { ...state.dailyNotes };
+      delete updated[date];
+      localStorage.setItem(getScopedKey('traders_diary_daily_notes'), JSON.stringify(updated));
+      syncMetaToCloud('daily_notes', updated);
+      return { dailyNotes: updated };
+    }),
 
     saveWeeklyRetrospective: (weekId, notes) => set((state) => {
       const updated = { ...state.weeklyRetrospectives, [weekId]: notes };
@@ -2035,6 +2085,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           capitalAdjustments: [],
           investments: [],
           contractNotes: [],
+          dailyNotes: {},
           weeklyRetrospectives: {},
           selectedFY: getCurrentLiveFY(),
           noTradeDays: loadNoTradeDays(),

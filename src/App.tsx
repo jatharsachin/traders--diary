@@ -14,7 +14,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
 import { AccountFilterDropdown } from './components/AccountFilterDropdown';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet, AlertTriangle, NotebookPen } from 'lucide-react';
 import { getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
@@ -56,11 +56,19 @@ const DayBook = safeLazy(() => import('./components/DayBook').then(m => ({ defau
 const ContractNotesManager = safeLazy(() => import('./components/ContractNotesManager').then(m => ({ default: m.ContractNotesManager })));
 const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 const MistakesJournal = safeLazy(() => import('./components/MistakesJournal').then(m => ({ default: m.MistakesJournal })));
+const DailyNotesModal = safeLazy(() => import('./components/DailyNotesModal').then(m => ({ default: m.DailyNotesModal })));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [isLoggerOpen, setIsLoggerOpen] = useState(false);
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
+  const [isDailyNotesOpen, setIsDailyNotesOpen] = useState(false);
+  const [dailyNotesDate, setDailyNotesDate] = useState<string | null>(null);
+
+  const handleOpenDailyNotes = (date?: string) => {
+    setDailyNotesDate(date || new Date().toISOString().split('T')[0]);
+    setIsDailyNotesOpen(true);
+  };
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [seenNotificationIds, setSeenNotificationIds] = useState<string[]>(() => {
     try {
@@ -735,6 +743,35 @@ export default function App() {
             {!isSidebarCollapsed && <span>Log Trade</span>}
           </button>
 
+          {/* Special Day-End Notes Action Button */}
+          <button 
+            className="sidebar-action-btn"
+            style={{
+              width: '100%',
+              padding: isSidebarCollapsed ? '10px 0' : '9px 14px',
+              borderRadius: '12px',
+              border: '1.5px solid rgba(56, 189, 248, 0.35)',
+              background: isDailyNotesOpen ? 'rgba(56, 189, 248, 0.25)' : 'rgba(56, 189, 248, 0.1)',
+              color: '#38bdf8',
+              boxShadow: isDailyNotesOpen ? '0 6px 20px rgba(56, 189, 248, 0.25)' : 'none',
+              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              gap: '8px',
+              fontSize: '0.82rem',
+              fontWeight: 650,
+              cursor: 'pointer',
+              marginTop: '6px',
+              marginBottom: '8px'
+            }} 
+            onClick={() => handleOpenDailyNotes()}
+            title="Day-End Notes & Reflection (दिवसभरातील महत्त्वाच्या नोंदी)"
+          >
+            <NotebookPen size={17} color="#38bdf8" />
+            {!isSidebarCollapsed && <span>Day-End Notes</span>}
+          </button>
+
           {/* Sidebar Menu Groups */}
           <div className="sidebar-menu">
             <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginBottom: '4px' }}>
@@ -1321,6 +1358,33 @@ export default function App() {
                 ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
               </span>
             </div>
+
+            {/* Special Day-End Notes Action Button */}
+            <button
+              onClick={() => handleOpenDailyNotes()}
+              className="btn btn-secondary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1.5px solid rgba(56, 189, 248, 0.35)',
+                borderRadius: '10px',
+                padding: '4px 12px',
+                height: '38px',
+                boxShadow: 'var(--shadow-card)',
+                whiteSpace: 'nowrap',
+                color: '#38bdf8',
+                fontWeight: 650,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+              title="Record or view important notes for the trading day (Divasachi Note & Reflection)"
+            >
+              <NotebookPen size={15} />
+              <span>Day-End Notes</span>
+            </button>
 
             {/* Combined Portfolio Wealth (Total Wealth) */}
             <div 
@@ -1921,7 +1985,7 @@ export default function App() {
                 onEditTrade={handleEditTrade}
               />
             )}
-            {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} />}
+            {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} onOpenDailyNotes={handleOpenDailyNotes} />}
             {activeTab === 'calendar' && (
               <TradingCalendar 
                 activeAccountId={activeAccountId} 
@@ -1958,6 +2022,14 @@ export default function App() {
           isOpen={isLoggerOpen} 
           onClose={handleCloseLogger} 
           editTradeId={editTradeId} 
+          activeAccountId={activeAccountId}
+        />
+
+        {/* Day-End Notes Modal Overlay */}
+        <DailyNotesModal
+          isOpen={isDailyNotesOpen}
+          onClose={() => setIsDailyNotesOpen(false)}
+          initialDate={dailyNotesDate || undefined}
           activeAccountId={activeAccountId}
         />
 
