@@ -683,9 +683,17 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   return isMatchAccount(t.brokerAccountId, t.broker);
                 });
 
+                // Calculate day's total Net PnL per strategy
+                const strategyDayPnLMap = new Map<string, number>();
+                for (const t of noteTrades) {
+                  const sName = t.strategy || t.symbol || 'General Trade';
+                  const key = sName.toLowerCase();
+                  strategyDayPnLMap.set(key, (strategyDayPnLMap.get(key) || 0) + (t.netPnL || 0));
+                }
+
                 // Consolidate paired spreads and filter duplicate hedge legs into clean strategy notes
                 const groupedPositions = groupHedgedTrades(noteTrades);
-                const strategyNotesForDay: Array<{ id: string; strategy: string; note: string }> = [];
+                const strategyNotesForDay: Array<{ id: string; strategy: string; note: string; strategyPnL: number }> = [];
                 const seenNotes = new Set<string>();
 
                 for (const pos of groupedPositions) {
@@ -703,10 +711,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   if (seenNotes.has(dedupeKey)) continue;
                   seenNotes.add(dedupeKey);
 
+                  const stratPnL = strategyDayPnLMap.get(stratName.toLowerCase()) ?? pos.combinedNetPnL;
+
                   strategyNotesForDay.push({
                     id: pos.id,
                     strategy: stratName,
-                    note: cleaned
+                    note: cleaned,
+                    strategyPnL: stratPnL
                   });
                 }
 
@@ -913,7 +924,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                                     style={{ 
                                       display: 'flex', 
                                       alignItems: 'baseline', 
-                                      gap: '6px', 
+                                      gap: '5px', 
                                       fontSize: '0.78rem',
                                       lineHeight: 1.32,
                                       padding: '1px 2px'
@@ -928,8 +939,24 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                                         fontSize: '0.72rem'
                                       }}
                                     >
-                                      {item.strategy}:
+                                      {item.strategy}
                                     </span>
+                                    <span
+                                      style={{
+                                        fontSize: '0.67rem',
+                                        fontWeight: 700,
+                                        fontFamily: 'var(--font-mono)',
+                                        color: item.strategyPnL >= 0 ? '#10b981' : '#f87171',
+                                        background: item.strategyPnL >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                        padding: '0 4px',
+                                        borderRadius: '3px',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                      title={`Day PnL for ${item.strategy}`}
+                                    >
+                                      {isPnlVisible ? `${item.strategyPnL >= 0 ? '+' : ''}₹${Math.round(item.strategyPnL).toLocaleString('en-IN')}` : '••••'}
+                                    </span>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>:</span>
                                     <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
                                       {item.note}
                                     </span>
