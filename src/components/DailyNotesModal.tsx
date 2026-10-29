@@ -141,6 +141,17 @@ export function DailyNotesModal({
     insertAtCursor(isLineStart ? '☐ ' : '\n☐ ');
   };
 
+  const insertTemplatePoint = (pointName: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const text = textarea.value;
+    const lastNewline = text.lastIndexOf('\n', start - 1);
+    const isLineStart = start === 0 || lastNewline === start - 1;
+    const prefix = isLineStart ? `• ${pointName}: ` : `\n• ${pointName}: `;
+    insertAtCursor(prefix);
+  };
+
   // Smart Enter key handler (auto-continues bullet points and numbered lists)
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
@@ -428,7 +439,7 @@ export function DailyNotesModal({
               overflow: 'hidden'
             }}
           >
-            {/* Minimal Toolbar */}
+            {/* Minimal Toolbar & Quick Points */}
             <div 
               style={{ 
                 padding: '6px 10px', 
@@ -436,51 +447,124 @@ export function DailyNotesModal({
                 background: 'rgba(255, 255, 255, 0.02)',
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '5px' 
+                gap: '6px',
+                flexWrap: 'wrap'
               }}
             >
-              <button
-                type="button"
-                onClick={insertBullet}
-                className="btn btn-secondary"
-                style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                title="Bullet List (• Bullet)"
-              >
-                <List size={13} color="#38bdf8" />
-                <span>Bullet</span>
-              </button>
+              {/* Formatting tools */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={insertBullet}
+                  className="btn btn-secondary"
+                  style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  title="Bullet List (• Bullet)"
+                >
+                  <List size={13} color="#38bdf8" />
+                  <span>Bullet</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={insertNumbering}
-                className="btn btn-secondary"
-                style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                title="Numbered List (1. 2. 3.)"
-              >
-                <ListOrdered size={13} color="#38bdf8" />
-                <span>Number</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={insertNumbering}
+                  className="btn btn-secondary"
+                  style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  title="Numbered List (1. 2. 3.)"
+                >
+                  <ListOrdered size={13} color="#38bdf8" />
+                  <span>Number</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={insertCheckbox}
-                className="btn btn-secondary"
-                style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                title="Checkbox (☐ Task)"
-              >
-                <CheckSquare size={13} color="#10b981" />
-                <span>Task</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={insertCheckbox}
+                  className="btn btn-secondary"
+                  style={{ padding: '3px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  title="Checkbox (☐ Task)"
+                >
+                  <CheckSquare size={13} color="#10b981" />
+                  <span>Task</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => insertAtCursor('**', '**')}
-                className="btn btn-secondary"
-                style={{ padding: '3px 8px', fontSize: '0.74rem', fontWeight: 700 }}
-                title="Bold"
-              >
-                <Bold size={13} />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => insertAtCursor('**', '**')}
+                  className="btn btn-secondary"
+                  style={{ padding: '3px 8px', fontSize: '0.74rem', fontWeight: 700 }}
+                  title="Bold"
+                >
+                  <Bold size={13} />
+                </button>
+              </div>
+
+              <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
+
+              {/* Quick Structure Points */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Quick Insert:
+                </span>
+
+                {[
+                  { label: 'Market Trend', text: 'Market Trend' },
+                  { label: 'What went well', text: 'What went well' },
+                  { label: 'Traps / Mistakes', text: 'Traps / Mistakes' },
+                  { label: 'Mindset', text: 'Mindset' },
+                  { label: 'Tomorrow', text: 'Tomorrow\'s Focus' },
+                ].map(point => (
+                  <button
+                    key={point.label}
+                    type="button"
+                    onClick={() => insertTemplatePoint(point.text)}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      borderColor: 'rgba(255, 255, 255, 0.08)'
+                    }}
+                    title={`Insert • ${point.text}: `}
+                  >
+                    <span style={{ color: '#38bdf8', fontWeight: 700 }}>+</span>
+                    <span>{point.label}</span>
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fullTemplate = `• Market Trend: \n• What went well: \n• Traps / Mistakes: \n• Mindset: \n• Tomorrow's Focus: `;
+                    if (!notesText.trim()) {
+                      setNotesText(fullTemplate);
+                    } else {
+                      const prefix = notesText.endsWith('\n') ? '' : '\n';
+                      setNotesText(prev => prev + prefix + fullTemplate);
+                    }
+                    setTimeout(() => textareaRef.current?.focus(), 10);
+                  }}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: 650,
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    color: '#38bdf8',
+                    borderColor: 'rgba(56, 189, 248, 0.3)',
+                    background: 'rgba(56, 189, 248, 0.06)'
+                  }}
+                  title="Insert full uniform structure template"
+                >
+                  <span>📋 + All Structure</span>
+                </button>
+              </div>
             </div>
 
             {/* Clean Textarea */}
