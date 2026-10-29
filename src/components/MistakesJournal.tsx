@@ -9,12 +9,14 @@ import {
   AlertTriangle, BookOpen, Calendar, Clock, Filter, Search, 
   Tag, CheckCircle2, ChevronDown, ChevronRight, Eye, EyeOff, 
   ExternalLink, Sparkles, TrendingUp, TrendingDown, ArrowUpDown, 
-  MessageSquare, ShieldCheck, Flame, X, Printer, ShieldAlert
+  MessageSquare, ShieldCheck, Flame, X, Printer, ShieldAlert,
+  BookOpenCheck, Edit3, Trash2, Plus
 } from 'lucide-react';
 
 interface MistakesJournalProps {
   activeAccountId?: string;
   onEditTrade?: (id: string) => void;
+  onOpenNoteModal?: (date?: string) => void;
 }
 
 const formatCurrency = (val: number) => {
@@ -25,13 +27,15 @@ const formatCurrency = (val: number) => {
   }).format(val);
 };
 
-export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: MistakesJournalProps) {
+export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onOpenNoteModal }: MistakesJournalProps) {
   const { 
     trades: allTrades, 
     selectedFY, 
     isPnlVisible, 
     togglePnlVisibility,
-    brokerAccounts 
+    brokerAccounts,
+    dailyNotes,
+    deleteDailyNote
   } = useTradeStore();
 
   // Filter scoped to account
@@ -65,6 +69,97 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
   const [typeFilter, setTypeFilter] = useState<'all' | 'mistakes' | 'notes' | 'losses'>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
+
+  // Sub-tab toggle between Day-End Notes and Trade-level Mistakes
+  const [journalView, setJournalView] = useState<'dayNotes' | 'tradeNotes'>(() => {
+    return (localStorage.getItem('traders_diary_journal_subtab') as 'dayNotes' | 'tradeNotes') || 'dayNotes';
+  });
+
+  const handleSwitchView = (view: 'dayNotes' | 'tradeNotes') => {
+    setJournalView(view);
+    localStorage.setItem('traders_diary_journal_subtab', view);
+  };
+
+  // Convert dailyNotes to a sorted array
+  const dailyNotesList = useMemo(() => {
+    return Object.values(dailyNotes || {})
+      .filter(n => n && (n.notes?.trim() || n.lessons?.trim() || n.planForTomorrow?.trim()))
+      .sort((a, b) => {
+        return sortOrder === 'desc' 
+          ? b.date.localeCompare(a.date) 
+          : a.date.localeCompare(b.date);
+      });
+  }, [dailyNotes, sortOrder]);
+
+  // Filtered daily notes based on search query
+  const filteredDailyNotes = useMemo(() => {
+    if (!searchQuery.trim()) return dailyNotesList;
+    const q = searchQuery.toLowerCase();
+    return dailyNotesList.filter(n => 
+      n.date.toLowerCase().includes(q) ||
+      (n.notes || '').toLowerCase().includes(q) ||
+      (n.lessons || '').toLowerCase().includes(q) ||
+      (n.planForTomorrow || '').toLowerCase().includes(q)
+    );
+  }, [dailyNotesList, searchQuery]);
+
+  const handleDeleteDailyNote = (date: string) => {
+    if (window.confirm(`Are you sure you want to delete the Day-End Note for ${date}?`)) {
+      deleteDailyNote(date);
+    }
+  };
+
+  // Helper to format bullets, numbers, and checkboxes cleanly in daily notes
+  const renderFormattedNoteText = (text: string) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.92rem', lineHeight: 1.65, color: '#f1f5f9' }}>
+        {lines.map((line, idx) => {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            return <div key={idx} style={{ height: '6px' }} />;
+          }
+          if (trimmed.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            return (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
+                <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none' }}>•</span>
+                <span>{trimmed.substring(2)}</span>
+              </div>
+            );
+          }
+          const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+          if (numMatch) {
+            return (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
+                <span style={{ color: '#38bdf8', fontWeight: 700, minWidth: '18px', userSelect: 'none' }}>{numMatch[1]}.</span>
+                <span>{numMatch[2]}</span>
+              </div>
+            );
+          }
+          if (trimmed.startsWith('☐ ') || trimmed.startsWith('[ ] ')) {
+            const content = trimmed.startsWith('☐ ') ? trimmed.substring(2) : trimmed.substring(4);
+            return (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
+                <span style={{ color: 'var(--text-muted)', userSelect: 'none', fontSize: '1rem' }}>☐</span>
+                <span>{content}</span>
+              </div>
+            );
+          }
+          if (trimmed.startsWith('☑ ') || trimmed.startsWith('[x] ') || trimmed.startsWith('[X] ')) {
+            const content = trimmed.startsWith('☑ ') ? trimmed.substring(2) : trimmed.substring(4);
+            return (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
+                <span style={{ color: '#10b981', userSelect: 'none', fontSize: '1rem' }}>☑</span>
+                <span style={{ textDecoration: 'line-through', opacity: 0.75 }}>{content}</span>
+              </div>
+            );
+          }
+          return <div key={idx}>{line}</div>;
+        })}
+      </div>
+    );
+  };
 
   // Filter positions to only those that have either a mistake OR a note
   const notedPositions = useMemo(() => {
@@ -231,46 +326,84 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
 
   return (
     <div className="glass-card animate-tab-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      
-      {/* 1. Header Bar with Title, Subtitle, and Eyeball Visibility */}
+      {/* 1. Header Bar with Title, Subtitle, Segmented Switcher, and Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ 
-            width: '46px', 
-            height: '46px', 
-            borderRadius: '14px', 
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(245, 158, 11, 0.25) 100%)', 
-            color: '#f87171',
+            width: '42px', 
+            height: '42px', 
+            borderRadius: '12px', 
+            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%)', 
+            color: '#38bdf8',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '1.45rem',
-            border: '1.5px solid rgba(239, 68, 68, 0.35)',
-            boxShadow: '0 4px 16px rgba(239, 68, 68, 0.15)'
+            fontSize: '1.35rem',
+            border: '1.5px solid rgba(56, 189, 248, 0.35)',
+            boxShadow: '0 4px 16px rgba(56, 189, 248, 0.15)'
           }}>
-            ⚠️
+            <BookOpenCheck size={22} color="#38bdf8" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 850, letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
-                Mistakes & Trade Notes Journal
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
+                Journal & Notes
               </h2>
-              <span style={{ 
-                fontSize: '0.7rem', 
-                fontWeight: 750, 
-                padding: '2px 8px', 
-                borderRadius: '9999px', 
-                background: 'rgba(239, 68, 68, 0.15)', 
-                color: '#f87171', 
-                border: '1px solid rgba(239, 68, 68, 0.3)' 
-              }}>
-                Daily Audit
-              </span>
             </div>
             <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Day-wise breakdown of your trade notes, execution errors, and emotions — analyze patterns and build discipline.
+              Daily reflections, market observations, and execution mistake audits.
             </p>
           </div>
+        </div>
+
+        {/* Minimal Apple-style Sub-tab Switcher */}
+        <div style={{ 
+          display: 'inline-flex', 
+          background: 'rgba(255, 255, 255, 0.04)', 
+          padding: '3px', 
+          borderRadius: '10px', 
+          border: '1px solid var(--border-color)' 
+        }}>
+          <button
+            onClick={() => handleSwitchView('dayNotes')}
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.8rem',
+              fontWeight: journalView === 'dayNotes' ? 700 : 500,
+              borderRadius: '7px',
+              border: 'none',
+              background: journalView === 'dayNotes' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
+              color: journalView === 'dayNotes' ? '#38bdf8' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <BookOpenCheck size={14} />
+            <span>Day-End Notes ({dailyNotesList.length})</span>
+          </button>
+          <button
+            onClick={() => handleSwitchView('tradeNotes')}
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.8rem',
+              fontWeight: journalView === 'tradeNotes' ? 700 : 500,
+              borderRadius: '7px',
+              border: 'none',
+              background: journalView === 'tradeNotes' ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
+              color: journalView === 'tradeNotes' ? '#f87171' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <AlertTriangle size={14} />
+            <span>Trade Mistakes & Logs ({notedPositions.length})</span>
+          </button>
         </div>
 
         {/* Action Controls */}
@@ -297,7 +430,284 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
         </div>
       </div>
 
-      {/* 2. Analytical KPI Leak & Mistake Pattern Bar */}
+      {/* Day-End Notes Tab View */}
+      {journalView === 'dayNotes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Action & Search Bar */}
+          <div 
+            style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              gap: '12px',
+              padding: '12px 16px',
+              background: 'rgba(255, 255, 255, 0.02)',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)'
+            }}
+          >
+            {/* Search */}
+            <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '400px' }}>
+              <Search 
+                size={14} 
+                color="var(--text-dim)" 
+                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} 
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search in notes, lessons, plan..."
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '9999px',
+                  padding: '6px 12px 6px 34px',
+                  fontSize: '0.8rem',
+                  outline: 'none'
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Sort button */}
+              <button
+                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                title="Sort Newest / Oldest"
+              >
+                <ArrowUpDown size={13} />
+                <span>{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
+              </button>
+
+              {/* + Write Day Note button */}
+              <button
+                onClick={() => onOpenNoteModal?.(new Date().toISOString().split('T')[0])}
+                className="btn btn-primary"
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Plus size={15} />
+                <span>Write Day Note</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Notes Cards Feed */}
+          {filteredDailyNotes.length === 0 ? (
+            <div 
+              style={{ 
+                padding: '50px 20px', 
+                textAlign: 'center', 
+                borderRadius: '14px',
+                border: '1px dashed var(--border-color)',
+                background: 'rgba(255, 255, 255, 0.01)'
+              }}
+            >
+              <BookOpenCheck size={40} color="var(--text-dim)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
+                {searchQuery ? 'No notes matched your search' : 'No Day-End Notes Recorded Yet'}
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '380px', margin: '0 auto 16px' }}>
+                Write your end-of-day market reflections, key lessons, and plan for the next trading session.
+              </p>
+              <button
+                onClick={() => onOpenNoteModal?.(new Date().toISOString().split('T')[0])}
+                className="btn btn-primary"
+                style={{ padding: '7px 16px', fontSize: '0.82rem', fontWeight: 650, borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={15} />
+                <span>Write Today's Note</span>
+              </button>
+            </div>
+          ) : (
+            filteredDailyNotes.map(note => {
+              const noteTrades = allTrades.filter(t => {
+                const d = t.exitDate || t.date;
+                if (d !== note.date) return false;
+                return isMatchAccount(t.brokerAccountId, t.broker);
+              });
+
+              const netPnL = noteTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
+              const dateObj = (() => {
+                try {
+                  const parts = note.date.split('-');
+                  return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                } catch {
+                  return new Date();
+                }
+              })();
+
+              const formattedDate = dateObj.toLocaleDateString('en-IN', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+              });
+
+              return (
+                <div
+                  key={note.date}
+                  style={{
+                    padding: '18px 20px',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  {/* Card Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                        {formattedDate}
+                      </span>
+
+                      {/* Trade context summary */}
+                      {noteTrades.length > 0 ? (
+                        <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>•</span>
+                          <span>{noteTrades.length} {noteTrades.length === 1 ? 'Trade' : 'Trades'}</span>
+                          <span>•</span>
+                          <span style={{ 
+                            fontWeight: 700, 
+                            color: netPnL >= 0 ? '#10b981' : '#f87171',
+                            fontFamily: 'var(--font-mono)'
+                          }}>
+                            {isPnlVisible ? `${netPnL >= 0 ? '+' : ''}₹${Math.round(netPnL).toLocaleString('en-IN')}` : '••••'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>
+                          • No trades logged
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions: Edit & Delete */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        onClick={() => onOpenNoteModal?.(note.date)}
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '0.75rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          color: '#38bdf8',
+                          borderColor: 'rgba(56, 189, 248, 0.3)',
+                          background: 'rgba(56, 189, 248, 0.06)'
+                        }}
+                        title="Edit Note"
+                      >
+                        <Edit3 size={12} />
+                        <span>Edit Note</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteDailyNote(note.date)}
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '0.75rem',
+                          color: '#f87171',
+                          borderColor: 'rgba(239, 68, 68, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        title="Delete Note"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Formatted Note Text Body */}
+                  {note.notes && (
+                    <div 
+                      style={{ 
+                        background: 'rgba(0, 0, 0, 0.25)', 
+                        padding: '14px 18px', 
+                        borderRadius: '10px', 
+                        border: '1px solid rgba(255, 255, 255, 0.04)' 
+                      }}
+                    >
+                      {renderFormattedNoteText(note.notes)}
+                    </div>
+                  )}
+
+                  {/* Lesson */}
+                  {note.lessons && (
+                    <div 
+                      style={{ 
+                        padding: '8px 12px', 
+                        borderRadius: '8px', 
+                        background: 'rgba(56, 189, 248, 0.05)', 
+                        borderLeft: '3px solid #38bdf8',
+                        fontSize: '0.82rem',
+                        color: 'var(--text-main)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '6px'
+                      }}
+                    >
+                      <span style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap' }}>💡 Key Lesson:</span>
+                      <span style={{ whiteSpace: 'pre-wrap' }}>{note.lessons}</span>
+                    </div>
+                  )}
+
+                  {/* Plan For Tomorrow */}
+                  {note.planForTomorrow && (
+                    <div 
+                      style={{ 
+                        padding: '8px 12px', 
+                        borderRadius: '8px', 
+                        background: 'rgba(168, 85, 247, 0.05)', 
+                        borderLeft: '3px solid #a855f7',
+                        fontSize: '0.82rem',
+                        color: 'var(--text-main)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '6px'
+                      }}
+                    >
+                      <span style={{ fontWeight: 700, color: '#a855f7', whiteSpace: 'nowrap' }}>🎯 Tomorrow's Plan:</span>
+                      <span style={{ whiteSpace: 'pre-wrap' }}>{note.planForTomorrow}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* Trade Mistakes & Logs Tab View */}
+      {journalView === 'tradeNotes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+{/* 2. Analytical KPI Leak & Mistake Pattern Bar */}
       <div 
         style={{ 
           display: 'grid', 
@@ -1174,6 +1584,9 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade }: M
             );
           })}
         </div>
+      )}
+
+            </div>
       )}
 
     </div>

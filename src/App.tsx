@@ -57,7 +57,6 @@ const ContractNotesManager = safeLazy(() => import('./components/ContractNotesMa
 const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 const MistakesJournal = safeLazy(() => import('./components/MistakesJournal').then(m => ({ default: m.MistakesJournal })));
 const DailyNotesModal = safeLazy(() => import('./components/DailyNotesModal').then(m => ({ default: m.DailyNotesModal })));
-const DailyNotes = safeLazy(() => import('./components/DailyNotes').then(m => ({ default: m.DailyNotes })));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -744,34 +743,7 @@ export default function App() {
             {!isSidebarCollapsed && <span>Log Trade</span>}
           </button>
 
-          {/* Special Day-End Notes Action Button */}
-          <button 
-            className="sidebar-action-btn"
-            style={{
-              width: '100%',
-              padding: isSidebarCollapsed ? '10px 0' : '9px 14px',
-              borderRadius: '12px',
-              border: '1.5px solid rgba(56, 189, 248, 0.35)',
-              background: isDailyNotesOpen ? 'rgba(56, 189, 248, 0.25)' : 'rgba(56, 189, 248, 0.1)',
-              color: '#38bdf8',
-              boxShadow: isDailyNotesOpen ? '0 6px 20px rgba(56, 189, 248, 0.25)' : 'none',
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              gap: '8px',
-              fontSize: '0.82rem',
-              fontWeight: 650,
-              cursor: 'pointer',
-              marginTop: '6px',
-              marginBottom: '8px'
-            }} 
-            onClick={() => handleOpenDailyNotes()}
-            title="Day-End Notes & Reflection (दिवसभरातील महत्त्वाच्या नोंदी)"
-          >
-            <NotebookPen size={17} color="#38bdf8" />
-            {!isSidebarCollapsed && <span>Day-End Notes</span>}
-          </button>
+
 
           {/* Sidebar Menu Groups */}
           <div className="sidebar-menu">
@@ -802,14 +774,7 @@ export default function App() {
               <BookOpen size={17} color={activeTab === 'daybook' ? '#fff' : '#60a5fa'} />
               <span className="hide-collapsed">Day Book</span>
             </button>
-            <button 
-              onClick={() => { setActiveTab('dailyNotes'); setIsMobileSidebarOpen(false); }} 
-              className={"sidebar-tab-btn " + (activeTab === 'dailyNotes' ? 'active' : '')}
-              title="Day-End Notes"
-            >
-              <NotebookPen size={17} color={activeTab === 'dailyNotes' ? '#fff' : '#38bdf8'} />
-              <span className="hide-collapsed">Day-End Notes</span>
-            </button>
+
             <button 
               onClick={() => { setActiveTab('logs'); setIsMobileSidebarOpen(false); }} 
               className={"sidebar-tab-btn " + (activeTab === 'logs' ? 'active' : '')}
@@ -821,10 +786,10 @@ export default function App() {
             <button 
               onClick={() => { setActiveTab('mistakes'); setIsMobileSidebarOpen(false); }} 
               className={"sidebar-tab-btn " + (activeTab === 'mistakes' ? 'active' : '')}
-              title="Mistakes & Trade Notes Journal"
+              title="Journal & Notes"
             >
-              <AlertTriangle size={17} color={activeTab === 'mistakes' ? '#fff' : '#f87171'} />
-              <span className="hide-collapsed">Mistakes & Notes</span>
+              <BookOpenCheck size={17} color={activeTab === 'mistakes' ? '#fff' : '#38bdf8'} />
+              <span className="hide-collapsed">Journal & Notes</span>
             </button>
 
             <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginTop: '12px', marginBottom: '4px' }}>
@@ -1571,14 +1536,7 @@ export default function App() {
                 <BookOpen size={15} color="#60a5fa" />
                 Day Book
               </button>
-              <button 
-                onClick={() => setActiveTab('dailyNotes')} 
-                className={"nav-tab " + (activeTab === 'dailyNotes' ? 'active' : '')}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <NotebookPen size={15} color="#38bdf8" />
-                Day-End Notes
-              </button>
+
               <button 
                 onClick={() => setActiveTab('logs')} 
                 className={"nav-tab " + (activeTab === 'logs' ? 'active' : '')}
@@ -1591,10 +1549,10 @@ export default function App() {
                 onClick={() => setActiveTab('mistakes')} 
                 className={"nav-tab " + (activeTab === 'mistakes' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                title="Day-wise Mistakes & Notes Journal"
+                title="Journal & Notes"
               >
-                <AlertTriangle size={15} color="#f87171" />
-                Mistakes & Notes
+                <BookOpenCheck size={15} color="#38bdf8" />
+                Journal & Notes
               </button>
             </div>
           </div>
@@ -2003,12 +1961,7 @@ export default function App() {
               />
             )}
             {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} onOpenDailyNotes={handleOpenDailyNotes} />}
-            {activeTab === 'dailyNotes' && (
-              <DailyNotes 
-                activeAccountId={activeAccountId} 
-                onOpenNoteModal={handleOpenDailyNotes} 
-              />
-            )}
+
             {activeTab === 'calendar' && (
               <TradingCalendar 
                 activeAccountId={activeAccountId} 
@@ -2027,6 +1980,7 @@ export default function App() {
               <MistakesJournal 
                 activeAccountId={activeAccountId} 
                 onEditTrade={handleEditTrade} 
+                onOpenNoteModal={handleOpenDailyNotes}
               />
             )}
             {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
