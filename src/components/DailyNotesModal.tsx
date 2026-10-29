@@ -551,7 +551,7 @@ export function DailyNotesModal({
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      insertHtmlAtCursor(`<div>• <b>${point.text}:</b>&nbsp;</div>`);
+                      insertHtmlAtCursor(`<div>• ${point.text}:&nbsp;</div>`);
                     }}
                     className="btn btn-secondary"
                     style={{
@@ -576,7 +576,7 @@ export function DailyNotesModal({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    const fullTemplate = `<div>• <b>Market Opening:</b>&nbsp;</div><div>• <b>Market Trend:</b>&nbsp;</div><div>• <b>What went well:</b>&nbsp;</div><div>• <b>Traps / Mistakes:</b>&nbsp;</div><div>• <b>Mindset:</b>&nbsp;</div><div>• <b>Tomorrow's Focus:</b>&nbsp;</div>`;
+                    const fullTemplate = `<div>• Market Opening:&nbsp;</div><div>• Market Trend:&nbsp;</div><div>• What went well:&nbsp;</div><div>• Traps / Mistakes:&nbsp;</div><div>• Mindset:&nbsp;</div><div>• Tomorrow's Focus:&nbsp;</div>`;
                     if (editorRef.current) {
                       const plain = editorRef.current.innerText || '';
                       if (!plain.trim()) {
@@ -607,7 +607,7 @@ export function DailyNotesModal({
               </div>
             </div>
 
-            {/* WYSIWYG contentEditable Document Area - Using Software Default Font */}
+            {/* WYSIWYG contentEditable Document Area - Using Software Default Font & Regular Weight */}
             <div
               ref={editorRef}
               contentEditable
@@ -623,6 +623,7 @@ export function DailyNotesModal({
                 padding: '14px 16px',
                 fontSize: '0.92rem',
                 fontFamily: 'inherit',
+                fontWeight: 400,
                 lineHeight: 1.65,
                 outline: 'none',
                 wordBreak: 'break-word'
