@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { getTradeMistakes } from '../types';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
-import { groupHedgedTrades } from '../utils/tradeGrouping';
+import { groupHedgedTrades, cleanHedgeNote, isHedgeLeg } from '../utils/tradeGrouping';
 import type { GroupedTradePosition } from '../utils/tradeGrouping';
 import { BrokerBadge } from './BrokerBadge';
 import { 
@@ -166,31 +166,34 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
     return parts;
   };
 
-  // Helper to format bullets, numbers, and checkboxes cleanly in daily notes
+  // Helper to format bullets, numbers, and checkboxes cleanly in daily notes with ultra-compact line spacing
   const renderFormattedNoteText = (text: string) => {
     if (!text) return null;
 
-    // If text contains HTML tags from WYSIWYG editor, render directly!
+    // If text contains HTML tags from WYSIWYG editor, render directly with tight compact line-height!
     if (text.includes('<') && (text.includes('<b>') || text.includes('<strong>') || text.includes('<i>') || text.includes('<u>') || text.includes('<span') || text.includes('<div>') || text.includes('<ul>') || text.includes('<ol>') || text.includes('<br'))) {
       return (
         <div 
-          style={{ fontSize: '0.84rem', lineHeight: 1.5, color: '#f1f5f9', wordBreak: 'break-word' }}
-          dangerouslySetInnerHTML={{ __html: text }}
+          className="journal-compact-content"
+          style={{ fontSize: '0.82rem', lineHeight: 1.35, color: '#f1f5f9', wordBreak: 'break-word' }}
+          dangerouslySetInnerHTML={{ 
+            __html: `<style>.journal-compact-content p, .journal-compact-content div { margin: 0; padding: 0; line-height: 1.35; } .journal-compact-content ul, .journal-compact-content ol { margin: 2px 0 2px 14px; padding: 0; } .journal-compact-content li { margin-bottom: 2px; line-height: 1.35; }</style>${text}` 
+          }}
         />
       );
     }
 
     const lines = text.split('\n');
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.84rem', lineHeight: 1.5, color: '#f1f5f9' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.82rem', lineHeight: 1.35, color: '#f1f5f9' }}>
         {lines.map((line, idx) => {
           const trimmed = line.trim();
           if (!trimmed) {
-            return <div key={idx} style={{ height: '6px' }} />;
+            return <div key={idx} style={{ height: '3px' }} />;
           }
           if (trimmed.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
             return (
-              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', paddingLeft: '2px', lineHeight: 1.35 }}>
                 <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none' }}>•</span>
                 <span>{renderInlineMarkdown(trimmed.substring(2))}</span>
               </div>
@@ -199,8 +202,8 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
           const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
           if (numMatch) {
             return (
-              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
-                <span style={{ color: '#38bdf8', fontWeight: 700, minWidth: '18px', userSelect: 'none' }}>{numMatch[1]}.</span>
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', paddingLeft: '2px', lineHeight: 1.35 }}>
+                <span style={{ color: '#38bdf8', fontWeight: 700, minWidth: '16px', userSelect: 'none' }}>{numMatch[1]}.</span>
                 <span>{renderInlineMarkdown(numMatch[2])}</span>
               </div>
             );
@@ -208,8 +211,8 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
           if (trimmed.startsWith('☐ ') || trimmed.startsWith('[ ] ')) {
             const content = trimmed.startsWith('☐ ') ? trimmed.substring(2) : trimmed.substring(4);
             return (
-              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
-                <span style={{ color: 'var(--text-muted)', userSelect: 'none', fontSize: '1rem' }}>☐</span>
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', paddingLeft: '2px', lineHeight: 1.35 }}>
+                <span style={{ color: 'var(--text-muted)', userSelect: 'none', fontSize: '0.9rem' }}>☐</span>
                 <span>{renderInlineMarkdown(content)}</span>
               </div>
             );
@@ -217,13 +220,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
           if (trimmed.startsWith('☑ ') || trimmed.startsWith('[x] ') || trimmed.startsWith('[X] ')) {
             const content = trimmed.startsWith('☑ ') ? trimmed.substring(2) : trimmed.substring(4);
             return (
-              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
-                <span style={{ color: '#10b981', userSelect: 'none', fontSize: '1rem' }}>☑</span>
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', paddingLeft: '2px', lineHeight: 1.35 }}>
+                <span style={{ color: '#10b981', userSelect: 'none', fontSize: '0.9rem' }}>☑</span>
                 <span style={{ textDecoration: 'line-through', opacity: 0.75 }}>{renderInlineMarkdown(content)}</span>
               </div>
             );
           }
-          return <div key={idx}>{renderInlineMarkdown(line)}</div>;
+          return <div key={idx} style={{ lineHeight: 1.35 }}>{renderInlineMarkdown(line)}</div>;
         })}
       </div>
     );
@@ -680,7 +683,32 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   return isMatchAccount(t.brokerAccountId, t.broker);
                 });
 
-                const tradeNotesForDay = noteTrades.filter(t => t.notes && t.notes.trim().length > 0);
+                // Consolidate paired spreads and filter duplicate hedge legs into clean strategy notes
+                const groupedPositions = groupHedgedTrades(noteTrades);
+                const strategyNotesForDay: Array<{ id: string; strategy: string; note: string }> = [];
+                const seenNotes = new Set<string>();
+
+                for (const pos of groupedPositions) {
+                  // If not a recognized paired spread, but explicitly marked as an orphan hedge leg, skip it
+                  if (!pos.isHedgedSpread && isHedgeLeg(pos.leg1)) {
+                    continue;
+                  }
+
+                  const rawNote = pos.notes || pos.leg1.notes || pos.leg2?.notes || '';
+                  const cleaned = cleanHedgeNote(rawNote).trim();
+                  if (!cleaned) continue;
+
+                  const stratName = pos.strategy || pos.leg1.strategy || pos.leg2?.strategy || pos.leg1.symbol || 'General Trade';
+                  const dedupeKey = `${stratName.toLowerCase()}:::${cleaned.toLowerCase()}`;
+                  if (seenNotes.has(dedupeKey)) continue;
+                  seenNotes.add(dedupeKey);
+
+                  strategyNotesForDay.push({
+                    id: pos.id,
+                    strategy: stratName,
+                    note: cleaned
+                  });
+                }
 
                 const netPnL = noteTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
                 const dateObj = (() => {
@@ -703,20 +731,20 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                   <div
                     key={note.date}
                     style={{
-                      padding: '12px 14px',
-                      borderRadius: '12px',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
                       background: 'rgba(255, 255, 255, 0.02)',
                       border: '1px solid var(--border-color)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '8px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                      gap: '6px',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
                     }}
                   >
                     {/* Card Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                        <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main)' }}>
                           {formattedDate}
                         </span>
 
@@ -785,8 +813,8 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                       <div 
                         style={{ 
                           background: 'rgba(0, 0, 0, 0.25)', 
-                          padding: '9px 12px', 
-                          borderRadius: '8px', 
+                          padding: '6px 10px', 
+                          borderRadius: '6px', 
                           border: '1px solid rgba(255, 255, 255, 0.04)',
                           maxHeight: '190px',
                           overflowY: 'auto'
@@ -796,35 +824,35 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                       </div>
                     )}
 
-                    {/* Tradelog Notes Section (Only Notes with Strategy Name) */}
-                    {tradeNotesForDay.length > 0 && (
+                    {/* Tradelog Notes Section (Consolidated Strategy-Wise Notes) */}
+                    {strategyNotesForDay.length > 0 && (
                       <div 
                         style={{ 
-                          padding: '8px 10px', 
-                          borderRadius: '8px', 
+                          padding: '6px 8px', 
+                          borderRadius: '6px', 
                           background: 'rgba(255, 255, 255, 0.015)',
-                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.04)',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '6px'
+                          gap: '4px'
                         }}
                       >
-                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Trade Log Notes ({tradeNotesForDay.length}):
+                        <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Strategy Notes ({strategyNotesForDay.length}):
                         </span>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '150px', overflowY: 'auto' }}>
-                          {tradeNotesForDay.map(trade => (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '140px', overflowY: 'auto' }}>
+                          {strategyNotesForDay.map(item => (
                             <div 
-                              key={trade.id}
+                              key={item.id}
                               style={{ 
                                 display: 'flex', 
-                                alignItems: 'flex-start', 
-                                gap: '8px', 
-                                fontSize: '0.8rem',
-                                lineHeight: 1.45,
-                                padding: '5px 8px',
-                                borderRadius: '6px',
+                                alignItems: 'baseline', 
+                                gap: '6px', 
+                                fontSize: '0.78rem',
+                                lineHeight: 1.35,
+                                padding: '3px 6px',
+                                borderRadius: '4px',
                                 background: 'rgba(0, 0, 0, 0.25)',
                                 border: '1px solid rgba(255, 255, 255, 0.04)'
                               }}
@@ -834,17 +862,17 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                                   fontWeight: 700, 
                                   color: '#38bdf8', 
                                   whiteSpace: 'nowrap',
-                                  fontSize: '0.7rem',
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
+                                  fontSize: '0.68rem',
+                                  padding: '1px 5px',
+                                  borderRadius: '3px',
                                   background: 'rgba(56, 189, 248, 0.1)',
                                   border: '1px solid rgba(56, 189, 248, 0.25)'
                                 }}
                               >
-                                Strategy: {trade.strategy || trade.symbol || 'General Trade'}
+                                Strategy: {item.strategy}
                               </span>
-                              <span style={{ color: '#f1f5f9', whiteSpace: 'pre-wrap', flex: 1 }}>
-                                {trade.notes}
+                              <span style={{ color: '#f1f5f9', whiteSpace: 'pre-wrap', flex: 1, wordBreak: 'break-word' }}>
+                                {item.note}
                               </span>
                             </div>
                           ))}
@@ -856,15 +884,16 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                     {note.lessons && (
                       <div 
                         style={{ 
-                          padding: '6px 10px', 
+                          padding: '4px 8px', 
                           borderRadius: '6px', 
                           background: 'rgba(56, 189, 248, 0.05)', 
                           borderLeft: '3px solid #38bdf8',
-                          fontSize: '0.78rem',
+                          fontSize: '0.76rem',
+                          lineHeight: 1.35,
                           color: 'var(--text-main)',
                           display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '6px'
+                          alignItems: 'baseline',
+                          gap: '5px'
                         }}
                       >
                         <span style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap' }}>💡 Lesson:</span>
@@ -876,15 +905,16 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                     {note.planForTomorrow && (
                       <div 
                         style={{ 
-                          padding: '6px 10px', 
+                          padding: '4px 8px', 
                           borderRadius: '6px', 
                           background: 'rgba(168, 85, 247, 0.05)', 
                           borderLeft: '3px solid #a855f7',
-                          fontSize: '0.78rem',
+                          fontSize: '0.76rem',
+                          lineHeight: 1.35,
                           color: 'var(--text-main)',
                           display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '6px'
+                          alignItems: 'baseline',
+                          gap: '5px'
                         }}
                       >
                         <span style={{ fontWeight: 700, color: '#a855f7', whiteSpace: 'nowrap' }}>🎯 Tomorrow:</span>
