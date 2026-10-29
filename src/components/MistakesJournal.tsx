@@ -1,16 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { getTradeMistakes } from '../types';
-import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
+import { filterTradesByFY } from '../utils/fyHelper';
 import { groupHedgedTrades, cleanHedgeNote, isHedgeLeg } from '../utils/tradeGrouping';
-import type { GroupedTradePosition } from '../utils/tradeGrouping';
-import { BrokerBadge } from './BrokerBadge';
 import { 
-  AlertTriangle, BookOpen, Calendar, Clock, Filter, Search, 
-  Tag, CheckCircle2, ChevronDown, ChevronRight, Eye, EyeOff, 
-  ExternalLink, Sparkles, TrendingUp, TrendingDown, ArrowUpDown, 
-  MessageSquare, ShieldCheck, Flame, X, Printer, ShieldAlert,
-  BookOpenCheck, Edit3, Trash2, Plus, LayoutGrid, List
+  Calendar, Search, ArrowUpDown, X, Printer,
+  BookOpenCheck, Edit3, Trash2, Plus, LayoutGrid, List,
+  Eye, EyeOff, ExternalLink
 } from 'lucide-react';
 
 interface MistakesJournalProps {
@@ -57,30 +52,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
       : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
   }, [fyTrades, activeAccountId, brokerAccounts]);
 
-  // Group hedged spread legs into unified positions to avoid duplicate cards and notes
-  const accountPositions = useMemo(() => {
-    return groupHedgedTrades(accountTrades);
-  }, [accountTrades]);
-
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMistakeType, setSelectedMistakeType] = useState<string>('All');
-  const [selectedEmotion, setSelectedEmotion] = useState<string>('All');
   const [typeFilter, setTypeFilter] = useState<'all' | 'mistakes' | 'notes' | 'losses'>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
 
-  // Sub-tab toggle between Day-End Notes and Trade-level Mistakes
-  const [journalView, setJournalView] = useState<'dayNotes' | 'tradeNotes'>(() => {
-    return (localStorage.getItem('traders_diary_journal_subtab') as 'dayNotes' | 'tradeNotes') || 'dayNotes';
-  });
-
-  const handleSwitchView = (view: 'dayNotes' | 'tradeNotes') => {
-    setJournalView(view);
-    localStorage.setItem('traders_diary_journal_subtab', view);
-  };
-
-  // Layout density view mode for Day-End Notes (Grid vs List)
+  // Layout density view mode for Day Cards (Grid vs List)
   const [notesLayout, setNotesLayout] = useState<'grid' | 'list'>(() => {
     return (localStorage.getItem('traders_diary_notes_layout') as 'grid' | 'list') || 'grid';
   });
@@ -89,29 +67,6 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
     setNotesLayout(mode);
     localStorage.setItem('traders_diary_notes_layout', mode);
   };
-
-  // Convert dailyNotes to a sorted array
-  const dailyNotesList = useMemo(() => {
-    return Object.values(dailyNotes || {})
-      .filter(n => n && (n.notes?.trim() || n.lessons?.trim() || n.planForTomorrow?.trim()))
-      .sort((a, b) => {
-        return sortOrder === 'desc' 
-          ? b.date.localeCompare(a.date) 
-          : a.date.localeCompare(b.date);
-      });
-  }, [dailyNotes, sortOrder]);
-
-  // Filtered daily notes based on search query
-  const filteredDailyNotes = useMemo(() => {
-    if (!searchQuery.trim()) return dailyNotesList;
-    const q = searchQuery.toLowerCase();
-    return dailyNotesList.filter(n => 
-      n.date.toLowerCase().includes(q) ||
-      (n.notes || '').toLowerCase().includes(q) ||
-      (n.lessons || '').toLowerCase().includes(q) ||
-      (n.planForTomorrow || '').toLowerCase().includes(q)
-    );
-  }, [dailyNotesList, searchQuery]);
 
   const handleDeleteDailyNote = (date: string) => {
     if (window.confirm(`Are you sure you want to delete the Day-End Note for ${date}?`)) {
@@ -178,7 +133,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
     // If text contains HTML tags from WYSIWYG editor, render directly with tight compact line-height!
     if (text.includes('<') && (text.includes('<b>') || text.includes('<strong>') || text.includes('<i>') || text.includes('<u>') || text.includes('<span') || text.includes('<div>') || text.includes('<ul>') || text.includes('<ol>') || text.includes('<br'))) {
       let cleanedHtml = text;
-      // Strip empty template tags like <div>• Market Trend:</div> or <p>• Traps / Mistakes:</p> to save massive blank vertical space
+      // Strip empty template tags like <div>• Market Trend:</div> to save vertical space
       cleanedHtml = cleanedHtml.replace(/<(div|p|li)>[•\-\*]\s*[^:<]+:\s*<\/\1>/gi, '');
 
       return (
@@ -250,156 +205,6 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
     );
   };
 
-  // Filter positions to only those that have either a mistake OR a note
-  const notedPositions = useMemo(() => {
-    return accountPositions.filter(p => {
-      const hasNote = Boolean(p.notes && p.notes.trim().length > 0);
-      const hasMistake = p.mistakes.length > 0;
-      return hasNote || hasMistake;
-    });
-  }, [accountPositions]);
-
-  // Extract all unique mistake types that appeared in the dataset
-  const availableMistakes = useMemo(() => {
-    const set = new Set<string>();
-    notedPositions.forEach(p => {
-      p.mistakes.forEach(m => set.add(m));
-    });
-    return Array.from(set).sort();
-  }, [notedPositions]);
-
-  // Extract all unique months available in the dataset
-  const availableMonths = useMemo(() => {
-    const set = new Set<string>();
-    notedPositions.forEach(p => {
-      const dateStr = p.date;
-      if (dateStr && dateStr.length >= 7) {
-        set.add(dateStr.substring(0, 7)); // YYYY-MM
-      }
-    });
-    return Array.from(set).sort().reverse();
-  }, [notedPositions]);
-
-  // Overall Cognitive & Mistakes Metrics
-  const stats = useMemo(() => {
-    let totalMistakePositions = 0;
-    let totalMistakeLoss = 0;
-    let totalNotesCount = 0;
-    const mistakeFrequencies: Record<string, { count: number; loss: number }> = {};
-
-    notedPositions.forEach(p => {
-      if (p.notes && p.notes.trim().length > 0) totalNotesCount++;
-      if (p.mistakes.length > 0) {
-        totalMistakePositions++;
-        if (p.combinedNetPnL < 0) totalMistakeLoss += Math.abs(p.combinedNetPnL);
-        p.mistakes.forEach(m => {
-          if (!mistakeFrequencies[m]) mistakeFrequencies[m] = { count: 0, loss: 0 };
-          mistakeFrequencies[m].count++;
-          if (p.combinedNetPnL < 0) mistakeFrequencies[m].loss += Math.abs(p.combinedNetPnL);
-        });
-      }
-    });
-
-    const topMistake = Object.entries(mistakeFrequencies).sort((a, b) => b[1].count - a[1].count)[0];
-    const uniqueDays = new Set(notedPositions.map(p => p.date)).size;
-
-    return {
-      uniqueDays,
-      totalNotesCount,
-      totalMistakePositions,
-      totalMistakeLoss,
-      topMistake: topMistake ? { name: topMistake[0], count: topMistake[1].count, loss: topMistake[1].loss } : null
-    };
-  }, [notedPositions]);
-
-  // Filtered list of positions based on UI controls
-  const filteredPositions = useMemo(() => {
-    return notedPositions.filter(p => {
-      const hasMistake = p.mistakes.length > 0;
-      const hasNote = Boolean(p.notes && p.notes.trim().length > 0);
-      const dateStr = p.date;
-
-      // Filter by type pill
-      if (typeFilter === 'mistakes' && !hasMistake) return false;
-      if (typeFilter === 'notes' && !hasNote) return false;
-      if (typeFilter === 'losses' && p.combinedNetPnL >= 0) return false;
-
-      // Filter by month
-      if (selectedMonth !== 'All' && !dateStr.startsWith(selectedMonth)) return false;
-
-      // Filter by specific mistake type
-      if (selectedMistakeType !== 'All' && !p.mistakes.includes(selectedMistakeType)) return false;
-
-      // Filter by emotion
-      if (selectedEmotion !== 'All' && p.emotion !== selectedEmotion) return false;
-
-      // Search query (symbol, note content, strategy)
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const inSymbol1 = p.leg1.symbol.toLowerCase().includes(q);
-        const inSymbol2 = p.leg2 ? p.leg2.symbol.toLowerCase().includes(q) : false;
-        const inNote = p.notes ? p.notes.toLowerCase().includes(q) : false;
-        const inStrategy = p.strategy ? p.strategy.toLowerCase().includes(q) : false;
-        const inMistake = p.mistakes.some(m => m.toLowerCase().includes(q));
-        if (!inSymbol1 && !inSymbol2 && !inNote && !inStrategy && !inMistake) return false;
-      }
-
-      return true;
-    });
-  }, [notedPositions, typeFilter, selectedMonth, selectedMistakeType, selectedEmotion, searchQuery]);
-
-  // Group filtered positions by Date
-  const dayGroups = useMemo(() => {
-    const map: Record<string, GroupedTradePosition[]> = {};
-
-    filteredPositions.forEach(p => {
-      const d = p.date;
-      if (!map[d]) map[d] = [];
-      map[d].push(p);
-    });
-
-    const entries = Object.entries(map).map(([date, positions]) => {
-      // Sort positions within the day by time
-      const sortedPositions = [...positions].sort((a, b) => {
-        const timeA = a.entryTime || '00:00';
-        const timeB = b.entryTime || '00:00';
-        return timeA.localeCompare(timeB);
-      });
-
-      const dayNetPnL = sortedPositions.reduce((sum, p) => sum + p.combinedNetPnL, 0);
-      const dayMistakesCount = sortedPositions.filter(p => p.mistakes.length > 0).length;
-      const dayNotesCount = sortedPositions.filter(p => p.notes && p.notes.trim().length > 0).length;
-
-      return {
-        date,
-        positions: sortedPositions,
-        dayNetPnL,
-        dayMistakesCount,
-        dayNotesCount
-      };
-    });
-
-    // Sort dates
-    return entries.sort((a, b) => {
-      return sortOrder === 'desc' 
-        ? b.date.localeCompare(a.date) 
-        : a.date.localeCompare(b.date);
-    });
-  }, [filteredPositions, sortOrder]);
-
-  const formatDateDisplay = (dateStr: string) => {
-    try {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-        return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
-      }
-      return dateStr;
-    } catch {
-      return dateStr;
-    }
-  };
-
   const getRelativeDayLabel = (dateStr: string) => {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -413,9 +218,187 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
     return null;
   };
 
+  // =========================================================================
+  // UNIFIED JOURNAL DAYS: Merging Day-End Notes & Trade Mistakes into one feed
+  // =========================================================================
+  const journalDays = useMemo(() => {
+    const datesSet = new Set<string>();
+
+    // 1. Add dates from dailyNotes (that have non-empty content)
+    Object.values(dailyNotes || {}).forEach(n => {
+      if (n && (n.notes?.trim() || n.lessons?.trim() || n.planForTomorrow?.trim())) {
+        datesSet.add(n.date);
+      }
+    });
+
+    // 2. Add dates from accountTrades
+    accountTrades.forEach(t => {
+      const d = t.exitDate || t.date;
+      if (d) datesSet.add(d);
+    });
+
+    // 3. Map each date into a comprehensive day journal card
+    const dayEntries = Array.from(datesSet).map(date => {
+      const noteTrades = accountTrades.filter(t => (t.exitDate || t.date) === date);
+      const dayNetPnL = noteTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
+      const tradesCount = noteTrades.length;
+
+      // Calculate total day PnL per strategy
+      const strategyDayPnLMap = new Map<string, number>();
+      for (const t of noteTrades) {
+        const sName = t.strategy || t.symbol || 'General Trade';
+        const key = sName.toLowerCase();
+        strategyDayPnLMap.set(key, (strategyDayPnLMap.get(key) || 0) + (t.netPnL || 0));
+      }
+
+      // Consolidate paired spreads and filter duplicate hedge legs
+      const groupedPositions = groupHedgedTrades(noteTrades);
+      const strategyNotesForDay: Array<{
+        id: string;
+        strategy: string;
+        note: string;
+        strategyPnL: number;
+        mistakes: string[];
+        emotion?: string;
+        hasMistake: boolean;
+      }> = [];
+      const seenEntries = new Set<string>();
+
+      let dayMistakesCount = 0;
+
+      for (const pos of groupedPositions) {
+        // Skip orphan hedge leg if it's already redundant
+        if (!pos.isHedgedSpread && isHedgeLeg(pos.leg1)) {
+          continue;
+        }
+
+        const rawNote = pos.notes || pos.leg1.notes || pos.leg2?.notes || '';
+        const cleaned = cleanHedgeNote(rawNote).trim();
+        const mistakes = pos.mistakes || [];
+        if (mistakes.length > 0) {
+          dayMistakesCount += mistakes.length;
+        }
+        const emotion = pos.emotion || pos.leg1.emotion || pos.leg2?.emotion;
+        const hasNote = Boolean(cleaned);
+        const hasMistake = mistakes.length > 0;
+
+        // Skip if no note, no mistake, and no emotion
+        if (!hasNote && !hasMistake && !emotion) {
+          continue;
+        }
+
+        const stratName = pos.strategy || pos.leg1.strategy || pos.leg2?.strategy || pos.leg1.symbol || 'General Trade';
+        const dedupeKey = `${stratName.toLowerCase()}:::${cleaned.toLowerCase()}:::${mistakes.join(',')}:::${emotion || ''}`;
+        if (seenEntries.has(dedupeKey)) continue;
+        seenEntries.add(dedupeKey);
+
+        const stratPnL = strategyDayPnLMap.get(stratName.toLowerCase()) ?? pos.combinedNetPnL;
+
+        strategyNotesForDay.push({
+          id: pos.id,
+          strategy: stratName,
+          note: cleaned,
+          strategyPnL: stratPnL,
+          mistakes,
+          emotion,
+          hasMistake
+        });
+      }
+
+      const dNote = dailyNotes?.[date];
+      const hasDayNotes = Boolean(dNote && (dNote.notes?.trim() || dNote.lessons?.trim() || dNote.planForTomorrow?.trim()));
+      const hasTradeNotesOrMistakes = strategyNotesForDay.length > 0;
+      const hasMistakes = dayMistakesCount > 0;
+
+      const dateObj = (() => {
+        try {
+          const parts = date.split('-');
+          return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        } catch {
+          return new Date();
+        }
+      })();
+
+      const formattedDate = dateObj.toLocaleDateString('en-IN', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+
+      return {
+        date,
+        formattedDate,
+        relativeLabel: getRelativeDayLabel(date),
+        dailyNote: dNote,
+        hasDayNotes,
+        tradesCount,
+        dayNetPnL,
+        mistakesCount: dayMistakesCount,
+        hasMistakes,
+        strategyNotes: strategyNotesForDay,
+        hasTradeNotesOrMistakes
+      };
+    });
+
+    // Only include days with actual journal notes, trade notes, or mistakes
+    return dayEntries.filter(d => d.hasDayNotes || d.hasTradeNotesOrMistakes);
+  }, [dailyNotes, accountTrades]);
+
+  // Months available
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>();
+    journalDays.forEach(d => {
+      if (d.date && d.date.length >= 7) {
+        set.add(d.date.substring(0, 7));
+      }
+    });
+    return Array.from(set).sort().reverse();
+  }, [journalDays]);
+
+  // Filtered Journal Days based on Search, Pills, Month, and Sort
+  const filteredJournalDays = useMemo(() => {
+    return journalDays.filter(day => {
+      // Type pill filter
+      if (typeFilter === 'mistakes' && !day.hasMistakes) return false;
+      if (typeFilter === 'notes' && !day.hasDayNotes && !day.strategyNotes.some(s => Boolean(s.note))) return false;
+      if (typeFilter === 'losses' && day.dayNetPnL >= 0) return false;
+
+      // Month filter
+      if (selectedMonth !== 'All' && !day.date.startsWith(selectedMonth)) return false;
+
+      // Search query (date, reflections, lessons, plan, strategy, notes, mistakes, emotion)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const inDate = day.date.toLowerCase().includes(q) || day.formattedDate.toLowerCase().includes(q);
+        const inDayNotes = (day.dailyNote?.notes || '').toLowerCase().includes(q) ||
+                           (day.dailyNote?.lessons || '').toLowerCase().includes(q) ||
+                           (day.dailyNote?.planForTomorrow || '').toLowerCase().includes(q);
+        const inStrat = day.strategyNotes.some(s => 
+          s.strategy.toLowerCase().includes(q) || 
+          s.note.toLowerCase().includes(q) || 
+          s.mistakes.some(m => m.toLowerCase().includes(q)) ||
+          (s.emotion || '').toLowerCase().includes(q)
+        );
+        if (!inDate && !inDayNotes && !inStrat) return false;
+      }
+
+      return true;
+    }).sort((a, b) => {
+      return sortOrder === 'desc' 
+        ? b.date.localeCompare(a.date) 
+        : a.date.localeCompare(b.date);
+    });
+  }, [journalDays, typeFilter, selectedMonth, searchQuery, sortOrder]);
+
+  // Metric counts for filter pills
+  const mistakeDaysCount = useMemo(() => journalDays.filter(d => d.hasMistakes).length, [journalDays]);
+  const notedDaysCount = useMemo(() => journalDays.filter(d => d.hasDayNotes || d.strategyNotes.some(s => Boolean(s.note))).length, [journalDays]);
+  const lossDaysCount = useMemo(() => journalDays.filter(d => d.dayNetPnL < 0).length, [journalDays]);
+
   return (
     <div className="glass-card animate-tab-panel" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {/* 1. Compact Header Bar: Title, Inline Subtabs, and Action Controls */}
+      {/* 1. Header Bar: Title, Day Count Badge, and Action Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ 
@@ -431,59 +414,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
           }}>
             <BookOpenCheck size={16} color="#38bdf8" />
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--text-main)' }}>
-            Journal & Notes
-          </h2>
-
-          {/* Minimal Apple-style Sub-tab Switcher inline right next to title */}
-          <div style={{ 
-            display: 'inline-flex', 
-            background: 'rgba(255, 255, 255, 0.04)', 
-            padding: '2px', 
-            borderRadius: '8px', 
-            border: '1px solid var(--border-color)',
-            marginLeft: '4px'
-          }}>
-            <button
-              onClick={() => handleSwitchView('dayNotes')}
-              style={{
-                padding: '4px 10px',
-                fontSize: '0.74rem',
-                fontWeight: journalView === 'dayNotes' ? 700 : 500,
-                borderRadius: '6px',
-                border: 'none',
-                background: journalView === 'dayNotes' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
-                color: journalView === 'dayNotes' ? '#38bdf8' : 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <BookOpenCheck size={13} />
-              <span>Day-End Notes ({dailyNotesList.length})</span>
-            </button>
-            <button
-              onClick={() => handleSwitchView('tradeNotes')}
-              style={{
-                padding: '4px 10px',
-                fontSize: '0.74rem',
-                fontWeight: journalView === 'tradeNotes' ? 700 : 500,
-                borderRadius: '6px',
-                border: 'none',
-                background: journalView === 'tradeNotes' ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
-                color: journalView === 'tradeNotes' ? '#f87171' : 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <AlertTriangle size={13} />
-              <span>Trade Mistakes ({notedPositions.length})</span>
-            </button>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>Journal & Notes</span>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-dim)', background: 'rgba(255, 255, 255, 0.05)', padding: '1px 7px', borderRadius: '9999px', border: '1px solid var(--border-color)' }}>
+                {journalDays.length} Days
+              </span>
+            </h2>
           </div>
         </div>
 
@@ -511,1339 +448,589 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         </div>
       </div>
 
-      {/* Day-End Notes Tab View */}
-      {journalView === 'dayNotes' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* Action & Search Bar */}
-          <div 
-            style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              flexWrap: 'wrap', 
-              gap: '8px',
-              padding: '6px 10px',
-              background: 'rgba(255, 255, 255, 0.02)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)'
+      {/* 2. Unified Action & Filter Toolbar */}
+      <div 
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          flexWrap: 'wrap', 
+          gap: '8px',
+          padding: '6px 10px',
+          background: 'rgba(255, 255, 255, 0.02)',
+          borderRadius: '8px',
+          border: '1px solid var(--border-color)'
+        }}
+      >
+        {/* Search */}
+        <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: '300px' }}>
+          <Search 
+            size={13} 
+            color="var(--text-dim)" 
+            style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} 
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search in notes, mistakes, lessons, plan..."
+            style={{
+              width: '100%',
+              background: 'var(--bg-card)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              padding: '4px 10px 4px 28px',
+              fontSize: '0.76rem',
+              outline: 'none'
             }}
-          >
-            {/* Search */}
-            <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: '340px' }}>
-              <Search 
-                size={13} 
-                color="var(--text-dim)" 
-                style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} 
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search in notes, lessons, plan..."
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-card)',
-                  color: 'var(--text-main)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  padding: '4px 10px 4px 28px',
-                  fontSize: '0.76rem',
-                  outline: 'none'
-                }}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {/* Layout Switcher: Grid vs List */}
-              <div 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  background: 'rgba(255, 255, 255, 0.04)', 
-                  padding: '2px', 
-                  borderRadius: '6px', 
-                  border: '1px solid var(--border-color)' 
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleToggleLayout('grid')}
-                  style={{
-                    padding: '3px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: notesLayout === 'grid' ? 700 : 500,
-                    borderRadius: '5px',
-                    border: 'none',
-                    background: notesLayout === 'grid' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
-                    color: notesLayout === 'grid' ? '#38bdf8' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Compact Grid View (Multi-Day)"
-                >
-                  <LayoutGrid size={12} />
-                  <span>Compact Grid</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleToggleLayout('list')}
-                  style={{
-                    padding: '3px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: notesLayout === 'list' ? 700 : 500,
-                    borderRadius: '5px',
-                    border: 'none',
-                    background: notesLayout === 'list' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
-                    color: notesLayout === 'list' ? '#38bdf8' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Single-Column List View"
-                >
-                  <List size={12} />
-                  <span>List</span>
-                </button>
-              </div>
-
-              {/* Sort button */}
-              <button
-                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                className="btn btn-secondary"
-                style={{ padding: '4px 9px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                title="Sort Newest / Oldest"
-              >
-                <ArrowUpDown size={12} />
-                <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
-              </button>
-
-              {/* + Write Day Note button */}
-              <button
-                onClick={() => onOpenNoteModal?.(new Date().toISOString().split('T')[0])}
-                className="btn btn-primary"
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <Plus size={14} />
-                <span>Write Day Note</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Notes Cards Feed */}
-          {filteredDailyNotes.length === 0 ? (
-            <div 
-              style={{ 
-                padding: '50px 20px', 
-                textAlign: 'center', 
-                borderRadius: '14px',
-                border: '1px dashed var(--border-color)',
-                background: 'rgba(255, 255, 255, 0.01)'
-              }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
-              <BookOpenCheck size={40} color="var(--text-dim)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
-                {searchQuery ? 'No notes matched your search' : 'No Day-End Notes Recorded Yet'}
-              </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '380px', margin: '0 auto 16px' }}>
-                Write your end-of-day market reflections, key lessons, and plan for the next trading session.
-              </p>
-              <button
-                onClick={() => onOpenNoteModal?.(new Date().toISOString().split('T')[0])}
-                className="btn btn-primary"
-                style={{ padding: '7px 16px', fontSize: '0.82rem', fontWeight: 650, borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Plus size={15} />
-                <span>Write Today's Note</span>
-              </button>
-            </div>
-          ) : (
-            <div 
-              style={{ 
-                display: 'grid', 
-                gridTemplateColumns: notesLayout === 'grid' ? 'repeat(auto-fill, minmax(320px, 1fr))' : '1fr', 
-                gap: '8px',
-                alignItems: 'start'
-              }}
-            >
-              {filteredDailyNotes.map(note => {
-                const noteTrades = allTrades.filter(t => {
-                  const d = t.exitDate || t.date;
-                  if (d !== note.date) return false;
-                  return isMatchAccount(t.brokerAccountId, t.broker);
-                });
-
-                // Calculate day's total Net PnL per strategy
-                const strategyDayPnLMap = new Map<string, number>();
-                for (const t of noteTrades) {
-                  const sName = t.strategy || t.symbol || 'General Trade';
-                  const key = sName.toLowerCase();
-                  strategyDayPnLMap.set(key, (strategyDayPnLMap.get(key) || 0) + (t.netPnL || 0));
-                }
-
-                // Consolidate paired spreads and filter duplicate hedge legs into clean strategy notes
-                const groupedPositions = groupHedgedTrades(noteTrades);
-                const strategyNotesForDay: Array<{ id: string; strategy: string; note: string; strategyPnL: number }> = [];
-                const seenNotes = new Set<string>();
-
-                for (const pos of groupedPositions) {
-                  // If not a recognized paired spread, but explicitly marked as an orphan hedge leg, skip it
-                  if (!pos.isHedgedSpread && isHedgeLeg(pos.leg1)) {
-                    continue;
-                  }
-
-                  const rawNote = pos.notes || pos.leg1.notes || pos.leg2?.notes || '';
-                  const cleaned = cleanHedgeNote(rawNote).trim();
-                  if (!cleaned) continue;
-
-                  const stratName = pos.strategy || pos.leg1.strategy || pos.leg2?.strategy || pos.leg1.symbol || 'General Trade';
-                  const dedupeKey = `${stratName.toLowerCase()}:::${cleaned.toLowerCase()}`;
-                  if (seenNotes.has(dedupeKey)) continue;
-                  seenNotes.add(dedupeKey);
-
-                  const stratPnL = strategyDayPnLMap.get(stratName.toLowerCase()) ?? pos.combinedNetPnL;
-
-                  strategyNotesForDay.push({
-                    id: pos.id,
-                    strategy: stratName,
-                    note: cleaned,
-                    strategyPnL: stratPnL
-                  });
-                }
-
-                const netPnL = noteTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
-                const dateObj = (() => {
-                  try {
-                    const parts = note.date.split('-');
-                    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                  } catch {
-                    return new Date();
-                  }
-                })();
-
-                const formattedDate = dateObj.toLocaleDateString('en-IN', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric'
-                });
-
-                return (
-                  <div
-                    key={note.date}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid var(--border-color)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-                    }}
-                  >
-                    {/* Card Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                          {formattedDate}
-                        </span>
-
-                        {/* Trade context summary */}
-                        {noteTrades.length > 0 ? (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>•</span>
-                            <span>{noteTrades.length}T</span>
-                            <span>•</span>
-                            <span style={{ 
-                              fontWeight: 700, 
-                              color: netPnL >= 0 ? '#10b981' : '#f87171',
-                              fontFamily: 'var(--font-mono)'
-                            }}>
-                              {isPnlVisible ? `${netPnL >= 0 ? '+' : ''}₹${Math.round(netPnL).toLocaleString('en-IN')}` : '••••'}
-                            </span>
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
-                            • 0 trades
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Actions: Edit & Delete */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button
-                          onClick={() => onOpenNoteModal?.(note.date)}
-                          className="btn btn-secondary"
-                          style={{
-                            padding: '2px 7px',
-                            fontSize: '0.7rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            color: '#38bdf8',
-                            borderColor: 'rgba(56, 189, 248, 0.3)',
-                            background: 'rgba(56, 189, 248, 0.06)'
-                          }}
-                          title="Edit Note"
-                        >
-                          <Edit3 size={11} />
-                          <span>Edit</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleDeleteDailyNote(note.date)}
-                          className="btn btn-secondary"
-                          style={{
-                            padding: '2px 5px',
-                            fontSize: '0.7rem',
-                            color: '#f87171',
-                            borderColor: 'rgba(239, 68, 68, 0.3)',
-                            display: 'flex',
-                            alignItems: 'center'
-                          }}
-                          title="Delete Note"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Card Content: 2-Column Split (Left: Day-End Reflections, Right: Trade Log Notes in the blank space) */}
-                    {(() => {
-                      const hasDayNotes = Boolean(note.notes || note.lessons || note.planForTomorrow);
-                      const hasTradeNotes = strategyNotesForDay.length > 0;
-                      const isTwoColumn = hasDayNotes && hasTradeNotes;
-
-                      return (
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: isTwoColumn ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr',
-                            gap: '8px',
-                            alignItems: 'start'
-                          }}
-                        >
-                          {/* Left Column: Day Reflections, Key Lesson, Tomorrow's Plan */}
-                          {hasDayNotes && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0 }}>
-                              {/* Formatted Note Text Body */}
-                              {note.notes && (
-                                <div 
-                                  style={{ 
-                                    background: 'rgba(0, 0, 0, 0.25)', 
-                                    padding: '6px 10px', 
-                                    borderRadius: '6px', 
-                                    border: '1px solid rgba(255, 255, 255, 0.04)',
-                                    maxHeight: '190px',
-                                    overflowY: 'auto'
-                                  }}
-                                >
-                                  {renderFormattedNoteText(note.notes)}
-                                </div>
-                              )}
-
-                              {/* Lesson */}
-                              {note.lessons && (
-                                <div 
-                                  style={{ 
-                                    padding: '4px 8px', 
-                                    borderRadius: '6px', 
-                                    background: 'rgba(56, 189, 248, 0.05)', 
-                                    borderLeft: '3px solid #38bdf8',
-                                    fontSize: '0.76rem',
-                                    lineHeight: 1.35,
-                                    color: 'var(--text-main)',
-                                    display: 'flex',
-                                    alignItems: 'baseline',
-                                    gap: '5px'
-                                  }}
-                                >
-                                  <span style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap' }}>💡 Lesson:</span>
-                                  <span style={{ whiteSpace: 'pre-wrap' }}>{note.lessons}</span>
-                                </div>
-                              )}
-
-                              {/* Plan For Tomorrow */}
-                              {note.planForTomorrow && (
-                                <div 
-                                  style={{ 
-                                    padding: '4px 8px', 
-                                    borderRadius: '6px', 
-                                    background: 'rgba(168, 85, 247, 0.05)', 
-                                    borderLeft: '3px solid #a855f7',
-                                    fontSize: '0.76rem',
-                                    lineHeight: 1.35,
-                                    color: 'var(--text-main)',
-                                    display: 'flex',
-                                    alignItems: 'baseline',
-                                    gap: '5px'
-                                  }}
-                                >
-                                  <span style={{ fontWeight: 700, color: '#a855f7', whiteSpace: 'nowrap' }}>🎯 Tomorrow:</span>
-                                  <span style={{ whiteSpace: 'pre-wrap' }}>{note.planForTomorrow}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Right Column: Trade Log Notes positioned in the front/blank space */}
-                          {hasTradeNotes && (
-                            <div 
-                              style={{ 
-                                padding: '6px 8px', 
-                                borderRadius: '6px', 
-                                background: 'rgba(0, 0, 0, 0.2)',
-                                border: '1px solid rgba(255, 255, 255, 0.04)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '3px',
-                                maxHeight: '190px',
-                                overflowY: 'auto',
-                                minWidth: 0
-                              }}
-                            >
-                              <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '1px' }}>
-                                Trade Log Notes ({strategyNotesForDay.length}):
-                              </span>
-
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                {strategyNotesForDay.map(item => (
-                                  <div 
-                                    key={item.id}
-                                    style={{ 
-                                      display: 'flex', 
-                                      alignItems: 'baseline', 
-                                      gap: '5px', 
-                                      fontSize: '0.78rem',
-                                      lineHeight: 1.32,
-                                      padding: '1px 2px'
-                                    }}
-                                  >
-                                    <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
-                                    <span 
-                                      style={{ 
-                                        fontWeight: 700, 
-                                        color: '#38bdf8', 
-                                        whiteSpace: 'nowrap',
-                                        fontSize: '0.72rem'
-                                      }}
-                                    >
-                                      {item.strategy}
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontSize: '0.67rem',
-                                        fontWeight: 700,
-                                        fontFamily: 'var(--font-mono)',
-                                        color: item.strategyPnL >= 0 ? '#10b981' : '#f87171',
-                                        background: item.strategyPnL >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                                        padding: '0 4px',
-                                        borderRadius: '3px',
-                                        whiteSpace: 'nowrap'
-                                      }}
-                                      title={`Day PnL for ${item.strategy}`}
-                                    >
-                                      {isPnlVisible ? `${item.strategyPnL >= 0 ? '+' : ''}₹${Math.round(item.strategyPnL).toLocaleString('en-IN')}` : '••••'}
-                                    </span>
-                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>:</span>
-                                    <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
-                                      {item.note}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                );
-              })}
-            </div>
+              <X size={12} />
+            </button>
           )}
         </div>
-      )}
 
-      {/* Trade Mistakes & Logs Tab View */}
-      {journalView === 'tradeNotes' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* 2. Analytical KPI Leak & Mistake Pattern Bar (Compact) */}
-          <div 
-            style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-              gap: '6px' 
+        {/* Quick Filter Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setTypeFilter('all')}
+            className="btn"
+            style={{
+              padding: '2px 9px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              borderRadius: '9999px',
+              background: typeFilter === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
+              color: typeFilter === 'all' ? '#fff' : 'var(--text-muted)',
+              border: '1px solid ' + (typeFilter === 'all' ? 'var(--primary)' : 'var(--border-color)')
             }}
           >
-            {/* Card 1: Total Days */}
-            <div 
-              className="glass-card" 
-              style={{ 
-                padding: '8px 12px', 
-                borderRadius: '8px', 
-                border: '1px solid var(--border-color)', 
-                background: 'var(--bg-card)' 
-              }}
-            >
-              <span style={{ fontSize: '0.67rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Days Traded
-              </span>
-              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', marginTop: '1px' }}>
-                {stats.uniqueDays} <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-dim)' }}>Days</span>
-              </div>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '1px', display: 'block' }}>
-                {stats.totalNotesCount} trade notes
-              </span>
-            </div>
+            All Days ({journalDays.length})
+          </button>
 
-            {/* Card 2: Tagged Mistakes */}
-            <div 
-              className="glass-card" 
-              style={{ 
-                padding: '8px 12px', 
-                borderRadius: '8px', 
-                border: '1px solid rgba(239, 68, 68, 0.3)', 
-                background: 'rgba(239, 68, 68, 0.04)' 
-              }}
-            >
-              <span style={{ fontSize: '0.67rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Identified Mistakes
-              </span>
-              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#f87171', marginTop: '1px' }}>
-                {stats.totalMistakePositions} <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#fca5a5' }}>Decisions</span>
-              </div>
-              <span style={{ fontSize: '0.68rem', color: '#f87171', opacity: 0.9, marginTop: '1px', display: 'block' }}>
-                {((stats.totalMistakePositions / (accountPositions.length || 1)) * 100).toFixed(1)}% of trades
-              </span>
-            </div>
+          <button
+            onClick={() => setTypeFilter('mistakes')}
+            className="btn"
+            style={{
+              padding: '2px 9px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              borderRadius: '9999px',
+              background: typeFilter === 'mistakes' ? '#ef4444' : 'rgba(255,255,255,0.04)',
+              color: typeFilter === 'mistakes' ? '#fff' : 'var(--text-muted)',
+              border: '1px solid ' + (typeFilter === 'mistakes' ? '#ef4444' : 'var(--border-color)')
+            }}
+          >
+            ⚠️ Mistakes ({mistakeDaysCount})
+          </button>
 
-            {/* Card 3: Mistake Financial Penalty Cost */}
-            <div 
-              className="glass-card" 
-              style={{ 
-                padding: '8px 12px', 
-                borderRadius: '8px', 
-                border: '1px solid rgba(239, 68, 68, 0.35)', 
-                background: 'rgba(239, 68, 68, 0.07)' 
-              }}
-            >
-              <span style={{ fontSize: '0.67rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Mistake Cost
-              </span>
-              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#ef4444', marginTop: '1px' }}>
-                {isPnlVisible ? `-₹${Math.round(stats.totalMistakeLoss).toLocaleString('en-IN')}` : '••••••'}
-              </div>
-              <span style={{ fontSize: '0.68rem', color: '#fca5a5', marginTop: '1px', display: 'block' }}>
-                Realized losses from mistakes
-              </span>
-            </div>
+          <button
+            onClick={() => setTypeFilter('notes')}
+            className="btn"
+            style={{
+              padding: '2px 9px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              borderRadius: '9999px',
+              background: typeFilter === 'notes' ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
+              color: typeFilter === 'notes' ? '#fff' : 'var(--text-muted)',
+              border: '1px solid ' + (typeFilter === 'notes' ? 'var(--primary)' : 'var(--border-color)')
+            }}
+          >
+            📝 Notes ({notedDaysCount})
+          </button>
 
-            {/* Card 4: Most Common Mistake */}
-            <div 
-              className="glass-card" 
-              style={{ 
-                padding: '8px 12px', 
-                borderRadius: '8px', 
-                border: '1px solid rgba(245, 158, 11, 0.3)', 
-                background: 'rgba(245, 158, 11, 0.04)' 
-              }}
-            >
-              <span style={{ fontSize: '0.67rem', color: '#fbbf24', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Top Repeat Error
-              </span>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#fbbf24', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {stats.topMistake ? stats.topMistake.name : 'None'}
-              </div>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '1px', display: 'block' }}>
-                {stats.topMistake ? `${stats.topMistake.count} times repeated` : 'Clean execution discipline'}
-              </span>
-            </div>
-          </div>
+          <button
+            onClick={() => setTypeFilter('losses')}
+            className="btn"
+            style={{
+              padding: '2px 9px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              borderRadius: '9999px',
+              background: typeFilter === 'losses' ? '#f87171' : 'rgba(255,255,255,0.04)',
+              color: typeFilter === 'losses' ? '#fff' : 'var(--text-muted)',
+              border: '1px solid ' + (typeFilter === 'losses' ? '#f87171' : 'var(--border-color)')
+            }}
+          >
+            🔴 Losses ({lossDaysCount})
+          </button>
+        </div>
 
-          {/* 3. Search and Multi-Criteria Filtering Controls (Compact) */}
+        {/* Month, Layout, Sort, and + Write Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {availableMonths.length > 1 && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="form-select"
+              style={{ padding: '3px 7px', fontSize: '0.72rem', borderRadius: '5px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none' }}
+            >
+              <option value="All">All Months</option>
+              {availableMonths.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Layout Switcher: Grid vs List */}
           <div 
-            className="glass-card" 
             style={{ 
-              padding: '8px 12px', 
-              borderRadius: '8px', 
               display: 'flex', 
-              flexDirection: 'column', 
-              gap: '6px',
-              background: 'rgba(255, 255, 255, 0.015)' 
+              alignItems: 'center', 
+              background: 'rgba(255, 255, 255, 0.04)', 
+              padding: '2px', 
+              borderRadius: '6px', 
+              border: '1px solid var(--border-color)' 
             }}
           >
-            {/* Top Row: Search Input + Selects */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-              {/* Keyword Search */}
-              <div style={{ position: 'relative', flex: '1 1 200px' }}>
-                <Search 
-                  size={13} 
-                  color="var(--text-dim)" 
-                  style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} 
-                />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search in trade notes, symbol, setup, mistakes..."
-                  className="input-field"
-                  style={{ 
-                    paddingLeft: '28px', 
-                    paddingRight: '10px', 
-                    paddingTop: '4px', 
-                    paddingBottom: '4px', 
-                    fontSize: '0.76rem', 
-                    borderRadius: '6px',
-                    width: '100%',
-                    background: 'var(--bg-card)',
-                    color: 'var(--text-main)',
-                    border: '1px solid var(--border-color)'
-                  }}
-                />
-                {searchQuery && (
-                  <button 
-                    onClick={() => setSearchQuery('')}
-                    style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
-              {/* Month Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Month:</span>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="form-select"
-                  style={{ padding: '3px 8px', fontSize: '0.74rem', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
-                >
-                  <option value="All">All Months ({selectedFY})</option>
-                  {availableMonths.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Mistake Type Filter */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Mistake:</span>
-                <select
-                  value={selectedMistakeType}
-                  onChange={(e) => setSelectedMistakeType(e.target.value)}
-                  className="form-select"
-                  style={{ padding: '3px 8px', fontSize: '0.74rem', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
-                >
-                  <option value="All">All Mistakes ({availableMistakes.length})</option>
-                  {availableMistakes.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Emotion Filter */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Emotion:</span>
-                <select
-                  value={selectedEmotion}
-                  onChange={(e) => setSelectedEmotion(e.target.value)}
-                  className="form-select"
-                  style={{ padding: '3px 8px', fontSize: '0.74rem', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
-                >
-                  <option value="All">All Emotions</option>
-                  <option value="Calm">Calm</option>
-                  <option value="Fearful">Fearful</option>
-                  <option value="Impatient">Impatient</option>
-                  <option value="Greedy">Greedy</option>
-                  <option value="Revengeful">Revengeful</option>
-                </select>
-              </div>
-
-              {/* Sort Order Toggle */}
-              <button
-                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                className="btn btn-secondary"
-                style={{ padding: '4px 9px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                title={sortOrder === 'desc' ? "Showing Newest Dates First" : "Showing Oldest Dates First"}
-              >
-                <ArrowUpDown size={12} />
-                <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
-              </button>
-            </div>
-
-            {/* Quick Filter Pill Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '6px' }}>
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => setTypeFilter('all')}
-                  className="btn"
-                  style={{
-                    padding: '2px 10px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '9999px',
-                    background: typeFilter === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
-                    color: typeFilter === 'all' ? '#fff' : 'var(--text-muted)',
-                    border: '1px solid ' + (typeFilter === 'all' ? 'var(--primary)' : 'var(--border-color)')
-                  }}
-                >
-                  All Noted Days ({dayGroups.length})
-                </button>
-
-                <button
-                  onClick={() => setTypeFilter('mistakes')}
-                  className="btn"
-                  style={{
-                    padding: '2px 10px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '9999px',
-                    background: typeFilter === 'mistakes' ? '#ef4444' : 'rgba(255,255,255,0.04)',
-                    color: typeFilter === 'mistakes' ? '#fff' : 'var(--text-muted)',
-                    border: '1px solid ' + (typeFilter === 'mistakes' ? '#ef4444' : 'var(--border-color)')
-                  }}
-                >
-                  ⚠️ Mistakes Only
-                </button>
-
-                <button
-                  onClick={() => setTypeFilter('notes')}
-                  className="btn"
-                  style={{
-                    padding: '2px 10px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '9999px',
-                    background: typeFilter === 'notes' ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
-                    color: typeFilter === 'notes' ? '#fff' : 'var(--text-muted)',
-                    border: '1px solid ' + (typeFilter === 'notes' ? 'var(--primary)' : 'var(--border-color)')
-                  }}
-                >
-                  📝 Notes Only
-                </button>
-
-                <button
-                  onClick={() => setTypeFilter('losses')}
-                  className="btn"
-                  style={{
-                    padding: '2px 10px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '9999px',
-                    background: typeFilter === 'losses' ? '#f87171' : 'rgba(255,255,255,0.04)',
-                    color: typeFilter === 'losses' ? '#fff' : 'var(--text-muted)',
-                    border: '1px solid ' + (typeFilter === 'losses' ? '#f87171' : 'var(--border-color)')
-                  }}
-                >
-                  🔴 Loss Days
-                </button>
-              </div>
-
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
-                {dayGroups.length} days ({filteredPositions.length} decisions)
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => handleToggleLayout('grid')}
+              style={{
+                padding: '3px 8px',
+                fontSize: '0.72rem',
+                fontWeight: notesLayout === 'grid' ? 700 : 500,
+                borderRadius: '5px',
+                border: 'none',
+                background: notesLayout === 'grid' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
+                color: notesLayout === 'grid' ? '#38bdf8' : 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Compact Grid View (Multi-Day)"
+            >
+              <LayoutGrid size={12} />
+              <span>Compact Grid</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleLayout('list')}
+              style={{
+                padding: '3px 8px',
+                fontSize: '0.72rem',
+                fontWeight: notesLayout === 'list' ? 700 : 500,
+                borderRadius: '5px',
+                border: 'none',
+                background: notesLayout === 'list' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
+                color: notesLayout === 'list' ? '#38bdf8' : 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Single-Column List View"
+            >
+              <List size={12} />
+              <span>List</span>
+            </button>
           </div>
 
-      {/* 4. Day-wise Feed Stream (The Core User Feature) */}
-      {dayGroups.length === 0 ? (
+          {/* Sort button */}
+          <button
+            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            className="btn btn-secondary"
+            style={{ padding: '4px 8px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '3px' }}
+            title="Sort Newest / Oldest"
+          >
+            <ArrowUpDown size={11} />
+            <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+          </button>
+
+          {/* + Write Day Note button */}
+          <button
+            onClick={() => onOpenNoteModal?.(new Date().toISOString().split('T')[0])}
+            className="btn btn-primary"
+            style={{
+              padding: '4px 9px',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <Plus size={13} />
+            <span>Write Day Note</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Merged Day Cards Feed */}
+      {filteredJournalDays.length === 0 ? (
         <div 
           style={{ 
+            padding: '50px 20px', 
             textAlign: 'center', 
-            padding: '60px 20px', 
-            background: 'rgba(255,255,255,0.015)', 
-            borderRadius: '18px', 
+            borderRadius: '14px',
             border: '1px dashed var(--border-color)',
-            color: 'var(--text-muted)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '8px'
+            background: 'rgba(255, 255, 255, 0.01)'
           }}
         >
-          <div style={{ fontSize: '2.5rem' }}>🎯</div>
-          <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>
-            No trade notes or mistakes found for this filter.
-          </strong>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '480px', margin: 0 }}>
-            When logging trades, record your reasoning in 'Notes' and tag execution errors in 'Mistakes' to review and audit them here.
+          <BookOpenCheck size={40} color="var(--text-dim)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
+            {searchQuery ? 'No journal notes or mistakes matched your search' : 'No Journal Notes or Mistakes Found'}
+          </h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '380px', margin: '0 auto 16px' }}>
+            Log trades with notes and mistakes, or record day reflections to see them organized here.
           </p>
+          <button
+            onClick={() => onOpenNoteModal?.(new Date().toISOString().split('T')[0])}
+            className="btn btn-primary"
+            style={{ padding: '7px 16px', fontSize: '0.82rem', fontWeight: 650, borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={15} />
+            <span>Write Today's Note</span>
+          </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {dayGroups.map((group) => {
-            const relativeLabel = getRelativeDayLabel(group.date);
-            const isProfit = group.dayNetPnL >= 0;
-            const hasMistakesOnDay = group.dayMistakesCount > 0;
+        <div 
+          style={{ 
+            display: 'grid', 
+            gridTemplateColumns: notesLayout === 'grid' ? 'repeat(auto-fill, minmax(320px, 1fr))' : '1fr', 
+            gap: '8px',
+            alignItems: 'start'
+          }}
+        >
+          {filteredJournalDays.map(day => {
+            const isProfit = day.dayNetPnL >= 0;
+            const hasBothColumns = day.hasDayNotes && day.hasTradeNotesOrMistakes;
 
             return (
-              <div 
-                key={group.date}
-                className="glass-card"
+              <div
+                key={day.date}
                 style={{
-                  padding: 0,
-                  borderRadius: '10px',
-                  overflow: 'hidden',
-                  border: hasMistakesOnDay 
-                    ? '1px solid rgba(239, 68, 68, 0.3)' 
-                    : '1px solid var(--border-color)',
-                  background: 'var(--bg-card)'
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: day.hasMistakes ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
                 }}
               >
-                {/* Day Header Bar - Sleek & Compact */}
-                <div 
-                  style={{
-                    padding: '6px 12px',
-                    background: hasMistakesOnDay 
-                      ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%)' 
-                      : 'linear-gradient(90deg, rgba(10, 132, 255, 0.07) 0%, rgba(0, 0, 0, 0.25) 100%)',
-                    borderBottom: '1px solid var(--border-color)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '8px'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <div style={{
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid var(--border-color)',
-                      fontSize: '0.82rem',
-                      fontWeight: 750,
-                      color: 'var(--text-main)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px'
-                    }}>
+                {/* Day Card Header Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Calendar size={13} color="var(--primary)" />
-                      <span>{formatDateDisplay(group.date)}</span>
-                    </div>
+                      <span>{day.formattedDate}</span>
+                    </span>
 
-                    {relativeLabel && (
-                      <span style={{ 
-                        fontSize: '0.65rem', 
-                        fontWeight: 750, 
-                        padding: '1px 6px', 
-                        borderRadius: '5px', 
-                        background: 'rgba(10, 132, 255, 0.18)', 
-                        color: 'var(--primary)',
-                        border: '1px solid rgba(10, 132, 255, 0.3)'
-                      }}>
-                        {relativeLabel}
+                    {day.relativeLabel && (
+                      <span style={{ fontSize: '0.65rem', fontWeight: 750, padding: '1px 6px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                        {day.relativeLabel}
                       </span>
                     )}
 
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                      {group.positions.length} {group.positions.length === 1 ? 'Trade' : 'Trades'}
-                    </span>
+                    {/* Trade Count & Day PnL */}
+                    {day.tradesCount > 0 ? (
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>•</span>
+                        <span>{day.tradesCount}T</span>
+                        <span>•</span>
+                        <span style={{ 
+                          fontWeight: 700, 
+                          color: isProfit ? '#10b981' : '#f87171',
+                          fontFamily: 'var(--font-mono)'
+                        }}>
+                          {isPnlVisible ? `${isProfit ? '+' : ''}₹${Math.round(day.dayNetPnL).toLocaleString('en-IN')}` : '••••'}
+                        </span>
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                        • 0 trades
+                      </span>
+                    )}
 
-                    {hasMistakesOnDay ? (
+                    {/* Mistakes Badge */}
+                    {day.hasMistakes ? (
                       <span style={{ 
-                        fontSize: '0.68rem', 
+                        fontSize: '0.66rem', 
                         fontWeight: 750, 
-                        padding: '1px 7px', 
+                        padding: '1px 6px', 
                         borderRadius: '9999px',
                         background: 'rgba(239, 68, 68, 0.18)',
                         color: '#f87171',
                         border: '1px solid rgba(239, 68, 68, 0.35)'
                       }}>
-                        ⚠️ {group.dayMistakesCount} {group.dayMistakesCount === 1 ? 'Mistake' : 'Mistakes'}
+                        ⚠️ {day.mistakesCount} {day.mistakesCount === 1 ? 'Mistake' : 'Mistakes'}
                       </span>
-                    ) : (
+                    ) : day.tradesCount > 0 ? (
                       <span style={{ 
-                        fontSize: '0.68rem', 
+                        fontSize: '0.65rem', 
                         fontWeight: 650, 
-                        padding: '1px 7px', 
+                        padding: '1px 6px', 
                         borderRadius: '9999px',
                         background: 'rgba(48, 209, 88, 0.12)',
                         color: '#4ade80',
                         border: '1px solid rgba(48, 209, 88, 0.25)'
                       }}>
-                        🛡️ Clean Discipline
+                        🛡️ Clean
                       </span>
-                    )}
+                    ) : null}
                   </div>
 
-                  {/* Day Realized P&L Badge */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>Day P&L:</span>
-                    <span 
-                      style={{ 
-                        fontSize: '0.82rem', 
-                        fontWeight: 850, 
-                        fontFamily: 'var(--font-mono)',
-                        color: isProfit ? 'var(--color-win)' : 'var(--color-loss)',
-                        background: isProfit ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
-                        border: '1px solid ' + (isProfit ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
-                        padding: '2px 8px',
-                        borderRadius: '6px'
+                  {/* Actions: Edit / Write Day Note & Delete */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button
+                      onClick={() => onOpenNoteModal?.(day.date)}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '2px 7px',
+                        fontSize: '0.7rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        color: '#38bdf8',
+                        borderColor: 'rgba(56, 189, 248, 0.3)',
+                        background: 'rgba(56, 189, 248, 0.06)'
                       }}
+                      title={day.hasDayNotes ? "Edit Day Note" : "Write Day Note for this date"}
                     >
-                      {isPnlVisible ? `${isProfit ? '+' : ''}${formatCurrency(group.dayNetPnL)}` : '••••••'}
-                    </span>
+                      <Edit3 size={11} />
+                      <span>{day.hasDayNotes ? 'Edit Note' : '+ Day Note'}</span>
+                    </button>
+
+                    {day.hasDayNotes && (
+                      <button
+                        onClick={() => handleDeleteDailyNote(day.date)}
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '2px 5px',
+                          fontSize: '0.7rem',
+                          color: '#f87171',
+                          borderColor: 'rgba(239, 68, 68, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        title="Delete Day Note"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Day Positions Stream */}
-                <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {group.positions.map((pos) => {
-                    const isSpread = pos.isHedgedSpread && Boolean(pos.leg2);
-                    const isPosWin = pos.combinedNetPnL >= 0;
-                    const hasMistake = pos.mistakes.length > 0;
-                    const hasNote = Boolean(pos.notes && pos.notes.trim().length > 0);
-
-                    // ==========================================
-                    // 1. UNIFIED HEDGED SPREAD CARD (COMPACT & CLEAN)
-                    // ==========================================
-                    if (isSpread && pos.leg2) {
-                      const leg1 = pos.leg1;
-                      const leg2 = pos.leg2;
-
-                      return (
+                {/* Card Content: 2-Column Split (Left: Day-End Reflections, Right: Trade Notes & Mistakes) */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: hasBothColumns ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr',
+                    gap: '8px',
+                    alignItems: 'start'
+                  }}
+                >
+                  {/* Left Column: Day-End Reflections */}
+                  {day.hasDayNotes && day.dailyNote && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                      {/* Body Reflections */}
+                      {day.dailyNote.notes && (
                         <div 
-                          key={pos.id}
-                          className="journal-pos-card"
-                          style={{
-                            padding: '6px 10px',
-                            borderRadius: '8px',
-                            border: hasMistake 
-                              ? '1px solid rgba(239, 68, 68, 0.3)' 
-                              : '1px solid rgba(10, 132, 255, 0.25)',
-                            background: hasMistake ? 'rgba(239, 68, 68, 0.02)' : 'rgba(10, 132, 255, 0.02)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px'
+                          style={{ 
+                            background: 'rgba(0, 0, 0, 0.25)', 
+                            padding: '6px 10px', 
+                            borderRadius: '6px', 
+                            border: '1px solid rgba(255, 255, 255, 0.04)',
+                            maxHeight: '190px',
+                            overflowY: 'auto'
                           }}
                         >
-                          {/* Row 1: Everything in one balanced, compact row */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <span 
-                                style={{ 
-                                  fontSize: '0.68rem', 
-                                  fontWeight: 800, 
-                                  padding: '1px 6px', 
-                                  borderRadius: '5px',
-                                  background: 'rgba(10, 132, 255, 0.18)',
-                                  color: '#60a5fa',
-                                  border: '1px solid rgba(10, 132, 255, 0.3)'
-                                }}
-                              >
-                                🛡️ Spread
-                              </span>
-
-                              {/* Leg 1 Pill */}
-                              <span style={{ 
-                                fontSize: '0.74rem', 
-                                fontWeight: 700, 
-                                color: 'var(--text-main)', 
-                                background: 'rgba(255,255,255,0.05)', 
-                                padding: '2px 6px', 
-                                borderRadius: '5px', 
-                                border: '1px solid var(--border-color)', 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '4px' 
-                              }}>
-                                <span style={{ color: leg1.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800, fontSize: '0.68rem' }}>
-                                  {leg1.action}
-                                </span>
-                                <span>{leg1.symbol}</span>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: leg1.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
-                                  ({leg1.netPnL >= 0 ? '+' : ''}{formatCurrency(leg1.netPnL)})
-                                </span>
-                              </span>
-
-                              {/* Leg 2 Pill */}
-                              <span style={{ 
-                                fontSize: '0.74rem', 
-                                fontWeight: 700, 
-                                color: 'var(--text-main)', 
-                                background: 'rgba(255,255,255,0.05)', 
-                                padding: '2px 6px', 
-                                borderRadius: '5px', 
-                                border: '1px solid var(--border-color)', 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '4px' 
-                              }}>
-                                <span style={{ color: leg2.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800, fontSize: '0.68rem' }}>
-                                  {leg2.action}
-                                </span>
-                                <span>{leg2.symbol}</span>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: leg2.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
-                                  ({leg2.netPnL >= 0 ? '+' : ''}{formatCurrency(leg2.netPnL)})
-                                </span>
-                              </span>
-
-                              {pos.entryTime && (
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <Clock size={11} />
-                                  <span>{formatTimeToAMPM(pos.entryTime)}</span>
-                                </span>
-                              )}
-
-                              {pos.broker && <BrokerBadge broker={pos.broker} />}
-
-                              {/* Mistakes / Clean tag */}
-                              {hasMistake ? (
-                                pos.mistakes.map(m => (
-                                  <span 
-                                    key={m}
-                                    style={{ 
-                                      fontSize: '0.68rem', 
-                                      fontWeight: 700, 
-                                      padding: '1px 6px', 
-                                      borderRadius: '9999px',
-                                      background: 'rgba(239, 68, 68, 0.18)',
-                                      color: '#fca5a5',
-                                      border: '1px solid rgba(239, 68, 68, 0.35)'
-                                    }}
-                                  >
-                                    ⚠️ {m}
-                                  </span>
-                                ))
-                              ) : (
-                                <span 
-                                  style={{ 
-                                    fontSize: '0.66rem', 
-                                    fontWeight: 650, 
-                                    padding: '1px 6px', 
-                                    borderRadius: '9999px',
-                                    background: 'rgba(48, 209, 88, 0.12)',
-                                    color: '#4ade80',
-                                    border: '1px solid rgba(48, 209, 88, 0.25)'
-                                  }}
-                                >
-                                  ✓ Clean Setup
-                                </span>
-                              )}
-
-                              {pos.emotion && (
-                                <span 
-                                  style={{ 
-                                    fontSize: '0.66rem', 
-                                    fontWeight: 650, 
-                                    padding: '1px 6px', 
-                                    borderRadius: '9999px',
-                                    background: 'rgba(191, 90, 242, 0.12)',
-                                    color: '#d8b4fe',
-                                    border: '1px solid rgba(191, 90, 242, 0.25)'
-                                  }}
-                                >
-                                  {pos.emotion}
-                                </span>
-                              )}
-
-                              {pos.strategy && (
-                                <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', padding: '1px 5px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                                  {pos.strategy}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Spread Combined Net P&L & Edit Button */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span 
-                                style={{ 
-                                  fontSize: '0.82rem', 
-                                  fontWeight: 850, 
-                                  fontFamily: 'var(--font-mono)',
-                                  color: isPosWin ? 'var(--color-win)' : 'var(--color-loss)',
-                                  background: isPosWin ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
-                                  border: '1px solid ' + (isPosWin ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
-                                  padding: '2px 7px',
-                                  borderRadius: '5px'
-                                }}
-                              >
-                                {isPnlVisible ? `Spread Net: ${isPosWin ? '+' : ''}${formatCurrency(pos.combinedNetPnL)}` : '••••••'}
-                              </span>
-
-                              {onEditTrade && (
-                                <button
-                                  onClick={() => onEditTrade(leg1.id)}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--primary)',
-                                    cursor: 'pointer',
-                                    padding: '2px 4px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 650
-                                  }}
-                                  title="Open spread in TradeLogger"
-                                >
-                                  <span>Edit</span>
-                                  <ExternalLink size={11} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Row 2: Note Quote Box (Rendered ONLY if note exists) */}
-                          {hasNote && (
-                            <div 
-                              style={{ 
-                                padding: '4px 8px', 
-                                borderRadius: '5px', 
-                                background: 'rgba(0, 0, 0, 0.25)',
-                                borderLeft: '2.5px solid ' + (hasMistake ? '#ef4444' : 'var(--primary)'),
-                                fontSize: '0.78rem',
-                                color: 'var(--text-main)',
-                                lineHeight: 1.45,
-                                marginTop: '2px'
-                              }}
-                            >
-                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: hasMistake ? '#fca5a5' : 'var(--primary)', marginRight: '6px' }}>
-                                📝 Note:
-                              </span>
-                              <span style={{ whiteSpace: 'pre-wrap' }}>{pos.notes}</span>
-                            </div>
-                          )}
-
-                          {/* Rules Followed / Broken */}
-                          {pos.rulesFollowed && pos.rulesFollowed.length > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontSize: '0.66rem', color: 'var(--text-dim)' }}>
-                              <span style={{ fontWeight: 600 }}>Rules:</span>
-                              {pos.rulesFollowed.map(r => (
-                                <span key={r} style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
-                                  ✓ {r}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          {renderFormattedNoteText(day.dailyNote.notes)}
                         </div>
-                      );
-                    }
+                      )}
 
-                    // ==========================================
-                    // 2. NORMAL SINGLE TRADE CARD (COMPACT & CLEAN)
-                    // ==========================================
-                    const trade = pos.leg1;
-                    return (
-                      <div 
-                        key={trade.id}
-                        className="journal-pos-card"
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: '8px',
-                          border: hasMistake 
-                            ? '1px solid rgba(239, 68, 68, 0.3)' 
-                            : '1px solid var(--border-color)',
-                          background: hasMistake ? 'rgba(239, 68, 68, 0.02)' : 'rgba(255, 255, 255, 0.015)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '4px'
-                        }}
-                      >
-                        {/* Row 1: Action, Symbol, Time, Segment, Broker, Inline Badges, P&L, Edit */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      {/* Lesson */}
+                      {day.dailyNote.lessons && (
+                        <div 
+                          style={{ 
+                            padding: '4px 8px', 
+                            borderRadius: '6px', 
+                            background: 'rgba(56, 189, 248, 0.05)', 
+                            borderLeft: '3px solid #38bdf8',
+                            fontSize: '0.76rem',
+                            lineHeight: 1.35,
+                            color: 'var(--text-main)',
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            gap: '5px'
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap' }}>💡 Lesson:</span>
+                          <span style={{ whiteSpace: 'pre-wrap' }}>{day.dailyNote.lessons}</span>
+                        </div>
+                      )}
+
+                      {/* Tomorrow's Plan */}
+                      {day.dailyNote.planForTomorrow && (
+                        <div 
+                          style={{ 
+                            padding: '4px 8px', 
+                            borderRadius: '6px', 
+                            background: 'rgba(168, 85, 247, 0.05)', 
+                            borderLeft: '3px solid #a855f7',
+                            fontSize: '0.76rem',
+                            lineHeight: 1.35,
+                            color: 'var(--text-main)',
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            gap: '5px'
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: '#a855f7', whiteSpace: 'nowrap' }}>🎯 Tomorrow:</span>
+                          <span style={{ whiteSpace: 'pre-wrap' }}>{day.dailyNote.planForTomorrow}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Right Column: Trade Log Notes & Mistakes */}
+                  {day.hasTradeNotesOrMistakes && (
+                    <div 
+                      style={{ 
+                        padding: '6px 8px', 
+                        borderRadius: '6px', 
+                        background: 'rgba(0, 0, 0, 0.2)', 
+                        border: '1px solid rgba(255, 255, 255, 0.04)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '3px',
+                        maxHeight: '190px',
+                        overflowY: 'auto',
+                        minWidth: 0
+                      }}
+                    >
+                      <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '1px' }}>
+                        Trade Notes & Mistakes ({day.strategyNotes.length}):
+                      </span>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {day.strategyNotes.map(item => (
+                          <div 
+                            key={item.id}
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'baseline', 
+                              gap: '5px', 
+                              fontSize: '0.78rem', 
+                              lineHeight: 1.35,
+                              padding: '1px 2px',
+                              flexWrap: 'wrap'
+                            }}
+                          >
+                            <span style={{ color: item.hasMistake ? '#f87171' : '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
                             <span 
                               style={{ 
-                                fontSize: '0.68rem', 
-                                fontWeight: 800, 
-                                padding: '1px 6px', 
-                                borderRadius: '4px',
-                                background: trade.action === 'BUY' ? 'rgba(10, 132, 255, 0.2)' : 'rgba(191, 90, 242, 0.2)',
-                                color: trade.action === 'BUY' ? '#60a5fa' : '#c084fc',
-                                border: '1px solid ' + (trade.action === 'BUY' ? 'rgba(10, 132, 255, 0.35)' : 'rgba(191, 90, 242, 0.35)')
+                                fontWeight: 700, 
+                                color: '#38bdf8', 
+                                whiteSpace: 'nowrap',
+                                fontSize: '0.72rem'
                               }}
                             >
-                              {trade.action}
+                              {item.strategy}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.67rem',
+                                fontWeight: 700,
+                                fontFamily: 'var(--font-mono)',
+                                color: item.strategyPnL >= 0 ? '#10b981' : '#f87171',
+                                background: item.strategyPnL >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                padding: '0 4px',
+                                borderRadius: '3px',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={`Day PnL for ${item.strategy}`}
+                            >
+                              {isPnlVisible ? `${item.strategyPnL >= 0 ? '+' : ''}₹${Math.round(item.strategyPnL).toLocaleString('en-IN')}` : '••••'}
                             </span>
 
-                            <strong style={{ fontSize: '0.86rem', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
-                              {trade.symbol}
-                            </strong>
-
-                            {trade.entryTime && (
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                <Clock size={11} />
-                                <span>{formatTimeToAMPM(trade.entryTime)}</span>
-                              </span>
-                            )}
-
-                            {trade.segment && (
-                              <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)' }}>
-                                {trade.segment}
-                              </span>
-                            )}
-
-                            {trade.broker && <BrokerBadge broker={trade.broker} />}
-
-                            {/* Mistakes & Clean tag inline */}
-                            {hasMistake ? (
-                              pos.mistakes.map(m => (
-                                <span 
-                                  key={m}
-                                  style={{ 
-                                    fontSize: '0.68rem', 
-                                    fontWeight: 700, 
-                                    padding: '1px 6px', 
-                                    borderRadius: '9999px',
-                                    background: 'rgba(239, 68, 68, 0.18)',
-                                    color: '#fca5a5',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)'
-                                  }}
-                                >
-                                  ⚠️ {m}
-                                </span>
-                              ))
-                            ) : (
+                            {/* Mistake Tags */}
+                            {item.mistakes && item.mistakes.map(m => (
                               <span 
-                                style={{ 
-                                  fontSize: '0.66rem', 
-                                  fontWeight: 650, 
-                                  padding: '1px 6px', 
+                                key={m}
+                                style={{
+                                  fontSize: '0.64rem',
+                                  fontWeight: 750,
+                                  padding: '0 5px',
                                   borderRadius: '9999px',
-                                  background: 'rgba(48, 209, 88, 0.12)',
-                                  color: '#4ade80',
-                                  border: '1px solid rgba(48, 209, 88, 0.25)'
+                                  background: 'rgba(239, 68, 68, 0.18)',
+                                  color: '#fca5a5',
+                                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
-                                ✓ Clean Setup
+                                ⚠️ {m}
                               </span>
-                            )}
+                            ))}
 
-                            {trade.emotion && (
+                            {/* Emotion Tag */}
+                            {item.emotion && (
                               <span 
-                                style={{ 
-                                  fontSize: '0.66rem', 
-                                  fontWeight: 650, 
-                                  padding: '1px 6px', 
+                                style={{
+                                  fontSize: '0.64rem',
+                                  fontWeight: 650,
+                                  padding: '0 5px',
                                   borderRadius: '9999px',
                                   background: 'rgba(191, 90, 242, 0.12)',
                                   color: '#d8b4fe',
-                                  border: '1px solid rgba(191, 90, 242, 0.25)'
+                                  border: '1px solid rgba(191, 90, 242, 0.25)',
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
-                                {trade.emotion}
+                                {item.emotion}
                               </span>
                             )}
 
-                            {trade.strategy && (
-                              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', padding: '1px 5px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                                {trade.strategy}
-                              </span>
+                            {/* Note Text */}
+                            {item.note && (
+                              <>
+                                <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>:</span>
+                                <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
+                                  {item.note}
+                                </span>
+                              </>
                             )}
-                          </div>
 
-                          {/* P&L & Edit Shortcut */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span 
-                              style={{ 
-                                fontSize: '0.82rem', 
-                                fontWeight: 850, 
-                                fontFamily: 'var(--font-mono)',
-                                color: isPosWin ? 'var(--color-win)' : 'var(--color-loss)',
-                                background: isPosWin ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
-                                border: '1px solid ' + (isPosWin ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
-                                padding: '2px 7px',
-                                borderRadius: '5px'
-                              }}
-                            >
-                              {isPnlVisible ? `${isPosWin ? '+' : ''}${formatCurrency(trade.netPnL)}` : '••••••'}
-                            </span>
-
+                            {/* Edit shortcut */}
                             {onEditTrade && (
                               <button
-                                onClick={() => onEditTrade(trade.id)}
+                                onClick={() => onEditTrade(item.id)}
                                 style={{
                                   background: 'transparent',
                                   border: 'none',
-                                  color: 'var(--primary)',
+                                  color: 'var(--text-dim)',
                                   cursor: 'pointer',
-                                  padding: '2px 4px',
-                                  display: 'flex',
+                                  padding: '0 2px',
+                                  display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '3px',
-                                  fontSize: '0.7rem',
-                                  fontWeight: 650
+                                  opacity: 0.7
                                 }}
-                                title="Open trade in TradeLogger"
+                                title="Edit Trade in TradeLogger"
                               >
-                                <span>Edit</span>
-                                <ExternalLink size={11} />
+                                <ExternalLink size={10} />
                               </button>
                             )}
                           </div>
-                        </div>
-
-                        {/* Row 2: Trade Notes (Rendered ONLY if note exists) */}
-                        {hasNote && (
-                          <div 
-                            style={{ 
-                              padding: '4px 8px', 
-                              borderRadius: '5px', 
-                              background: 'rgba(0, 0, 0, 0.25)',
-                              borderLeft: '2.5px solid ' + (hasMistake ? '#ef4444' : 'var(--primary)'),
-                              fontSize: '0.78rem',
-                              color: 'var(--text-main)',
-                              lineHeight: 1.45,
-                              marginTop: '2px'
-                            }}
-                          >
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: hasMistake ? '#fca5a5' : 'var(--primary)', marginRight: '6px' }}>
-                              📝 Note:
-                            </span>
-                            <span style={{ whiteSpace: 'pre-wrap' }}>{pos.notes}</span>
-                          </div>
-                        )}
-
-                        {/* Rules Followed / Broken */}
-                        {trade.rulesFollowed && trade.rulesFollowed.length > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontSize: '0.66rem', color: 'var(--text-dim)' }}>
-                            <span style={{ fontWeight: 600 }}>Rules:</span>
-                            {trade.rulesFollowed.map(r => (
-                              <span key={r} style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
-                                ✓ {r}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        ))}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       )}
-
-            </div>
-      )}
-
     </div>
   );
 }
