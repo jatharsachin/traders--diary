@@ -4,7 +4,7 @@ import { filterTradesByFY } from '../utils/fyHelper';
 import { groupHedgedTrades, cleanHedgeNote, isHedgeLeg } from '../utils/tradeGrouping';
 import { 
   Calendar, Search, ArrowUpDown, X, Printer,
-  BookOpenCheck, Edit3, Trash2, Plus, LayoutGrid, List,
+  BookOpenCheck, Edit3, Trash2, Plus,
   Eye, EyeOff, ExternalLink
 } from 'lucide-react';
 
@@ -57,16 +57,6 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
   const [typeFilter, setTypeFilter] = useState<'all' | 'notes' | 'losses'>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
-
-  // Layout density view mode for Day Cards (Grid vs List)
-  const [notesLayout, setNotesLayout] = useState<'grid' | 'list'>(() => {
-    return (localStorage.getItem('traders_diary_notes_layout') as 'grid' | 'list') || 'grid';
-  });
-
-  const handleToggleLayout = (mode: 'grid' | 'list') => {
-    setNotesLayout(mode);
-    localStorage.setItem('traders_diary_notes_layout', mode);
-  };
 
   const handleDeleteDailyNote = (date: string) => {
     if (window.confirm(`Are you sure you want to delete the Day-End Note for ${date}?`)) {
@@ -540,61 +530,6 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
             </select>
           )}
 
-          {/* Layout Switcher: Grid vs List */}
-          <div 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              background: 'rgba(255, 255, 255, 0.04)', 
-              padding: '2px', 
-              borderRadius: '6px', 
-              border: '1px solid var(--border-color)' 
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => handleToggleLayout('grid')}
-              style={{
-                padding: '3px 8px',
-                fontSize: '0.72rem',
-                fontWeight: notesLayout === 'grid' ? 700 : 500,
-                borderRadius: '5px',
-                border: 'none',
-                background: notesLayout === 'grid' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
-                color: notesLayout === 'grid' ? '#38bdf8' : 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              title="Compact Grid View (Multi-Day)"
-            >
-              <LayoutGrid size={12} />
-              <span>Compact Grid</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleToggleLayout('list')}
-              style={{
-                padding: '3px 8px',
-                fontSize: '0.72rem',
-                fontWeight: notesLayout === 'list' ? 700 : 500,
-                borderRadius: '5px',
-                border: 'none',
-                background: notesLayout === 'list' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
-                color: notesLayout === 'list' ? '#38bdf8' : 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              title="Single-Column List View"
-            >
-              <List size={12} />
-              <span>List</span>
-            </button>
-          </div>
-
           {/* Sort button */}
           <button
             onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -626,7 +561,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         </div>
       </div>
 
-      {/* 3. Merged Day Cards Feed */}
+      {/* 3. Merged Day Cards Feed (List View) */}
       {filteredJournalDays.length === 0 ? (
         <div 
           style={{ 
@@ -656,10 +591,9 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
       ) : (
         <div 
           style={{ 
-            display: 'grid', 
-            gridTemplateColumns: notesLayout === 'grid' ? 'repeat(auto-fill, minmax(320px, 1fr))' : '1fr', 
-            gap: '8px',
-            alignItems: 'start'
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px' 
           }}
         >
           {filteredJournalDays.map(day => {
