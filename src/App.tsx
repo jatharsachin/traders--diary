@@ -19,7 +19,7 @@ import { getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
 
-type Tab = 'dashboard' | 'daybook' | 'calendar' | 'logs' | 'mistakes' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
+type Tab = 'dashboard' | 'daybook' | 'dailyNotes' | 'calendar' | 'logs' | 'mistakes' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
 
 
 const safeLazy = (importFn: () => Promise<any>) =>
@@ -57,6 +57,7 @@ const ContractNotesManager = safeLazy(() => import('./components/ContractNotesMa
 const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 const MistakesJournal = safeLazy(() => import('./components/MistakesJournal').then(m => ({ default: m.MistakesJournal })));
 const DailyNotesModal = safeLazy(() => import('./components/DailyNotesModal').then(m => ({ default: m.DailyNotesModal })));
+const DailyNotes = safeLazy(() => import('./components/DailyNotes').then(m => ({ default: m.DailyNotes })));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -800,6 +801,14 @@ export default function App() {
             >
               <BookOpen size={17} color={activeTab === 'daybook' ? '#fff' : '#60a5fa'} />
               <span className="hide-collapsed">Day Book</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('dailyNotes'); setIsMobileSidebarOpen(false); }} 
+              className={"sidebar-tab-btn " + (activeTab === 'dailyNotes' ? 'active' : '')}
+              title="Day-End Notes"
+            >
+              <NotebookPen size={17} color={activeTab === 'dailyNotes' ? '#fff' : '#38bdf8'} />
+              <span className="hide-collapsed">Day-End Notes</span>
             </button>
             <button 
               onClick={() => { setActiveTab('logs'); setIsMobileSidebarOpen(false); }} 
@@ -1563,6 +1572,14 @@ export default function App() {
                 Day Book
               </button>
               <button 
+                onClick={() => setActiveTab('dailyNotes')} 
+                className={"nav-tab " + (activeTab === 'dailyNotes' ? 'active' : '')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <NotebookPen size={15} color="#38bdf8" />
+                Day-End Notes
+              </button>
+              <button 
                 onClick={() => setActiveTab('logs')} 
                 className={"nav-tab " + (activeTab === 'logs' ? 'active' : '')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -1986,6 +2003,12 @@ export default function App() {
               />
             )}
             {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} onOpenDailyNotes={handleOpenDailyNotes} />}
+            {activeTab === 'dailyNotes' && (
+              <DailyNotes 
+                activeAccountId={activeAccountId} 
+                onOpenNoteModal={handleOpenDailyNotes} 
+              />
+            )}
             {activeTab === 'calendar' && (
               <TradingCalendar 
                 activeAccountId={activeAccountId} 
