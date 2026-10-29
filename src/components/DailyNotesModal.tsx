@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { 
   X, Save, Trash2, ChevronLeft, ChevronRight, CheckCircle2, 
   AlertCircle, List, ListOrdered, CheckSquare, Bold, Italic, 
-  Underline, Strikethrough, BookOpenCheck
+  Underline, Strikethrough, BookOpenCheck, Palette, Type
 } from 'lucide-react';
 import { useTradeStore } from '../store/useTradeStore';
 
@@ -33,7 +33,64 @@ export function DailyNotesModal({
   const [planForTomorrow, setPlanForTomorrow] = useState<string>('');
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Font family, size, and font color customization
+  const [editorFontFamily, setEditorFontFamily] = useState<string>(() => {
+    return localStorage.getItem('traders_diary_notes_font_family') || 'sans';
+  });
+  const [editorFontSize, setEditorFontSize] = useState<string>(() => {
+    return localStorage.getItem('traders_diary_notes_font_size') || '0.9rem';
+  });
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [selectedTextColor, setSelectedTextColor] = useState<string>('#38bdf8');
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleFontFamilyChange = (font: string) => {
+    setEditorFontFamily(font);
+    localStorage.setItem('traders_diary_notes_font_family', font);
+  };
+
+  const handleFontSizeChange = (size: string) => {
+    setEditorFontSize(size);
+    localStorage.setItem('traders_diary_notes_font_size', size);
+  };
+
+  const applyTextColor = (colorHex: string) => {
+    setSelectedTextColor(colorHex);
+    setIsColorPickerOpen(false);
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selection = text.substring(start, end);
+
+    const prefix = `<span style="color:${colorHex}">`;
+    const suffix = `</span>`;
+    const replacement = selection ? `${prefix}${selection}${suffix}` : `${prefix}highlighted text${suffix}`;
+    const newText = text.substring(0, start) + replacement + text.substring(end);
+
+    setNotesText(newText);
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorStart = start + prefix.length;
+      const newCursorEnd = selection ? newCursorStart + selection.length : newCursorStart + 16;
+      textarea.setSelectionRange(newCursorStart, newCursorEnd);
+    }, 10);
+  };
+
+  const getFontFamilyStyle = () => {
+    switch (editorFontFamily) {
+      case 'mono':
+        return 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+      case 'serif':
+        return 'Georgia, Cambria, "Times New Roman", Times, serif';
+      case 'inter':
+        return '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      default:
+        return 'inherit';
+    }
+  };
 
   // Sync initial date when modal opens
   useEffect(() => {
@@ -457,7 +514,7 @@ export function DailyNotesModal({
               overflow: 'hidden'
             }}
           >
-            {/* Minimal Toolbar & Quick Points */}
+            {/* MS Word-Style Toolbar & Quick Points */}
             <div 
               style={{ 
                 padding: '6px 10px', 
@@ -469,6 +526,53 @@ export function DailyNotesModal({
                 flexWrap: 'wrap'
               }}
             >
+              {/* Font Family & Size Selectors */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <select
+                  value={editorFontFamily}
+                  onChange={(e) => handleFontFamilyChange(e.target.value)}
+                  style={{
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    padding: '3px 6px',
+                    fontSize: '0.72rem',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                  title="Font Family"
+                >
+                  <option value="sans">Font: Default</option>
+                  <option value="inter">Font: Modern</option>
+                  <option value="mono">Font: Terminal / Code</option>
+                  <option value="serif">Font: Classic Serif</option>
+                </select>
+
+                <select
+                  value={editorFontSize}
+                  onChange={(e) => handleFontSizeChange(e.target.value)}
+                  style={{
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    padding: '3px 6px',
+                    fontSize: '0.72rem',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                  title="Font Size"
+                >
+                  <option value="0.82rem">Size: Small</option>
+                  <option value="0.9rem">Size: Normal</option>
+                  <option value="1.02rem">Size: Medium</option>
+                  <option value="1.15rem">Size: Large</option>
+                </select>
+              </div>
+
+              <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
+
               {/* MS Word-Style Formatting Tools */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <button
@@ -510,6 +614,83 @@ export function DailyNotesModal({
                 >
                   <Strikethrough size={13} />
                 </button>
+
+                {/* Font Color Picker Popover */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsColorPickerOpen(prev => !prev)}
+                    className="btn btn-secondary"
+                    style={{ 
+                      padding: '3px 7px', 
+                      fontSize: '0.74rem', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '4px',
+                      borderColor: isColorPickerOpen ? '#38bdf8' : 'var(--border-color)' 
+                    }}
+                    title="Font Color (Text Highlight)"
+                  >
+                    <Palette size={13} color={selectedTextColor} />
+                    <span 
+                      style={{ 
+                        width: '9px', 
+                        height: '9px', 
+                        borderRadius: '50%', 
+                        background: selectedTextColor,
+                        boxShadow: `0 0 6px ${selectedTextColor}88`
+                      }} 
+                    />
+                  </button>
+
+                  {isColorPickerOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: '0',
+                        marginTop: '6px',
+                        background: 'rgba(20, 20, 26, 0.98)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '10px',
+                        padding: '8px',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 22px)',
+                        gap: '6px',
+                        zIndex: 100,
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                        backdropFilter: 'blur(16px)'
+                      }}
+                    >
+                      {[
+                        { hex: '#ffffff', name: 'White' },
+                        { hex: '#10b981', name: 'Green (Profit/Win)' },
+                        { hex: '#ef4444', name: 'Red (Loss/Error)' },
+                        { hex: '#38bdf8', name: 'Sky Blue (Trend/Levels)' },
+                        { hex: '#f59e0b', name: 'Amber (Trap/Warning)' },
+                        { hex: '#a855f7', name: 'Purple (Mindset)' },
+                        { hex: '#f97316', name: 'Orange (Trigger)' },
+                        { hex: '#14b8a6', name: 'Teal (Observation)' },
+                      ].map(color => (
+                        <button
+                          key={color.hex}
+                          type="button"
+                          onClick={() => applyTextColor(color.hex)}
+                          style={{
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            background: color.hex,
+                            border: selectedTextColor === color.hex ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.2)',
+                            cursor: 'pointer',
+                            transition: 'transform 0.15s ease'
+                          }}
+                          title={color.name}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
@@ -559,6 +740,7 @@ export function DailyNotesModal({
                 </span>
 
                 {[
+                  { label: 'Market Opening', text: 'Market Opening' },
                   { label: 'Market Trend', text: 'Market Trend' },
                   { label: 'What went well', text: 'What went well' },
                   { label: 'Traps / Mistakes', text: 'Traps / Mistakes' },
@@ -591,7 +773,7 @@ export function DailyNotesModal({
                 <button
                   type="button"
                   onClick={() => {
-                    const fullTemplate = `• Market Trend: \n• What went well: \n• Traps / Mistakes: \n• Mindset: \n• Tomorrow's Focus: `;
+                    const fullTemplate = `• Market Opening: \n• Market Trend: \n• What went well: \n• Traps / Mistakes: \n• Mindset: \n• Tomorrow's Focus: `;
                     if (!notesText.trim()) {
                       setNotesText(fullTemplate);
                     } else {
@@ -626,7 +808,7 @@ export function DailyNotesModal({
               value={notesText}
               onChange={(e) => setNotesText(e.target.value)}
               onKeyDown={handleTextareaKeyDown}
-              placeholder="दिवसभरातील महत्त्वाच्या नोंदी इथे लिहा...&#10;• Market Trend: &#10;• Execution & Setup: &#10;• Mindset & Psychology: "
+              placeholder="दिवसभरातील महत्त्वाच्या नोंदी इथे लिहा...&#10;• Market Opening: &#10;• Market Trend: &#10;• Execution & Setup: &#10;• Mindset & Psychology: "
               rows={9}
               style={{
                 width: '100%',
@@ -634,8 +816,8 @@ export function DailyNotesModal({
                 color: 'var(--text-main)',
                 border: 'none',
                 padding: '12px 14px',
-                fontSize: '0.88rem',
-                fontFamily: 'inherit',
+                fontSize: editorFontSize,
+                fontFamily: getFontFamilyStyle(),
                 lineHeight: 1.65,
                 outline: 'none',
                 resize: 'vertical'

@@ -109,13 +109,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
     }
   };
 
-  // Helper to parse MS Word style inline formatting (bold, italic, underline, strikethrough)
-  const renderInlineMarkdown = (content: string) => {
+  // Helper to parse MS Word style inline formatting (bold, italic, underline, strikethrough, and font color)
+  const renderInlineMarkdown = (content: string): React.ReactNode => {
     if (!content) return '';
     const parts: React.ReactNode[] = [];
     let remaining = content;
     let key = 0;
-    const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|<u>.*?<\/u>|~~[^~]+~~)/;
+    const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|<u>.*?<\/u>|~~[^~]+~~|<span style="color:[^"]+">.*?<\/span>)/;
 
     while (remaining.length > 0) {
       const match = remaining.match(regex);
@@ -135,6 +135,19 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         parts.push(<u key={key++} style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>{token.slice(3, -4)}</u>);
       } else if (token.startsWith('~~') && token.endsWith('~~')) {
         parts.push(<span key={key++} style={{ textDecoration: 'line-through', opacity: 0.7 }}>{token.slice(2, -2)}</span>);
+      } else if (token.startsWith('<span style="color:') && token.endsWith('</span>')) {
+        const colorMatch = token.match(/<span style="color:([^"]+)">([\s\S]*?)<\/span>/);
+        if (colorMatch) {
+          const colorHex = colorMatch[1];
+          const innerText = colorMatch[2];
+          parts.push(
+            <span key={key++} style={{ color: colorHex, fontWeight: 700 }}>
+              {renderInlineMarkdown(innerText)}
+            </span>
+          );
+        } else {
+          parts.push(token);
+        }
       } else {
         parts.push(token);
       }
