@@ -988,286 +988,285 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
 
       {/* Trade Mistakes & Logs Tab View */}
       {journalView === 'tradeNotes' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-{/* 2. Analytical KPI Leak & Mistake Pattern Bar */}
-      <div 
-        style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '12px' 
-        }}
-      >
-        {/* Card 1: Total Days */}
-        <div 
-          className="glass-card" 
-          style={{ 
-            padding: '12px 16px', 
-            borderRadius: '14px', 
-            border: '1px solid var(--border-color)', 
-            background: 'var(--bg-card)' 
-          }}
-        >
-          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Days Traded (With Notes)
-          </span>
-          <div style={{ fontSize: '1.45rem', fontWeight: 850, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', marginTop: '2px' }}>
-            {stats.uniqueDays} <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-dim)' }}>Days</span>
-          </div>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px', display: 'block' }}>
-            {stats.totalNotesCount} trade notes logged
-          </span>
-        </div>
-
-        {/* Card 2: Tagged Mistakes */}
-        <div 
-          className="glass-card" 
-          style={{ 
-            padding: '12px 16px', 
-            borderRadius: '14px', 
-            border: '1px solid rgba(239, 68, 68, 0.3)', 
-            background: 'rgba(239, 68, 68, 0.04)' 
-          }}
-        >
-          <span style={{ fontSize: '0.68rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Identified Mistakes
-          </span>
-          <div style={{ fontSize: '1.45rem', fontWeight: 850, fontFamily: 'var(--font-mono)', color: '#f87171', marginTop: '2px' }}>
-            {stats.totalMistakePositions} <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fca5a5' }}>Decisions</span>
-          </div>
-          <span style={{ fontSize: '0.72rem', color: '#f87171', opacity: 0.9, marginTop: '2px', display: 'block' }}>
-            {((stats.totalMistakePositions / (accountPositions.length || 1)) * 100).toFixed(1)}% of trade decisions
-          </span>
-        </div>
-
-        {/* Card 3: Mistake Financial Penalty Cost */}
-        <div 
-          className="glass-card" 
-          style={{ 
-            padding: '12px 16px', 
-            borderRadius: '14px', 
-            border: '1px solid rgba(239, 68, 68, 0.35)', 
-            background: 'rgba(239, 68, 68, 0.07)' 
-          }}
-        >
-          <span style={{ fontSize: '0.68rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Financial Mistake Cost
-          </span>
-          <div style={{ fontSize: '1.45rem', fontWeight: 850, fontFamily: 'var(--font-mono)', color: '#ef4444', marginTop: '2px' }}>
-            {isPnlVisible ? `-₹${Math.round(stats.totalMistakeLoss).toLocaleString('en-IN')}` : '••••••'}
-          </div>
-          <span style={{ fontSize: '0.72rem', color: '#fca5a5', marginTop: '2px', display: 'block' }}>
-            Realized losses from execution mistakes
-          </span>
-        </div>
-
-        {/* Card 4: Most Common Mistake */}
-        <div 
-          className="glass-card" 
-          style={{ 
-            padding: '12px 16px', 
-            borderRadius: '14px', 
-            border: '1px solid rgba(245, 158, 11, 0.3)', 
-            background: 'rgba(245, 158, 11, 0.04)' 
-          }}
-        >
-          <span style={{ fontSize: '0.68rem', color: '#fbbf24', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Top Repeat Error
-          </span>
-          <div style={{ fontSize: '1.1rem', fontWeight: 850, color: '#fbbf24', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {stats.topMistake ? stats.topMistake.name : 'None (Clean Execution)'}
-          </div>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px', display: 'block' }}>
-            {stats.topMistake ? `${stats.topMistake.count} times repeated` : 'Clean execution discipline'}
-          </span>
-        </div>
-      </div>
-
-      {/* 3. Search and Multi-Criteria Filtering Controls */}
-      <div 
-        className="glass-card" 
-        style={{ 
-          padding: '16px', 
-          borderRadius: '16px', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '12px',
-          background: 'rgba(255, 255, 255, 0.015)' 
-        }}
-      >
-        {/* Top Row: Search Input + Selects */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-          
-          {/* Keyword Search */}
-          <div style={{ position: 'relative', flex: '1 1 240px' }}>
-            <Search 
-              size={15} 
-              color="var(--text-dim)" 
-              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} 
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search in trade notes, symbol, setup, mistakes..."
-              className="input-field"
-              style={{ 
-                paddingLeft: '34px', 
-                paddingRight: '12px', 
-                paddingTop: '6px', 
-                paddingBottom: '6px', 
-                fontSize: '0.8rem', 
-                borderRadius: '9999px',
-                width: '100%',
-                background: 'var(--bg-card)',
-                color: 'var(--text-main)',
-                border: '1px solid var(--border-color)'
-              }}
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Month Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Month:</span>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="form-select"
-              style={{ padding: '5px 10px', fontSize: '0.78rem', borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
-            >
-              <option value="All">All Months ({selectedFY})</option>
-              {availableMonths.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Mistake Type Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Mistake:</span>
-            <select
-              value={selectedMistakeType}
-              onChange={(e) => setSelectedMistakeType(e.target.value)}
-              className="form-select"
-              style={{ padding: '5px 10px', fontSize: '0.78rem', borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
-            >
-              <option value="All">All Mistakes ({availableMistakes.length})</option>
-              {availableMistakes.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Emotion Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Emotion:</span>
-            <select
-              value={selectedEmotion}
-              onChange={(e) => setSelectedEmotion(e.target.value)}
-              className="form-select"
-              style={{ padding: '5px 10px', fontSize: '0.78rem', borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
-            >
-              <option value="All">All Emotions</option>
-              <option value="Calm">Calm</option>
-              <option value="Fearful">Fearful</option>
-              <option value="Impatient">Impatient</option>
-              <option value="Greedy">Greedy</option>
-              <option value="Revengeful">Revengeful</option>
-            </select>
-          </div>
-
-          {/* Sort Order Toggle */}
-          <button
-            onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-            className="btn btn-secondary"
-            style={{ padding: '5px 12px', fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '6px' }}
-            title={sortOrder === 'desc' ? "Showing Newest Dates First" : "Showing Oldest Dates First"}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* 2. Analytical KPI Leak & Mistake Pattern Bar (Compact) */}
+          <div 
+            style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+              gap: '6px' 
+            }}
           >
-            <ArrowUpDown size={14} />
-            <span>{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
-          </button>
-        </div>
-
-        {/* Quick Filter Pill Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setTypeFilter('all')}
-              className="btn"
-              style={{
-                padding: '4px 14px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                borderRadius: '9999px',
-                background: typeFilter === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
-                color: typeFilter === 'all' ? '#fff' : 'var(--text-muted)',
-                border: '1px solid ' + (typeFilter === 'all' ? 'var(--primary)' : 'var(--border-color)')
+            {/* Card 1: Total Days */}
+            <div 
+              className="glass-card" 
+              style={{ 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                border: '1px solid var(--border-color)', 
+                background: 'var(--bg-card)' 
               }}
             >
-              All Noted Days ({dayGroups.length})
-            </button>
+              <span style={{ fontSize: '0.67rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Days Traded
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', marginTop: '1px' }}>
+                {stats.uniqueDays} <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-dim)' }}>Days</span>
+              </div>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '1px', display: 'block' }}>
+                {stats.totalNotesCount} trade notes
+              </span>
+            </div>
 
-            <button
-              onClick={() => setTypeFilter('mistakes')}
-              className="btn"
-              style={{
-                padding: '4px 14px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                borderRadius: '9999px',
-                background: typeFilter === 'mistakes' ? '#ef4444' : 'rgba(255,255,255,0.04)',
-                color: typeFilter === 'mistakes' ? '#fff' : 'var(--text-muted)',
-                border: '1px solid ' + (typeFilter === 'mistakes' ? '#ef4444' : 'var(--border-color)')
+            {/* Card 2: Tagged Mistakes */}
+            <div 
+              className="glass-card" 
+              style={{ 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(239, 68, 68, 0.3)', 
+                background: 'rgba(239, 68, 68, 0.04)' 
               }}
             >
-              ⚠️ Mistakes Only
-            </button>
+              <span style={{ fontSize: '0.67rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Identified Mistakes
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#f87171', marginTop: '1px' }}>
+                {stats.totalMistakePositions} <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#fca5a5' }}>Decisions</span>
+              </div>
+              <span style={{ fontSize: '0.68rem', color: '#f87171', opacity: 0.9, marginTop: '1px', display: 'block' }}>
+                {((stats.totalMistakePositions / (accountPositions.length || 1)) * 100).toFixed(1)}% of trades
+              </span>
+            </div>
 
-            <button
-              onClick={() => setTypeFilter('notes')}
-              className="btn"
-              style={{
-                padding: '4px 14px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                borderRadius: '9999px',
-                background: typeFilter === 'notes' ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
-                color: typeFilter === 'notes' ? '#fff' : 'var(--text-muted)',
-                border: '1px solid ' + (typeFilter === 'notes' ? 'var(--primary)' : 'var(--border-color)')
+            {/* Card 3: Mistake Financial Penalty Cost */}
+            <div 
+              className="glass-card" 
+              style={{ 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(239, 68, 68, 0.35)', 
+                background: 'rgba(239, 68, 68, 0.07)' 
               }}
             >
-              📝 Notes Only
-            </button>
+              <span style={{ fontSize: '0.67rem', color: '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Mistake Cost
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#ef4444', marginTop: '1px' }}>
+                {isPnlVisible ? `-₹${Math.round(stats.totalMistakeLoss).toLocaleString('en-IN')}` : '••••••'}
+              </div>
+              <span style={{ fontSize: '0.68rem', color: '#fca5a5', marginTop: '1px', display: 'block' }}>
+                Realized losses from mistakes
+              </span>
+            </div>
 
-            <button
-              onClick={() => setTypeFilter('losses')}
-              className="btn"
-              style={{
-                padding: '4px 14px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                borderRadius: '9999px',
-                background: typeFilter === 'losses' ? '#f87171' : 'rgba(255,255,255,0.04)',
-                color: typeFilter === 'losses' ? '#fff' : 'var(--text-muted)',
-                border: '1px solid ' + (typeFilter === 'losses' ? '#f87171' : 'var(--border-color)')
+            {/* Card 4: Most Common Mistake */}
+            <div 
+              className="glass-card" 
+              style={{ 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(245, 158, 11, 0.3)', 
+                background: 'rgba(245, 158, 11, 0.04)' 
               }}
             >
-              🔴 Loss Days
-            </button>
+              <span style={{ fontSize: '0.67rem', color: '#fbbf24', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Top Repeat Error
+              </span>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#fbbf24', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {stats.topMistake ? stats.topMistake.name : 'None'}
+              </div>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '1px', display: 'block' }}>
+                {stats.topMistake ? `${stats.topMistake.count} times repeated` : 'Clean execution discipline'}
+              </span>
+            </div>
           </div>
 
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-            Showing {dayGroups.length} days ({filteredPositions.length} trade decisions)
-          </span>
-        </div>
-      </div>
+          {/* 3. Search and Multi-Criteria Filtering Controls (Compact) */}
+          <div 
+            className="glass-card" 
+            style={{ 
+              padding: '8px 12px', 
+              borderRadius: '8px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '6px',
+              background: 'rgba(255, 255, 255, 0.015)' 
+            }}
+          >
+            {/* Top Row: Search Input + Selects */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+              {/* Keyword Search */}
+              <div style={{ position: 'relative', flex: '1 1 200px' }}>
+                <Search 
+                  size={13} 
+                  color="var(--text-dim)" 
+                  style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} 
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search in trade notes, symbol, setup, mistakes..."
+                  className="input-field"
+                  style={{ 
+                    paddingLeft: '28px', 
+                    paddingRight: '10px', 
+                    paddingTop: '4px', 
+                    paddingBottom: '4px', 
+                    fontSize: '0.76rem', 
+                    borderRadius: '6px',
+                    width: '100%',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--border-color)'
+                  }}
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Month Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Month:</span>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="form-select"
+                  style={{ padding: '3px 8px', fontSize: '0.74rem', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value="All">All Months ({selectedFY})</option>
+                  {availableMonths.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Mistake Type Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Mistake:</span>
+                <select
+                  value={selectedMistakeType}
+                  onChange={(e) => setSelectedMistakeType(e.target.value)}
+                  className="form-select"
+                  style={{ padding: '3px 8px', fontSize: '0.74rem', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value="All">All Mistakes ({availableMistakes.length})</option>
+                  {availableMistakes.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Emotion Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Emotion:</span>
+                <select
+                  value={selectedEmotion}
+                  onChange={(e) => setSelectedEmotion(e.target.value)}
+                  className="form-select"
+                  style={{ padding: '3px 8px', fontSize: '0.74rem', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value="All">All Emotions</option>
+                  <option value="Calm">Calm</option>
+                  <option value="Fearful">Fearful</option>
+                  <option value="Impatient">Impatient</option>
+                  <option value="Greedy">Greedy</option>
+                  <option value="Revengeful">Revengeful</option>
+                </select>
+              </div>
+
+              {/* Sort Order Toggle */}
+              <button
+                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                className="btn btn-secondary"
+                style={{ padding: '4px 9px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                title={sortOrder === 'desc' ? "Showing Newest Dates First" : "Showing Oldest Dates First"}
+              >
+                <ArrowUpDown size={12} />
+                <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+              </button>
+            </div>
+
+            {/* Quick Filter Pill Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '6px' }}>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setTypeFilter('all')}
+                  className="btn"
+                  style={{
+                    padding: '2px 10px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    borderRadius: '9999px',
+                    background: typeFilter === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
+                    color: typeFilter === 'all' ? '#fff' : 'var(--text-muted)',
+                    border: '1px solid ' + (typeFilter === 'all' ? 'var(--primary)' : 'var(--border-color)')
+                  }}
+                >
+                  All Noted Days ({dayGroups.length})
+                </button>
+
+                <button
+                  onClick={() => setTypeFilter('mistakes')}
+                  className="btn"
+                  style={{
+                    padding: '2px 10px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    borderRadius: '9999px',
+                    background: typeFilter === 'mistakes' ? '#ef4444' : 'rgba(255,255,255,0.04)',
+                    color: typeFilter === 'mistakes' ? '#fff' : 'var(--text-muted)',
+                    border: '1px solid ' + (typeFilter === 'mistakes' ? '#ef4444' : 'var(--border-color)')
+                  }}
+                >
+                  ⚠️ Mistakes Only
+                </button>
+
+                <button
+                  onClick={() => setTypeFilter('notes')}
+                  className="btn"
+                  style={{
+                    padding: '2px 10px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    borderRadius: '9999px',
+                    background: typeFilter === 'notes' ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
+                    color: typeFilter === 'notes' ? '#fff' : 'var(--text-muted)',
+                    border: '1px solid ' + (typeFilter === 'notes' ? 'var(--primary)' : 'var(--border-color)')
+                  }}
+                >
+                  📝 Notes Only
+                </button>
+
+                <button
+                  onClick={() => setTypeFilter('losses')}
+                  className="btn"
+                  style={{
+                    padding: '2px 10px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    borderRadius: '9999px',
+                    background: typeFilter === 'losses' ? '#f87171' : 'rgba(255,255,255,0.04)',
+                    color: typeFilter === 'losses' ? '#fff' : 'var(--text-muted)',
+                    border: '1px solid ' + (typeFilter === 'losses' ? '#f87171' : 'var(--border-color)')
+                  }}
+                >
+                  🔴 Loss Days
+                </button>
+              </div>
+
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                {dayGroups.length} days ({filteredPositions.length} decisions)
+              </span>
+            </div>
+          </div>
 
       {/* 4. Day-wise Feed Stream (The Core User Feature) */}
       {dayGroups.length === 0 ? (
@@ -1294,7 +1293,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
           </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {dayGroups.map((group) => {
             const relativeLabel = getRelativeDayLabel(group.date);
             const isProfit = group.dayNetPnL >= 0;
@@ -1306,72 +1305,71 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                 className="glass-card"
                 style={{
                   padding: 0,
-                  borderRadius: '18px',
+                  borderRadius: '10px',
                   overflow: 'hidden',
                   border: hasMistakesOnDay 
-                    ? '1.5px solid rgba(239, 68, 68, 0.35)' 
+                    ? '1px solid rgba(239, 68, 68, 0.3)' 
                     : '1px solid var(--border-color)',
                   background: 'var(--bg-card)'
                 }}
               >
-                {/* Day Header Bar */}
+                {/* Day Header Bar - Sleek & Compact */}
                 <div 
                   style={{
-                    padding: '12px 18px',
+                    padding: '6px 12px',
                     background: hasMistakesOnDay 
-                      ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(0, 0, 0, 0.3) 100%)' 
-                      : 'linear-gradient(90deg, rgba(10, 132, 255, 0.08) 0%, rgba(0, 0, 0, 0.25) 100%)',
+                      ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%)' 
+                      : 'linear-gradient(90deg, rgba(10, 132, 255, 0.07) 0%, rgba(0, 0, 0, 0.25) 100%)',
                     borderBottom: '1px solid var(--border-color)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     flexWrap: 'wrap',
-                    gap: '10px'
+                    gap: '8px'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <div style={{
-                      padding: '4px 10px',
-                      borderRadius: '8px',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
                       background: 'rgba(255, 255, 255, 0.08)',
                       border: '1px solid var(--border-color)',
-                      fontSize: '0.88rem',
-                      fontWeight: 800,
+                      fontSize: '0.82rem',
+                      fontWeight: 750,
                       color: 'var(--text-main)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      gap: '5px'
                     }}>
-                      <Calendar size={15} color="var(--primary)" />
+                      <Calendar size={13} color="var(--primary)" />
                       <span>{formatDateDisplay(group.date)}</span>
                     </div>
 
                     {relativeLabel && (
                       <span style={{ 
-                        fontSize: '0.68rem', 
+                        fontSize: '0.65rem', 
                         fontWeight: 750, 
-                        padding: '2px 8px', 
-                        borderRadius: '6px', 
-                        background: 'rgba(10, 132, 255, 0.2)', 
+                        padding: '1px 6px', 
+                        borderRadius: '5px', 
+                        background: 'rgba(10, 132, 255, 0.18)', 
                         color: 'var(--primary)',
-                        border: '1px solid rgba(10, 132, 255, 0.35)'
+                        border: '1px solid rgba(10, 132, 255, 0.3)'
                       }}>
                         {relativeLabel}
                       </span>
                     )}
 
-                    {/* Day Badges */}
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                      {group.positions.length} {group.positions.length === 1 ? 'Trade Position' : 'Trade Positions'}
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                      {group.positions.length} {group.positions.length === 1 ? 'Trade' : 'Trades'}
                     </span>
 
                     {hasMistakesOnDay ? (
                       <span style={{ 
-                        fontSize: '0.7rem', 
+                        fontSize: '0.68rem', 
                         fontWeight: 750, 
-                        padding: '2px 8px', 
+                        padding: '1px 7px', 
                         borderRadius: '9999px',
-                        background: 'rgba(239, 68, 68, 0.2)',
+                        background: 'rgba(239, 68, 68, 0.18)',
                         color: '#f87171',
                         border: '1px solid rgba(239, 68, 68, 0.35)'
                       }}>
@@ -1379,32 +1377,32 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                       </span>
                     ) : (
                       <span style={{ 
-                        fontSize: '0.7rem', 
-                        fontWeight: 750, 
-                        padding: '2px 8px', 
+                        fontSize: '0.68rem', 
+                        fontWeight: 650, 
+                        padding: '1px 7px', 
                         borderRadius: '9999px',
-                        background: 'rgba(48, 209, 88, 0.15)',
+                        background: 'rgba(48, 209, 88, 0.12)',
                         color: '#4ade80',
-                        border: '1px solid rgba(48, 209, 88, 0.3)'
+                        border: '1px solid rgba(48, 209, 88, 0.25)'
                       }}>
-                        🛡️ Clean Discipline (0 Mistakes)
+                        🛡️ Clean Discipline
                       </span>
                     )}
                   </div>
 
                   {/* Day Realized P&L Badge */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Day P&L:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>Day P&L:</span>
                     <span 
                       style={{ 
-                        fontSize: '0.92rem', 
+                        fontSize: '0.82rem', 
                         fontWeight: 850, 
                         fontFamily: 'var(--font-mono)',
                         color: isProfit ? 'var(--color-win)' : 'var(--color-loss)',
                         background: isProfit ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
                         border: '1px solid ' + (isProfit ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
-                        padding: '3px 10px',
-                        borderRadius: '8px'
+                        padding: '2px 8px',
+                        borderRadius: '6px'
                       }}
                     >
                       {isPnlVisible ? `${isProfit ? '+' : ''}${formatCurrency(group.dayNetPnL)}` : '••••••'}
@@ -1413,7 +1411,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                 </div>
 
                 {/* Day Positions Stream */}
-                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {group.positions.map((pos) => {
                     const isSpread = pos.isHedgedSpread && Boolean(pos.leg2);
                     const isPosWin = pos.combinedNetPnL >= 0;
@@ -1421,7 +1419,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                     const hasNote = Boolean(pos.notes && pos.notes.trim().length > 0);
 
                     // ==========================================
-                    // 1. UNIFIED HEDGED SPREAD CARD (NO DUPLICATES)
+                    // 1. UNIFIED HEDGED SPREAD CARD (COMPACT & CLEAN)
                     // ==========================================
                     if (isSpread && pos.leg2) {
                       const leg1 = pos.leg1;
@@ -1432,104 +1430,156 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                           key={pos.id}
                           className="journal-pos-card"
                           style={{
-                            padding: '14px 16px',
-                            borderRadius: '14px',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
                             border: hasMistake 
-                              ? '1.5px solid rgba(239, 68, 68, 0.35)' 
-                              : '1.5px solid rgba(10, 132, 255, 0.35)',
+                              ? '1px solid rgba(239, 68, 68, 0.3)' 
+                              : '1px solid rgba(10, 132, 255, 0.25)',
                             background: hasMistake ? 'rgba(239, 68, 68, 0.02)' : 'rgba(10, 132, 255, 0.02)',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '10px',
-                            transition: 'all 0.2s ease'
+                            gap: '4px'
                           }}
                         >
-                          {/* Top Row: Hedged Badge, Leg 1, Leg 2, Time, Broker, Net Spread P&L */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          {/* Row 1: Everything in one balanced, compact row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                               <span 
                                 style={{ 
-                                  fontSize: '0.72rem', 
+                                  fontSize: '0.68rem', 
                                   fontWeight: 800, 
-                                  padding: '2px 8px', 
-                                  borderRadius: '6px',
+                                  padding: '1px 6px', 
+                                  borderRadius: '5px',
                                   background: 'rgba(10, 132, 255, 0.18)',
                                   color: '#60a5fa',
-                                  border: '1px solid rgba(10, 132, 255, 0.35)',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
+                                  border: '1px solid rgba(10, 132, 255, 0.3)'
                                 }}
                               >
-                                🛡️ Hedged Spread (2 Legs)
+                                🛡️ Spread
                               </span>
 
                               {/* Leg 1 Pill */}
                               <span style={{ 
-                                fontSize: '0.78rem', 
-                                fontWeight: 750, 
+                                fontSize: '0.74rem', 
+                                fontWeight: 700, 
                                 color: 'var(--text-main)', 
                                 background: 'rgba(255,255,255,0.05)', 
-                                padding: '3px 8px', 
-                                borderRadius: '6px', 
+                                padding: '2px 6px', 
+                                borderRadius: '5px', 
                                 border: '1px solid var(--border-color)', 
                                 display: 'inline-flex', 
                                 alignItems: 'center', 
-                                gap: '5px' 
+                                gap: '4px' 
                               }}>
-                                <span style={{ color: leg1.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800, fontSize: '0.7rem' }}>
+                                <span style={{ color: leg1.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800, fontSize: '0.68rem' }}>
                                   {leg1.action}
                                 </span>
                                 <span>{leg1.symbol}</span>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: leg1.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: leg1.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
                                   ({leg1.netPnL >= 0 ? '+' : ''}{formatCurrency(leg1.netPnL)})
                                 </span>
                               </span>
 
                               {/* Leg 2 Pill */}
                               <span style={{ 
-                                fontSize: '0.78rem', 
-                                fontWeight: 750, 
+                                fontSize: '0.74rem', 
+                                fontWeight: 700, 
                                 color: 'var(--text-main)', 
                                 background: 'rgba(255,255,255,0.05)', 
-                                padding: '3px 8px', 
-                                borderRadius: '6px', 
+                                padding: '2px 6px', 
+                                borderRadius: '5px', 
                                 border: '1px solid var(--border-color)', 
                                 display: 'inline-flex', 
                                 alignItems: 'center', 
-                                gap: '5px' 
+                                gap: '4px' 
                               }}>
-                                <span style={{ color: leg2.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800, fontSize: '0.7rem' }}>
+                                <span style={{ color: leg2.action === 'BUY' ? '#60a5fa' : '#c084fc', fontWeight: 800, fontSize: '0.68rem' }}>
                                   {leg2.action}
                                 </span>
                                 <span>{leg2.symbol}</span>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: leg2.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: leg2.netPnL >= 0 ? '#4ade80' : '#f87171' }}>
                                   ({leg2.netPnL >= 0 ? '+' : ''}{formatCurrency(leg2.netPnL)})
                                 </span>
                               </span>
 
                               {pos.entryTime && (
-                                <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <Clock size={12} />
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <Clock size={11} />
                                   <span>{formatTimeToAMPM(pos.entryTime)}</span>
                                 </span>
                               )}
 
                               {pos.broker && <BrokerBadge broker={pos.broker} />}
+
+                              {/* Mistakes / Clean tag */}
+                              {hasMistake ? (
+                                pos.mistakes.map(m => (
+                                  <span 
+                                    key={m}
+                                    style={{ 
+                                      fontSize: '0.68rem', 
+                                      fontWeight: 700, 
+                                      padding: '1px 6px', 
+                                      borderRadius: '9999px',
+                                      background: 'rgba(239, 68, 68, 0.18)',
+                                      color: '#fca5a5',
+                                      border: '1px solid rgba(239, 68, 68, 0.35)'
+                                    }}
+                                  >
+                                    ⚠️ {m}
+                                  </span>
+                                ))
+                              ) : (
+                                <span 
+                                  style={{ 
+                                    fontSize: '0.66rem', 
+                                    fontWeight: 650, 
+                                    padding: '1px 6px', 
+                                    borderRadius: '9999px',
+                                    background: 'rgba(48, 209, 88, 0.12)',
+                                    color: '#4ade80',
+                                    border: '1px solid rgba(48, 209, 88, 0.25)'
+                                  }}
+                                >
+                                  ✓ Clean Setup
+                                </span>
+                              )}
+
+                              {pos.emotion && (
+                                <span 
+                                  style={{ 
+                                    fontSize: '0.66rem', 
+                                    fontWeight: 650, 
+                                    padding: '1px 6px', 
+                                    borderRadius: '9999px',
+                                    background: 'rgba(191, 90, 242, 0.12)',
+                                    color: '#d8b4fe',
+                                    border: '1px solid rgba(191, 90, 242, 0.25)'
+                                  }}
+                                >
+                                  {pos.emotion}
+                                </span>
+                              )}
+
+                              {pos.strategy && (
+                                <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', padding: '1px 5px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
+                                  {pos.strategy}
+                                </span>
+                              )}
                             </div>
 
                             {/* Spread Combined Net P&L & Edit Button */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span 
                                 style={{ 
-                                  fontSize: '0.88rem', 
+                                  fontSize: '0.82rem', 
                                   fontWeight: 850, 
                                   fontFamily: 'var(--font-mono)',
                                   color: isPosWin ? 'var(--color-win)' : 'var(--color-loss)',
                                   background: isPosWin ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
                                   border: '1px solid ' + (isPosWin ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
-                                  padding: '3px 9px',
-                                  borderRadius: '6px'
+                                  padding: '2px 7px',
+                                  borderRadius: '5px'
                                 }}
                               >
                                 {isPnlVisible ? `Spread Net: ${isPosWin ? '+' : ''}${formatCurrency(pos.combinedNetPnL)}` : '••••••'}
@@ -1543,115 +1593,49 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                                     border: 'none',
                                     color: 'var(--primary)',
                                     cursor: 'pointer',
-                                    padding: '4px',
+                                    padding: '2px 4px',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '4px',
-                                    fontSize: '0.72rem',
+                                    gap: '3px',
+                                    fontSize: '0.7rem',
                                     fontWeight: 650
                                   }}
                                   title="Open spread in TradeLogger"
                                 >
                                   <span>Edit</span>
-                                  <ExternalLink size={13} />
+                                  <ExternalLink size={11} />
                                 </button>
                               )}
                             </div>
                           </div>
 
-                          {/* Deduplicated Mistakes & Emotion Tags */}
-                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                            {hasMistake ? (
-                              pos.mistakes.map(m => (
-                                <span 
-                                  key={m}
-                                  style={{ 
-                                    fontSize: '0.72rem', 
-                                    fontWeight: 750, 
-                                    padding: '2px 8px', 
-                                    borderRadius: '9999px',
-                                    background: 'rgba(239, 68, 68, 0.18)',
-                                    color: '#fca5a5',
-                                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
-                                  }}
-                                >
-                                  <span>⚠️ Mistake:</span> {m}
-                                </span>
-                              ))
-                            ) : (
-                              <span 
-                                style={{ 
-                                  fontSize: '0.68rem', 
-                                  fontWeight: 650, 
-                                  padding: '2px 7px', 
-                                  borderRadius: '9999px',
-                                  background: 'rgba(48, 209, 88, 0.12)',
-                                  color: '#4ade80',
-                                  border: '1px solid rgba(48, 209, 88, 0.25)'
-                                }}
-                              >
-                                ✓ Clean Setup
+                          {/* Row 2: Note Quote Box (Rendered ONLY if note exists) */}
+                          {hasNote && (
+                            <div 
+                              style={{ 
+                                padding: '4px 8px', 
+                                borderRadius: '5px', 
+                                background: 'rgba(0, 0, 0, 0.25)',
+                                borderLeft: '2.5px solid ' + (hasMistake ? '#ef4444' : 'var(--primary)'),
+                                fontSize: '0.78rem',
+                                color: 'var(--text-main)',
+                                lineHeight: 1.45,
+                                marginTop: '2px'
+                              }}
+                            >
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: hasMistake ? '#fca5a5' : 'var(--primary)', marginRight: '6px' }}>
+                                📝 Note:
                               </span>
-                            )}
-
-                            {pos.emotion && (
-                              <span 
-                                style={{ 
-                                  fontSize: '0.68rem', 
-                                  fontWeight: 650, 
-                                  padding: '2px 7px', 
-                                  borderRadius: '9999px',
-                                  background: 'rgba(191, 90, 242, 0.12)',
-                                  color: '#d8b4fe',
-                                  border: '1px solid rgba(191, 90, 242, 0.25)'
-                                }}
-                              >
-                                Emotion: {pos.emotion}
-                              </span>
-                            )}
-
-                            {pos.strategy && (
-                              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', padding: '2px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                                Strategy: {pos.strategy}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Unified Trade Notes Quote Box (Rendered EXACTLY ONCE) */}
-                          <div 
-                            style={{ 
-                              padding: '12px 14px', 
-                              borderRadius: '10px', 
-                              background: hasNote ? 'rgba(0, 0, 0, 0.35)' : 'rgba(255, 255, 255, 0.015)',
-                              borderLeft: hasNote ? '3.5px solid ' + (hasMistake ? '#f87171' : 'var(--primary)') : '3px solid var(--border-color)',
-                              fontSize: '0.82rem',
-                              color: hasNote ? 'var(--text-main)' : 'var(--text-dim)',
-                              lineHeight: 1.55
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: hasNote ? '4px' : '0' }}>
-                              <span style={{ fontSize: '0.74rem', fontWeight: 750, color: hasNote ? (hasMistake ? '#fca5a5' : 'var(--primary)') : 'var(--text-dim)' }}>
-                                📝 Trade Note (Hedged Spread):
-                              </span>
+                              <span style={{ whiteSpace: 'pre-wrap' }}>{pos.notes}</span>
                             </div>
-                            {hasNote ? (
-                              <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
-                            ) : (
-                              <span style={{ fontStyle: 'italic', fontSize: '0.76rem' }}>
-                                No notes logged for this spread.
-                              </span>
-                            )}
-                          </div>
+                          )}
 
                           {/* Rules Followed / Broken */}
                           {pos.rulesFollowed && pos.rulesFollowed.length > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
-                              <span style={{ fontWeight: 650 }}>Rules Followed:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontSize: '0.66rem', color: 'var(--text-dim)' }}>
+                              <span style={{ fontWeight: 600 }}>Rules:</span>
                               {pos.rulesFollowed.map(r => (
-                                <span key={r} style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
+                                <span key={r} style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
                                   ✓ {r}
                                 </span>
                               ))}
@@ -1662,7 +1646,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                     }
 
                     // ==========================================
-                    // 2. NORMAL SINGLE TRADE CARD
+                    // 2. NORMAL SINGLE TRADE CARD (COMPACT & CLEAN)
                     // ==========================================
                     const trade = pos.leg1;
                     return (
@@ -1670,27 +1654,26 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                         key={trade.id}
                         className="journal-pos-card"
                         style={{
-                          padding: '14px 16px',
-                          borderRadius: '14px',
+                          padding: '6px 10px',
+                          borderRadius: '8px',
                           border: hasMistake 
-                            ? '1.5px solid rgba(239, 68, 68, 0.3)' 
+                            ? '1px solid rgba(239, 68, 68, 0.3)' 
                             : '1px solid var(--border-color)',
                           background: hasMistake ? 'rgba(239, 68, 68, 0.02)' : 'rgba(255, 255, 255, 0.015)',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '10px',
-                          transition: 'all 0.2s ease'
+                          gap: '4px'
                         }}
                       >
-                        {/* Trade Top Bar: Action, Symbol, Time, Broker, P&L */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {/* Row 1: Action, Symbol, Time, Segment, Broker, Inline Badges, P&L, Edit */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                             <span 
                               style={{ 
-                                fontSize: '0.72rem', 
+                                fontSize: '0.68rem', 
                                 fontWeight: 800, 
-                                padding: '2px 7px', 
-                                borderRadius: '5px',
+                                padding: '1px 6px', 
+                                borderRadius: '4px',
                                 background: trade.action === 'BUY' ? 'rgba(10, 132, 255, 0.2)' : 'rgba(191, 90, 242, 0.2)',
                                 color: trade.action === 'BUY' ? '#60a5fa' : '#c084fc',
                                 border: '1px solid ' + (trade.action === 'BUY' ? 'rgba(10, 132, 255, 0.35)' : 'rgba(191, 90, 242, 0.35)')
@@ -1699,38 +1682,94 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                               {trade.action}
                             </span>
 
-                            <strong style={{ fontSize: '0.94rem', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
+                            <strong style={{ fontSize: '0.86rem', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
                               {trade.symbol}
                             </strong>
 
                             {trade.entryTime && (
-                              <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <Clock size={12} />
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                <Clock size={11} />
                                 <span>{formatTimeToAMPM(trade.entryTime)}</span>
                               </span>
                             )}
 
                             {trade.segment && (
-                              <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)' }}>
+                              <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)' }}>
                                 {trade.segment}
                               </span>
                             )}
 
                             {trade.broker && <BrokerBadge broker={trade.broker} />}
+
+                            {/* Mistakes & Clean tag inline */}
+                            {hasMistake ? (
+                              pos.mistakes.map(m => (
+                                <span 
+                                  key={m}
+                                  style={{ 
+                                    fontSize: '0.68rem', 
+                                    fontWeight: 700, 
+                                    padding: '1px 6px', 
+                                    borderRadius: '9999px',
+                                    background: 'rgba(239, 68, 68, 0.18)',
+                                    color: '#fca5a5',
+                                    border: '1px solid rgba(239, 68, 68, 0.35)'
+                                  }}
+                                >
+                                  ⚠️ {m}
+                                </span>
+                              ))
+                            ) : (
+                              <span 
+                                style={{ 
+                                  fontSize: '0.66rem', 
+                                  fontWeight: 650, 
+                                  padding: '1px 6px', 
+                                  borderRadius: '9999px',
+                                  background: 'rgba(48, 209, 88, 0.12)',
+                                  color: '#4ade80',
+                                  border: '1px solid rgba(48, 209, 88, 0.25)'
+                                }}
+                              >
+                                ✓ Clean Setup
+                              </span>
+                            )}
+
+                            {trade.emotion && (
+                              <span 
+                                style={{ 
+                                  fontSize: '0.66rem', 
+                                  fontWeight: 650, 
+                                  padding: '1px 6px', 
+                                  borderRadius: '9999px',
+                                  background: 'rgba(191, 90, 242, 0.12)',
+                                  color: '#d8b4fe',
+                                  border: '1px solid rgba(191, 90, 242, 0.25)'
+                                }}
+                              >
+                                {trade.emotion}
+                              </span>
+                            )}
+
+                            {trade.strategy && (
+                              <span style={{ fontSize: '0.66rem', color: 'var(--text-dim)', padding: '1px 5px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
+                                {trade.strategy}
+                              </span>
+                            )}
                           </div>
 
                           {/* P&L & Edit Shortcut */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span 
                               style={{ 
-                                fontSize: '0.88rem', 
+                                fontSize: '0.82rem', 
                                 fontWeight: 850, 
                                 fontFamily: 'var(--font-mono)',
                                 color: isPosWin ? 'var(--color-win)' : 'var(--color-loss)',
                                 background: isPosWin ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
                                 border: '1px solid ' + (isPosWin ? 'var(--color-win-border)' : 'var(--color-loss-border)'),
-                                padding: '3px 9px',
-                                borderRadius: '6px'
+                                padding: '2px 7px',
+                                borderRadius: '5px'
                               }}
                             >
                               {isPnlVisible ? `${isPosWin ? '+' : ''}${formatCurrency(trade.netPnL)}` : '••••••'}
@@ -1744,115 +1783,49 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                                   border: 'none',
                                   color: 'var(--primary)',
                                   cursor: 'pointer',
-                                  padding: '4px',
+                                  padding: '2px 4px',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '4px',
-                                  fontSize: '0.72rem',
+                                  gap: '3px',
+                                  fontSize: '0.7rem',
                                   fontWeight: 650
                                 }}
                                 title="Open trade in TradeLogger"
                               >
                                 <span>Edit</span>
-                                <ExternalLink size={13} />
+                                <ExternalLink size={11} />
                               </button>
                             )}
                           </div>
                         </div>
 
-                        {/* Mistakes & Emotion Tags */}
-                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                          {hasMistake ? (
-                            pos.mistakes.map(m => (
-                              <span 
-                                key={m}
-                                style={{ 
-                                  fontSize: '0.72rem', 
-                                  fontWeight: 750, 
-                                  padding: '2px 8px', 
-                                  borderRadius: '9999px',
-                                  background: 'rgba(239, 68, 68, 0.18)',
-                                  color: '#fca5a5',
-                                  border: '1px solid rgba(239, 68, 68, 0.4)',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
-                              >
-                                <span>⚠️ Mistake:</span> {m}
-                              </span>
-                            ))
-                          ) : (
-                            <span 
-                              style={{ 
-                                fontSize: '0.68rem', 
-                                fontWeight: 650, 
-                                padding: '2px 7px', 
-                                borderRadius: '9999px',
-                                background: 'rgba(48, 209, 88, 0.12)',
-                                color: '#4ade80',
-                                border: '1px solid rgba(48, 209, 88, 0.25)'
-                              }}
-                            >
-                              ✓ Clean Setup
+                        {/* Row 2: Trade Notes (Rendered ONLY if note exists) */}
+                        {hasNote && (
+                          <div 
+                            style={{ 
+                              padding: '4px 8px', 
+                              borderRadius: '5px', 
+                              background: 'rgba(0, 0, 0, 0.25)',
+                              borderLeft: '2.5px solid ' + (hasMistake ? '#ef4444' : 'var(--primary)'),
+                              fontSize: '0.78rem',
+                              color: 'var(--text-main)',
+                              lineHeight: 1.45,
+                              marginTop: '2px'
+                            }}
+                          >
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: hasMistake ? '#fca5a5' : 'var(--primary)', marginRight: '6px' }}>
+                              📝 Note:
                             </span>
-                          )}
-
-                          {trade.emotion && (
-                            <span 
-                              style={{ 
-                                fontSize: '0.68rem', 
-                                fontWeight: 650, 
-                                padding: '2px 7px', 
-                                borderRadius: '9999px',
-                                background: 'rgba(191, 90, 242, 0.12)',
-                                color: '#d8b4fe',
-                                border: '1px solid rgba(191, 90, 242, 0.25)'
-                              }}
-                            >
-                              Emotion: {trade.emotion}
-                            </span>
-                          )}
-
-                          {trade.strategy && (
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', padding: '2px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                              Strategy: {trade.strategy}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Trade Notes Quote Box (Highlighted in Full Detail) */}
-                        <div 
-                          style={{ 
-                            padding: '12px 14px', 
-                            borderRadius: '10px', 
-                            background: hasNote ? 'rgba(0, 0, 0, 0.35)' : 'rgba(255, 255, 255, 0.015)',
-                            borderLeft: hasNote ? '3.5px solid ' + (hasMistake ? '#f87171' : 'var(--primary)') : '3px solid var(--border-color)',
-                            fontSize: '0.82rem',
-                            color: hasNote ? 'var(--text-main)' : 'var(--text-dim)',
-                            lineHeight: 1.55
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: hasNote ? '4px' : '0' }}>
-                            <span style={{ fontSize: '0.74rem', fontWeight: 750, color: hasNote ? (hasMistake ? '#fca5a5' : 'var(--primary)') : 'var(--text-dim)' }}>
-                              📝 Trade Note:
-                            </span>
+                            <span style={{ whiteSpace: 'pre-wrap' }}>{pos.notes}</span>
                           </div>
-                          {hasNote ? (
-                            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{pos.notes}</p>
-                          ) : (
-                            <span style={{ fontStyle: 'italic', fontSize: '0.76rem' }}>
-                              No notes logged for this trade.
-                            </span>
-                          )}
-                        </div>
+                        )}
 
                         {/* Rules Followed / Broken */}
                         {trade.rulesFollowed && trade.rulesFollowed.length > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
-                            <span style={{ fontWeight: 650 }}>Rules Followed:</span>
+                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontSize: '0.66rem', color: 'var(--text-dim)' }}>
+                            <span style={{ fontWeight: 600 }}>Rules:</span>
                             {trade.rulesFollowed.map(r => (
-                              <span key={r} style={{ padding: '1px 6px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
+                              <span key={r} style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(48, 209, 88, 0.08)', color: '#86efac', border: '1px solid rgba(48, 209, 88, 0.2)' }}>
                                 ✓ {r}
                               </span>
                             ))}
