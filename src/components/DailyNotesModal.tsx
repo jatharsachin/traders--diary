@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, Save, Trash2, ChevronLeft, ChevronRight, CheckCircle2, 
-  AlertCircle, List, ListOrdered, CheckSquare, Bold, Italic, 
-  Underline, Strikethrough, BookOpenCheck, Palette, Type
+  AlertCircle, List, ListOrdered, Bold, Italic, 
+  Underline, Strikethrough, BookOpenCheck, Palette
 } from 'lucide-react';
 import { useTradeStore } from '../store/useTradeStore';
 
@@ -31,47 +31,10 @@ export function DailyNotesModal({
   const [lessonsText, setLessonsText] = useState<string>('');
   const [planForTomorrow, setPlanForTomorrow] = useState<string>('');
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Font family, size, and font color customization
-  const [editorFontFamily, setEditorFontFamily] = useState<string>(() => {
-    return localStorage.getItem('traders_diary_notes_font_family') || 'sans';
-  });
-  const [editorFontSize, setEditorFontSize] = useState<string>(() => {
-    return localStorage.getItem('traders_diary_notes_font_size') || '16px';
-  });
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [selectedTextColor, setSelectedTextColor] = useState<string>('#38bdf8');
 
   const editorRef = useRef<HTMLDivElement>(null);
-
-  const getFontFamilyStyle = (fontKey: string) => {
-    switch (fontKey) {
-      case 'mono':
-        return 'Consolas, "Courier New", monospace';
-      case 'serif':
-        return 'Georgia, Cambria, "Times New Roman", serif';
-      case 'trebuchet':
-        return '"Trebuchet MS", "Lucida Grande", sans-serif';
-      default:
-        return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    }
-  };
-
-  const handleFontFamilyChange = (font: string) => {
-    setEditorFontFamily(font);
-    localStorage.setItem('traders_diary_notes_font_family', font);
-    if (editorRef.current) {
-      editorRef.current.style.fontFamily = getFontFamilyStyle(font);
-    }
-  };
-
-  const handleFontSizeChange = (size: string) => {
-    setEditorFontSize(size);
-    localStorage.setItem('traders_diary_notes_font_size', size);
-    if (editorRef.current) {
-      editorRef.current.style.fontSize = size;
-    }
-  };
 
   // Sync initial date & content when modal opens or date changes
   useEffect(() => {
@@ -188,7 +151,7 @@ export function DailyNotesModal({
       planForTomorrow: planForTomorrow.trim(),
     });
 
-    setFeedbackMsg({ type: 'success', text: `✓ Note for ${selectedDate} saved!` });
+    setFeedbackMsg({ type: 'success', text: `Note for ${selectedDate} saved successfully!` });
     setTimeout(() => {
       setFeedbackMsg(null);
       onClose();
@@ -205,7 +168,7 @@ export function DailyNotesModal({
       }
       setLessonsText('');
       setPlanForTomorrow('');
-      setFeedbackMsg({ type: 'success', text: `Note deleted.` });
+      setFeedbackMsg({ type: 'success', text: 'Note deleted.' });
       setTimeout(() => {
         onClose();
       }, 800);
@@ -223,7 +186,7 @@ export function DailyNotesModal({
     }
   })();
 
-  const formattedDateTitle = dateObj.toLocaleDateString('en-IN', {
+  const formattedDateTitle = dateObj.toLocaleDateString('en-US', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -408,54 +371,6 @@ export function DailyNotesModal({
             >
               {/* Row 1: MS Word Formatting Controls */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                {/* Font Family & Size Selectors */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <select
-                    value={editorFontFamily}
-                    onChange={(e) => handleFontFamilyChange(e.target.value)}
-                    style={{
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-main)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '6px',
-                      padding: '4px 6px',
-                      fontSize: '0.74rem',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                    title="Font Family"
-                  >
-                    <option value="sans">Font: Default (Clean)</option>
-                    <option value="mono">Font: Terminal / Code (Courier)</option>
-                    <option value="serif">Font: Classic Serif (Georgia)</option>
-                    <option value="trebuchet">Font: Modern (Trebuchet)</option>
-                  </select>
-
-                  <select
-                    value={editorFontSize}
-                    onChange={(e) => handleFontSizeChange(e.target.value)}
-                    style={{
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-main)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '6px',
-                      padding: '4px 6px',
-                      fontSize: '0.74rem',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                    title="Font Size"
-                  >
-                    <option value="13px">Size: Small (13px)</option>
-                    <option value="16px">Size: Normal (16px)</option>
-                    <option value="20px">Size: Large (20px)</option>
-                    <option value="24px">Size: Extra Large (24px)</option>
-                  </select>
-                </div>
-
-                <div style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 2px' }} />
-
-                {/* MS Word-Style Formatting Tools */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                   <button
                     type="button"
@@ -553,10 +468,10 @@ export function DailyNotesModal({
                       >
                         {[
                           { hex: '#ffffff', name: 'White' },
-                          { hex: '#10b981', name: 'Green (Profit/Win)' },
-                          { hex: '#ef4444', name: 'Red (Loss/Error)' },
-                          { hex: '#38bdf8', name: 'Sky Blue (Trend/Levels)' },
-                          { hex: '#f59e0b', name: 'Amber (Trap/Warning)' },
+                          { hex: '#10b981', name: 'Green (Profit / Win)' },
+                          { hex: '#ef4444', name: 'Red (Loss / Error)' },
+                          { hex: '#38bdf8', name: 'Sky Blue (Trend / Levels)' },
+                          { hex: '#f59e0b', name: 'Amber (Trap / Warning)' },
                           { hex: '#a855f7', name: 'Purple (Mindset)' },
                           { hex: '#f97316', name: 'Orange (Trigger)' },
                           { hex: '#14b8a6', name: 'Teal (Observation)' },
@@ -589,7 +504,7 @@ export function DailyNotesModal({
 
                 <div style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 2px' }} />
 
-                {/* Lists and Tasks */}
+                {/* Lists */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                   <button
                     type="button"
@@ -692,7 +607,7 @@ export function DailyNotesModal({
               </div>
             </div>
 
-            {/* WYSIWYG contentEditable Document Area */}
+            {/* WYSIWYG contentEditable Document Area - Using Software Default Font */}
             <div
               ref={editorRef}
               contentEditable
@@ -706,8 +621,8 @@ export function DailyNotesModal({
                 color: 'var(--text-main)',
                 border: 'none',
                 padding: '14px 16px',
-                fontSize: editorFontSize,
-                fontFamily: getFontFamilyStyle(editorFontFamily),
+                fontSize: '0.92rem',
+                fontFamily: 'inherit',
                 lineHeight: 1.65,
                 outline: 'none',
                 wordBreak: 'break-word'
@@ -715,7 +630,7 @@ export function DailyNotesModal({
             />
           </div>
 
-          {/* Simple 2 Sub-fields */}
+          {/* Simple 2 Sub-fields (All English placeholders & labels) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
             <div>
               <label style={{ fontSize: '0.74rem', fontWeight: 650, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
@@ -725,7 +640,7 @@ export function DailyNotesModal({
                 type="text"
                 value={lessonsText}
                 onChange={(e) => setLessonsText(e.target.value)}
-                placeholder="उदा. Always follow stoploss strictly"
+                placeholder="e.g. Always wait for candle close confirmation, respect stoploss strictly"
                 style={{
                   width: '100%',
                   background: 'var(--bg-card)',
@@ -748,7 +663,7 @@ export function DailyNotesModal({
                 type="text"
                 value={planForTomorrow}
                 onChange={(e) => setPlanForTomorrow(e.target.value)}
-                placeholder="उदा. Nifty Expiry - trade with small size"
+                placeholder="e.g. Nifty Expiry - maintain strict risk management and position sizing"
                 style={{
                   width: '100%',
                   background: 'var(--bg-card)',

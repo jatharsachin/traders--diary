@@ -605,6 +605,8 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                 return isMatchAccount(t.brokerAccountId, t.broker);
               });
 
+              const tradeNotesForDay = noteTrades.filter(t => t.notes && t.notes.trim().length > 0);
+
               const netPnL = noteTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
               const dateObj = (() => {
                 try {
@@ -713,6 +715,62 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                       }}
                     >
                       {renderFormattedNoteText(note.notes)}
+                    </div>
+                  )}
+
+                  {/* Tradelog Notes Section (Only Notes with Setup Name) */}
+                  {tradeNotesForDay.length > 0 && (
+                    <div 
+                      style={{ 
+                        padding: '12px 14px', 
+                        borderRadius: '10px', 
+                        background: 'rgba(255, 255, 255, 0.015)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Trade Log Notes ({tradeNotesForDay.length}):
+                      </span>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {tradeNotesForDay.map(trade => (
+                          <div 
+                            key={trade.id}
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'flex-start', 
+                              gap: '10px', 
+                              fontSize: '0.85rem',
+                              lineHeight: 1.5,
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: 'rgba(0, 0, 0, 0.25)',
+                              border: '1px solid rgba(255, 255, 255, 0.04)'
+                            }}
+                          >
+                            <span 
+                              style={{ 
+                                fontWeight: 750, 
+                                color: '#38bdf8', 
+                                whiteSpace: 'nowrap',
+                                fontSize: '0.76rem',
+                                padding: '2px 8px',
+                                borderRadius: '5px',
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)'
+                              }}
+                            >
+                              Setup: {trade.setup || trade.symbol || 'General Trade'}
+                            </span>
+                            <span style={{ color: '#f1f5f9', whiteSpace: 'pre-wrap', flex: 1 }}>
+                              {trade.notes}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
