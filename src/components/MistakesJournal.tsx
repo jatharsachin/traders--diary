@@ -824,7 +824,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                       </div>
                     )}
 
-                    {/* Tradelog Notes Section (Consolidated Strategy-Wise Notes) */}
+                    {/* Tradelog Notes Section (Compact Bullets) */}
                     {strategyNotesForDay.length > 0 && (
                       <div 
                         style={{ 
@@ -834,14 +834,14 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                           border: '1px solid rgba(255, 255, 255, 0.04)',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '4px'
+                          gap: '3px'
                         }}
                       >
-                        <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Strategy Notes ({strategyNotesForDay.length}):
+                        <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '1px' }}>
+                          Trade Log Notes ({strategyNotesForDay.length}):
                         </span>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '140px', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '140px', overflowY: 'auto' }}>
                           {strategyNotesForDay.map(item => (
                             <div 
                               key={item.id}
@@ -850,28 +850,22 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                                 alignItems: 'baseline', 
                                 gap: '6px', 
                                 fontSize: '0.78rem',
-                                lineHeight: 1.35,
-                                padding: '3px 6px',
-                                borderRadius: '4px',
-                                background: 'rgba(0, 0, 0, 0.25)',
-                                border: '1px solid rgba(255, 255, 255, 0.04)'
+                                lineHeight: 1.32,
+                                padding: '1px 2px'
                               }}
                             >
+                              <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
                               <span 
                                 style={{ 
                                   fontWeight: 700, 
                                   color: '#38bdf8', 
                                   whiteSpace: 'nowrap',
-                                  fontSize: '0.68rem',
-                                  padding: '1px 5px',
-                                  borderRadius: '3px',
-                                  background: 'rgba(56, 189, 248, 0.1)',
-                                  border: '1px solid rgba(56, 189, 248, 0.25)'
+                                  fontSize: '0.72rem'
                                 }}
                               >
-                                Strategy: {item.strategy}
+                                {item.strategy}:
                               </span>
-                              <span style={{ color: '#f1f5f9', whiteSpace: 'pre-wrap', flex: 1, wordBreak: 'break-word' }}>
+                              <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
                                 {item.note}
                               </span>
                             </div>
