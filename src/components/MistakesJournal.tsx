@@ -763,7 +763,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                                 border: '1px solid rgba(56, 189, 248, 0.25)'
                               }}
                             >
-                              Setup: {trade.setup || trade.symbol || 'General Trade'}
+                              Strategy: {trade.strategy || trade.symbol || 'General Trade'}
                             </span>
                             <span style={{ color: '#f1f5f9', whiteSpace: 'pre-wrap', flex: 1 }}>
                               {trade.notes}
