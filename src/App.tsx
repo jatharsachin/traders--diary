@@ -14,7 +14,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
 import { AccountFilterDropdown } from './components/AccountFilterDropdown';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, BookOpen, Menu, HelpCircle, FileSpreadsheet, AlertTriangle, NotebookPen } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, BookOpen, BookOpenCheck, Menu, HelpCircle, FileSpreadsheet, AlertTriangle, NotebookPen } from 'lucide-react';
 import { getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
