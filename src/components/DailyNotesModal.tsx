@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, Save, Trash2, ChevronLeft, ChevronRight, CheckCircle2, 
-  AlertCircle, List, ListOrdered, CheckSquare, Bold, BookOpenCheck
+  AlertCircle, List, ListOrdered, CheckSquare, Bold, Italic, 
+  Underline, Strikethrough, BookOpenCheck
 } from 'lucide-react';
 import { useTradeStore } from '../store/useTradeStore';
 
@@ -152,8 +153,25 @@ export function DailyNotesModal({
     insertAtCursor(prefix);
   };
 
-  // Smart Enter key handler (auto-continues bullet points and numbered lists)
+  // Smart key handler (MS Word shortcuts + auto-continues bullet points and numbered lists)
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // MS Word style keyboard shortcuts
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      insertAtCursor('**', '**');
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+      e.preventDefault();
+      insertAtCursor('*', '*');
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
+      e.preventDefault();
+      insertAtCursor('<u>', '</u>');
+      return;
+    }
+
     if (e.key === 'Enter') {
       const textarea = textareaRef.current;
       if (!textarea) return;
@@ -451,8 +469,53 @@ export function DailyNotesModal({
                 flexWrap: 'wrap'
               }}
             >
-              {/* Formatting tools */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {/* MS Word-Style Formatting Tools */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <button
+                  type="button"
+                  onClick={() => insertAtCursor('**', '**')}
+                  className="btn btn-secondary"
+                  style={{ padding: '3px 7px', fontSize: '0.74rem', fontWeight: 800, minWidth: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title="Bold (Ctrl+B / **text**)"
+                >
+                  <Bold size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => insertAtCursor('*', '*')}
+                  className="btn btn-secondary"
+                  style={{ padding: '3px 7px', fontSize: '0.74rem', minWidth: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title="Italic (Ctrl+I / *text*)"
+                >
+                  <Italic size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => insertAtCursor('<u>', '</u>')}
+                  className="btn btn-secondary"
+                  style={{ padding: '3px 7px', fontSize: '0.74rem', minWidth: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title="Underline (Ctrl+U / <u>text</u>)"
+                >
+                  <Underline size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => insertAtCursor('~~', '~~')}
+                  className="btn btn-secondary"
+                  style={{ padding: '3px 7px', fontSize: '0.74rem', minWidth: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title="Strikethrough (~~text~~)"
+                >
+                  <Strikethrough size={13} />
+                </button>
+              </div>
+
+              <div style={{ width: '1px', height: '16px', background: 'var(--border-color)', margin: '0 2px' }} />
+
+              {/* Lists and Tasks */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <button
                   type="button"
                   onClick={insertBullet}
@@ -484,16 +547,6 @@ export function DailyNotesModal({
                 >
                   <CheckSquare size={13} color="#10b981" />
                   <span>Task</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => insertAtCursor('**', '**')}
-                  className="btn btn-secondary"
-                  style={{ padding: '3px 8px', fontSize: '0.74rem', fontWeight: 700 }}
-                  title="Bold"
-                >
-                  <Bold size={13} />
                 </button>
               </div>
 

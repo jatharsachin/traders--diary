@@ -109,6 +109,40 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
     }
   };
 
+  // Helper to parse MS Word style inline formatting (bold, italic, underline, strikethrough)
+  const renderInlineMarkdown = (content: string) => {
+    if (!content) return '';
+    const parts: React.ReactNode[] = [];
+    let remaining = content;
+    let key = 0;
+    const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|<u>.*?<\/u>|~~[^~]+~~)/;
+
+    while (remaining.length > 0) {
+      const match = remaining.match(regex);
+      if (!match || match.index === undefined) {
+        parts.push(remaining);
+        break;
+      }
+      if (match.index > 0) {
+        parts.push(remaining.substring(0, match.index));
+      }
+      const token = match[0];
+      if (token.startsWith('**') && token.endsWith('**')) {
+        parts.push(<strong key={key++} style={{ color: '#ffffff', fontWeight: 800 }}>{token.slice(2, -2)}</strong>);
+      } else if (token.startsWith('*') && token.endsWith('*')) {
+        parts.push(<em key={key++} style={{ fontStyle: 'italic', color: '#f8fafc' }}>{token.slice(1, -1)}</em>);
+      } else if (token.startsWith('<u>') && token.endsWith('</u>')) {
+        parts.push(<u key={key++} style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>{token.slice(3, -4)}</u>);
+      } else if (token.startsWith('~~') && token.endsWith('~~')) {
+        parts.push(<span key={key++} style={{ textDecoration: 'line-through', opacity: 0.7 }}>{token.slice(2, -2)}</span>);
+      } else {
+        parts.push(token);
+      }
+      remaining = remaining.substring(match.index + token.length);
+    }
+    return parts;
+  };
+
   // Helper to format bullets, numbers, and checkboxes cleanly in daily notes
   const renderFormattedNoteText = (text: string) => {
     if (!text) return null;
@@ -124,7 +158,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
             return (
               <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
                 <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none' }}>•</span>
-                <span>{trimmed.substring(2)}</span>
+                <span>{renderInlineMarkdown(trimmed.substring(2))}</span>
               </div>
             );
           }
@@ -133,7 +167,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
             return (
               <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
                 <span style={{ color: '#38bdf8', fontWeight: 700, minWidth: '18px', userSelect: 'none' }}>{numMatch[1]}.</span>
-                <span>{numMatch[2]}</span>
+                <span>{renderInlineMarkdown(numMatch[2])}</span>
               </div>
             );
           }
@@ -142,7 +176,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
             return (
               <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
                 <span style={{ color: 'var(--text-muted)', userSelect: 'none', fontSize: '1rem' }}>☐</span>
-                <span>{content}</span>
+                <span>{renderInlineMarkdown(content)}</span>
               </div>
             );
           }
@@ -151,11 +185,11 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
             return (
               <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', paddingLeft: '4px' }}>
                 <span style={{ color: '#10b981', userSelect: 'none', fontSize: '1rem' }}>☑</span>
-                <span style={{ textDecoration: 'line-through', opacity: 0.75 }}>{content}</span>
+                <span style={{ textDecoration: 'line-through', opacity: 0.75 }}>{renderInlineMarkdown(content)}</span>
               </div>
             );
           }
-          return <div key={idx}>{line}</div>;
+          return <div key={idx}>{renderInlineMarkdown(line)}</div>;
         })}
       </div>
     );
