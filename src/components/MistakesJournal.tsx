@@ -233,21 +233,13 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
       const dayNetPnL = noteTrades.reduce((sum, t) => sum + (t.netPnL || 0), 0);
       const tradesCount = noteTrades.length;
 
-      // Calculate total day PnL per strategy
-      const strategyDayPnLMap = new Map<string, number>();
-      for (const t of noteTrades) {
-        const sName = t.strategy || t.symbol || 'General Trade';
-        const key = sName.toLowerCase();
-        strategyDayPnLMap.set(key, (strategyDayPnLMap.get(key) || 0) + (t.netPnL || 0));
-      }
-
       // Consolidate paired spreads and filter duplicate hedge legs
       const groupedPositions = groupHedgedTrades(noteTrades);
       const strategyNotesForDay: Array<{
         id: string;
         strategy: string;
         note: string;
-        strategyPnL: number;
+        tradePnL: number;
       }> = [];
       const seenEntries = new Set<string>();
 
@@ -266,17 +258,17 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         }
 
         const stratName = pos.strategy || pos.leg1.strategy || pos.leg2?.strategy || pos.leg1.symbol || 'General Trade';
-        const dedupeKey = `${stratName.toLowerCase()}:::${cleaned.toLowerCase()}`;
+        const dedupeKey = `${pos.id}:::${cleaned.toLowerCase()}`;
         if (seenEntries.has(dedupeKey)) continue;
         seenEntries.add(dedupeKey);
 
-        const stratPnL = strategyDayPnLMap.get(stratName.toLowerCase()) ?? pos.combinedNetPnL;
+        const tradePnL = pos.combinedNetPnL;
 
         strategyNotesForDay.push({
           id: pos.id,
           strategy: stratName,
           note: cleaned,
-          strategyPnL: stratPnL
+          tradePnL
         });
       }
 
@@ -811,15 +803,15 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                                 fontSize: '0.67rem',
                                 fontWeight: 700,
                                 fontFamily: 'var(--font-mono)',
-                                color: item.strategyPnL >= 0 ? '#10b981' : '#f87171',
-                                background: item.strategyPnL >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                color: item.tradePnL >= 0 ? '#10b981' : '#f87171',
+                                background: item.tradePnL >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                                 padding: '0 4px',
                                 borderRadius: '3px',
                                 whiteSpace: 'nowrap'
                               }}
-                              title={`Day PnL for ${item.strategy}`}
+                              title={`Trade PnL for ${item.strategy}`}
                             >
-                              {isPnlVisible ? `${item.strategyPnL >= 0 ? '+' : ''}₹${Math.round(item.strategyPnL).toLocaleString('en-IN')}` : '••••'}
+                              {isPnlVisible ? `${item.tradePnL >= 0 ? '+' : ''}₹${Math.round(item.tradePnL).toLocaleString('en-IN')}` : '••••'}
                             </span>
 
                             {/* Note Text */}
