@@ -808,113 +808,139 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                       </div>
                     </div>
 
-                    {/* Formatted Note Text Body (With sleek scroll for long notes) */}
-                    {note.notes && (
-                      <div 
-                        style={{ 
-                          background: 'rgba(0, 0, 0, 0.25)', 
-                          padding: '6px 10px', 
-                          borderRadius: '6px', 
-                          border: '1px solid rgba(255, 255, 255, 0.04)',
-                          maxHeight: '190px',
-                          overflowY: 'auto'
-                        }}
-                      >
-                        {renderFormattedNoteText(note.notes)}
-                      </div>
-                    )}
+                    {/* Card Content: 2-Column Split (Left: Day-End Reflections, Right: Trade Log Notes in the blank space) */}
+                    {(() => {
+                      const hasDayNotes = Boolean(note.notes || note.lessons || note.planForTomorrow);
+                      const hasTradeNotes = strategyNotesForDay.length > 0;
+                      const isTwoColumn = hasDayNotes && hasTradeNotes;
 
-                    {/* Tradelog Notes Section (Compact Bullets) */}
-                    {strategyNotesForDay.length > 0 && (
-                      <div 
-                        style={{ 
-                          padding: '6px 8px', 
-                          borderRadius: '6px', 
-                          background: 'rgba(255, 255, 255, 0.015)',
-                          border: '1px solid rgba(255, 255, 255, 0.04)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '3px'
-                        }}
-                      >
-                        <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '1px' }}>
-                          Trade Log Notes ({strategyNotesForDay.length}):
-                        </span>
+                      return (
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: isTwoColumn ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr',
+                            gap: '8px',
+                            alignItems: 'start'
+                          }}
+                        >
+                          {/* Left Column: Day Reflections, Key Lesson, Tomorrow's Plan */}
+                          {hasDayNotes && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0 }}>
+                              {/* Formatted Note Text Body */}
+                              {note.notes && (
+                                <div 
+                                  style={{ 
+                                    background: 'rgba(0, 0, 0, 0.25)', 
+                                    padding: '6px 10px', 
+                                    borderRadius: '6px', 
+                                    border: '1px solid rgba(255, 255, 255, 0.04)',
+                                    maxHeight: '190px',
+                                    overflowY: 'auto'
+                                  }}
+                                >
+                                  {renderFormattedNoteText(note.notes)}
+                                </div>
+                              )}
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '140px', overflowY: 'auto' }}>
-                          {strategyNotesForDay.map(item => (
+                              {/* Lesson */}
+                              {note.lessons && (
+                                <div 
+                                  style={{ 
+                                    padding: '4px 8px', 
+                                    borderRadius: '6px', 
+                                    background: 'rgba(56, 189, 248, 0.05)', 
+                                    borderLeft: '3px solid #38bdf8',
+                                    fontSize: '0.76rem',
+                                    lineHeight: 1.35,
+                                    color: 'var(--text-main)',
+                                    display: 'flex',
+                                    alignItems: 'baseline',
+                                    gap: '5px'
+                                  }}
+                                >
+                                  <span style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap' }}>💡 Lesson:</span>
+                                  <span style={{ whiteSpace: 'pre-wrap' }}>{note.lessons}</span>
+                                </div>
+                              )}
+
+                              {/* Plan For Tomorrow */}
+                              {note.planForTomorrow && (
+                                <div 
+                                  style={{ 
+                                    padding: '4px 8px', 
+                                    borderRadius: '6px', 
+                                    background: 'rgba(168, 85, 247, 0.05)', 
+                                    borderLeft: '3px solid #a855f7',
+                                    fontSize: '0.76rem',
+                                    lineHeight: 1.35,
+                                    color: 'var(--text-main)',
+                                    display: 'flex',
+                                    alignItems: 'baseline',
+                                    gap: '5px'
+                                  }}
+                                >
+                                  <span style={{ fontWeight: 700, color: '#a855f7', whiteSpace: 'nowrap' }}>🎯 Tomorrow:</span>
+                                  <span style={{ whiteSpace: 'pre-wrap' }}>{note.planForTomorrow}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Right Column: Trade Log Notes positioned in the front/blank space */}
+                          {hasTradeNotes && (
                             <div 
-                              key={item.id}
                               style={{ 
-                                display: 'flex', 
-                                alignItems: 'baseline', 
-                                gap: '6px', 
-                                fontSize: '0.78rem',
-                                lineHeight: 1.32,
-                                padding: '1px 2px'
+                                padding: '6px 8px', 
+                                borderRadius: '6px', 
+                                background: 'rgba(0, 0, 0, 0.2)',
+                                border: '1px solid rgba(255, 255, 255, 0.04)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '3px',
+                                maxHeight: '190px',
+                                overflowY: 'auto',
+                                minWidth: 0
                               }}
                             >
-                              <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
-                              <span 
-                                style={{ 
-                                  fontWeight: 700, 
-                                  color: '#38bdf8', 
-                                  whiteSpace: 'nowrap',
-                                  fontSize: '0.72rem'
-                                }}
-                              >
-                                {item.strategy}:
+                              <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '1px' }}>
+                                Trade Log Notes ({strategyNotesForDay.length}):
                               </span>
-                              <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
-                                {item.note}
-                              </span>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {strategyNotesForDay.map(item => (
+                                  <div 
+                                    key={item.id}
+                                    style={{ 
+                                      display: 'flex', 
+                                      alignItems: 'baseline', 
+                                      gap: '6px', 
+                                      fontSize: '0.78rem',
+                                      lineHeight: 1.32,
+                                      padding: '1px 2px'
+                                    }}
+                                  >
+                                    <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
+                                    <span 
+                                      style={{ 
+                                        fontWeight: 700, 
+                                        color: '#38bdf8', 
+                                        whiteSpace: 'nowrap',
+                                        fontSize: '0.72rem'
+                                      }}
+                                    >
+                                      {item.strategy}:
+                                    </span>
+                                    <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
+                                      {item.note}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          ))}
+                          )}
                         </div>
-                      </div>
-                    )}
-
-                    {/* Lesson */}
-                    {note.lessons && (
-                      <div 
-                        style={{ 
-                          padding: '4px 8px', 
-                          borderRadius: '6px', 
-                          background: 'rgba(56, 189, 248, 0.05)', 
-                          borderLeft: '3px solid #38bdf8',
-                          fontSize: '0.76rem',
-                          lineHeight: 1.35,
-                          color: 'var(--text-main)',
-                          display: 'flex',
-                          alignItems: 'baseline',
-                          gap: '5px'
-                        }}
-                      >
-                        <span style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap' }}>💡 Lesson:</span>
-                        <span style={{ whiteSpace: 'pre-wrap' }}>{note.lessons}</span>
-                      </div>
-                    )}
-
-                    {/* Plan For Tomorrow */}
-                    {note.planForTomorrow && (
-                      <div 
-                        style={{ 
-                          padding: '4px 8px', 
-                          borderRadius: '6px', 
-                          background: 'rgba(168, 85, 247, 0.05)', 
-                          borderLeft: '3px solid #a855f7',
-                          fontSize: '0.76rem',
-                          lineHeight: 1.35,
-                          color: 'var(--text-main)',
-                          display: 'flex',
-                          alignItems: 'baseline',
-                          gap: '5px'
-                        }}
-                      >
-                        <span style={{ fontWeight: 700, color: '#a855f7', whiteSpace: 'nowrap' }}>🎯 Tomorrow:</span>
-                        <span style={{ whiteSpace: 'pre-wrap' }}>{note.planForTomorrow}</span>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 );
               })}
