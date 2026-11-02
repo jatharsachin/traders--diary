@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
 import { getTradeMistakes, formatTradeMistakes } from '../types';
@@ -517,6 +518,18 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     }
   }, [editTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
 
+  // Keyboard Escape key listener to effortlessly close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   // Sync lots and quantity when lots or lot size changes
   const handleLotsChange = (val: string) => {
     setLotsInput(val);
@@ -879,13 +892,18 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     }
     
     // Persist the current lot size for this underlying index or symbol
-    const activeLotSz = parseFloat(lotSizeInput);
-    if (!isNaN(activeLotSz) && activeLotSz > 0) {
-      const match = finalSymbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
-      const key = match ? match[1] : (underlyingIndex || finalSymbol.trim().split(' ')[0].toUpperCase());
-      if (key) {
-        saveCustomLotSize(key, activeLotSz);
+    try {
+      const activeLotSz = parseFloat(lotSizeInput);
+      if (!isNaN(activeLotSz) && activeLotSz > 0) {
+        const symbolToMatch = (finalSymbol || formData.symbol || '').toUpperCase();
+        const match = symbolToMatch.match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+        const key = match ? match[1] : (underlyingIndex || symbolToMatch.trim().split(' ')[0]);
+        if (key) {
+          saveCustomLotSize(key, activeLotSz);
+        }
       }
+    } catch (e) {
+      console.error('Error saving lot size on submit', e);
     }
 
     localStorage.removeItem('traders_diary_draft_trade');
@@ -894,22 +912,31 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
 
   const handleClose = () => {
     // Persist the current lot size for this underlying index or symbol
-    const activeLotSz = parseFloat(lotSizeInput);
-    if (!isNaN(activeLotSz) && activeLotSz > 0) {
-      const match = finalSymbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
-      const key = match ? match[1] : (underlyingIndex || finalSymbol.trim().split(' ')[0].toUpperCase());
-      if (key) {
-        saveCustomLotSize(key, activeLotSz);
+    try {
+      const activeLotSz = parseFloat(lotSizeInput);
+      if (!isNaN(activeLotSz) && activeLotSz > 0) {
+        const symbolToMatch = (formData.symbol || '').toUpperCase();
+        const match = symbolToMatch.match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+        const key = match ? match[1] : (underlyingIndex || symbolToMatch.trim().split(' ')[0]);
+        if (key) {
+          saveCustomLotSize(key, activeLotSz);
+        }
       }
+    } catch (e) {
+      console.error('Error saving lot size on close', e);
     }
 
     localStorage.removeItem('traders_diary_draft_trade');
     onClose();
   };
 
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content glass-card animate-fade-in" style={{ padding: 0, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+  return createPortal(
+    <div className="modal-overlay" style={{ zIndex: 99999 }} onClick={handleClose}>
+      <div 
+        className="modal-content glass-card animate-fade-in" 
+        style={{ padding: 0, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <h2>{editTradeId ? (isMultiLeg ? 'Edit Hedged Spread (2 Legs)' : 'Edit Options/Equity Log') : (isMultiLeg ? 'Log Hedged Spread (2 Legs)' : 'Log Options/Equity Trade')}</h2>
           <button type="button" className="btn-secondary" style={{ padding: '6px', borderRadius: '50%', border: 'none', background: 'transparent' }} onClick={handleClose}>
@@ -1993,6 +2020,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
