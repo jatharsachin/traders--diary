@@ -57,6 +57,7 @@ const ContractNotesManager = safeLazy(() => import('./components/ContractNotesMa
 const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 const MistakesJournal = safeLazy(() => import('./components/MistakesJournal').then(m => ({ default: m.MistakesJournal })));
 const DailyNotesModal = safeLazy(() => import('./components/DailyNotesModal').then(m => ({ default: m.DailyNotesModal })));
+const CapitalBreakdownModal = safeLazy(() => import('./components/CapitalBreakdownModal').then(m => ({ default: m.CapitalBreakdownModal })));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -64,6 +65,7 @@ export default function App() {
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
   const [isDailyNotesOpen, setIsDailyNotesOpen] = useState(false);
   const [dailyNotesDate, setDailyNotesDate] = useState<string | null>(null);
+  const [isCapitalModalOpen, setIsCapitalModalOpen] = useState(false);
 
   const handleOpenDailyNotes = (date?: string) => {
     setDailyNotesDate(date || new Date().toISOString().split('T')[0]);
@@ -1306,6 +1308,7 @@ export default function App() {
 
             {/* Current Capital Balance */}
             <div 
+              onClick={() => setIsCapitalModalOpen(true)}
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -1317,8 +1320,12 @@ export default function App() {
                 height: '38px',
                 boxShadow: 'var(--shadow-card)',
                 whiteSpace: 'nowrap',
-                flexShrink: 0
+                flexShrink: 0,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
+              className="hover-card"
+              title="Click to view Pocket Money In vs Trading Profit/Loss breakdown"
             >
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Current Capital:</span>
               <span 
@@ -1331,6 +1338,7 @@ export default function App() {
               >
                 ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
               </span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--primary)', opacity: 0.85, marginLeft: '2px' }}>📊</span>
             </div>
 
             {/* Special Day-End Notes Action Button */}
@@ -1705,11 +1713,17 @@ export default function App() {
             {/* Metrics: Capital, Wealth, Today's P&L, Nifty, Clock */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               {/* Capital */}
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '5px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+              <div 
+                onClick={() => setIsCapitalModalOpen(true)}
+                style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '5px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                className="hover-card"
+                title="Click to view Pocket Money In vs Trading Profit/Loss breakdown"
+              >
                 <span>Capital:</span>
                 <strong style={{ color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                   ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
                 </strong>
+                <span style={{ fontSize: '0.62rem', color: 'var(--primary)', opacity: 0.85 }}>📊</span>
               </div>
 
               {/* Wealth */}
@@ -2016,6 +2030,30 @@ export default function App() {
           onClose={() => setIsProfileSettingsOpen(false)}
           useTwoRowHeader={useTwoRowHeader}
           setUseTwoRowHeader={setUseTwoRowHeader}
+        />
+
+        {/* Capital Breakdown & Pocket Money Audit Modal Overlay */}
+        <CapitalBreakdownModal
+          isOpen={isCapitalModalOpen}
+          onClose={() => setIsCapitalModalOpen(false)}
+          isPnlVisible={isPnlVisible}
+          activeAccountName={
+            isCombinedView 
+              ? 'All Accounts Combined' 
+              : (brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).map(a => `${a.broker} (${a.accountName})`).join(', ') || 'Active Account')
+          }
+          isCombinedView={isCombinedView}
+          startingCapital={filteredBaseCapital}
+          totalNetPnL={totalNetPnL}
+          totalDeposits={totalDeposits}
+          totalWithdrawals={totalWithdrawals}
+          netInflow={totalDeposits - totalWithdrawals}
+          netInvestedCost={totalInvPurchasedCost - totalInvExitedCredit}
+          currentCapital={currentCapital}
+          totalInvCurrent={totalInvCurrent}
+          combinedWealth={combinedWealth}
+          brokerAccounts={brokerAccounts}
+          effectiveAccountIds={effectiveSelectedIds}
         />
       </Suspense>
 

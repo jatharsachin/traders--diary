@@ -43,14 +43,47 @@ const DEFAULT_FORM_STATE = {
   broker: 'Zerodha' as Broker,
 };
 
+const DEFAULT_LOT_SIZES: Record<string, number> = {
+  BANKNIFTY: 15,
+  FINNIFTY: 25,
+  MIDCPNIFTY: 50,
+  NIFTY: 65,
+  SENSEX: 20, // Updated current BSE Sensex lot size (editable & remembered)
+  BANKEX: 15,
+};
+
+export const getPersistedLotSizes = (): Record<string, number> => {
+  try {
+    const raw = localStorage.getItem('traders_diary_custom_lot_sizes');
+    if (raw) {
+      return { ...DEFAULT_LOT_SIZES, ...JSON.parse(raw) };
+    }
+  } catch (e) {
+    console.error('Failed to parse traders_diary_custom_lot_sizes', e);
+  }
+  return { ...DEFAULT_LOT_SIZES };
+};
+
+export const saveCustomLotSize = (key: string, lotSize: number): void => {
+  if (!key || isNaN(lotSize) || lotSize <= 0) return;
+  try {
+    const current = getPersistedLotSizes();
+    current[key.toUpperCase()] = lotSize;
+    localStorage.setItem('traders_diary_custom_lot_sizes', JSON.stringify(current));
+  } catch (e) {
+    console.error('Failed to save custom lot size', e);
+  }
+};
+
 const guessLotSize = (symbol: string): number => {
   const sym = symbol.toUpperCase();
-  if (sym.includes('BANKNIFTY')) return 15;
-  if (sym.includes('FINNIFTY')) return 25;
-  if (sym.includes('MIDCPNIFTY')) return 50;
-  if (sym.includes('NIFTY')) return 65;
-  if (sym.includes('SENSEX')) return 10;
-  if (sym.includes('BANKEX')) return 15;
+  const custom = getPersistedLotSizes();
+  if (sym.includes('BANKNIFTY')) return custom.BANKNIFTY || 15;
+  if (sym.includes('FINNIFTY')) return custom.FINNIFTY || 25;
+  if (sym.includes('MIDCPNIFTY')) return custom.MIDCPNIFTY || 50;
+  if (sym.includes('NIFTY')) return custom.NIFTY || 65;
+  if (sym.includes('SENSEX')) return custom.SENSEX || 20;
+  if (sym.includes('BANKEX')) return custom.BANKEX || 15;
   return 1;
 };
 
@@ -503,6 +536,15 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     } else if (formData.qty > 0) {
       setLotsInput((formData.qty / sz).toString());
     }
+
+    // Automatically persist the user's customized lot size for this index/symbol so it never resets
+    if (sz > 0) {
+      const match = formData.symbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+      const key = match ? match[1] : (underlyingIndex || formData.symbol.trim().split(' ')[0].toUpperCase());
+      if (key) {
+        saveCustomLotSize(key, sz);
+      }
+    }
   };
 
   // Watch symbol to auto-detect lot sizes AND auto-fill optionType, strikePrice, segment
@@ -670,7 +712,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
 
   const handleQuickIndexOption = (index: 'NIFTY' | 'SENSEX', type: 'CE' | 'PE') => {
     const strike = index === 'NIFTY' ? 23000 : 80000;
-    const lotSz = index === 'NIFTY' ? 65 : 10;
+    const lotSz = guessLotSize(index);
     const sym = `${index} ${strike} ${type}`;
     
     setUnderlyingIndex(index);
@@ -836,11 +878,31 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       }
     }
     
+    // Persist the current lot size for this underlying index or symbol
+    const activeLotSz = parseFloat(lotSizeInput);
+    if (!isNaN(activeLotSz) && activeLotSz > 0) {
+      const match = finalSymbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+      const key = match ? match[1] : (underlyingIndex || finalSymbol.trim().split(' ')[0].toUpperCase());
+      if (key) {
+        saveCustomLotSize(key, activeLotSz);
+      }
+    }
+
     localStorage.removeItem('traders_diary_draft_trade');
     onClose();
   };
 
   const handleClose = () => {
+    // Persist the current lot size for this underlying index or symbol
+    const activeLotSz = parseFloat(lotSizeInput);
+    if (!isNaN(activeLotSz) && activeLotSz > 0) {
+      const match = finalSymbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+      const key = match ? match[1] : (underlyingIndex || finalSymbol.trim().split(' ')[0].toUpperCase());
+      if (key) {
+        saveCustomLotSize(key, activeLotSz);
+      }
+    }
+
     localStorage.removeItem('traders_diary_draft_trade');
     onClose();
   };
@@ -1049,13 +1111,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                           onChange={(e) => {
                             const idx = e.target.value;
                             setUnderlyingIndex(idx);
-                            let defaultLot = 65;
-                            if (idx === 'NIFTY') defaultLot = 65;
-                            else if (idx === 'BANKNIFTY') defaultLot = 15;
-                            else if (idx === 'FINNIFTY') defaultLot = 25;
-                            else if (idx === 'MIDCPNIFTY') defaultLot = 50;
-                            else if (idx === 'SENSEX') defaultLot = 10;
-                            else if (idx === 'BANKEX') defaultLot = 15;
+                            const defaultLot = guessLotSize(idx);
                             setLotSizeInput(defaultLot.toString());
                             
                             const currentLots = parseFloat(lotsInput);
@@ -1068,12 +1124,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
                           className="form-select"
                           style={{ borderColor: 'var(--primary-glow)' }}
                         >
-                          <option value="NIFTY">NIFTY (Lot: 65)</option>
-                          <option value="BANKNIFTY">BANKNIFTY (Lot: 15)</option>
-                          <option value="FINNIFTY">FINNIFTY (Lot: 25)</option>
-                          <option value="MIDCPNIFTY">MIDCPNIFTY (Lot: 50)</option>
-                          <option value="SENSEX">SENSEX (Lot: 10)</option>
-                          <option value="BANKEX">BANKEX (Lot: 15)</option>
+                          <option value="NIFTY">NIFTY (Lot: {guessLotSize('NIFTY')})</option>
+                          <option value="BANKNIFTY">BANKNIFTY (Lot: {guessLotSize('BANKNIFTY')})</option>
+                          <option value="FINNIFTY">FINNIFTY (Lot: {guessLotSize('FINNIFTY')})</option>
+                          <option value="MIDCPNIFTY">MIDCPNIFTY (Lot: {guessLotSize('MIDCPNIFTY')})</option>
+                          <option value="SENSEX">SENSEX (Lot: {guessLotSize('SENSEX')})</option>
+                          <option value="BANKEX">BANKEX (Lot: {guessLotSize('BANKEX')})</option>
                         </select>
                       </div>
 
