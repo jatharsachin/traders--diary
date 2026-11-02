@@ -254,7 +254,8 @@ export default function App() {
     selectedFY,
     setSelectedFY,
     investments: allInvestments,
-    syncAllInvestmentPrices
+    syncAllInvestmentPrices,
+    bankAccounts,
   } = useTradeStore();
 
   const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
@@ -2054,6 +2055,9 @@ export default function App() {
           combinedWealth={combinedWealth}
           brokerAccounts={brokerAccounts}
           effectiveAccountIds={effectiveSelectedIds}
+          capitalAdjustments={filteredAdjustments}
+          bankAccounts={bankAccounts}
+          onNavigateToLedger={() => setActiveTab('ledger')}
         />
       </Suspense>
 
