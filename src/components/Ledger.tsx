@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download, ArrowUpDown
+  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download, ArrowUpDown, ArrowLeftRight
 } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
@@ -33,6 +33,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     addDirectBankTransaction,
     deleteDirectBankTransaction,
     editDirectBankTransaction,
+    transferBankFunds,
     investments
   } = useTradeStore();
 
@@ -78,6 +79,16 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const [editBankTxDate, setEditBankTxDate] = useState<string>('');
   const [editBankTxTime, setEditBankTxTime] = useState<string>('');
   const [editBankTxBrokerAccId, setEditBankTxBrokerAccId] = useState<string>('');
+
+  // --- BANK TO BANK TRANSFER FORM STATES ---
+  const [isBankTransferOpen, setIsBankTransferOpen] = useState(false);
+  const [trFromBankId, setTrFromBankId] = useState('');
+  const [trToBankId, setTrToBankId] = useState('');
+  const [trAmount, setTrAmount] = useState<number | ''>('');
+  const [trDate, setTrDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [trTime, setTrTime] = useState<string>(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+  const [trNotes, setTrNotes] = useState('');
+  const [trError, setTrError] = useState('');
 
   // --- SUBSCRIPTION FORM STATES ---
   const [subName, setSubName] = useState('');
@@ -579,6 +590,38 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     alert('Bank transaction updated successfully!');
   };
 
+  const handleBankTransferSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTrError('');
+    if (!trFromBankId || !trToBankId) {
+      setTrError('Please select both source and destination bank accounts.');
+      return;
+    }
+    if (trFromBankId === trToBankId) {
+      setTrError('Source and destination bank accounts must be different.');
+      return;
+    }
+    const numAmt = typeof trAmount === 'number' ? trAmount : parseFloat(trAmount);
+    if (isNaN(numAmt) || numAmt <= 0) {
+      setTrError('Please enter a valid transfer amount greater than 0.');
+      return;
+    }
+
+    transferBankFunds({
+      fromBankId: trFromBankId,
+      toBankId: trToBankId,
+      amount: numAmt,
+      date: trDate,
+      time: trTime,
+      notes: trNotes
+    });
+
+    setIsBankTransferOpen(false);
+    setTrAmount('');
+    setTrNotes('');
+    alert('Bank transfer logged successfully!');
+  };
+
   const handleAddSubSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!subName.trim() || subAmount <= 0) {
@@ -777,6 +820,25 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
             }}>
               <Plus size={13} />
               <span>Log Bank Transaction</span>
+            </button>
+            <button 
+              className="btn btn-secondary" 
+              style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px', borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.06)' }} 
+              onClick={() => {
+                const activeBanks = bankAccounts.filter(b => b.active);
+                setTrFromBankId(activeBanks[0]?.id || '');
+                setTrToBankId(activeBanks[1]?.id || activeBanks[0]?.id || '');
+                setTrAmount('');
+                setTrNotes('');
+                setTrDate(new Date().toISOString().split('T')[0]);
+                setTrTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+                setTrError('');
+                setIsBankTransferOpen(true);
+              }}
+              title="Transfer money between your bank and wife's bank / accounts"
+            >
+              <ArrowLeftRight size={13} />
+              <span>Bank Transfer</span>
             </button>
             <button className="btn btn-secondary" style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={exportBankLedgerCSV}>
               <Download size={12} />
@@ -1181,8 +1243,11 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                       onClick={() => {
                         const tx = bankTransactions.find(t => t.id === selectedBankTxId);
                         if (!tx) return;
+                        const isInternalTransfer = tx.category === 'Internal Transfer' || Boolean(tx.linkedBankTxId);
                         const isDoubleEntry = tx.category.startsWith('Broker') || tx.category === 'Subscription/Expense';
-                        const msg = isDoubleEntry 
+                        const msg = isInternalTransfer
+                          ? 'This is a paired Bank-to-Bank transfer. Deleting this will also remove the corresponding transaction in the paired bank account. Proceed?'
+                          : isDoubleEntry 
                           ? 'Deleting this transaction will also delete any linked broker pay-in/out or subscription expense ledger records. Proceed?'
                           : 'Are you sure you want to delete this bank transaction?';
                         if (confirm(msg)) {
@@ -1240,7 +1305,10 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                          ) : 'Unknown Bank'}
                        </td>
                       <td style={{ padding: '8px' }}>
-                        <div style={{ color: 'var(--primary)', fontWeight: 550 }}>{tx.category}</div>
+                        <div style={{ color: tx.category === 'Internal Transfer' ? '#38bdf8' : 'var(--primary)', fontWeight: 550, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          {tx.category === 'Internal Transfer' && <ArrowLeftRight size={11} />}
+                          <span>{tx.category}</span>
+                        </div>
                         {tx.brokerAccountId && (() => {
                           const brokerAcc = brokerAccounts.find(a => a.id === tx.brokerAccountId);
                           if (!brokerAcc) return null;
@@ -1845,6 +1913,147 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 <button type="submit" className="btn btn-primary" style={{ fontSize: '0.75rem' }}>
                   <Save size={12} />
                   <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* --- MODAL: BANK TO BANK TRANSFER --- */}
+      {isBankTransferOpen && createPortal(
+        <div className="modal-overlay" style={{ zIndex: 3100 }}>
+          <div className="modal-content glass-card" style={{ width: '440px', padding: 0, overflow: 'visible' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ArrowLeftRight size={16} color="#38bdf8" />
+                <h3 style={{ margin: 0, fontSize: '0.95rem' }}>Transfer Between Bank Accounts</h3>
+              </div>
+              <button onClick={() => setIsBankTransferOpen(false)} className="btn btn-secondary" style={{ border: 'none', padding: '4px' }}><X size={15}/></button>
+            </div>
+            <form onSubmit={handleBankTransferSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px' }}>
+                
+                {trError && (
+                  <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', color: '#f87171', fontSize: '0.78rem' }}>
+                    {trError}
+                  </div>
+                )}
+
+                {/* From Bank Account */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>From (Debited Account - Outflow)</label>
+                  <select 
+                    value={trFromBankId} 
+                    onChange={(e) => {
+                      setTrFromBankId(e.target.value);
+                      if (trError) setTrError('');
+                    }} 
+                    className="form-select" 
+                    required
+                  >
+                    <option value="">Select Source Bank</option>
+                    {bankAccounts.filter(b => b.active).map(b => (
+                      <option key={b.id} value={b.id}>{b.bankName} - {b.accountHolderName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Swap button */}
+                <div style={{ display: 'flex', justifyContent: 'center', margin: '-4px 0' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const temp = trFromBankId;
+                      setTrFromBankId(trToBankId);
+                      setTrToBankId(temp);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ padding: '3px 10px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.08)', borderColor: 'rgba(56, 189, 248, 0.3)', color: '#38bdf8' }}
+                    title="Swap From and To banks"
+                  >
+                    <ArrowUpDown size={11} />
+                    <span>Swap Accounts</span>
+                  </button>
+                </div>
+
+                {/* To Bank Account */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>To (Credited Account - Inflow)</label>
+                  <select 
+                    value={trToBankId} 
+                    onChange={(e) => {
+                      setTrToBankId(e.target.value);
+                      if (trError) setTrError('');
+                    }} 
+                    className="form-select" 
+                    required
+                  >
+                    <option value="">Select Destination Bank</option>
+                    {bankAccounts.filter(b => b.active).map(b => (
+                      <option key={b.id} value={b.id}>{b.bankName} - {b.accountHolderName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Amount */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Transfer Amount (₹)</label>
+                  <input 
+                    type="number" 
+                    placeholder="Enter amount in ₹" 
+                    value={trAmount === '' ? '' : trAmount} 
+                    onChange={(e) => {
+                      setTrAmount(e.target.value === '' ? '' : parseFloat(e.target.value));
+                      if (trError) setTrError('');
+                    }} 
+                    className="form-input" 
+                    min="1"
+                    step="any"
+                    required 
+                  />
+                </div>
+
+                {/* Date and Time */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Date</label>
+                    <input type="date" value={trDate} onChange={(e) => setTrDate(e.target.value)} className="form-input" required />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.72rem' }}>Time</label>
+                    <input type="time" value={trTime} onChange={(e) => setTrTime(e.target.value)} className="form-input" required />
+                  </div>
+                </div>
+
+                {/* Notes / Reason */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Notes / Description (Optional)</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Sent for household savings / personal..." 
+                    value={trNotes} 
+                    onChange={(e) => setTrNotes(e.target.value)} 
+                    className="form-input" 
+                  />
+                </div>
+
+                {/* Preview Callout */}
+                {trFromBankId && trToBankId && trFromBankId !== trToBankId && (
+                  <div style={{ padding: '8px 12px', background: 'rgba(56, 189, 248, 0.05)', border: '1px dashed rgba(56, 189, 248, 0.25)', borderRadius: '6px', fontSize: '0.74rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                    Debit (-): <strong style={{ color: '#f87171' }}>{bankAccounts.find(b => b.id === trFromBankId)?.bankName} ({bankAccounts.find(b => b.id === trFromBankId)?.accountHolderName})</strong>
+                    <br />
+                    Credit (+): <strong style={{ color: '#10b981' }}>{bankAccounts.find(b => b.id === trToBankId)?.bankName} ({bankAccounts.find(b => b.id === trToBankId)?.accountHolderName})</strong>
+                  </div>
+                )}
+
+              </div>
+              <div className="modal-footer" style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button type="button" onClick={() => setIsBankTransferOpen(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <ArrowLeftRight size={13} />
+                  <span>Transfer Funds</span>
                 </button>
               </div>
             </form>

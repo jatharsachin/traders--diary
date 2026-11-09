@@ -152,10 +152,11 @@ export interface BankTransaction {
   bankAccountId: string;
   type: 'DEPOSIT' | 'WITHDRAWAL'; // Deposit = money added to bank, Withdrawal = money removed from bank
   amount: number;
-  category: 'Direct Deposit' | 'Direct Withdrawal' | 'Broker Pay-in' | 'Broker Pay-out' | 'Subscription/Expense';
+  category: 'Direct Deposit' | 'Direct Withdrawal' | 'Broker Pay-in' | 'Broker Pay-out' | 'Subscription/Expense' | 'Internal Transfer';
   notes: string;
   brokerAccountId?: string; // linked broker account if pay-in/out
   expenseId?: string;       // linked expense if paid from bank
+  linkedBankTxId?: string;  // paired transaction ID for bank-to-bank transfer
 }
 
 export interface BrokerChargesConfig {

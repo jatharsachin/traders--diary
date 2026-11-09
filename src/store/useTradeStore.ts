@@ -138,6 +138,14 @@ interface TradeStore {
   addDirectBankTransaction: (tx: Omit<BankTransaction, 'id'>) => void;
   deleteDirectBankTransaction: (id: string) => void;
   editDirectBankTransaction: (id: string, txData: Partial<BankTransaction>) => void;
+  transferBankFunds: (data: {
+    fromBankId: string;
+    toBankId: string;
+    amount: number;
+    date: string;
+    time: string;
+    notes?: string;
+  }) => void;
 }
 
 const DEFAULT_SETUPS: Setup[] = [
@@ -1832,7 +1840,9 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         return {};
       }
 
-      const updated = state.bankTransactions.filter((t) => t.id !== id);
+      // If this transaction is linked to another bank transaction (e.g. Bank-to-Bank transfer), also remove its pair
+      const linkedId = oldTx.linkedBankTxId;
+      const updated = state.bankTransactions.filter((t) => t.id !== id && (linkedId ? t.id !== linkedId : true));
       localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updated));
       syncMetaToCloud('bank_transactions', updated);
 
@@ -1877,9 +1887,17 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         }
       }
 
+      const linkedId = oldTx.linkedBankTxId;
       const updatedTxList = state.bankTransactions.map((tx) => {
         if (tx.id === id) {
           return { ...tx, ...txData };
+        }
+        if (linkedId && tx.id === linkedId) {
+          const pairedUpdates: Partial<BankTransaction> = {};
+          if (txData.amount !== undefined) pairedUpdates.amount = txData.amount;
+          if (txData.date !== undefined) pairedUpdates.date = txData.date;
+          if (txData.time !== undefined) pairedUpdates.time = txData.time;
+          return { ...tx, ...pairedUpdates };
         }
         return tx;
       });
@@ -1935,6 +1953,63 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         bankTransactions: updatedTxList,
         capitalAdjustments: updatedAdjustments,
         baseCapital: updateBaseCapital(state.brokerAccounts)
+      };
+    }),
+
+    transferBankFunds: ({ fromBankId, toBankId, amount, date, time, notes }) => set((state) => {
+      if (!fromBankId || !toBankId || fromBankId === toBankId || amount <= 0) {
+        return {};
+      }
+
+      const txDate = date || new Date().toISOString().split('T')[0];
+      const txFY = getFinancialYear(txDate);
+      if (state.lockedFYs.includes(txFY)) {
+        alert(`Cannot transfer funds: The financial year "${txFY}" is locked. Unlock it in Profile settings.`);
+        return {};
+      }
+
+      const fromBank = state.bankAccounts.find(b => b.id === fromBankId);
+      const toBank = state.bankAccounts.find(b => b.id === toBankId);
+      const fromName = fromBank ? `${fromBank.bankName} (${fromBank.accountHolderName})` : 'Source Bank';
+      const toName = toBank ? `${toBank.bankName} (${toBank.accountHolderName})` : 'Destination Bank';
+
+      const timestamp = Date.now();
+      const rand = Math.random().toString(36).substr(2, 5);
+      const outId = `btx-tr-out-${timestamp}-${rand}`;
+      const inId = `btx-tr-in-${timestamp}-${rand}`;
+      const txTime = time || new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const userNote = notes?.trim() ? ` - ${notes.trim()}` : '';
+
+      const outTx: BankTransaction = {
+        id: outId,
+        date: txDate,
+        time: txTime,
+        bankAccountId: fromBankId,
+        type: 'WITHDRAWAL',
+        amount,
+        category: 'Internal Transfer',
+        notes: `Transfer to ${toName}${userNote}`,
+        linkedBankTxId: inId
+      };
+
+      const inTx: BankTransaction = {
+        id: inId,
+        date: txDate,
+        time: txTime,
+        bankAccountId: toBankId,
+        type: 'DEPOSIT',
+        amount,
+        category: 'Internal Transfer',
+        notes: `Received from ${fromName}${userNote}`,
+        linkedBankTxId: outId
+      };
+
+      const updatedBankTxList = [outTx, inTx, ...state.bankTransactions];
+      localStorage.setItem(getScopedKey('traders_diary_bank_transactions'), JSON.stringify(updatedBankTxList));
+      syncMetaToCloud('bank_transactions', updatedBankTxList);
+
+      return {
+        bankTransactions: updatedBankTxList
       };
     }),
 
