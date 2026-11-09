@@ -674,39 +674,74 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   return (
     <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
-      {/* Tab Segment Controls */}
-      <div className="glass-card" style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
+      {/* 1. Main Navigation Tab Bar */}
+      <div 
+        className="glass-card" 
+        style={{ 
+          padding: '8px 14px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          flexWrap: 'wrap', 
+          gap: '12px',
+          borderRadius: '14px'
+        }}
+      >
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button 
             onClick={() => setActiveLedgerTab('broker')} 
             className={`btn ${activeLedgerTab === 'broker' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '6px', border: 'none' }}
+            style={{ 
+              padding: '6px 14px', 
+              fontSize: '0.8rem', 
+              fontWeight: 650, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              borderRadius: '8px'
+            }}
           >
-            <Layers size={13} color="var(--primary)" />
+            <Layers size={14} color={activeLedgerTab === 'broker' ? '#fff' : 'var(--primary)'} />
             <span>Broker Ledger</span>
           </button>
           
           <button 
             onClick={() => setActiveLedgerTab('bank')} 
             className={`btn ${activeLedgerTab === 'bank' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '6px', border: 'none' }}
+            style={{ 
+              padding: '6px 14px', 
+              fontSize: '0.8rem', 
+              fontWeight: 650, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              borderRadius: '8px'
+            }}
           >
-            <CreditCard size={13} color="var(--color-win)" />
+            <CreditCard size={14} color={activeLedgerTab === 'bank' ? '#fff' : 'var(--color-win)'} />
             <span>Bank Ledger</span>
           </button>
 
           <button 
             onClick={() => setActiveLedgerTab('subscriptions')} 
             className={`btn ${activeLedgerTab === 'subscriptions' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '6px', border: 'none' }}
+            style={{ 
+              padding: '6px 14px', 
+              fontSize: '0.8rem', 
+              fontWeight: 650, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              borderRadius: '8px'
+            }}
           >
-            <Receipt size={13} color="#f59e0b" />
+            <Receipt size={14} color={activeLedgerTab === 'subscriptions' ? '#fff' : '#f59e0b'} />
             <span>Subscriptions & Expenses</span>
           </button>
         </div>
 
-        {/* Current Month P&L Widget */}
-        {(() => {
+        {/* Dynamic Context Header Badge */}
+        {activeLedgerTab === 'broker' && (() => {
           const today = new Date();
           const currentMonthName = today.toLocaleDateString('en-IN', { month: 'short' });
           const monthPrefix = today.toISOString().substring(0, 7);
@@ -719,30 +754,28 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
           return (
             <div 
-              className="glass-card" 
               style={{ 
-                padding: '6px 14px', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '12px',
+                padding: '5px 12px', 
+                border: '1px solid var(--border-color)', 
+                borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                height: '38px',
                 background: 'rgba(255,255,255,0.02)'
               }}
             >
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 650 }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                 {currentMonthName} P&L:
               </span>
               <strong 
                 style={{ 
-                  fontSize: '0.85rem', 
+                  fontSize: '0.86rem', 
                   fontFamily: 'var(--font-mono)',
                   color: !isPnlVisible ? 'var(--text-dim)' : monthPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' 
                 }}
               >
                 {isPnlVisible 
-                  ? `${monthPnL >= 0 ? '+' : ''}${monthPnL.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}` 
+                  ? `${monthPnL >= 0 ? '+' : ''}${formatCurrency(monthPnL)}` 
                   : '••••'
                 }
               </strong>
@@ -750,126 +783,146 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
           );
         })()}
 
-        {activeLedgerTab === 'broker' && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {activeAccountId === 'Combined' && (
-              <select
-                value={selectedBrokerFilter}
-                onChange={(e) => setSelectedBrokerFilter(e.target.value)}
-                className="form-select"
-                style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px' }}
-              >
-                <option value="All">All Brokers</option>
-                {activeBrokers.map(b => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            )}
-
-            <select
-              value={selectedMonthStr}
-              onChange={(e) => setSelectedMonthStr(e.target.value)}
-              className="form-select"
-              style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px' }}
-            >
-              {activeMonthList.map(m => {
-                const parts = m.split('-');
-                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
-                const label = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-                return <option key={m} value={m}>{label}</option>;
-              })}
-            </select>
-            
-            <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
-              setAdjBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
-              setAdjBankAccId(bankAccounts[0]?.id || '');
-              setIsAdjOpen(true);
-            }}>
-              <Plus size={13} />
-              <span>Log Pay-in/Out</span>
-            </button>
-
-            <button className="btn btn-secondary" style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={exportBrokerLedgerCSV}>
-              <Download size={12} />
-              <span>Export CSV</span>
-            </button>
-
-            <div className="nav-tab-container">
-              <button onClick={() => setViewType('daily')} className={`nav-tab ${viewType === 'daily' ? 'active' : ''}`} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Daily</button>
-              <button onClick={() => setViewType('detailed')} className={`nav-tab ${viewType === 'detailed' ? 'active' : ''}`} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Detailed</button>
-            </div>
-          </div>
-        )}
-
         {activeLedgerTab === 'bank' && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <select
-              value={selectedBankFilter}
-              onChange={(e) => setSelectedBankFilter(e.target.value)}
-              className="form-select"
-              style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px', minWidth: '130px' }}
-            >
-              <option value="All">All Bank Accounts</option>
-              {bankAccounts.filter(b => b.active).map(b => (
-                <option key={b.id} value={b.id}>{b.bankName} ({b.accountHolderName})</option>
-              ))}
-            </select>
-            <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
-              setBankTxAccId(bankAccounts[0]?.id || '');
-              setIsBankTxOpen(true);
-            }}>
-              <Plus size={13} />
-              <span>Log Bank Transaction</span>
-            </button>
-            <button 
-              className="btn btn-secondary" 
-              style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px', borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.06)' }} 
-              onClick={() => {
-                const activeBanks = bankAccounts.filter(b => b.active);
-                setTrFromBankId(activeBanks[0]?.id || '');
-                setTrToBankId(activeBanks[1]?.id || activeBanks[0]?.id || '');
-                setTrAmount('');
-                setTrNotes('');
-                setTrDate(new Date().toISOString().split('T')[0]);
-                setTrTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
-                setTrError('');
-                setIsBankTransferOpen(true);
+          <div 
+            style={{ 
+              padding: '5px 12px', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(255,255,255,0.02)'
+            }}
+          >
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              Combined Bank Balance:
+            </span>
+            <strong 
+              style={{ 
+                fontSize: '0.86rem', 
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--color-win)' 
               }}
-              title="Transfer money between your bank and wife's bank / accounts"
             >
-              <ArrowLeftRight size={13} />
-              <span>Bank Transfer</span>
-            </button>
-            <button className="btn btn-secondary" style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={exportBankLedgerCSV}>
-              <Download size={12} />
-              <span>Export CSV</span>
-            </button>
+              {isPnlVisible ? formatCurrency(bankAccounts.filter(b => b.active).reduce((sum, b) => sum + getBankSummary(b.id).currentBalance, 0)) : '••••'}
+            </strong>
           </div>
         )}
 
         {activeLedgerTab === 'subscriptions' && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="btn btn-primary" style={{ height: '32px', fontSize: '0.75rem' }} onClick={() => {
-              setSubBankAccId(bankAccounts[0]?.id || '');
-              setSubBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
-              setIsSubOpen(true);
-            }}>
-              <Plus size={13} />
-              <span>Log Subscription</span>
-            </button>
-            <button className="btn btn-secondary" style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={exportSubscriptionsCSV}>
-              <Download size={12} />
-              <span>Export CSV</span>
-            </button>
+          <div 
+            style={{ 
+              padding: '5px 12px', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(255,255,255,0.02)'
+            }}
+          >
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              Total Expenses ({selectedFY}):
+            </span>
+            <strong 
+              style={{ 
+                fontSize: '0.86rem', 
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--color-loss)' 
+              }}
+            >
+              {isPnlVisible ? formatCurrency(totalSubscriptionPaid) : '••••'}
+            </strong>
           </div>
         )}
       </div>
 
       {/* --- TAB CONTENT 1: BROKER LEDGER --- */}
       {activeLedgerTab === 'broker' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          {/* Header Month Carry Forward & Summary Bar */}
+          {/* Broker Ledger Toolbar: Filters & Actions */}
+          <div 
+            className="glass-card" 
+            style={{ 
+              padding: '8px 14px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              gap: '10px',
+              borderRadius: '12px'
+            }}
+          >
+            {/* Left: Filters */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {activeAccountId === 'Combined' && (
+                <select
+                  value={selectedBrokerFilter}
+                  onChange={(e) => setSelectedBrokerFilter(e.target.value)}
+                  className="form-select"
+                  style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px' }}
+                >
+                  <option value="All">All Brokers</option>
+                  {activeBrokers.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              )}
+
+              <select
+                value={selectedMonthStr}
+                onChange={(e) => setSelectedMonthStr(e.target.value)}
+                className="form-select"
+                style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px' }}
+              >
+                {activeMonthList.map(m => {
+                  const parts = m.split('-');
+                  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+                  const label = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                  return <option key={m} value={m}>{label}</option>;
+                })}
+              </select>
+
+              {/* Daily / Detailed View Switcher */}
+              <div className="nav-tab-container" style={{ margin: 0 }}>
+                <button onClick={() => setViewType('daily')} className={`nav-tab ${viewType === 'daily' ? 'active' : ''}`} style={{ padding: '4px 12px', fontSize: '0.74rem' }}>
+                  Daily Summary
+                </button>
+                <button onClick={() => setViewType('detailed')} className={`nav-tab ${viewType === 'detailed' ? 'active' : ''}`} style={{ padding: '4px 12px', fontSize: '0.74rem' }}>
+                  Detailed Ledger
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }} 
+                onClick={() => {
+                  setAdjBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
+                  setAdjBankAccId(bankAccounts[0]?.id || '');
+                  setIsAdjOpen(true);
+                }}
+              >
+                <Plus size={13} />
+                <span>Log Pay-in/Out</span>
+              </button>
+
+              <button 
+                className="btn btn-secondary" 
+                style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} 
+                onClick={exportBrokerLedgerCSV}
+              >
+                <Download size={12} />
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Monthly Performance KPI Cards Grid */}
           {(() => {
             const monthlyItems = detailedLedger.filter(item => item.date.substring(0, 7) === selectedMonthStr);
 
@@ -887,66 +940,70 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
             })();
 
             return (
-              <div className="glass-card" style={{ padding: '12px 16px', background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {/* Top Row: Ledger Month Info */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                    📊 {ledgerMonthLabel} Monthly Summary
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                {/* Card 1: Carry Forward */}
+                <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+                    Opening Carry Forward
                   </span>
-                  <span className="badge badge-primary-subtle" style={{ fontSize: '0.65rem', padding: '1px 6px', textTransform: 'none' }}>
-                    {selectedBrokerFilter === 'All' ? 'All Brokers Combined' : selectedBrokerFilter}
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', marginTop: '4px' }}>
+                    {isPnlVisible ? formatCurrency(startingBalanceOfMonth) : '••••'}
+                  </div>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                    Capital entering {ledgerMonthLabel}
                   </span>
                 </div>
 
-                {/* Bottom Row: 5 Stats Columns */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                  {/* Col 1 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Carry Forward</span>
-                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
-                      {isPnlVisible ? formatCurrency(startingBalanceOfMonth) : '••••'}
-                    </strong>
+                {/* Card 2: Realized Gross P&L */}
+                <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+                    Realized Gross P&L
+                  </span>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: monthlyGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', marginTop: '4px' }}>
+                    {isPnlVisible ? `${monthlyGrossPnL >= 0 ? '+' : ''}${formatCurrency(monthlyGrossPnL)}` : '••••'}
                   </div>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                    Trading profit before charges
+                  </span>
+                </div>
 
-                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
-
-                  {/* Col 2 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Realized Gross P&L</span>
-                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: monthlyGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                      {isPnlVisible ? `${monthlyGrossPnL >= 0 ? '+' : ''}${formatCurrency(monthlyGrossPnL)}` : '••••'}
-                    </strong>
+                {/* Card 3: Total Charges */}
+                <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+                    Brokerage & Taxes
+                  </span>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--color-loss)', marginTop: '4px' }}>
+                    {isPnlVisible ? `-${formatCurrency(monthlyCharges)}` : '-••••'}
                   </div>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                    Brokerage, STT & statutory fees
+                  </span>
+                </div>
 
-                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
-
-                  {/* Col 3 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Charges</span>
-                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: 'var(--color-loss)' }}>
-                      {isPnlVisible ? `-${formatCurrency(monthlyCharges)}` : '-••••'}
-                    </strong>
+                {/* Card 4: Net Month Impact */}
+                <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+                    Net Month Impact
+                  </span>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: monthlyNetImpact >= 0 ? 'var(--color-win)' : 'var(--color-loss)', marginTop: '4px' }}>
+                    {isPnlVisible ? `${monthlyNetImpact >= 0 ? '+' : ''}${formatCurrency(monthlyNetImpact)}` : '••••'}
                   </div>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                    Net P&L + Inflows - Outflows
+                  </span>
+                </div>
 
-                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
-
-                  {/* Col 4 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Net Impact</span>
-                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: monthlyNetImpact >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                      {isPnlVisible ? `${monthlyNetImpact >= 0 ? '+' : ''}${formatCurrency(monthlyNetImpact)}` : '••••'}
-                    </strong>
+                {/* Card 5: Closing Balance */}
+                <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.04)', borderColor: 'rgba(56, 189, 248, 0.25)' }}>
+                  <span style={{ fontSize: '0.62rem', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
+                    Closing Month Balance
+                  </span>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: closingBalanceOfMonth >= 0 ? 'var(--color-win)' : 'var(--color-loss)', marginTop: '4px' }}>
+                    {isPnlVisible ? formatCurrency(closingBalanceOfMonth) : '••••'}
                   </div>
-
-                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)' }} />
-
-                  {/* Col 5 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', flex: '1 1 100px' }}>
-                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Closing Balance</span>
-                    <strong style={{ fontSize: '0.98rem', fontFamily: 'var(--font-mono)', color: closingBalanceOfMonth >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                      {isPnlVisible ? formatCurrency(closingBalanceOfMonth) : '••••'}
-                    </strong>
-                  </div>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                    Ending capital for {ledgerMonthLabel}
+                  </span>
                 </div>
               </div>
             );
@@ -1038,8 +1095,52 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                                 {!item.isAdjustment && item.exitTime && ` - ${formatTimeToAMPM(item.exitTime)}`}
                               </span>
                             </td>
-                            <td style={{ padding: '8px', color: isAdjustment ? 'var(--primary)' : 'var(--text-main)' }}>
-                              {item.particulars}
+                            <td style={{ padding: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                {item.isAdjustment ? (
+                                  <span 
+                                    className="badge" 
+                                    style={{ 
+                                      fontSize: '0.62rem', 
+                                      padding: '1px 5px',
+                                      background: item.type === 'CREDIT' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                      color: item.type === 'CREDIT' ? '#10b981' : '#f87171',
+                                      fontWeight: 700
+                                    }}
+                                  >
+                                    {item.type === 'CREDIT' ? '📥 Pay-in' : '📤 Pay-out'}
+                                  </span>
+                                ) : item.isInvestment ? (
+                                  <span 
+                                    className="badge" 
+                                    style={{ 
+                                      fontSize: '0.62rem', 
+                                      padding: '1px 5px',
+                                      background: 'rgba(56, 189, 248, 0.15)',
+                                      color: '#38bdf8',
+                                      fontWeight: 700
+                                    }}
+                                  >
+                                    💼 Investment
+                                  </span>
+                                ) : (
+                                  <span 
+                                    className="badge" 
+                                    style={{ 
+                                      fontSize: '0.62rem', 
+                                      padding: '1px 5px',
+                                      background: 'rgba(255, 255, 255, 0.06)',
+                                      color: 'var(--text-dim)',
+                                      fontWeight: 650
+                                    }}
+                                  >
+                                    📊 Trade
+                                  </span>
+                                )}
+                                <span style={{ color: item.isAdjustment ? 'var(--primary)' : 'var(--text-main)', fontWeight: item.isAdjustment ? 600 : 450 }}>
+                                  {item.particulars}
+                                </span>
+                              </div>
                             </td>
                             <td style={{ padding: '8px', textAlign: 'right', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
                               {item.netPnL < 0 ? (isPnlVisible ? formatCurrency(Math.abs(item.netPnL)) : '••••') : '-'}
@@ -1159,7 +1260,33 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                           <tr key={day} style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <td style={{ padding: '8px', fontWeight: 600 }}>{day}</td>
                             <td style={{ padding: '8px' }}>
-                              {particulars.join(' | ')}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                {stats.count > 0 && (
+                                  <span className="badge badge-primary-subtle" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                                    {stats.count} Trade{stats.count > 1 ? 's' : ''}
+                                  </span>
+                                )}
+                                {stats.deposits > 0 && (
+                                  <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontWeight: 650 }}>
+                                    📥 Inflow +{formatCurrency(stats.deposits)}
+                                  </span>
+                                )}
+                                {stats.withdrawals > 0 && (
+                                  <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.12)', color: '#f87171', fontWeight: 650 }}>
+                                    📤 Outflow -{formatCurrency(stats.withdrawals)}
+                                  </span>
+                                )}
+                                {stats.investmentPurchases > 0 && (
+                                  <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', fontWeight: 650 }}>
+                                    💼 Invested -{formatCurrency(stats.investmentPurchases)}
+                                  </span>
+                                )}
+                                {stats.investmentSales > 0 && (
+                                  <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', fontWeight: 650 }}>
+                                    💼 Exit +{formatCurrency(stats.investmentSales)}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: stats.count > 0 ? (grossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)') : 'var(--text-muted)' }}>
                                {stats.count > 0 ? (isPnlVisible ? `${grossPnL >= 0 ? '+' : ''}${formatCurrency(grossPnL)}` : '••••') : '-'}
@@ -1184,32 +1311,139 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
       {/* --- TAB CONTENT 2: BANK LEDGER --- */}
       {activeLedgerTab === 'bank' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          {/* Bank balances cards grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <div className="glass-card" style={{ padding: '16px', background: 'rgba(52, 211, 153, 0.03)', border: '1px solid rgba(52, 211, 153, 0.15)' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Combined Bank Balance</span>
-              <h2 style={{ margin: '4px 0', fontSize: '1.4rem', fontFamily: 'var(--font-mono)', color: 'var(--color-win)' }}>
+          {/* Bank Ledger Dedicated Toolbar */}
+          <div 
+            className="glass-card" 
+            style={{ 
+              padding: '8px 14px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              gap: '10px',
+              borderRadius: '12px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <select
+                value={selectedBankFilter}
+                onChange={(e) => setSelectedBankFilter(e.target.value)}
+                className="form-select"
+                style={{ padding: '4px 10px', fontSize: '0.75rem', height: '32px', minWidth: '160px' }}
+              >
+                <option value="All">All Bank Accounts Combined</option>
+                {bankAccounts.filter(b => b.active).map(b => (
+                  <option key={b.id} value={b.id}>{b.bankName} - {b.accountHolderName}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }} 
+                onClick={() => {
+                  setBankTxAccId(bankAccounts[0]?.id || '');
+                  setIsBankTxOpen(true);
+                }}
+              >
+                <Plus size={13} />
+                <span>Log Bank Transaction</span>
+              </button>
+
+              <button 
+                className="btn btn-secondary" 
+                style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px', borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.06)' }} 
+                onClick={() => {
+                  const activeBanks = bankAccounts.filter(b => b.active);
+                  setTrFromBankId(activeBanks[0]?.id || '');
+                  setTrToBankId(activeBanks[1]?.id || activeBanks[0]?.id || '');
+                  setTrAmount('');
+                  setTrNotes('');
+                  setTrDate(new Date().toISOString().split('T')[0]);
+                  setTrTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+                  setTrError('');
+                  setIsBankTransferOpen(true);
+                }}
+                title="Transfer money between your bank and wife's bank / accounts"
+              >
+                <ArrowLeftRight size={13} />
+                <span>Bank Transfer</span>
+              </button>
+
+              <button 
+                className="btn btn-secondary" 
+                style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} 
+                onClick={exportBankLedgerCSV}
+              >
+                <Download size={12} />
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Bank balances 5-cards grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+            <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px' }}>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+                Combined All Banks Balance
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--color-win)', marginTop: '4px' }}>
                 {isPnlVisible ? formatCurrency(bankAccounts.filter(b => b.active).reduce((sum, b) => sum + getBankSummary(b.id).currentBalance, 0)) : '••••'}
-              </h2>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
-                Sum of {bankAccounts.filter(b=>b.active).length} active bank ledgers
+              </div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                Sum of {bankAccounts.filter(b => b.active).length} active bank accounts
               </span>
             </div>
 
-            <div className="glass-card" style={{ padding: '16px' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filtered Starting Balance</span>
-              <h4 style={{ margin: '4px 0', fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>
+            <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px' }}>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
+                {selectedBankFilter === 'All' ? 'Combined Opening Balance' : 'Account Opening Balance'}
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', marginTop: '4px' }}>
                 {isPnlVisible ? formatCurrency(bankSummary.startingBalance) : '••••'}
-              </h4>
+              </div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                Starting balance for {selectedFY}
+              </span>
             </div>
 
-            <div className="glass-card" style={{ padding: '16px' }}>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filtered Current Balance</span>
-              <h4 style={{ margin: '4px 0', fontSize: '1.2rem', fontFamily: 'var(--font-mono)' }}>
+            <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.03)', borderColor: 'rgba(16, 185, 129, 0.2)' }}>
+              <span style={{ fontSize: '0.62rem', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
+                Total Inflows / Deposits (+)
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#10b981', marginTop: '4px' }}>
+                {isPnlVisible ? `+${formatCurrency(bankSummary.totalInflows)}` : '+••••'}
+              </div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                Deposits, transfers & pay-outs
+              </span>
+            </div>
+
+            <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.03)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+              <span style={{ fontSize: '0.62rem', color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
+                Total Outflows / Pay-ins (-)
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#f87171', marginTop: '4px' }}>
+                {isPnlVisible ? `-${formatCurrency(bankSummary.totalOutflows)}` : '-••••'}
+              </div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                Broker pay-ins, expenses & transfers
+              </span>
+            </div>
+
+            <div className="glass-card" style={{ padding: '12px 14px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.04)', borderColor: 'rgba(56, 189, 248, 0.25)' }}>
+              <span style={{ fontSize: '0.62rem', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
+                {selectedBankFilter === 'All' ? 'Combined Net Balance' : 'Account Current Balance'}
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: bankSummary.currentBalance >= 0 ? 'var(--color-win)' : 'var(--color-loss)', marginTop: '4px' }}>
                 {isPnlVisible ? formatCurrency(bankSummary.currentBalance) : '••••'}
-              </h4>
+              </div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                Opening + Inflows - Outflows
+              </span>
             </div>
           </div>
 
@@ -1356,60 +1590,76 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
       {/* --- TAB CONTENT 3: SUBSCRIPTIONS & EXPENSES --- */}
       {activeLedgerTab === 'subscriptions' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          {/* Subscription Summary Stats Cards */}
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            <div 
-              className="glass-card" 
-              style={{ 
-                padding: '12px 16px', 
-                borderRadius: '10px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px', 
-                background: 'rgba(239, 68, 68, 0.06)', 
-                border: '1.5px solid rgba(239, 68, 68, 0.25)', 
-                minWidth: '240px' 
-              }}
-            >
-              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--color-loss)' }}>
-                <Receipt size={20} />
-              </div>
-              <div>
-                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
-                  Total Subscription Charges ({selectedFY})
-                </span>
-                <span style={{ fontSize: '1.2rem', fontWeight: 850, color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
-                  {isPnlVisible ? formatCurrency(totalSubscriptionPaid) : '••••'}
-                </span>
-              </div>
+          {/* Subscriptions Dedicated Toolbar */}
+          <div 
+            className="glass-card" 
+            style={{ 
+              padding: '8px 14px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              gap: '10px',
+              borderRadius: '12px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Track algo licenses, charting tools, and software costs for {selectedFY}
+              </span>
             </div>
 
-            <div 
-              className="glass-card" 
-              style={{ 
-                padding: '12px 16px', 
-                borderRadius: '10px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px', 
-                background: 'rgba(59, 130, 246, 0.06)', 
-                border: '1.5px solid rgba(59, 130, 246, 0.25)', 
-                minWidth: '210px' 
-              }}
-            >
-              <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--primary)' }}>
-                <Layers size={20} />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }} 
+                onClick={() => {
+                  setSubBankAccId(bankAccounts[0]?.id || '');
+                  setSubBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
+                  setIsSubOpen(true);
+                }}
+              >
+                <Plus size={13} />
+                <span>Log Subscription</span>
+              </button>
+
+              <button 
+                className="btn btn-secondary" 
+                style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} 
+                onClick={exportSubscriptionsCSV}
+              >
+                <Download size={12} />
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Subscription Summary Stats Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+            <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.04)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+              <span style={{ fontSize: '0.62rem', color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
+                Total Subscription Charges ({selectedFY})
+              </span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 850, color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                {isPnlVisible ? formatCurrency(totalSubscriptionPaid) : '••••'}
               </div>
-              <div>
-                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
-                  Total Subscriptions Logged
-                </span>
-                <span style={{ fontSize: '1.2rem', fontWeight: 850, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
-                  {activeSubscriptionExpenses.length} Record{activeSubscriptionExpenses.length === 1 ? '' : 's'}
-                </span>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                Total licenses, data & software costs
+              </span>
+            </div>
+
+            <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.04)', borderColor: 'rgba(56, 189, 248, 0.2)' }}>
+              <span style={{ fontSize: '0.62rem', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
+                Active Subscriptions Logged
+              </span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 850, color: '#38bdf8', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                {activeSubscriptionExpenses.length} Record{activeSubscriptionExpenses.length === 1 ? '' : 's'}
               </div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
+                Services tracked in financial year
+              </span>
             </div>
           </div>
 
