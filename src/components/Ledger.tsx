@@ -632,7 +632,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       alert('Please select a payment bank account.');
       return;
     }
-    if (subSource === 'Broker' && activeAccountId === 'Combined' && !subBrokerAccId) {
+    if (subSource === 'Broker' && !subBrokerAccId) {
       alert('Please select a payment broker account.');
       return;
     }
@@ -643,7 +643,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       date: subDate,
       paymentSource: subSource,
       frequency: subFreq,
-      brokerAccountId: subSource === 'Broker' ? (activeAccountId !== 'Combined' ? activeAccountId : subBrokerAccId) : undefined,
+      brokerAccountId: subSource === 'Broker' ? subBrokerAccId : undefined,
       bankAccountId: subSource === 'Bank' ? subBankAccId : undefined,
       notes: subNotes.trim()
     };
@@ -902,7 +902,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 className="btn btn-primary" 
                 style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }} 
                 onClick={() => {
-                  setAdjBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
+                  const defaultBrokerId = brokerAccounts.find(a => a.id === activeAccountId)?.id || brokerAccounts.filter(a => a.active)[0]?.id || brokerAccounts[0]?.id || '';
+                  setAdjBrokerAccId(defaultBrokerId);
                   setAdjBankAccId(bankAccounts[0]?.id || '');
                   setIsAdjOpen(true);
                 }}
@@ -1616,8 +1617,16 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 className="btn btn-primary" 
                 style={{ height: '32px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '5px' }} 
                 onClick={() => {
-                  setSubBankAccId(bankAccounts[0]?.id || '');
-                  setSubBrokerAccId(activeAccountId !== 'Combined' ? activeAccountId : (brokerAccounts[0]?.id || ''));
+                  setEditSubId(null);
+                  setSubName('');
+                  setSubAmount(0);
+                  setSubNotes('');
+                  setSubDate(new Date().toISOString().split('T')[0]);
+                  setSubFreq('Monthly');
+                  setSubSource('Bank');
+                  setSubBankAccId(bankAccounts.filter(b => b.active)[0]?.id || bankAccounts[0]?.id || '');
+                  const defaultBrokerId = brokerAccounts.find(a => a.id === activeAccountId)?.id || brokerAccounts.filter(a => a.active)[0]?.id || brokerAccounts[0]?.id || '';
+                  setSubBrokerAccId(defaultBrokerId);
                   setIsSubOpen(true);
                 }}
               >
@@ -1877,22 +1886,12 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem' }}>Broker Account / User</label>
-                  {activeAccountId !== 'Combined' ? (
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={`${brokerAccounts.find(a => a.id === activeAccountId)?.accountName} (${brokerAccounts.find(a => a.id === activeAccountId)?.broker})`}
-                      disabled
-                      style={{ opacity: 0.8 }}
-                    />
-                  ) : (
-                    <select value={adjBrokerAccId} onChange={(e) => setAdjBrokerAccId(e.target.value)} className="form-select" required>
-                      <option value="">Select Account</option>
-                      {brokerAccounts.filter(a => a.active).map(acc => (
-                        <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
-                      ))}
-                    </select>
-                  )}
+                  <select value={adjBrokerAccId} onChange={(e) => setAdjBrokerAccId(e.target.value)} className="form-select" required>
+                    <option value="">Select Account</option>
+                    {brokerAccounts.filter(a => a.active).map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -2387,22 +2386,19 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 ) : (
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.75rem' }}>Deduct from Broker Ledger</label>
-                    {activeAccountId !== 'Combined' ? (
-                      <input
-                        type="text"
-                        className="form-input"
-                        value={`${brokerAccounts.find(a => a.id === activeAccountId)?.accountName} (${brokerAccounts.find(a => a.id === activeAccountId)?.broker})`}
-                        disabled
-                        style={{ opacity: 0.8 }}
-                      />
-                    ) : (
-                      <select value={subBrokerAccId} onChange={(e) => setSubBrokerAccId(e.target.value)} className="form-select" required>
-                        <option value="">Select Account</option>
-                        {brokerAccounts.filter(a => a.active).map(acc => (
-                          <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
-                        ))}
-                      </select>
-                    )}
+                    <select 
+                      value={subBrokerAccId} 
+                      onChange={(e) => setSubBrokerAccId(e.target.value)} 
+                      className="form-select" 
+                      required
+                    >
+                      <option value="">Select Broker Account</option>
+                      {brokerAccounts.filter(a => a.active).map(acc => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.accountName} ({acc.broker})
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
 
