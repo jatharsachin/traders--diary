@@ -113,6 +113,8 @@ export default function App() {
   };
 
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+  const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'charges' | 'backup' | 'danger'>('profile');
+  const [profileAutoOpenImport, setProfileAutoOpenImport] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>(() => {
     try {
@@ -2035,6 +2037,11 @@ export default function App() {
                 activeAccountId={activeAccountId} 
                 initialDateFilter={selectedDateFilter}
                 onClearDateFilter={() => setSelectedDateFilter(null)}
+                onOpenImport={() => {
+                  setProfileInitialTab('backup');
+                  setProfileAutoOpenImport(true);
+                  setIsProfileSettingsOpen(true);
+                }}
               />
             )}
             {activeTab === 'mistakes' && (
@@ -2074,9 +2081,14 @@ export default function App() {
         {/* Profile & Settings Modal Overlay */}
         <ProfileSettingsModal 
           isOpen={isProfileSettingsOpen}
-          onClose={() => setIsProfileSettingsOpen(false)}
+          onClose={() => {
+            setIsProfileSettingsOpen(false);
+            setProfileAutoOpenImport(false);
+          }}
           useTwoRowHeader={useTwoRowHeader}
           setUseTwoRowHeader={setUseTwoRowHeader}
+          initialTab={profileInitialTab}
+          autoOpenImport={profileAutoOpenImport}
         />
 
         {/* Capital Breakdown & Pocket Money Audit Modal Overlay */}

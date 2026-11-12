@@ -4,7 +4,7 @@ import type { Broker, BrokerChargesConfig } from '../types';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { BROKER_LOGOS, getBankLogoSvg } from '../utils/brandLogos';
 import { syncMetaToCloud, syncTradeToCloud } from '../utils/supabaseClient';
-import { parseKotakNeoText, matchExecutionsIntoTrades } from '../utils/statementParser';
+import { parseKotakNeoText, matchExecutionsIntoTrades, parseZerodhaTradebook, parseDhanTradebook } from '../utils/statementParser';
 import { 
   X, User, ShieldAlert, Save, Download, Upload, 
   Database, Trash2, IndianRupee, Settings, Plus,
@@ -61,9 +61,18 @@ interface ProfileSettingsModalProps {
   onClose: () => void;
   useTwoRowHeader: boolean;
   setUseTwoRowHeader: (val: boolean) => void;
+  initialTab?: 'profile' | 'charges' | 'backup' | 'danger';
+  autoOpenImport?: boolean;
 }
 
-export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseTwoRowHeader }: ProfileSettingsModalProps) {
+export function ProfileSettingsModal({ 
+  isOpen, 
+  onClose, 
+  useTwoRowHeader, 
+  setUseTwoRowHeader,
+  initialTab = 'profile',
+  autoOpenImport = false
+}: ProfileSettingsModalProps) {
   const { 
     trades, 
     baseCapital, 
@@ -135,7 +144,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
 
   // State for Interactive Importer
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importFormat, setImportFormat] = useState<'Standard' | 'KotakNeo'>('KotakNeo');
+  const [importFormat, setImportFormat] = useState<'KotakNeo' | 'Zerodha' | 'Dhan'>('Zerodha');
   const [importPastedText, setImportPastedText] = useState('');
   const [parsedImportTrades, setParsedImportTrades] = useState<any[]>([]);
   const [isReviewingImport, setIsReviewingImport] = useState(false);
@@ -147,6 +156,11 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
   // Sync inputs on open
   useEffect(() => {
     if (isOpen) {
+      if (initialTab) setActiveTab(initialTab);
+      if (autoOpenImport) {
+        setActiveTab('backup');
+        setIsImportModalOpen(true);
+      }
       setProfileNameInput(userName);
       setProfileAvatarInput(userAvatar);
       setResetConfirmInput('');
@@ -157,7 +171,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
         setChargesForm(firstActive);
       }
     }
-  }, [isOpen, userName, userAvatar, brokerCharges]);
+  }, [isOpen, userName, userAvatar, brokerCharges, initialTab, autoOpenImport]);
 
   const setChargesForm = (config: BrokerChargesConfig) => {
     setDeliveryRate(config.deliveryRatePct.toString());
@@ -389,21 +403,31 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
 
   const handleParseImport = () => {
     if (!importPastedText.trim()) {
-      toast.warning("Please paste statement text first.");
+      toast.warning("Please paste or upload statement text first.");
       return;
     }
 
     try {
+      let executions: any[] = [];
+      let brokerName: Broker = 'Kotak Neo';
       if (importFormat === 'KotakNeo') {
-        const executions = parseKotakNeoText(importPastedText);
-        if (executions.length === 0) {
-          toast.warning("No valid trade executions found. Make sure you copy-pasted the Excel columns correctly starting with a date column (DD/MM/YYYY).");
-          return;
-        }
-        const matched = matchExecutionsIntoTrades(executions);
-        setParsedImportTrades(matched);
-        setIsReviewingImport(true);
+        executions = parseKotakNeoText(importPastedText);
+        brokerName = 'Kotak Neo';
+      } else if (importFormat === 'Zerodha') {
+        executions = parseZerodhaTradebook(importPastedText);
+        brokerName = 'Zerodha';
+      } else if (importFormat === 'Dhan') {
+        executions = parseDhanTradebook(importPastedText);
+        brokerName = 'Dhan';
       }
+
+      if (executions.length === 0) {
+        toast.warning(`No valid trade executions found for ${importFormat}. Make sure you copied or uploaded the tradebook file correctly.`);
+        return;
+      }
+      const matched = matchExecutionsIntoTrades(executions, brokerName);
+      setParsedImportTrades(matched);
+      setIsReviewingImport(true);
     } catch (e: any) {
       toast.error("Parsing error: " + e.message);
     }
@@ -1336,22 +1360,32 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
                       <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)' }}>Select Format:</span>
                       <select value={importFormat} onChange={(e) => setImportFormat(e.target.value as any)} className="form-select" style={{ fontSize: '0.75rem', height: '32px', padding: '4px 8px' }}>
+                        <option value="Zerodha">Zerodha Tradebook CSV (Kite / Console)</option>
+                        <option value="Dhan">Dhan Tradebook CSV</option>
                         <option value="KotakNeo">Kotak Neo Transaction Statement (Excel Columns)</option>
                       </select>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)' }}>Upload File (Optional):</span>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)' }}>Upload CSV File:</span>
                       <input type="file" accept=".csv,.txt,.xls,.xlsx" onChange={handleImportFileChange} style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }} />
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)' }}>Paste Excel Data (Copy cells from Trade Date to STT/CTT and paste below):</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)' }}>
+                      {importFormat === 'KotakNeo' 
+                        ? 'Paste Excel Data (Copy cells from Trade Date to STT/CTT and paste below):' 
+                        : `Paste ${importFormat} Tradebook CSV Content (or upload the file above):`}
+                    </span>
                     <textarea 
                       value={importPastedText} 
                       onChange={(e) => setImportPastedText(e.target.value)} 
-                      placeholder="05/03/2026	09:41:50	09:41:50	Coal India Ltd	INE522F01014	NSE	Kotak Neo	Sell	Cash	160	448.55	71768	2.2	10	3.27	15.47	8.96&#10;05/03/2026	09:34:08	09:34:08	Coal India Ltd	INE522F01014	NSE	Kotak Neo	Buy	Cash	160	452.397	72383.5	2.2	10	3.3	15.52	9.04"
+                      placeholder={importFormat === 'Zerodha' 
+                        ? "symbol,isin,trade_date,exchange,segment,series,trade_type,auction,quantity,price,order_id,trade_id,order_execution_time\nNIFTY24NOV24000CE,,2024-11-12,NFO,FO,EQ,buy,false,50,120.5,12345678,98765432,2024-11-12 09:25:34"
+                        : importFormat === 'Dhan'
+                        ? "Trade Date,Exchange,Segment,Trading Symbol,Buy/Sell,Quantity,Price,Order ID,Trade ID\n12-11-2024,NSE,Equity,RELIANCE,BUY,10,1250,123456,78910"
+                        : "05/03/2026\t09:41:50\t09:41:50\tCoal India Ltd\tINE522F01014\tNSE\tKotak Neo\tSell\tCash\t160\t448.55\t71768\t2.2\t10\t3.27\t15.47\t8.96"}
                       className="form-input" 
                       style={{ flex: 1, minHeight: '180px', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', padding: '12px', background: 'rgba(0,0,0,0.2)', resize: 'none' }}
                     />

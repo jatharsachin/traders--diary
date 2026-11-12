@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Trade, Mistake } from '../types';
 import { getTradeMistakes } from '../types';
-import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings, X, SlidersHorizontal } from 'lucide-react';
+import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings, X, SlidersHorizontal, Upload } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
 import { toast } from '../utils/toast';
@@ -12,13 +12,15 @@ interface TradeTableProps {
   activeAccountId?: string;
   initialDateFilter?: string | null;
   onClearDateFilter?: () => void;
+  onOpenImport?: () => void;
 }
 
 export function TradeTable({ 
   onEditTrade, 
   activeAccountId,
   initialDateFilter = null,
-  onClearDateFilter
+  onClearDateFilter,
+  onOpenImport
 }: TradeTableProps) {
   const { 
     trades: allTrades, 
@@ -408,6 +410,17 @@ export function TradeTable({
             );
           })()}
 
+          {onOpenImport && (
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={onOpenImport}
+              title="Import Zerodha, Dhan or Kotak Tradebook CSV"
+            >
+              <Upload size={14} color="var(--primary)" />
+              <span>Import Trades</span>
+            </button>
+          )}
           <button 
             className="btn btn-secondary" 
             style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}

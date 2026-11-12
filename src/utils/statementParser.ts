@@ -1,4 +1,4 @@
-import type { Trade, Segment, Product } from '../types';
+import type { Trade, Segment, Product, Broker } from '../types';
 
 interface RawExecution {
   date: string; // YYYY-MM-DD
@@ -94,7 +94,10 @@ export function parseKotakNeoText(text: string): RawExecution[] {
   });
 }
 
-export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>[] {
+export function matchExecutionsIntoTrades(
+  executions: RawExecution[],
+  brokerName: Broker = 'Kotak Neo'
+): Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>[] {
   const trades: Omit<Trade, 'id' | 'grossPnL' | 'brokerage' | 'taxes' | 'netPnL' | 'roi' | 'actualRR' | 'isExpiryDay' | 'durationMinutes'>[] = [];
   
   // Pending buy executions queue grouped by symbol
@@ -143,7 +146,7 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
           useManualCharges: true,
           manualBrokerage: propSellBrokerage + propBuyBrokerage,
           manualTaxes: propSellTaxes + propBuyTaxes,
-          broker: 'Kotak Neo'
+          broker: brokerName
         });
 
         firstSell.brokerage = Math.max(0, firstSell.brokerage - propSellBrokerage);
@@ -204,7 +207,7 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
           useManualCharges: true,
           manualBrokerage: propBuyBrokerage + propSellBrokerage,
           manualTaxes: propBuyTaxes + propSellTaxes,
-          broker: 'Kotak Neo'
+          broker: brokerName
         });
 
         firstBuy.brokerage = Math.max(0, firstBuy.brokerage - propBuyBrokerage);
@@ -255,7 +258,7 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
         useManualCharges: true,
         manualBrokerage: buy.brokerage,
         manualTaxes: buy.taxes,
-        broker: 'Kotak Neo'
+        broker: brokerName
       });
     }
   }
@@ -286,10 +289,219 @@ export function matchExecutionsIntoTrades(executions: RawExecution[]): Omit<Trad
         useManualCharges: true,
         manualBrokerage: sell.brokerage,
         manualTaxes: sell.taxes,
-        broker: 'Kotak Neo'
+        broker: brokerName
       });
     }
   }
 
   return trades;
+}
+
+/** Helper to parse CSV lines with quoted commas */
+function parseCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"' || char === "'") {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
+}
+
+/** Standard date normalizer: converts DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD to YYYY-MM-DD */
+function normalizeDateStr(dateRaw: string): string {
+  const trimmed = dateRaw.trim();
+  const dmy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (dmy) {
+    const day = dmy[1].padStart(2, '0');
+    const month = dmy[2].padStart(2, '0');
+    const year = dmy[3];
+    return `${year}-${month}-${day}`;
+  }
+  const ymd = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (ymd) {
+    const year = ymd[1];
+    const month = ymd[2].padStart(2, '0');
+    const day = ymd[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return trimmed.slice(0, 10);
+}
+
+/**
+ * Parses Zerodha Tradebook CSV (from Console / Kite)
+ * Typical Headers: symbol, isin, trade_date, exchange, segment, series, trade_type, quantity, price, order_id, trade_id, order_execution_time
+ */
+export function parseZerodhaTradebook(csvText: string): RawExecution[] {
+  const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length === 0) return [];
+
+  // Find header index
+  let headerIdx = -1;
+  let headers: string[] = [];
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const cols = parseCsvLine(lines[i]).map(c => c.toLowerCase().replace(/[\s_]/g, ''));
+    if (cols.includes('symbol') && (cols.includes('tradedate') || cols.includes('date'))) {
+      headerIdx = i;
+      headers = cols;
+      break;
+    }
+  }
+
+  if (headerIdx === -1) {
+    // Try fallback first line
+    headers = parseCsvLine(lines[0]).map(c => c.toLowerCase().replace(/[\s_]/g, ''));
+    headerIdx = 0;
+  }
+
+  const symIdx = headers.findIndex(h => h === 'symbol' || h === 'tradingsymbol');
+  const dateIdx = headers.findIndex(h => h === 'tradedate' || h === 'date');
+  const typeIdx = headers.findIndex(h => h === 'tradetype' || h === 'type' || h === 'buysell');
+  const qtyIdx = headers.findIndex(h => h === 'quantity' || h === 'qty');
+  const priceIdx = headers.findIndex(h => h === 'price' || h === 'tradeprice' || h === 'rate');
+  const timeIdx = headers.findIndex(h => h === 'orderexecutiontime' || h === 'time' || h === 'executiontime');
+  const segIdx = headers.findIndex(h => h === 'segment');
+
+  const executions: RawExecution[] = [];
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const row = parseCsvLine(lines[i]);
+    if (row.length <= Math.max(symIdx, dateIdx, qtyIdx, priceIdx)) continue;
+
+    const rawSymbol = row[symIdx]?.trim() || '';
+    const rawDate = row[dateIdx]?.trim() || '';
+    if (!rawSymbol || !rawDate) continue;
+
+    const dateStr = normalizeDateStr(rawDate);
+    if (!dateStr || dateStr.length < 10) continue;
+
+    const rawAction = (row[typeIdx] || '').trim().toUpperCase();
+    const action: 'BUY' | 'SELL' = (rawAction === 'SELL' || rawAction === 'S') ? 'SELL' : 'BUY';
+
+    const qty = parseFloat(row[qtyIdx]?.replace(/,/g, '') || '0');
+    const price = parseFloat(row[priceIdx]?.replace(/,/g, '') || '0');
+    if (qty <= 0 || price <= 0) continue;
+
+    let timeStr = '09:15';
+    if (timeIdx !== -1 && row[timeIdx]) {
+      const matchTime = row[timeIdx].match(/(\d{2}):(\d{2})/);
+      if (matchTime) timeStr = `${matchTime[1]}:${matchTime[2]}`;
+    }
+
+    const symUpper = rawSymbol.toUpperCase();
+    let segment: Segment = 'Equity';
+    if (segIdx !== -1 && row[segIdx]?.toUpperCase().includes('FO')) {
+      segment = 'F&O';
+    } else if (symUpper.includes('FUT') || symUpper.includes('CE') || symUpper.includes('PE') || /\d{2}[A-Z]{3}/.test(symUpper)) {
+      segment = 'F&O';
+    }
+
+    executions.push({
+      date: dateStr,
+      time: timeStr,
+      symbol: rawSymbol,
+      action,
+      qty,
+      price,
+      brokerage: 0,
+      taxes: 0,
+      segment,
+      product: 'Intraday'
+    });
+  }
+
+  return executions.sort((a, b) => new Date(`${a.date}T${a.time}:00`).getTime() - new Date(`${b.date}T${b.time}:00`).getTime());
+}
+
+/**
+ * Parses Dhan Tradebook CSV
+ * Typical Headers: Trade Date, Exchange, Segment, Trading Symbol, Buy/Sell, Quantity, Price, Order ID, Trade ID
+ */
+export function parseDhanTradebook(csvText: string): RawExecution[] {
+  const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length === 0) return [];
+
+  let headerIdx = -1;
+  let headers: string[] = [];
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const cols = parseCsvLine(lines[i]).map(c => c.toLowerCase().replace(/[\s_/]/g, ''));
+    if (cols.includes('tradingsymbol') || (cols.includes('symbol') && cols.includes('quantity'))) {
+      headerIdx = i;
+      headers = cols;
+      break;
+    }
+  }
+
+  if (headerIdx === -1) {
+    headers = parseCsvLine(lines[0]).map(c => c.toLowerCase().replace(/[\s_/]/g, ''));
+    headerIdx = 0;
+  }
+
+  const symIdx = headers.findIndex(h => h === 'tradingsymbol' || h === 'symbol' || h === 'scripname');
+  const dateIdx = headers.findIndex(h => h === 'tradedate' || h === 'date');
+  const typeIdx = headers.findIndex(h => h === 'buysell' || h === 'type' || h === 'action');
+  const qtyIdx = headers.findIndex(h => h === 'quantity' || h === 'qty' || h === 'tradedqty');
+  const priceIdx = headers.findIndex(h => h === 'price' || h === 'tradeprice' || h === 'avgprice');
+  const segIdx = headers.findIndex(h => h === 'segment');
+  const timeIdx = headers.findIndex(h => h === 'tradetime' || h === 'time' || h === 'executiontime');
+
+  const executions: RawExecution[] = [];
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const row = parseCsvLine(lines[i]);
+    if (row.length <= Math.max(symIdx, dateIdx, qtyIdx, priceIdx)) continue;
+
+    const rawSymbol = row[symIdx]?.trim() || '';
+    const rawDate = row[dateIdx]?.trim() || '';
+    if (!rawSymbol || !rawDate) continue;
+
+    const dateStr = normalizeDateStr(rawDate);
+    if (!dateStr || dateStr.length < 10) continue;
+
+    const rawAction = (row[typeIdx] || '').trim().toUpperCase();
+    const action: 'BUY' | 'SELL' = (rawAction === 'SELL' || rawAction === 'S') ? 'SELL' : 'BUY';
+
+    const qty = parseFloat(row[qtyIdx]?.replace(/,/g, '') || '0');
+    const price = parseFloat(row[priceIdx]?.replace(/,/g, '') || '0');
+    if (qty <= 0 || price <= 0) continue;
+
+    let timeStr = '09:15';
+    if (timeIdx !== -1 && row[timeIdx]) {
+      const matchTime = row[timeIdx].match(/(\d{2}):(\d{2})/);
+      if (matchTime) timeStr = `${matchTime[1]}:${matchTime[2]}`;
+    }
+
+    const symUpper = rawSymbol.toUpperCase();
+    let segment: Segment = 'Equity';
+    if (segIdx !== -1 && (row[segIdx]?.toUpperCase().includes('F&O') || row[segIdx]?.toUpperCase().includes('OPTION') || row[segIdx]?.toUpperCase().includes('FUT'))) {
+      segment = 'F&O';
+    } else if (symUpper.includes('FUT') || symUpper.includes('CE') || symUpper.includes('PE') || /\d{2}[A-Z]{3}/.test(symUpper)) {
+      segment = 'F&O';
+    }
+
+    executions.push({
+      date: dateStr,
+      time: timeStr,
+      symbol: rawSymbol,
+      action,
+      qty,
+      price,
+      brokerage: 0,
+      taxes: 0,
+      segment,
+      product: 'Intraday'
+    });
+  }
+
+  return executions.sort((a, b) => new Date(`${a.date}T${a.time}:00`).getTime() - new Date(`${b.date}T${b.time}:00`).getTime());
 }
