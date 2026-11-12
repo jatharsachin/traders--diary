@@ -2,12 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Broker } from '../types';
 import { 
-  FileSpreadsheet, Calendar, Plus, Edit2, Trash2, CheckCircle, 
-  AlertCircle, ArrowRight, ShieldCheck, IndianRupee, RefreshCw,
-  Receipt, Filter, Search
+  FileSpreadsheet, Edit2, Trash2, CheckCircle, 
+  Receipt, Search
 } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
-import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
+import { getFinancialYear } from '../utils/fyHelper';
 import { toast } from '../utils/toast';
 
 interface ContractNotesManagerProps {
@@ -77,10 +76,6 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
 
   const dayGrossPnL = useMemo(() => {
     return dayTrades.reduce((acc, t) => acc + (t.grossPnL || 0), 0);
-  }, [dayTrades]);
-
-  const dayTurnover = useMemo(() => {
-    return dayTrades.reduce((acc, t) => acc + ((t.entryPrice || 0) * (t.qty || 0)) + ((t.exitPrice || 0) * (t.qty || 0)), 0);
   }, [dayTrades]);
 
   const currentRecordedCharges = useMemo(() => {

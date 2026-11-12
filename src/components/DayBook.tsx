@@ -3,7 +3,7 @@ import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { groupHedgedTrades } from '../utils/tradeGrouping';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown, BookOpenCheck
+  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown
 } from 'lucide-react';
 import { toast } from '../utils/toast';
 
@@ -32,9 +32,6 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
   const [startDate, setStartDate] = useState(oneMonthAgoStr);
   const [endDate, setEndDate] = useState(todayStr);
   const [selectedPreset, setSelectedPreset] = useState<string>('30days');
-  const [sortAscending, setSortAscending] = useState(false);
-  const [showRunningBalance, setShowRunningBalance] = useState(true);
-
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
@@ -738,6 +735,29 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
             <Printer size={13} />
             <span>Print Ledger</span>
           </button>
+
+          {/* Day-End Note */}
+          {onOpenDailyNotes && (
+            <button
+              type="button"
+              onClick={() => onOpenDailyNotes(endDate || todayStr)}
+              className="btn btn-secondary"
+              style={{ 
+                fontSize: '0.74rem', 
+                padding: '0 12px', 
+                border: '1px solid var(--border-color)', 
+                background: 'var(--bg-card)', 
+                height: '34px', 
+                borderRadius: '8px',
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px' 
+              }}
+              title="Add or view Day-End Note for selected date"
+            >
+              <span>📝 Day-End Note</span>
+            </button>
+          )}
         </div>
       </div>
 

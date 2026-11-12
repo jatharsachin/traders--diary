@@ -3,7 +3,6 @@ import type {
   Trade, Setup, Broker, CapitalAdjustment, Investment, BrokerAccount, BankAccount, 
   SubscriptionExpense, BankTransaction, BrokerChargesConfig, DailyContractNote, DailyNote 
 } from '../types';
-import { calculateIndianTaxesAndBrokerage } from '../utils/taxEngine';
 import { 
   syncTradeToCloud, fetchTradesFromCloud, syncMetaToCloud, 
   getSupabaseClient, fetchMetaBatchFromCloud
@@ -228,9 +227,9 @@ const computeTradeCalculations = (
     brokerage?: number;
     taxes?: number;
   },
-  chargesConfig?: BrokerChargesConfig
+  _chargesConfig?: BrokerChargesConfig
 ) => {
-  const { date, entryTime, exitTime, exitDate, segment, product, action, qty, entryPrice, exitPrice, stopLoss } = trade;
+  const { date, entryTime, exitTime, exitDate, action, qty, entryPrice, exitPrice, stopLoss } = trade;
 
   // 1. Expiry Day Detection based on symbol and index trading calendar rules
   const isExpiryDay = checkIfExpiryDay(trade.symbol, date);

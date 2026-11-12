@@ -364,38 +364,6 @@ export function Dashboard({
     return maxDD;
   };
   const maxDrawdown = useMemo(() => getMaxDrawdown(), [trades]);
-
-  const getStreakAnalysis = () => {
-    let maxWinStreak = 0;
-    let maxLossStreak = 0;
-    let currentWinStreak = 0;
-    let currentLossStreak = 0;
-
-    const dailyMap: Record<string, number> = {};
-    trades.forEach((t) => {
-      const d = t.exitDate || t.date;
-      dailyMap[d] = (dailyMap[d] || 0) + t.netPnL;
-    });
-
-    const sortedDays = Object.entries(dailyMap).sort((a, b) => a[0].localeCompare(b[0]));
-    sortedDays.forEach(([_, dayPnL]) => {
-      if (dayPnL > 0) {
-        currentWinStreak++;
-        currentLossStreak = 0;
-        if (currentWinStreak > maxWinStreak) {
-          maxWinStreak = currentWinStreak;
-        }
-      } else if (dayPnL < 0) {
-        currentLossStreak++;
-        currentWinStreak = 0;
-        if (currentLossStreak > maxLossStreak) {
-          maxLossStreak = currentLossStreak;
-        }
-      }
-    });
-    return { maxWinStreak, maxLossStreak };
-  };
-  const { maxWinStreak, maxLossStreak } = useMemo(() => getStreakAnalysis(), [trades]);
   
   // Sort trades oldest to newest
   const sortedTrades = useMemo(() => sortTradesChronologically(trades), [trades]);
@@ -1146,53 +1114,6 @@ export function Dashboard({
     return { grade: 'D', color: 'var(--color-loss)', desc: 'Discipline leak! Review trading plan.' };
   };
   const disciplineInfo = getDisciplineGrade(disciplineScore);
-  const CustomEquityTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      if (data.tradeIndex === 0) return null;
-      
-      const formatDateTooltip = (dateStr: string) => {
-        if (!dateStr || dateStr === 'Start') return 'Start';
-        const d = parseLocalDate(dateStr);
-        if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      };
-
-      const val = data.tradingPnL || 0;
-      const isPositive = val >= 0;
-
-      return (
-        <div 
-          className="glass-card" 
-          style={{ 
-            background: 'var(--bg-tooltip-opaque)', 
-            border: '1.5px solid var(--border-color-active)', 
-            borderRadius: '12px',
-            padding: '10px 14px', 
-            boxShadow: 'var(--shadow-glow)', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '4px',
-            minWidth: '150px'
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>{formatDateTooltip(data.date)}</span>
-            <span 
-              className={`badge ${isPositive ? 'badge-win' : 'badge-loss'}`}
-              style={{ fontSize: '0.62rem', padding: '1px 6px' }}
-            >
-              {isPositive ? 'GROWTH' : 'DRAWDOWN'}
-            </span>
-          </div>
-          <div style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: isPositive ? 'var(--color-win)' : 'var(--color-loss)' }}>
-            {isPnlVisible ? `${isPositive ? '+' : ''}${formatCurrency(val)}` : '••••••'}
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   const CustomMistakeTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {

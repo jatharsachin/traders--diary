@@ -14,14 +14,6 @@ interface MistakesJournalProps {
   onOpenNoteModal?: (date?: string) => void;
 }
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(val);
-};
-
 export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onOpenNoteModal }: MistakesJournalProps) {
   const { 
     trades: allTrades, 

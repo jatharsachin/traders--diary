@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
-import { getTradeMistakes, formatTradeMistakes } from '../types';
+import { getTradeMistakes } from '../types';
 import { X, Save, ShieldAlert, Check, AlertTriangle } from 'lucide-react';
 import { getFinancialYear } from '../utils/fyHelper';
 
@@ -122,7 +122,7 @@ const MISTAKES: Mistake[] = [
 ];
 
 export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: TradeLoggerProps) {
-  const { addTrade, editTrade, trades, setups, selectedFY, defaultBroker, brokerAccounts, brokerCharges } = useTradeStore();
+  const { addTrade, editTrade, trades, setups, selectedFY, defaultBroker, brokerAccounts } = useTradeStore();
   const lastTrade = trades.length > 0 ? trades[trades.length - 1] : undefined;
   const [formData, setFormData] = useState(DEFAULT_FORM_STATE);
   const [selectedMistakes, setSelectedMistakes] = useState<Mistake[]>([]);
@@ -165,9 +165,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
   const [leg2Symbol, setLeg2Symbol] = useState<string>('');
 
   const prevSymbolPrefixRef = useRef('');
-
-  const [manualBrokerageText, setManualBrokerageText] = useState<string>('0');
-  const [manualTaxesText, setManualTaxesText] = useState<string>('0');
 
   const [usePartialExits, setUsePartialExits] = useState(false);
 
@@ -339,8 +336,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
             brokerAccountId: leg1.brokerAccountId || '',
           });
           setTagsInput(cleanTags.join(', ').replace(/#/g, ''));
-          setManualBrokerageText(initialManualBrokerage.toString());
-          setManualTaxesText(initialManualTaxes.toString());
 
           const guessedSz = guessLotSize(leg1.symbol || leg2.symbol);
           setLotSizeInput(guessedSz.toString());
@@ -397,8 +392,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           brokerAccountId: existing.brokerAccountId || '',
         });
         setTagsInput(existing.tags ? existing.tags.join(', ').replace(/#/g, '') : '');
-        setManualBrokerageText(initialManualBrokerage.toString());
-        setManualTaxesText(initialManualTaxes.toString());
 
         if (existing.partialExits && existing.partialExits.length > 0) {
           setUsePartialExits(true);
@@ -430,8 +423,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           setSelectedMistakes(getTradeMistakes(parsed));
           setFormData(parsed);
           setTagsInput(parsed.tagsInput || '');
-          setManualBrokerageText((parsed.manualBrokerage || 0).toString());
-          setManualTaxesText((parsed.manualTaxes || 0).toString());
           if (parsed.symbol) {
             const guessedSz = guessLotSize(parsed.symbol);
             setLotSizeInput(guessedSz.toString());
@@ -693,12 +684,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       parsedVal = (e.target as HTMLInputElement).checked;
     } else if (['qty', 'entryPrice', 'exitPrice', 'slippagePoints', 'stopLoss', 'target', 'strikePrice', 'manualBrokerage', 'manualTaxes'].includes(name)) {
       parsedVal = parseFloat(value) || 0;
-    }
-
-    if (name === 'manualBrokerage') {
-      setManualBrokerageText(value);
-    } else if (name === 'manualTaxes') {
-      setManualTaxesText(value);
     }
 
     setFormData((prev) => ({

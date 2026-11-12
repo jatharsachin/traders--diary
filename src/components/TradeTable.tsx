@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Trade, Mistake } from '../types';
-import { getTradeMistakes } from '../types';
+import { getTradeMistakes, formatTradeMistakes } from '../types';
 import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings, X, SlidersHorizontal, Upload } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
@@ -156,8 +156,8 @@ export function TradeTable({
 
   // Sort trades
   const sortedTrades = [...filteredTrades].sort((a, b) => {
-    let valueA = a[sortField];
-    let valueB = b[sortField];
+    let valueA = (a as any)[sortField];
+    let valueB = (b as any)[sortField];
 
     if (sortField === 'date' || sortField === 'entryTime') {
       const dateTimeA = new Date(`${a.date}T${a.entryTime}`).getTime();

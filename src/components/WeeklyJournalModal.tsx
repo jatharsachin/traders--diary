@@ -2,12 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, Save, Star, Calendar, CheckCircle2, AlertTriangle, Target, 
-  BookOpen, MessageSquare, AlertCircle, Clock, ShieldCheck, 
-  ExternalLink, Sparkles, Filter, ChevronRight
+  MessageSquare, ExternalLink, ChevronRight
 } from 'lucide-react';
 import { useTradeStore } from '../store/useTradeStore';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
-import { getTradeMistakes } from '../types';
 import { groupHedgedTrades } from '../utils/tradeGrouping';
 import { BrokerBadge } from './BrokerBadge';
 
@@ -193,7 +191,6 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
   const weekNetPnL = weekTrades.reduce((sum, t) => sum + t.netPnL, 0);
   const weekWinCount = weekTrades.filter(t => t.netPnL > 0).length;
   const weekWinRate = weekTrades.length > 0 ? (weekWinCount / weekTrades.length) * 100 : 0;
-  const weekCharges = weekTrades.reduce((sum, t) => sum + (t.brokerage || 0) + (t.taxes || 0), 0);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();

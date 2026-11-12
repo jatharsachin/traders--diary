@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { X, Wallet, TrendingUp, ArrowDownLeft, ArrowUpRight, ShieldCheck, Calendar, Receipt, ExternalLink } from 'lucide-react';
+import { X, Wallet, TrendingUp, ArrowDownLeft, ShieldCheck, Calendar, Receipt, ExternalLink } from 'lucide-react';
 import type { BrokerAccount, CapitalAdjustment, BankAccount } from '../types';
-import { BROKER_LOGOS, getBankLogoSvg } from '../utils/brandLogos';
 
 interface CapitalBreakdownModalProps {
   isOpen: boolean;

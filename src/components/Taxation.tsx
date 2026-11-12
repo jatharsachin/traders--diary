@@ -251,6 +251,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
   };
   const auditTurnover = calculateAuditTurnover();
   const requiresAudit = auditTurnover > 100000000; // > 10 Crore limit for digital transactions (standard discount broker)
+  const isEligible44AD = auditTurnover > 0 && auditTurnover <= 20000000; // <= ₹2 Crore limit for Sec 44AD presumptive taxation
 
   return (
     <div className="animate-tab-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
