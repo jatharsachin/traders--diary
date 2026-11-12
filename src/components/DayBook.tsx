@@ -5,6 +5,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import { 
   CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown, BookOpenCheck
 } from 'lucide-react';
+import { toast } from '../utils/toast';
 
 interface DayBookProps {
   activeAccountId?: string;
@@ -100,17 +101,19 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
     if (type === 'TRADE') {
       const t = allTrades.find(x => x.id === id);
       if (t && isLocked(t.date)) {
-        alert("Cannot edit trade notes: The financial year is locked.");
+        toast.error("Cannot edit trade notes: The financial year is locked.");
         return;
       }
       useTradeStore.getState().editTrade(id, { notes: editNotesText });
+      toast.success("Trade note updated!");
     } else {
       const a = allAdjustments.find(x => x.id === id);
       if (a && isLocked(a.date)) {
-        alert("Cannot edit adjustment notes: The financial year is locked.");
+        toast.error("Cannot edit adjustment notes: The financial year is locked.");
         return;
       }
       useTradeStore.getState().editCapitalAdjustment(id, editNotesText);
+      toast.success("Adjustment note updated!");
     }
     setEditingId(null);
   };

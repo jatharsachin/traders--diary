@@ -1552,3 +1552,54 @@ h1, h2, h3, h4 {
   box-shadow: 0 0 8px #34c759;
   animation: pulse 2s infinite;
 }
+
+/* Toast Slide-In Animation */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Sticky Table Headers for TradeTable & Ledger */
+.sticky-table-container {
+  max-height: 72vh;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+.sticky-table-header th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Global Dense Mode */
+.dense-mode table th,
+.dense-mode table td {
+  padding: 5px 8px !important;
+  font-size: 0.73rem !important;
+}
+
+.dense-mode .glass-card {
+  padding: 12px 14px !important;
+}
+
+.dense-mode .stat-card {
+  padding: 8px 12px !important;
+}
+
+.dense-mode .btn {
+  padding: 4px 10px !important;
+  font-size: 0.72rem !important;
+}
+

@@ -7,6 +7,7 @@ import {
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
 import type { CapitalAdjustment, BankTransaction } from '../types';
+import { toast } from '../utils/toast';
 
 interface LedgerProps {
   activeAccountId?: string;
@@ -528,17 +529,17 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     setIsAdjOpen(false);
     setAdjAmount(0);
     setAdjNotes('');
-    alert('Capital adjustment saved successfully!');
+    toast.success('Capital adjustment saved successfully!');
   };
 
   const handleAddBankTxSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (bankTxAmount <= 0 || !bankTxAccId) {
-      alert('Please select bank and enter a valid amount.');
+      toast.warning('Please select bank and enter a valid amount.');
       return;
     }
     if ((bankTxCategory === 'Broker Pay-in' || bankTxCategory === 'Broker Pay-out') && !bankTxBrokerAccId) {
-      alert('Please select a Broker account for this double-entry transfer.');
+      toast.warning('Please select a Broker account for this double-entry transfer.');
       return;
     }
     addDirectBankTransaction({
@@ -555,7 +556,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     setBankTxAmount(0);
     setBankTxNotes('');
     setBankTxBrokerAccId('');
-    alert('Bank transaction logged successfully!');
+    toast.success('Bank transaction logged successfully!');
   };
 
   const handleEditBankTxClick = (tx: BankTransaction) => {
@@ -574,11 +575,11 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const handleEditBankTxSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editBankTxId || editBankTxAmount <= 0 || !editBankTxAccId) {
-      alert('Please fill in all fields correctly.');
+      toast.warning('Please fill in all fields correctly.');
       return;
     }
     if ((editBankTxCategory === 'Broker Pay-in' || editBankTxCategory === 'Broker Pay-out') && !editBankTxBrokerAccId) {
-      alert('Please select a Broker account for this double-entry transfer.');
+      toast.warning('Please select a Broker account for this double-entry transfer.');
       return;
     }
     editDirectBankTransaction(editBankTxId, {
@@ -593,7 +594,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     });
     setIsEditBankTxOpen(false);
     setEditBankTxId(null);
-    alert('Bank transaction updated successfully!');
+    toast.success('Bank transaction updated successfully!');
   };
 
   const handleBankTransferSubmit = (e: React.FormEvent) => {
@@ -625,21 +626,21 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     setIsBankTransferOpen(false);
     setTrAmount('');
     setTrNotes('');
-    alert('Bank transfer logged successfully!');
+    toast.success('Bank transfer logged successfully!');
   };
 
   const handleAddSubSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!subName.trim() || subAmount <= 0) {
-      alert('Please enter subscription details.');
+      toast.warning('Please enter subscription details.');
       return;
     }
     if (subSource === 'Bank' && !subBankAccId) {
-      alert('Please select a payment bank account.');
+      toast.warning('Please select a payment bank account.');
       return;
     }
     if (subSource === 'Broker' && !subBrokerAccId) {
-      alert('Please select a payment broker account.');
+      toast.warning('Please select a payment broker account.');
       return;
     }
 
@@ -657,10 +658,10 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     if (editSubId) {
       editSubscriptionExpense(editSubId, payload);
       setEditSubId(null);
-      alert('Subscription updated successfully!');
+      toast.success('Subscription updated successfully!');
     } else {
       addSubscriptionExpense(payload);
-      alert('Subscription expense logged successfully!');
+      toast.success('Subscription expense logged successfully!');
     }
 
     setIsSubOpen(false);
@@ -1058,7 +1059,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 </div>
 
                 <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-                  <thead>
+                  <thead className="sticky-table-header">
                     <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
                       <th style={{ padding: '8px' }}>Date & Time</th>
                       <th style={{ padding: '8px' }}>Particulars / Narration</th>
@@ -1202,7 +1203,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                    </span>
                  </div>
                 <table className="custom-table" style={{ width: '100%', fontSize: '0.78rem' }}>
-                  <thead>
+                  <thead className="sticky-table-header">
                     <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
                       <th style={{ padding: '8px' }}>Date</th>
                       <th style={{ padding: '8px' }}>Activity / Particulars</th>
@@ -1507,7 +1508,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
             </div>
 
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-              <thead>
+              <thead className="sticky-table-header">
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)' }}>
                   <th style={{ padding: '8px' }}>Date</th>
                   <th style={{ padding: '8px' }}>Bank Account</th>
@@ -1737,7 +1738,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
             </div>
 
             <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-              <thead>
+              <thead className="sticky-table-header">
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', userSelect: 'none' }}>
                   <th 
                     onClick={() => handleSubSort('date')} 
@@ -1895,7 +1896,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                   <select value={adjBrokerAccId} onChange={(e) => setAdjBrokerAccId(e.target.value)} className="form-select" required>
                     <option value="">Select Account</option>
                     {brokerAccounts.filter(a => a.active).map(acc => (
-                      <option key={acc.id} value={acc.id}>{acc.accountName} ({acc.broker})</option>
+                      <option key={acc.id} value={acc.id}>{acc.accountName || 'Account'} ({acc.broker || 'Broker'})</option>
                     ))}
                   </select>
                 </div>
@@ -2019,7 +2020,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                     >
                       <option value="">Select Account</option>
                       {brokerAccounts.filter(a => a.active).map(a => (
-                        <option key={a.id} value={a.id}>{a.accountName} ({a.broker})</option>
+                        <option key={a.id} value={a.id}>{a.accountName || 'Account'} ({a.broker || 'Broker'})</option>
                       ))}
                     </select>
                   </div>
@@ -2136,7 +2137,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                     >
                       <option value="">Select Account</option>
                       {brokerAccounts.filter(a => a.active).map(a => (
-                        <option key={a.id} value={a.id}>{a.accountName} ({a.broker})</option>
+                        <option key={a.id} value={a.id}>{a.accountName || 'Account'} ({a.broker || 'Broker'})</option>
                       ))}
                     </select>
                   </div>
@@ -2401,7 +2402,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                       <option value="">Select Broker Account</option>
                       {brokerAccounts.filter(a => a.active).map(acc => (
                         <option key={acc.id} value={acc.id}>
-                          {acc.accountName} ({acc.broker})
+                          {acc.accountName || 'Account'} ({acc.broker || 'Broker'})
                         </option>
                       ))}
                     </select>

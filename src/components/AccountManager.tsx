@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import logoImg from '../assets/tradediary_logo.png';
 import { BROKER_LOGOS } from '../utils/brandLogos';
+import { toast } from '../utils/toast';
 
 interface AccountManagerProps {
   activeAccountId?: string;
@@ -118,12 +119,12 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
     
     if (updatedCount > 0) {
       if (failedSymbols.length > 0) {
-        alert(`Synchronized latest prices for ${updatedCount} assets. Failed symbols: ${failedSymbols.join(', ')}`);
+        toast.info(`Synchronized latest prices for ${updatedCount} assets. Failed symbols: ${failedSymbols.join(', ')}`);
       } else {
-        alert(`Successfully synchronized latest day-end market prices for ${updatedCount} assets!`);
+        toast.success(`Successfully synchronized latest day-end market prices for ${updatedCount} assets!`);
       }
     } else {
-      alert("Could not update prices. Please check internet connection or symbols format.");
+      toast.error("Could not update prices. Please check internet connection or symbols format.");
     }
     
     setSyncPricesLoading(false);
@@ -137,15 +138,15 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
     const currentPrice = parseFloat(invCurrentPrice) || buyPrice;
     
     if (!invSymbol.trim()) {
-      alert('Please enter an asset symbol.');
+      toast.warning('Please enter an asset symbol.');
       return;
     }
     if (isNaN(qty) || qty <= 0) {
-      alert('Quantity must be greater than zero.');
+      toast.warning('Quantity must be greater than zero.');
       return;
     }
     if (isNaN(buyPrice) || buyPrice <= 0) {
-      alert('Buy Price must be greater than zero.');
+      toast.warning('Buy Price must be greater than zero.');
       return;
     }
 
@@ -170,10 +171,10 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
 
     if (editInvId) {
       editInvestment(editInvId, payload);
-      alert('Investment updated successfully!');
+      toast.success('Investment updated successfully!');
     } else {
       addInvestment(payload);
-      alert('Investment logged successfully!');
+      toast.success('Investment logged successfully!');
     }
     resetInvForm();
   };
@@ -194,7 +195,7 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
   const handleDeleteInvClick = (id: string) => {
     if (window.confirm('Are you sure you want to permanently delete this investment log?')) {
       deleteInvestment(id);
-      alert('Record deleted.');
+      toast.info('Record deleted.');
     }
   };
 
@@ -216,11 +217,11 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
     const parsedQty = parseInt(exitQty);
     
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      alert('Please enter a valid exit price.');
+      toast.warning('Please enter a valid exit price.');
       return;
     }
     if (isNaN(parsedQty) || parsedQty <= 0 || parsedQty > exitInv.qty) {
-      alert(`Please enter a valid quantity between 1 and ${exitInv.qty}.`);
+      toast.warning(`Please enter a valid quantity between 1 and ${exitInv.qty}.`);
       return;
     }
 
@@ -229,7 +230,7 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
     }
 
     exitInvestment(exitInvId, parsedPrice, exitDate || new Date().toISOString().split('T')[0], exitNotes.trim() || 'Exited investment.', parsedQty);
-    alert('Asset exit logged successfully!');
+    toast.success('Asset exit logged successfully!');
     resetExitForm();
   };
 

@@ -5,6 +5,7 @@ import { getTradeMistakes } from '../types';
 import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings, X, SlidersHorizontal } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
+import { toast } from '../utils/toast';
 
 interface TradeTableProps {
   onEditTrade: (id: string) => void;
@@ -242,7 +243,7 @@ export function TradeTable({
   const exportToPDF = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert("Please allow popups to export PDF.");
+      toast.error("Please allow popups to export PDF.");
       return;
     }
 
@@ -886,10 +887,10 @@ export function TradeTable({
         );
       })()}
       {/* Table Container */}
-      <div className="table-container">
+      <div className="table-container sticky-table-container">
         {currentTrades.length > 0 ? (
           <table className="custom-table">
-            <thead>
+            <thead className="sticky-table-header">
               <tr>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('date')}>
                   Date & Duration <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />

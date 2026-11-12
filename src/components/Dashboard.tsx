@@ -13,6 +13,7 @@ import { ExecutiveReportModal } from './ExecutiveReportModal';
 import { WeeklyJournalModal } from './WeeklyJournalModal';
 import { TradingHeatmap } from './dashboard/TradingHeatmap';
 import { RecentTradingDaysStrip } from './dashboard/RecentTradingDaysStrip';
+import { toast } from '../utils/toast';
 import { NetPnLPrimaryCard } from './dashboard/NetPnLPrimaryCard';
 import { EquityCurveChart } from './dashboard/EquityCurveChart';
 import { BrokerPerformanceSection } from './dashboard/BrokerPerformanceSection';
@@ -1115,7 +1116,7 @@ export function Dashboard({
   const handleSaveRetro = () => {
     if (!selectedRetroWeekId) return;
     saveWeeklyRetrospective(selectedRetroWeekId, retroNotes);
-    alert('Weekly Retrospective saved successfully!');
+    toast.success('Weekly Retrospective saved successfully!');
   };
 
   const getCoachTip = (mistakeCost: number, dominantEmotion: string) => {

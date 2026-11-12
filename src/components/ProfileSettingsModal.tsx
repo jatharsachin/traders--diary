@@ -10,6 +10,7 @@ import {
   Database, Trash2, IndianRupee, Settings, Plus,
   Percent, HelpCircle
 } from 'lucide-react';
+import { toast } from '../utils/toast';
 
 function BankLogoBadge({ bankName }: { bankName: string }) {
   const localLogo = getBankLogoSvg(bankName);
@@ -183,11 +184,11 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileNameInput.trim()) {
-      alert('Please enter a display name.');
+      toast.warning('Please enter a display name.');
       return;
     }
     setProfile(profileNameInput.trim(), profileAvatarInput);
-    alert('Display profile saved successfully!');
+    toast.success('Display profile saved successfully!');
   };
 
   // Image to base64 converter
@@ -216,12 +217,12 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
   const handleAddAccountSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAccName.trim()) {
-      alert('Please enter account holder name.');
+      toast.warning('Please enter account holder name.');
       return;
     }
     const cap = parseFloat(newAccCapital) || 0;
     if (cap < 0) {
-      alert('Starting capital cannot be negative.');
+      toast.warning('Starting capital cannot be negative.');
       return;
     }
     addBrokerAccount({
@@ -238,13 +239,13 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
     
     setNewAccName('');
     setNewAccCapital('100000');
-    alert('Broker Account successfully added!');
+    toast.success('Broker Account successfully added!');
   };
 
   const handleAddBankSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBankName.trim() || !newBankHolder.trim()) {
-      alert('Please fill out all bank details.');
+      toast.warning('Please fill out all bank details.');
       return;
     }
     const bal = parseFloat(newBankBalance) || 0;
@@ -257,7 +258,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
     setNewBankName('');
     setNewBankHolder('');
     setNewBankBalance('50000');
-    alert('Bank Account successfully added!');
+    toast.success('Bank Account successfully added!');
   };
 
   const handleSaveCharges = (e: React.FormEvent) => {
@@ -279,7 +280,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
     });
 
     updateBrokerCharges(updatedCharges);
-    alert(`Successfully updated master charges configuration for ${selectedChargesBroker}!`);
+    toast.success(`Successfully updated master charges configuration for ${selectedChargesBroker}!`);
   };
 
   const handleExportBackup = () => {
@@ -308,8 +309,9 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
       link.setAttribute('href', dataUri);
       link.setAttribute('download', filename);
       link.click();
+      toast.success('Backup snapshot downloaded successfully!');
     } catch (e) {
-      alert('Failed to generate backup JSON file.');
+      toast.error('Failed to generate backup JSON file.');
     }
   };
 
@@ -372,14 +374,14 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
               }
 
               bulkImportTrades(parsed.trades, true);
-              alert("System database successfully restored!");
+              toast.success("System database successfully restored!");
               window.location.reload();
             }
           } else {
-            alert("Invalid backup JSON format.");
+            toast.error("Invalid backup JSON format.");
           }
         } catch (error) {
-          alert("Failed to parse snapshot file.");
+          toast.error("Failed to parse snapshot file.");
         }
       };
     }
@@ -387,7 +389,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
 
   const handleParseImport = () => {
     if (!importPastedText.trim()) {
-      alert("Please paste statement text first.");
+      toast.warning("Please paste statement text first.");
       return;
     }
 
@@ -395,7 +397,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
       if (importFormat === 'KotakNeo') {
         const executions = parseKotakNeoText(importPastedText);
         if (executions.length === 0) {
-          alert("No valid trade executions found. Make sure you copy-pasted the Excel columns correctly starting with a date column (DD/MM/YYYY).");
+          toast.warning("No valid trade executions found. Make sure you copy-pasted the Excel columns correctly starting with a date column (DD/MM/YYYY).");
           return;
         }
         const matched = matchExecutionsIntoTrades(executions);
@@ -403,7 +405,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
         setIsReviewingImport(true);
       }
     } catch (e: any) {
-      alert("Parsing error: " + e.message);
+      toast.error("Parsing error: " + e.message);
     }
   };
 
@@ -411,7 +413,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
     if (parsedImportTrades.length === 0) return;
     const overwrite = csvImportMode === 'overwrite';
     bulkImportTrades(parsedImportTrades, overwrite);
-    alert(`Successfully imported ${parsedImportTrades.length} trades into your diary!`);
+    toast.success(`Successfully imported ${parsedImportTrades.length} trades into your diary!`);
     setIsImportModalOpen(false);
     setIsReviewingImport(false);
     setImportPastedText('');
@@ -1020,10 +1022,10 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                         if (window.confirm("Are you sure you want to pull all data from the cloud? This will overwrite your local storage data with the online database (trades, investments, bank logs, and subscription logs).")) {
                           const success = await useTradeStore.getState().pullTradesFromCloud();
                           if (success) {
-                            alert("Successfully synchronized and pulled all online data from Supabase cloud database to local diary!");
+                            toast.success("Successfully synchronized and pulled all online data from Supabase cloud database to local diary!");
                             window.location.reload();
                           } else {
-                            alert("Failed to sync. Please ensure you are logged in and connected to the internet.");
+                            toast.error("Failed to sync. Please ensure you are logged in and connected to the internet.");
                           }
                         }
                       }} 
@@ -1053,9 +1055,9 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                             for (const t of state.trades) {
                               await syncTradeToCloud('update', t);
                             }
-                            alert("Successfully pushed all local logs, trades, and configurations to Supabase cloud database!");
+                            toast.success("Successfully pushed all local logs, trades, and configurations to Supabase cloud database!");
                           } catch (e: any) {
-                            alert("Sync push failed: " + e.message);
+                            toast.error("Sync push failed: " + e.message);
                           }
                         }
                       }} 
@@ -1163,7 +1165,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                           // Perform carry forward rollover for each active broker account
                           const activeAccounts = brokerAccounts.filter(a => a.active);
                           if (activeAccounts.length === 0) {
-                            alert("No active broker accounts found to perform rollover.");
+                            toast.warning("No active broker accounts found to perform rollover.");
                             return;
                           }
 
@@ -1214,7 +1216,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                                 toggleLockFY(yeSelectedFY);
                               }
 
-                              alert(`Successfully completed Year-End process for ${yeSelectedFY}! Closing balances have been carried forward to ${nextYearStr} opening capital, and the year ${yeSelectedFY} is now locked.`);
+                              toast.success(`Successfully completed Year-End process for ${yeSelectedFY}! Closing balances have been carried forward to ${nextYearStr} opening capital, and the year ${yeSelectedFY} is now locked.`);
                             }
                           }
                         }}
@@ -1253,7 +1255,7 @@ export function ProfileSettingsModal({ isOpen, onClose, useTwoRowHeader, setUseT
                           if (window.confirm('Wipe database and restore mock trading data?')) {
                             resetToMockData();
                             setResetConfirmInput('');
-                            alert('System reset successfully completed.');
+                            toast.info('System reset successfully completed.');
                             onClose();
                           }
                         }}

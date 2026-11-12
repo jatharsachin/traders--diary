@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import logoImg from '../assets/tradediary_logo.png';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, User, Phone, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { toast } from '../utils/toast';
 
 interface AuthScreenProps {
   recoveryMode?: boolean;
@@ -83,7 +84,7 @@ export function AuthScreen({ recoveryMode = false, onRecoveryComplete }: AuthScr
       } else {
         await signOutUser();
         setLoading(false);
-        alert('Password updated successfully! Please sign in with your new password.');
+        toast.success('Password updated successfully! Please sign in with your new password.');
         if (onRecoveryComplete) {
           onRecoveryComplete();
         } else {
@@ -123,7 +124,7 @@ export function AuthScreen({ recoveryMode = false, onRecoveryComplete }: AuthScr
       if (signUpErr) {
         setError(signUpErr.message || 'An error occurred during Sign Up.');
       } else {
-        alert('Registration request submitted! If email confirmation is enabled, please verify your email before logging in.');
+        toast.info('Registration request submitted! If email confirmation is enabled, please verify your email before logging in.');
         setView('signin');
       }
     } else {

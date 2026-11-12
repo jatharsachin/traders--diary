@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
 import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
+import { toast } from '../utils/toast';
 
 interface ContractNotesManagerProps {
   activeAccountId?: string;
@@ -127,13 +128,13 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
   const handleSaveContractNote = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDate) {
-      alert('Please select a date');
+      toast.warning('Please select a date');
       return;
     }
 
     const fy = getFinancialYear(selectedDate);
     if (lockedFYs.includes(fy)) {
-      alert(`Cannot edit charges: Financial Year "${fy}" is locked.`);
+      toast.error(`Cannot edit charges: Financial Year "${fy}" is locked.`);
       return;
     }
 
@@ -150,6 +151,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
     });
 
     setEditingNoteId(null);
+    toast.success(`Contract Note for ${selectedDate} saved & applied to ${dayTrades.length} trades!`);
     setSaveSuccessMsg(`Contract Note for ${selectedDate} saved & applied to ${dayTrades.length} trades!`);
     setTimeout(() => setSaveSuccessMsg(null), 4000);
   };
@@ -169,7 +171,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
   const handleDeleteNote = (id: string, date: string) => {
     const fy = getFinancialYear(date);
     if (lockedFYs.includes(fy)) {
-      alert(`Cannot delete: Financial Year "${fy}" is locked.`);
+      toast.error(`Cannot delete: Financial Year "${fy}" is locked.`);
       return;
     }
     if (window.confirm(`Are you sure you want to remove the contract note record for ${date}?`)) {

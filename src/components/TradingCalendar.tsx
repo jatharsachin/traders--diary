@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen, Receipt,
 import { BrokerBadge } from './BrokerBadge';
 import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { WeeklyJournalModal } from './WeeklyJournalModal';
+import { toast } from '../utils/toast';
 
 export const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   // 2025
@@ -171,7 +172,7 @@ export function TradingCalendar({
 
     const fy = getFinancialYear(reconcileDate);
     if (lockedFYs?.includes(fy)) {
-      alert(`Cannot edit charges: Financial Year "${fy}" is locked.`);
+      toast.error(`Cannot edit charges: Financial Year "${fy}" is locked.`);
       return;
     }
 

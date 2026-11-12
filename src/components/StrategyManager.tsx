@@ -4,6 +4,7 @@ import {
   Plus, Trash2, Edit2, ShieldAlert, Award, Star, Compass, 
   BarChart2 as LucideBarChart
 } from 'lucide-react';
+import { toast } from '../utils/toast';
 import {
   ResponsiveContainer,
   BarChart,
@@ -73,13 +74,13 @@ export function StrategyManager() {
       }
       editSetup(editOldName, { name: nameClean, description: descClean });
       setEditOldName(null);
-      alert('Strategy updated successfully!');
+      toast.success('Strategy updated successfully!');
     } else {
       if (!window.confirm('Are you sure you want to add this strategy setup tag?')) {
         return;
       }
       addSetup({ name: nameClean, description: descClean });
-      alert('Strategy tag added successfully!');
+      toast.success('Strategy tag added successfully!');
     }
 
     setNewSetupName('');

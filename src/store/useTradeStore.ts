@@ -9,6 +9,7 @@ import {
   getSupabaseClient, fetchMetaBatchFromCloud
 } from '../utils/supabaseClient';
 import { getFinancialYear } from '../utils/fyHelper';
+import { toast } from '../utils/toast';
 
 const getCurrentLiveFY = () => {
   const today = new Date().toISOString().split('T')[0];
@@ -27,7 +28,7 @@ const notifyFYSave = (targetFY: string) => {
   const currentLive = getCurrentLiveFY();
   if (targetFY !== currentLive) {
     setTimeout(() => {
-      alert(`Success: Data successfully saved for Financial Year ${targetFY}!`);
+      toast.success(`Data successfully saved for Financial Year ${targetFY}!`);
     }, 100);
   }
 };
@@ -840,11 +841,11 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     addTrade: (tradeData) => set((state) => {
       const tradeFY = getFinancialYear(tradeData.date);
       if (state.lockedFYs.includes(tradeFY)) {
-        alert(`Cannot add trade: The financial year "${tradeFY}" is locked. Unlock it in Profile settings.`);
+        toast.error(`Cannot add trade: The financial year "${tradeFY}" is locked. Unlock it in Profile settings.`);
         return {};
       }
       if (state.selectedFY !== 'All' && tradeFY !== state.selectedFY) {
-        alert(`Cannot add trade: The date ${tradeData.date} does not fall within the active financial year "${state.selectedFY}".`);
+        toast.warning(`Cannot add trade: The date ${tradeData.date} does not fall within the active financial year "${state.selectedFY}".`);
         return {};
       }
       if (!checkFYAndConfirm(tradeFY, 'Add Trade')) {
@@ -872,17 +873,17 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       if (targetTrade) {
         const oldFY = getFinancialYear(targetTrade.date);
         if (state.lockedFYs.includes(oldFY)) {
-          alert(`Cannot edit trade: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          toast.error(`Cannot edit trade: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
           return {};
         }
         if (tradeData.date) {
           const newFY = getFinancialYear(tradeData.date);
           if (state.lockedFYs.includes(newFY)) {
-            alert(`Cannot edit trade: The target financial year "${newFY}" is locked. Unlock it in Profile settings.`);
+            toast.error(`Cannot edit trade: The target financial year "${newFY}" is locked. Unlock it in Profile settings.`);
             return {};
           }
           if (state.selectedFY !== 'All' && newFY !== state.selectedFY) {
-            alert(`Cannot edit trade: The target date ${tradeData.date} does not fall within the active financial year "${state.selectedFY}".`);
+            toast.warning(`Cannot edit trade: The target date ${tradeData.date} does not fall within the active financial year "${state.selectedFY}".`);
             return {};
           }
           if (!checkFYAndConfirm(newFY, 'Edit Trade')) {
@@ -953,7 +954,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       if (targetTrade) {
         const oldFY = getFinancialYear(targetTrade.date);
         if (state.lockedFYs.includes(oldFY)) {
-          alert(`Cannot delete trade: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          toast.error(`Cannot delete trade: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
           return {};
         }
         if (!checkFYAndConfirm(oldFY, 'Delete Trade')) {
@@ -1016,11 +1017,11 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     addCapitalAdjustment: (adj) => set((state) => {
       const adjFY = getFinancialYear(adj.date);
       if (state.lockedFYs.includes(adjFY)) {
-        alert(`Cannot add entry: The financial year "${adjFY}" is locked. Unlock it in Profile settings.`);
+        toast.error(`Cannot add entry: The financial year "${adjFY}" is locked. Unlock it in Profile settings.`);
         return {};
       }
       if (state.selectedFY !== 'All' && adjFY !== state.selectedFY) {
-        alert(`Cannot add entry: The date ${adj.date} does not fall within the active financial year "${state.selectedFY}".`);
+        toast.warning(`Cannot add entry: The date ${adj.date} does not fall within the active financial year "${state.selectedFY}".`);
         return {};
       }
       if (!checkFYAndConfirm(adjFY, 'Add Capital Flow')) {
@@ -1063,7 +1064,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       if (targetAdj) {
         const oldFY = getFinancialYear(targetAdj.date);
         if (state.lockedFYs.includes(oldFY)) {
-          alert(`Cannot delete entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          toast.error(`Cannot delete entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
           return {};
         }
         if (!checkFYAndConfirm(oldFY, 'Delete Capital Flow')) {
@@ -1090,7 +1091,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       if (oldAdj) {
         const oldFY = getFinancialYear(oldAdj.date);
         if (state.lockedFYs.includes(oldFY)) {
-          alert(`Cannot edit entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+          toast.error(`Cannot edit entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
           return {};
         }
         if (!checkFYAndConfirm(oldFY, 'Edit Capital Flow')) {
@@ -1836,7 +1837,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
       const oldFY = getFinancialYear(oldTx.date);
       if (state.lockedFYs.includes(oldFY)) {
-        alert(`Cannot delete entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+        toast.error(`Cannot delete entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
         return {};
       }
 
@@ -1876,13 +1877,13 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
       const oldFY = getFinancialYear(oldTx.date);
       if (state.lockedFYs.includes(oldFY)) {
-        alert(`Cannot edit entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
+        toast.error(`Cannot edit entry: The financial year "${oldFY}" is locked. Unlock it in Profile settings.`);
         return {};
       }
       if (txData.date) {
         const newFY = getFinancialYear(txData.date);
         if (state.lockedFYs.includes(newFY)) {
-          alert(`Cannot edit entry: The target financial year "${newFY}" is locked. Unlock it in Profile settings.`);
+          toast.error(`Cannot edit entry: The target financial year "${newFY}" is locked. Unlock it in Profile settings.`);
           return {};
         }
       }
@@ -1964,7 +1965,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const txDate = date || new Date().toISOString().split('T')[0];
       const txFY = getFinancialYear(txDate);
       if (state.lockedFYs.includes(txFY)) {
-        alert(`Cannot transfer funds: The financial year "${txFY}" is locked. Unlock it in Profile settings.`);
+        toast.error(`Cannot transfer funds: The financial year "${txFY}" is locked. Unlock it in Profile settings.`);
         return {};
       }
 

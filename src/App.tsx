@@ -14,10 +14,12 @@ import { AuthScreen } from './components/AuthScreen';
 import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
 import { AccountFilterDropdown } from './components/AccountFilterDropdown';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, BookOpen, BookOpenCheck, Menu, HelpCircle, FileSpreadsheet, AlertTriangle, NotebookPen } from 'lucide-react';
+import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, BookOpen, BookOpenCheck, Menu, HelpCircle, FileSpreadsheet, AlertTriangle, NotebookPen, Minimize2 } from 'lucide-react';
 import { getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
+import { ToastContainer } from './components/ToastContainer';
+import { toast } from './utils/toast';
 
 type Tab = 'dashboard' | 'daybook' | 'dailyNotes' | 'calendar' | 'logs' | 'mistakes' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
 
@@ -91,6 +93,25 @@ export default function App() {
     }
   });
   const [isRecoveryActive, setIsRecoveryActive] = useState(false);
+  const [isDenseMode, setIsDenseMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('traders_diary_dense_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleDenseMode = () => {
+    setIsDenseMode(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('traders_diary_dense_mode', String(next));
+      } catch {}
+      toast.info(next ? "Dense Mode Enabled: Compact view active" : "Dense Mode Disabled: Standard view active");
+      return next;
+    });
+  };
+
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>(() => {
@@ -641,7 +662,7 @@ export default function App() {
   }
 
   return (
-    <div className={useTwoRowHeader ? "app-layout top-nav-layout app-container" : "app-layout sidebar-layout"}>
+    <div className={(useTwoRowHeader ? "app-layout top-nav-layout app-container" : "app-layout sidebar-layout") + (isDenseMode ? " dense-mode" : "")}>
       {!useTwoRowHeader && isMobileSidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setIsMobileSidebarOpen(false)} />
       )}
@@ -1786,6 +1807,30 @@ export default function App() {
                 {liveTime || 'Loading...'}
               </div>
 
+              {/* Dense Mode Toggle Button */}
+              <button
+                onClick={toggleDenseMode}
+                className="btn btn-secondary"
+                style={{
+                  height: '32px',
+                  padding: '0 8px',
+                  borderRadius: '8px',
+                  fontSize: '0.72rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  background: isDenseMode ? 'rgba(59, 130, 246, 0.18)' : 'var(--bg-card)',
+                  border: isDenseMode ? '1.2px solid var(--primary)' : '1px solid var(--border-color)',
+                  color: isDenseMode ? 'var(--primary)' : 'var(--text-muted)',
+                  fontWeight: 650
+                }}
+                title={isDenseMode ? "Dense Mode Active (Click to switch to Standard view)" : "Click to switch to Compact Dense View"}
+              >
+                <Minimize2 size={12} color={isDenseMode ? "var(--primary)" : "var(--text-muted)"} />
+                <span>{isDenseMode ? 'Dense ON' : 'Dense'}</span>
+              </button>
+
               {/* Vertical Divider */}
               <div style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }} />
 
@@ -2060,6 +2105,9 @@ export default function App() {
           bankAccounts={bankAccounts}
           onNavigateToLedger={() => setActiveTab('ledger')}
         />
+
+        {/* Global Toast Notifications */}
+        <ToastContainer />
       </Suspense>
 
       {/* Modern Terminal Footer */}
