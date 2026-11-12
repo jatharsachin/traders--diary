@@ -455,20 +455,30 @@ export function TradingCalendar({
         onClick={() => setSelectedDate(cellDateStr)}
         title={holidayName ? `Holiday: ${holidayName}` : isNoTradeDay ? 'Disciplined No-Trade Day' : undefined}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <span className="day-number">{d}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 'auto' }}>
+          <span className="day-number" style={{ position: 'static', margin: 0 }}>{d}</span>
           {dailyNotes && dailyNotes[cellDateStr]?.notes && (
             <span 
               style={{ 
-                fontSize: '0.7rem', 
+                fontSize: '0.72rem', 
                 color: '#38bdf8', 
                 background: 'rgba(56, 189, 248, 0.16)', 
-                padding: '1px 4px', 
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                padding: '1px 5px', 
                 borderRadius: '4px',
                 lineHeight: 1,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center'
               }}
-              title={`Day-End Note: ${dailyNotes[cellDateStr].notes.slice(0, 80)}...`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedDate(cellDateStr);
+                if (onOpenDailyNotes) {
+                  onOpenDailyNotes(cellDateStr);
+                }
+              }}
+              title={`Day-End Note: ${dailyNotes[cellDateStr].notes.slice(0, 80)}... (Click to view/edit)`}
             >
               📝
             </span>
@@ -2024,22 +2034,22 @@ export function TradingCalendar({
         </div>
       </div>
 
-      {/* Segmented Range P&L Control */}
+      {/* Segmented Range P&L Control + Streak Stats Row */}
       <div 
         style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          marginBottom: '24px', 
+          marginBottom: '20px', 
           flexWrap: 'wrap', 
           gap: '16px',
           background: 'rgba(255, 255, 255, 0.015)',
           border: '1px solid var(--border-color)',
-          padding: '12px 20px',
+          padding: '10px 18px',
           borderRadius: '12px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
           {/* Segmented Control */}
           <div 
             style={{ 
@@ -2057,7 +2067,7 @@ export function TradingCalendar({
                 style={{
                   border: 'none',
                   borderRadius: '6px',
-                  padding: '6px 14px',
+                  padding: '5px 12px',
                   fontSize: '0.78rem',
                   fontWeight: 600,
                   textTransform: 'capitalize',
@@ -2088,7 +2098,7 @@ export function TradingCalendar({
               style={{
                 border: 'none',
                 borderRadius: '6px',
-                padding: '6px 14px',
+                padding: '5px 12px',
                 fontSize: '0.78rem',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -2106,7 +2116,7 @@ export function TradingCalendar({
               style={{
                 border: 'none',
                 borderRadius: '6px',
-                padding: '6px 14px',
+                padding: '5px 12px',
                 fontSize: '0.78rem',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -2142,7 +2152,7 @@ export function TradingCalendar({
             
             <strong 
               style={{ 
-                fontSize: '1rem', 
+                fontSize: '0.98rem', 
                 fontFamily: 'var(--font-mono)',
                 color: !isPnlVisible 
                   ? 'var(--text-dim)' 
@@ -2162,71 +2172,61 @@ export function TradingCalendar({
             </strong>
           </div>
         </div>
-        
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-          Click eye icon to toggle P&L visibility
-        </span>
-      </div>
 
-      {/* Streak / Days Stats Row */}
-      <div 
-        style={{ 
-          display: 'flex', 
-          gap: '16px', 
-          marginBottom: '20px', 
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          padding: '8px 12px',
-          background: 'rgba(255, 255, 255, 0.01)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px'
-        }}
-      >
-        {[
-          { value: activeStats.total, label: activeStats.labels.total, color: '#af52de' }, // Purple
-          { value: activeStats.traded, label: activeStats.labels.traded, color: '#ff9500' }, // Orange
-          { value: activeStats.profit, label: activeStats.labels.profit, color: '#34c759' }, // Green
-          { value: activeStats.maxStreak, label: activeStats.labels.maxStreak, color: '#5ac8fa' }, // Light Blue
-          { value: activeStats.currentStreak, label: activeStats.labels.currentStreak, color: '#007aff' }  // Medium Blue
-        ].map((stat, idx) => (
-          <div 
-            key={idx} 
-            style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              gap: '4px',
-              minWidth: '65px',
-              flexGrow: 1
-            }}
-          >
+        {/* Streak / Days Stats integrated directly into the bar */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            gap: '12px', 
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            marginLeft: 'auto'
+          }}
+        >
+          {[
+            { value: activeStats.total, label: activeStats.labels.total, color: '#af52de' }, // Purple
+            { value: activeStats.traded, label: activeStats.labels.traded, color: '#ff9500' }, // Orange
+            { value: activeStats.profit, label: activeStats.labels.profit, color: '#34c759' }, // Green
+            { value: activeStats.maxStreak, label: activeStats.labels.maxStreak, color: '#5ac8fa' }, // Light Blue
+            { value: activeStats.currentStreak, label: activeStats.labels.currentStreak, color: '#007aff' }  // Medium Blue
+          ].map((stat, idx) => (
             <div 
+              key={idx} 
               style={{ 
-                width: '34px', 
-                height: '34px', 
-                borderRadius: '8px', 
-                border: `2px solid ${stat.color}`, 
                 display: 'flex', 
+                flexDirection: 'column', 
                 alignItems: 'center', 
-                justifyContent: 'center',
-                fontSize: '0.9rem',
-                fontWeight: 800,
-                fontFamily: 'var(--font-mono)',
-                color: stat.color,
-                background: 'rgba(255, 255, 255, 0.02)',
-                boxShadow: `0 3px 8px rgba(0, 0, 0, 0.1)`,
-                transition: 'transform 0.2s var(--transition-ios-spring)'
+                gap: '2px',
+                minWidth: '55px'
               }}
-              className="stat-box-spring"
             >
-              {stat.value}
+              <div 
+                style={{ 
+                  width: '30px', 
+                  height: '30px', 
+                  borderRadius: '7px', 
+                  border: `2px solid ${stat.color}`, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  fontFamily: 'var(--font-mono)',
+                  color: stat.color,
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  boxShadow: `0 2px 6px rgba(0, 0, 0, 0.1)`,
+                  transition: 'transform 0.2s var(--transition-ios-spring)'
+                }}
+                className="stat-box-spring"
+              >
+                {stat.value}
+              </div>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                {stat.label}
+              </span>
             </div>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', fontWeight: 550, textAlign: 'center' }}>
-              {stat.label}
-            </span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {calendarViewMode === 'tile' ? (
