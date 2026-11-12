@@ -173,7 +173,7 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
             padding: '16px 24px', 
             borderBottom: '1px solid var(--border-color)', 
             display: 'flex', 
-            justify: 'space-between', 
+            justifyContent: 'space-between', 
             alignItems: 'center',
             background: 'rgba(255, 255, 255, 0.02)' 
           }}
@@ -206,7 +206,7 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
             background: 'rgba(0,0,0,0.2)', 
             borderBottom: '1px solid var(--border-color)', 
             display: 'flex', 
-            justify: 'space-between', 
+            justifyContent: 'space-between', 
             alignItems: 'center', 
             flexWrap: 'wrap', 
             gap: '12px' 
@@ -325,7 +325,7 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
                   border: `1.5px solid ${netPnL >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
                   display: 'flex',
                   flexDirection: 'column',
-                  justify: 'space-between'
+                  justifyContent: 'space-between'
                 }}
               >
                 <div>
@@ -375,7 +375,7 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
                     background: 'rgba(255,255,255,0.03)', 
                     border: '1px solid rgba(255,255,255,0.08)',
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center'
                   }}
                 >
@@ -398,7 +398,7 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
                     background: 'rgba(255,255,255,0.03)', 
                     border: '1px solid rgba(255,255,255,0.08)',
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center'
                   }}
                 >
@@ -455,7 +455,7 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
             padding: '16px 24px', 
             borderTop: '1px solid var(--border-color)', 
             display: 'flex', 
-            justify: 'space-between', 
+            justifyContent: 'space-between', 
             alignItems: 'center',
             background: 'rgba(255,255,255,0.02)' 
           }}

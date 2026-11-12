@@ -1968,7 +1968,7 @@ export default function App() {
               <Dashboard 
                 activeAccountId={activeAccountId} 
                 onNavigateToTab={setActiveTab} 
-                onSelectDateFilter={(date) => {
+                onSelectDateFilter={(date: string) => {
                   setSelectedDateFilter(date);
                   setActiveTab('logs');
                 }}
@@ -1980,7 +1980,8 @@ export default function App() {
             {activeTab === 'calendar' && (
               <TradingCalendar 
                 activeAccountId={activeAccountId} 
-                onEditTrade={handleEditTrade} 
+                onEditTrade={handleEditTrade}
+                onOpenDailyNotes={handleOpenDailyNotes}
               />
             )}
             {activeTab === 'logs' && (

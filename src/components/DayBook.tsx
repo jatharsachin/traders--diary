@@ -150,7 +150,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
   const getOpeningBalance = () => {
     const startCap = activeAccountId === 'Combined'
       ? brokerAccounts.reduce((sum, a) => sum + a.startingCapital, 0)
-      : (brokerAccounts.find(a => a.id === activeAccountId)?.startingCapital || 0);
+      : brokerAccounts.filter(a => isMatchAccount(a.id, a.broker)).reduce((sum, a) => sum + a.startingCapital, 0);
 
     const priorTrades = trades.filter(t => (t.exitDate || t.date) < startDate);
     const priorPnL = priorTrades.reduce((sum, t) => sum + t.netPnL, 0);

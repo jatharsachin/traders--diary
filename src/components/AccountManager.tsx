@@ -52,25 +52,32 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
   // Sub-navigation tab for ledger view
   const [ledgerSubTab, setLedgerSubTab] = useState<'active' | 'exited'>('active');
 
+  const isMatchAccount = (accId?: string, brokerName?: string) => {
+    if (activeAccountId === 'Combined' || !activeAccountId) return true;
+    const targetIds = activeAccountId.split(',').filter(Boolean);
+    if (accId && targetIds.includes(accId)) return true;
+    if (brokerName) {
+      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
+      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
+    }
+    return false;
+  };
+
   // Filtered store data based on activeAccountId
   const filteredTrades = activeAccountId && activeAccountId !== 'Combined'
-    ? trades.filter((t) => t.brokerAccountId === activeAccountId)
+    ? trades.filter((t) => isMatchAccount(t.brokerAccountId, t.broker))
     : trades;
 
   const filteredAdjustments = activeAccountId && activeAccountId !== 'Combined'
-    ? capitalAdjustments.filter((a) => !a.brokerAccountId || a.brokerAccountId === activeAccountId)
+    ? capitalAdjustments.filter((a) => !a.brokerAccountId || isMatchAccount(a.brokerAccountId))
     : capitalAdjustments;
 
   const filteredBaseCapital = activeAccountId && activeAccountId !== 'Combined'
-    ? (brokerAccounts.find((a) => a.id === activeAccountId)?.startingCapital || 0)
+    ? brokerAccounts.filter(a => isMatchAccount(a.id, a.broker)).reduce((sum, a) => sum + (a.startingCapital || 0), 0)
     : baseCapital;
 
   const filteredInvestments = activeAccountId && activeAccountId !== 'Combined'
-    ? investments.filter(i => {
-        if (i.brokerAccountId === activeAccountId) return true;
-        const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-        return activeAcc ? i.broker === activeAcc.broker : false;
-      })
+    ? investments.filter(i => isMatchAccount(i.brokerAccountId, i.broker))
     : investments;
 
   // Calculations: Trading Portfolio
@@ -142,6 +149,12 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
       return;
     }
 
+    const targetAcc = brokerAccounts.find(a => 
+      (activeAccountId && activeAccountId !== 'Combined' && activeAccountId.split(',').includes(a.id)) ||
+      (a.broker && a.broker.toLowerCase() === invBroker.toLowerCase())
+    );
+    const brokerAccId = targetAcc ? targetAcc.id : (activeAccountId && !activeAccountId.includes(',') && activeAccountId !== 'Combined' ? activeAccountId : undefined);
+
     const payload = {
       type: invType,
       symbol: invSymbol.trim().toUpperCase(),
@@ -152,7 +165,7 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
       notes: invNotes.trim(),
       status: 'ACTIVE' as const,
       broker: invBroker as any,
-      brokerAccountId: activeAccountId !== 'Combined' ? activeAccountId : undefined
+      brokerAccountId: brokerAccId
     };
 
     if (editInvId) {

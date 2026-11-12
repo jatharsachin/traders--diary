@@ -88,10 +88,12 @@ const formatInvAmountDisplay = (val: number, isPnlVisible: boolean) => {
 
 export function TradingCalendar({ 
   activeAccountId = 'Combined',
-  onEditTrade
+  onEditTrade,
+  onOpenDailyNotes
 }: { 
   activeAccountId?: string;
   onEditTrade?: (id: string) => void;
+  onOpenDailyNotes?: (date?: string) => void;
 }) {
   const { 
     trades: allTrades, 

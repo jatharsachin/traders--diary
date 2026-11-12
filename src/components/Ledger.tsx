@@ -264,9 +264,9 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       .filter((i) => {
         if (i.status !== 'EXITED' || !i.exitDate || !i.exitPrice) return false;
         const matchesAccount = activeAccountId !== 'Combined' 
-          ? (i.brokerAccountId === activeAccountId || (() => {
-              const activeAcc = brokerAccounts.find(a => a.id === activeAccountId);
-              return activeAcc ? i.broker === activeAcc.broker : false;
+          ? (isMatchAccount(i.brokerAccountId) || (() => {
+              const matchedAccs = brokerAccounts.filter(a => isMatchAccount(a.id));
+              return matchedAccs.some(a => i.broker === a.broker);
             })())
           : (selectedBrokerFilter === 'All' ? true : i.broker === selectedBrokerFilter);
         const matchesFY = (!startLimit || i.exitDate >= startLimit) && (!endLimit || i.exitDate <= endLimit);

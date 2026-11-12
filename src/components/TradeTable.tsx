@@ -60,6 +60,7 @@ export function TradeTable({
     roi: i.buyPrice > 0 ? (((i.status === 'EXITED' ? (i.exitPrice || 0) : (i.currentPrice || i.buyPrice)) - i.buyPrice) / i.buyPrice) * 100 : 0,
     actualRR: 0,
     isExpiryDay: false,
+    optionType: 'None' as const,
     tags: ['#investment', `#${i.type || 'HOLDING'}`] as string[]
   }));
 

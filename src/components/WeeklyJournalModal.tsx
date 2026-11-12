@@ -652,7 +652,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                                 {pos.entryTime && <span>({formatTimeToAMPM(pos.entryTime)})</span>}
                               </span>
 
-                              {pos.broker && <BrokerBadge broker={pos.broker} />}
+                              {pos.broker && <BrokerBadge broker={pos.broker as any} />}
                             </div>
 
                             {/* P&L Badge */}
