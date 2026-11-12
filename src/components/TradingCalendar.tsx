@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { getTradeMistakes, formatTradeMistakes } from '../types';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen, Receipt, X, Check } from 'lucide-react';
@@ -112,7 +112,7 @@ export function TradingCalendar({
   } = useTradeStore();
 
 
-  const isMatchAccount = (accId?: string, brokerName?: string) => {
+  const isMatchAccount = useCallback((accId?: string, brokerName?: string) => {
     if (activeAccountId === 'Combined' || !activeAccountId) return true;
     const targetIds = activeAccountId.split(',').filter(Boolean);
     if (accId && targetIds.includes(accId)) return true;
@@ -121,16 +121,20 @@ export function TradingCalendar({
       return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
     }
     return false;
-  };
+  }, [activeAccountId, brokerAccounts]);
 
-  const fyTrades = filterTradesByFY(allTrades, selectedFY);
-  const trades = activeAccountId === 'Combined'
-    ? fyTrades
-    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
+  const fyTrades = useMemo(() => filterTradesByFY(allTrades, selectedFY), [allTrades, selectedFY]);
+  const trades = useMemo(() => {
+    return activeAccountId === 'Combined'
+      ? fyTrades
+      : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
+  }, [fyTrades, activeAccountId, isMatchAccount]);
 
-  const investments = activeAccountId === 'Combined'
-    ? allInvestments
-    : allInvestments.filter(i => isMatchAccount(i.brokerAccountId, i.broker));
+  const investments = useMemo(() => {
+    return activeAccountId === 'Combined'
+      ? allInvestments
+      : allInvestments.filter(i => isMatchAccount(i.brokerAccountId, i.broker));
+  }, [allInvestments, activeAccountId, isMatchAccount]);
 
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // Initialize at June 2026
   const [activePnlTab, setActivePnlTab] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
@@ -290,86 +294,134 @@ export function TradingCalendar({
   const daysInMonth = getDaysInMonth();
   const firstDayIndex = getFirstDayOfMonth();
 
-  // Calculate daily data
+  // Memoized daily summaries map: precomputes summaries for all active dates in O(N) single pass
+  const dailySummariesMap = useMemo(() => {
+    const map = new Map<string, {
+      netPnL: number;
+      grossPnL: number;
+      brokerage: number;
+      taxes: number;
+      charges: number;
+      count: number;
+      dominantEmotion: string;
+      mainMistake: string;
+      brokerSummaries: Record<string, { netPnL: number; count: number }>;
+      invested: number;
+      exited: number;
+      totalInvestmentsCount: number;
+      deployedCapital: number;
+    }>();
+
+    // Group trades by date
+    const tradesByDate: Record<string, typeof trades> = {};
+    for (let i = 0; i < trades.length; i++) {
+      const t = trades[i];
+      const d = (t.exitDate || t.date || '').substring(0, 10);
+      if (!d) continue;
+      if (!tradesByDate[d]) tradesByDate[d] = [];
+      tradesByDate[d].push(t);
+    }
+
+    // Group investments by date
+    const invPurchasesByDate: Record<string, typeof investments> = {};
+    const invExitsByDate: Record<string, typeof investments> = {};
+    for (let i = 0; i < investments.length; i++) {
+      const inv = investments[i];
+      if (inv.date) {
+        const d = inv.date.substring(0, 10);
+        if (!invPurchasesByDate[d]) invPurchasesByDate[d] = [];
+        invPurchasesByDate[d].push(inv);
+      }
+      if (inv.status === 'EXITED' && inv.exitDate) {
+        const d = inv.exitDate.substring(0, 10);
+        if (!invExitsByDate[d]) invExitsByDate[d] = [];
+        invExitsByDate[d].push(inv);
+      }
+    }
+
+    const allDates = new Set([
+      ...Object.keys(tradesByDate),
+      ...Object.keys(invPurchasesByDate),
+      ...Object.keys(invExitsByDate)
+    ]);
+
+    allDates.forEach((dateStr) => {
+      const dailyTrades = tradesByDate[dateStr] || [];
+      const dailyInvPurchases = invPurchasesByDate[dateStr] || [];
+      const dailyInvExits = invExitsByDate[dateStr] || [];
+
+      if (dailyTrades.length === 0 && dailyInvPurchases.length === 0 && dailyInvExits.length === 0) return;
+
+      const netPnL = dailyTrades.reduce((acc, t) => acc + t.netPnL, 0);
+      const grossPnL = dailyTrades.reduce((acc, t) => acc + t.grossPnL, 0);
+
+      const brokerSummaries: Record<string, { netPnL: number; count: number }> = {};
+      dailyTrades.forEach((t) => {
+        const b = t.broker || 'Other';
+        if (!brokerSummaries[b]) brokerSummaries[b] = { netPnL: 0, count: 0 };
+        brokerSummaries[b].netPnL += t.netPnL;
+        brokerSummaries[b].count += 1;
+      });
+
+      dailyInvPurchases.forEach((i) => {
+        const b = i.broker || 'Other';
+        if (!brokerSummaries[b]) brokerSummaries[b] = { netPnL: 0, count: 0 };
+        brokerSummaries[b].count += 1;
+      });
+      dailyInvExits.forEach((i) => {
+        const b = i.broker || 'Other';
+        if (!brokerSummaries[b]) brokerSummaries[b] = { netPnL: 0, count: 0 };
+        brokerSummaries[b].count += 1;
+      });
+
+      const emotionsCount: Record<string, number> = {};
+      dailyTrades.forEach((t) => {
+        emotionsCount[t.emotion] = (emotionsCount[t.emotion] || 0) + 1;
+      });
+      const dominantEmotion = Object.entries(emotionsCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
+
+      const mistakesCount: Record<string, number> = {};
+      dailyTrades.forEach((t) => {
+        getTradeMistakes(t).forEach((m) => {
+          mistakesCount[m] = (mistakesCount[m] || 0) + 1;
+        });
+      });
+      const mainMistake = Object.entries(mistakesCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
+
+      const invested = dailyInvPurchases.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+      const exited = dailyInvExits.reduce((sum, i) => sum + (i.qty * i.exitPrice!), 0);
+      const deployedCapital = dailyTrades.reduce((sum, t) => sum + (t.entryPrice * t.qty), 0);
+
+      const brokerage = dailyTrades.reduce((acc, t) => acc + (t.brokerage || 0), 0);
+      const taxes = dailyTrades.reduce((acc, t) => acc + (t.taxes || 0), 0);
+      const charges = brokerage + taxes;
+
+      map.set(dateStr, {
+        netPnL: Math.round(netPnL * 100) / 100,
+        grossPnL: Math.round(grossPnL * 100) / 100,
+        brokerage: Math.round(brokerage * 100) / 100,
+        taxes: Math.round(taxes * 100) / 100,
+        charges: Math.round(charges * 100) / 100,
+        count: dailyTrades.length,
+        dominantEmotion,
+        mainMistake,
+        brokerSummaries,
+        invested,
+        exited,
+        totalInvestmentsCount: dailyInvPurchases.length + dailyInvExits.length,
+        deployedCapital
+      });
+    });
+
+    return map;
+  }, [trades, investments]);
+
+  // Fast O(1) daily lookup
   const getDayTradesSummary = (dayNum: number) => {
     const formattedDay = dayNum.toString().padStart(2, '0');
     const formattedMonth = (month + 1).toString().padStart(2, '0');
     const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
-    const dailyTrades = trades.filter((t) => (t.exitDate || t.date) === dateStr);
-    const dailyInvPurchases = investments.filter((i) => i.date === dateStr);
-    const dailyInvExits = investments.filter((i) => i.status === 'EXITED' && i.exitDate === dateStr);
-
-    if (dailyTrades.length === 0 && dailyInvPurchases.length === 0 && dailyInvExits.length === 0) return null;
-
-    const netPnL = dailyTrades.reduce((acc, t) => acc + t.netPnL, 0);
-    const grossPnL = dailyTrades.reduce((acc, t) => acc + t.grossPnL, 0);
-    
-    // Group P&L and trade count by broker
-    const brokerSummaries: Record<string, { netPnL: number; count: number }> = {};
-    dailyTrades.forEach((t) => {
-      const b = t.broker || 'Other';
-      if (!brokerSummaries[b]) {
-        brokerSummaries[b] = { netPnL: 0, count: 0 };
-      }
-      brokerSummaries[b].netPnL += t.netPnL;
-      brokerSummaries[b].count += 1;
-    });
-
-    dailyInvPurchases.forEach((i) => {
-      const b = i.broker || 'Other';
-      if (!brokerSummaries[b]) {
-        brokerSummaries[b] = { netPnL: 0, count: 0 };
-      }
-      brokerSummaries[b].count += 1;
-    });
-    dailyInvExits.forEach((i) => {
-      const b = i.broker || 'Other';
-      if (!brokerSummaries[b]) {
-        brokerSummaries[b] = { netPnL: 0, count: 0 };
-      }
-      brokerSummaries[b].count += 1;
-    });
-    
-    // Find dominant emotion
-    const emotionsCount: Record<string, number> = {};
-    dailyTrades.forEach((t) => {
-      emotionsCount[t.emotion] = (emotionsCount[t.emotion] || 0) + 1;
-    });
-    const dominantEmotion = Object.entries(emotionsCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
-
-    // Find main mistake
-    const mistakesCount: Record<string, number> = {};
-    dailyTrades.forEach((t) => {
-      getTradeMistakes(t).forEach((m) => {
-        mistakesCount[m] = (mistakesCount[m] || 0) + 1;
-      });
-    });
-    const mainMistake = Object.entries(mistakesCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
-
-    const invested = dailyInvPurchases.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
-    const exited = dailyInvExits.reduce((sum, i) => sum + (i.qty * i.exitPrice!), 0);
-
-    const deployedCapital = dailyTrades.reduce((sum, t) => sum + (t.entryPrice * t.qty), 0);
-
-    const brokerage = dailyTrades.reduce((acc, t) => acc + (t.brokerage || 0), 0);
-    const taxes = dailyTrades.reduce((acc, t) => acc + (t.taxes || 0), 0);
-    const charges = brokerage + taxes;
-
-    return {
-      netPnL: Math.round(netPnL * 100) / 100,
-      grossPnL: Math.round(grossPnL * 100) / 100,
-      brokerage: Math.round(brokerage * 100) / 100,
-      taxes: Math.round(taxes * 100) / 100,
-      charges: Math.round(charges * 100) / 100,
-      count: dailyTrades.length,
-      dominantEmotion,
-      mainMistake,
-      brokerSummaries,
-      invested,
-      exited,
-      totalInvestmentsCount: dailyInvPurchases.length + dailyInvExits.length,
-      deployedCapital
-    };
+    return dailySummariesMap.get(dateStr) || null;
   };
 
   const formatCurrency = (val: number) => {
@@ -1049,7 +1101,7 @@ export function TradingCalendar({
   };
 
   // Calculate navigated month stats for the square indicators (for monthly tab)
-  const getMonthStats = () => {
+  const monthStats = useMemo(() => {
     let totalDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateObj = new Date(year, month, d);
@@ -1111,9 +1163,7 @@ export function TradingCalendar({
       maxWinStreak,
       currentStreak: runningCurrentStreak
     };
-  };
-
-  const monthStats = getMonthStats();
+  }, [daysInMonth, year, month, onlineHolidays, dailySummariesMap]);
 
   // Dynamic statistics selector based on range selection
   const getStatsForActiveTab = () => {

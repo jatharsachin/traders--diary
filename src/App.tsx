@@ -20,6 +20,7 @@ import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
 import { ToastContainer } from './components/ToastContainer';
 import { toast } from './utils/toast';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 type Tab = 'dashboard' | 'daybook' | 'dailyNotes' | 'calendar' | 'logs' | 'mistakes' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
 
@@ -2012,51 +2013,87 @@ export default function App() {
         }>
           <div key={activeTab} className="ios-page-enter">
             {activeTab === 'dashboard' && (
-              <Dashboard 
-                activeAccountId={activeAccountId} 
-                onNavigateToTab={setActiveTab} 
-                onSelectDateFilter={(date: string) => {
-                  setSelectedDateFilter(date);
-                  setActiveTab('logs');
-                }}
-                onEditTrade={handleEditTrade}
-              />
+              <ErrorBoundary fallbackTitle="The Dashboard failed to render">
+                <Dashboard 
+                  activeAccountId={activeAccountId} 
+                  onNavigateToTab={setActiveTab} 
+                  onSelectDateFilter={(date: string) => {
+                    setSelectedDateFilter(date);
+                    setActiveTab('logs');
+                  }}
+                  onEditTrade={handleEditTrade}
+                />
+              </ErrorBoundary>
             )}
-            {activeTab === 'daybook' && <DayBook activeAccountId={activeAccountId} onOpenDailyNotes={handleOpenDailyNotes} />}
+            {activeTab === 'daybook' && (
+              <ErrorBoundary fallbackTitle="The Day Book failed to render">
+                <DayBook activeAccountId={activeAccountId} onOpenDailyNotes={handleOpenDailyNotes} />
+              </ErrorBoundary>
+            )}
 
             {activeTab === 'calendar' && (
-              <TradingCalendar 
-                activeAccountId={activeAccountId} 
-                onEditTrade={handleEditTrade}
-                onOpenDailyNotes={handleOpenDailyNotes}
-              />
+              <ErrorBoundary fallbackTitle="The Trading Calendar failed to render">
+                <TradingCalendar 
+                  activeAccountId={activeAccountId} 
+                  onEditTrade={handleEditTrade}
+                  onOpenDailyNotes={handleOpenDailyNotes}
+                />
+              </ErrorBoundary>
             )}
             {activeTab === 'logs' && (
-              <TradeTable 
-                onEditTrade={handleEditTrade} 
-                activeAccountId={activeAccountId} 
-                initialDateFilter={selectedDateFilter}
-                onClearDateFilter={() => setSelectedDateFilter(null)}
-                onOpenImport={() => {
-                  setProfileInitialTab('backup');
-                  setProfileAutoOpenImport(true);
-                  setIsProfileSettingsOpen(true);
-                }}
-              />
+              <ErrorBoundary fallbackTitle="The Trade History table failed to render">
+                <TradeTable 
+                  onEditTrade={handleEditTrade} 
+                  activeAccountId={activeAccountId} 
+                  initialDateFilter={selectedDateFilter}
+                  onClearDateFilter={() => setSelectedDateFilter(null)}
+                  onOpenImport={() => {
+                    setProfileInitialTab('backup');
+                    setProfileAutoOpenImport(true);
+                    setIsProfileSettingsOpen(true);
+                  }}
+                />
+              </ErrorBoundary>
             )}
             {activeTab === 'mistakes' && (
-              <MistakesJournal 
-                activeAccountId={activeAccountId} 
-                onEditTrade={handleEditTrade} 
-                onOpenNoteModal={handleOpenDailyNotes}
-              />
+              <ErrorBoundary fallbackTitle="The Mistakes Journal failed to render">
+                <MistakesJournal 
+                  activeAccountId={activeAccountId} 
+                  onEditTrade={handleEditTrade} 
+                  onOpenNoteModal={handleOpenDailyNotes}
+                />
+              </ErrorBoundary>
             )}
-            {activeTab === 'ledger' && <Ledger activeAccountId={activeAccountId} />}
-            {activeTab === 'taxation' && <Taxation activeAccountId={activeAccountId} />}
-            {activeTab === 'contractNotes' && <ContractNotesManager activeAccountId={activeAccountId} />}
-            {activeTab === 'strategies' && <StrategyManager />}
-            {activeTab === 'account' && <AccountManager activeAccountId={activeAccountId} />}
-            {activeTab === 'help' && <Help />}
+            {activeTab === 'ledger' && (
+              <ErrorBoundary fallbackTitle="The Ledger failed to render">
+                <Ledger activeAccountId={activeAccountId} />
+              </ErrorBoundary>
+            )}
+            {activeTab === 'taxation' && (
+              <ErrorBoundary fallbackTitle="The Taxation module failed to render">
+                <Taxation activeAccountId={activeAccountId} />
+              </ErrorBoundary>
+            )}
+            {activeTab === 'contractNotes' && (
+              <ErrorBoundary fallbackTitle="Contract Notes failed to render">
+                <ContractNotesManager activeAccountId={activeAccountId} />
+              </ErrorBoundary>
+            )}
+            {activeTab === 'strategies' && (
+              <ErrorBoundary fallbackTitle="The Strategy Manager failed to render">
+                <StrategyManager />
+              </ErrorBoundary>
+            )}
+            {activeTab === 'account' && (
+              <ErrorBoundary fallbackTitle="The Account Manager failed to render">
+                <AccountManager activeAccountId={activeAccountId} />
+              </ErrorBoundary>
+            )}
+            {activeTab === 'help' && (
+              <ErrorBoundary fallbackTitle="Help & Guides failed to render">
+                <Help />
+              </ErrorBoundary>
+            )}
           </div>
         </Suspense>
       </main>

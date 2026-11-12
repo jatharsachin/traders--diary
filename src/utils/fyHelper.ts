@@ -1,4 +1,3 @@
-import type { Trade } from '../types';
 
 export function getFinancialYear(dateStr: string): string {
   if (!dateStr || dateStr.length < 10) return 'Unknown';
@@ -14,28 +13,21 @@ export function getFinancialYear(dateStr: string): string {
   }
 }
 
-export function filterTradesByFY(trades: Trade[], fy: string): Trade[] {
-  if (fy === 'All') return trades;
+export function filterTradesByFY<T extends { date: string; exitDate?: string }>(records: T[], fy: string): T[] {
+  if (fy === 'All') return records;
   const match = fy.match(/FY (\d{4})/);
-  if (!match) return trades;
+  if (!match) return records;
   const startYear = parseInt(match[1], 10);
   const endYear = startYear + 1;
 
   const startStr = `${startYear}-04-01`;
   const endStr = `${endYear}-03-31`;
 
-  return trades.filter((t) => {
+  return records.filter((t) => {
     const d = (t.exitDate || t.date || '').substring(0, 10);
     return d >= startStr && d <= endStr;
   });
 }
-
-export const FINANCIAL_YEARS = [
-  'All',
-  'FY 2024-25',
-  'FY 2025-26',
-  'FY 2026-27'
-];
 
 export function getCurrentLiveFY(): string {
   const today = new Date();
@@ -47,6 +39,23 @@ export function getCurrentLiveFY(): string {
     return `FY ${year - 1}-${year.toString().slice(-2)}`;
   }
 }
+
+export function generateFinancialYears(pastYears: number = 2, futureYears: number = 2): string[] {
+  const currentLive = getCurrentLiveFY();
+  const match = currentLive.match(/FY (\d{4})/);
+  const currentStartYear = match ? parseInt(match[1], 10) : new Date().getFullYear();
+
+  const years: string[] = ['All'];
+  const minStartYear = Math.min(2024, currentStartYear - pastYears);
+  const maxStartYear = Math.max(2027, currentStartYear + futureYears);
+
+  for (let y = minStartYear; y <= maxStartYear; y++) {
+    years.push(`FY ${y}-${(y + 1).toString().slice(-2)}`);
+  }
+  return years;
+}
+
+export const FINANCIAL_YEARS: string[] = generateFinancialYears(2, 2);
 
 export function formatTimeToAMPM(timeStr: string): string {
   if (!timeStr) return '';

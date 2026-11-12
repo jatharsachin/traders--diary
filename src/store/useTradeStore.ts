@@ -9,6 +9,7 @@ import {
 } from '../utils/supabaseClient';
 import { getFinancialYear } from '../utils/fyHelper';
 import { toast } from '../utils/toast';
+import { getYahooCandidateTickers } from '../utils/yahooSymbolMap';
 
 const getCurrentLiveFY = () => {
   const today = new Date().toISOString().split('T')[0];
@@ -1330,19 +1331,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const failedSymbols: string[] = [];
 
       const fetchLatestPriceFromYahoo = async (symbol: string): Promise<number | null> => {
-        const cleanSymbol = symbol.trim().toUpperCase();
-        let tickerSymbol = cleanSymbol.replace(/\s+/g, '');
-        // Strip -GB suffix for Sovereign Gold Bonds if present
-        if (tickerSymbol.startsWith('SGB') && tickerSymbol.endsWith('-GB')) {
-          tickerSymbol = tickerSymbol.substring(0, tickerSymbol.length - 3);
-        }
-        const ticker = tickerSymbol.includes('.') ? tickerSymbol : `${tickerSymbol}.NS`;
+        const candidateTickers = getYahooCandidateTickers(symbol);
 
-        const urls = [
-          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`,
-          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`
-        ];
-        
         const isLocalhost = window.location.hostname === 'localhost' || 
                             window.location.hostname === '127.0.0.1' || 
                             window.location.hostname === '';
@@ -1357,7 +1347,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           (targetUrl: string) => `https://api.codetabs.com/v1/proxy?url=${encodeURIComponent(targetUrl)}`
         );
 
-        const fetchWithTimeout = async (urlStr: string, timeoutMs: number = 3000) => {
+        const fetchWithTimeout = async (urlStr: string, timeoutMs: number = 2500) => {
           const controller = new AbortController();
           const id = setTimeout(() => controller.abort(), timeoutMs);
           try {
@@ -1370,34 +1360,41 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           }
         };
 
-        for (const url of urls) {
-          for (const getProxyUrl of proxies) {
-            try {
-              const proxyUrl = getProxyUrl(url);
-              const response = await fetchWithTimeout(proxyUrl, 3000);
-              if (!response.ok) continue;
-              const json = await response.json();
-              
-              let data: any;
-              if (json && json.contents) {
-                data = JSON.parse(json.contents);
-              } else {
-                data = json;
-              }
+        for (const ticker of candidateTickers) {
+          const urls = [
+            `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`,
+            `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`
+          ];
 
-              // Check chart response format
-              const chartPrice = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-              if (chartPrice && typeof chartPrice === 'number') {
-                return chartPrice;
-              }
+          for (const url of urls) {
+            for (const getProxyUrl of proxies) {
+              try {
+                const proxyUrl = getProxyUrl(url);
+                const response = await fetchWithTimeout(proxyUrl, 2500);
+                if (!response.ok) continue;
+                const json = await response.json();
+                
+                let data: any;
+                if (json && json.contents) {
+                  data = JSON.parse(json.contents);
+                } else {
+                  data = json;
+                }
 
-              // Check quote response format
-              const quotePrice = data?.quoteResponse?.result?.[0]?.regularMarketPrice;
-              if (quotePrice && typeof quotePrice === 'number') {
-                return quotePrice;
+                // Check chart response format
+                const chartPrice = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+                if (chartPrice && typeof chartPrice === 'number' && chartPrice > 0) {
+                  return chartPrice;
+                }
+
+                // Check quote response format
+                const quotePrice = data?.quoteResponse?.result?.[0]?.regularMarketPrice;
+                if (quotePrice && typeof quotePrice === 'number' && quotePrice > 0) {
+                  return quotePrice;
+                }
+              } catch {
+                // Try next proxy or ticker candidate
               }
-            } catch (e) {
-              console.warn(`Proxy fetch failed for ${ticker} on ${url}:`, e);
             }
           }
         }

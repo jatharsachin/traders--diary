@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Trade, Mistake } from '../types';
 import { getTradeMistakes, formatTradeMistakes } from '../types';
@@ -98,6 +98,16 @@ export function TradeTable({
 
   const trades = [...tradesFiltered, ...investmentsFiltered];
   
+  const allAvailableStrategies = useMemo(() => {
+    const names = new Set(setups.map(s => s.name));
+    tradesFiltered.forEach(t => {
+      if (t.strategy && t.strategy !== 'None') {
+        names.add(t.strategy);
+      }
+    });
+    return Array.from(names);
+  }, [setups, tradesFiltered]);
+
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
   // Search & Filter state
@@ -206,6 +216,13 @@ export function TradeTable({
   };
 
   const exportToCSV = () => {
+    if (!isPnlVisible) {
+      const proceed = window.confirm(
+        'Privacy Mode is active: Figures are masked on screen, but the exported CSV file will contain unmasked figures for accounting purposes. Do you wish to continue?'
+      );
+      if (!proceed) return;
+    }
+
     const headers = [
       'Date', 'Entry Time', 'Exit Time', 'Symbol', 'Segment', 'Product', 'Action', 
       'Qty', 'Entry Price', 'Exit Price', 'Gross P&L', 'Charges', 'Net P&L', 
@@ -243,6 +260,13 @@ export function TradeTable({
   };
 
   const exportToPDF = () => {
+    if (!isPnlVisible) {
+      const proceed = window.confirm(
+        'Privacy Mode is active: Figures are masked on screen, but the exported PDF report will contain unmasked figures for accounting purposes. Do you wish to continue?'
+      );
+      if (!proceed) return;
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error("Please allow popups to export PDF.");
@@ -730,9 +754,9 @@ export function TradeTable({
                     style={{ height: '34px', fontSize: '0.75rem' }}
                   >
                     <option value="All">All Strategies</option>
-                    {setups.map((s) => (
-                      <option key={s.name} value={s.name}>
-                        {s.name}
+                    {allAvailableStrategies.map((name: string) => (
+                      <option key={name} value={name}>
+                        {name}
                       </option>
                     ))}
                   </select>

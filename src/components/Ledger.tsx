@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
-import type { CapitalAdjustment, BankTransaction } from '../types';
+import type { BankTransaction } from '../types';
 import { toast } from '../utils/toast';
 
 interface LedgerProps {
@@ -207,11 +207,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   };
   const { startLimit, endLimit } = getFYDateLimits();
 
-  // Filter Broker Ledger Trades & Adjustments
-  let trades = filterTradesByFY(allTrades, selectedFY);
-  let capitalAdjustments = filterTradesByFY(allCapitalAdjustments as any, selectedFY) as any as CapitalAdjustment[];
-
-  const isMatchAccount = (accId?: string, brokerName?: string) => {
+  const isMatchAccount = useCallback((accId?: string, brokerName?: string) => {
     if (activeAccountId === 'Combined' || !activeAccountId) return true;
     const targetIds = activeAccountId.split(',').filter(Boolean);
     if (accId && targetIds.includes(accId)) return true;
@@ -220,16 +216,30 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
       return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
     }
     return false;
-  };
+  }, [activeAccountId, brokerAccounts]);
 
-  // Apply active account scopes
-  if (activeAccountId !== 'Combined') {
-    trades = trades.filter((t) => isMatchAccount(t.brokerAccountId, t.broker));
-    capitalAdjustments = capitalAdjustments.filter((a) => isMatchAccount(a.brokerAccountId));
-  } else if (selectedBrokerFilter !== 'All') {
-    trades = trades.filter((t) => t.broker === selectedBrokerFilter);
-    capitalAdjustments = capitalAdjustments.filter((a) => a.broker === selectedBrokerFilter);
-  }
+  // Filter Broker Ledger Trades & Adjustments (Memoized)
+  const trades = useMemo(() => {
+    const fyFiltered = filterTradesByFY(allTrades, selectedFY);
+    if (activeAccountId !== 'Combined') {
+      return fyFiltered.filter((t) => isMatchAccount(t.brokerAccountId, t.broker));
+    }
+    if (selectedBrokerFilter !== 'All') {
+      return fyFiltered.filter((t) => t.broker === selectedBrokerFilter);
+    }
+    return fyFiltered;
+  }, [allTrades, selectedFY, activeAccountId, selectedBrokerFilter, isMatchAccount]);
+
+  const capitalAdjustments = useMemo(() => {
+    const fyFiltered = filterTradesByFY(allCapitalAdjustments, selectedFY);
+    if (activeAccountId !== 'Combined') {
+      return fyFiltered.filter((a) => isMatchAccount(a.brokerAccountId));
+    }
+    if (selectedBrokerFilter !== 'All') {
+      return fyFiltered.filter((a) => a.broker === selectedBrokerFilter);
+    }
+    return fyFiltered;
+  }, [allCapitalAdjustments, selectedFY, activeAccountId, selectedBrokerFilter, isMatchAccount]);
 
   // Group detailed ledger month-by-month pagination
   const sortedTrades = [...trades].sort((a, b) => {

@@ -366,6 +366,13 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
   };
 
   const handlePrintDayBook = () => {
+    if (!isPnlVisible) {
+      const proceed = window.confirm(
+        'Privacy Mode is active: Figures are masked on screen, but the printed Day Book report will contain unmasked figures for accounting purposes. Do you wish to continue?'
+      );
+      if (!proceed) return;
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
