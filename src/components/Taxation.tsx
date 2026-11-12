@@ -25,6 +25,24 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
 
   // --- INDIAN TAXATION COMPUTATIONS ---
   
+  // Regime selection state (safe localStorage)
+  const [taxRegime, setTaxRegime] = useState<'NEW' | 'OLD'>(() => {
+    try {
+      const saved = localStorage.getItem('traders_diary_tax_regime');
+      return (saved === 'OLD' || saved === 'NEW') ? saved : 'NEW';
+    } catch {
+      return 'NEW';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('traders_diary_tax_regime', taxRegime);
+    } catch {
+      // ignore
+    }
+  }, [taxRegime]);
+
   // 1. Capital Gains (Equity Delivery Trades)
   const stcgTrades = trades.filter(t => t.segment === 'Equity' && t.product === 'Delivery' && t.holdingType !== 'Long Term');
   const ltcgTrades = trades.filter(t => t.segment === 'Equity' && t.product === 'Delivery' && t.holdingType === 'Long Term');
@@ -32,13 +50,43 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
   const stcgNet = stcgTrades.reduce((acc, t) => acc + t.netPnL, 0);
   const ltcgNet = ltcgTrades.reduce((acc, t) => acc + t.netPnL, 0);
 
-  // STCG Tax is 20%
-  const stcgTax = stcgNet > 0 ? stcgNet * 0.20 : 0;
+  // Capital Gains loss set-off logic
+  // STCL can offset STCG AND LTCG. LTCL can ONLY offset LTCG.
+  let taxableStcg = 0;
+  let taxableLtcg = 0;
+  let unabsorbedStcl = 0;
+  let unabsorbedLtcl = 0;
 
-  // LTCG Tax is 12.5% on gains exceeding ₹1.25L
+  if (stcgNet >= 0 && ltcgNet >= 0) {
+    taxableStcg = stcgNet;
+    taxableLtcg = Math.max(0, ltcgNet - 125000);
+  } else if (stcgNet < 0 && ltcgNet >= 0) {
+    const stcl = Math.abs(stcgNet);
+    if (ltcgNet > stcl) {
+      taxableStcg = 0;
+      taxableLtcg = Math.max(0, (ltcgNet - stcl) - 125000);
+    } else {
+      taxableStcg = 0;
+      taxableLtcg = 0;
+      unabsorbedStcl = stcl - ltcgNet;
+    }
+  } else if (stcgNet >= 0 && ltcgNet < 0) {
+    taxableStcg = stcgNet;
+    taxableLtcg = 0;
+    unabsorbedLtcl = Math.abs(ltcgNet);
+  } else {
+    taxableStcg = 0;
+    taxableLtcg = 0;
+    unabsorbedStcl = Math.abs(stcgNet);
+    unabsorbedLtcl = Math.abs(ltcgNet);
+  }
+
+  // STCG Tax is 20% (Budget 2024 revision)
+  const stcgTax = taxableStcg > 0 ? taxableStcg * 0.20 : 0;
+
+  // LTCG Tax is 12.5% on gains exceeding ₹1.25L exemption threshold
   const ltcgExemptionThreshold = 125000;
-  const ltcgTaxableGains = ltcgNet > ltcgExemptionThreshold ? ltcgNet - ltcgExemptionThreshold : 0;
-  const ltcgTax = ltcgTaxableGains > 0 ? ltcgTaxableGains * 0.125 : 0;
+  const ltcgTax = taxableLtcg > 0 ? taxableLtcg * 0.125 : 0;
 
   // 2. Business Income (Equity Intraday + F&O + Commodity + Currency)
   const speculativeTrades = trades.filter(t => t.segment === 'Equity' && t.product === 'Intraday');
@@ -48,53 +96,108 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
   const nonSpeculativeNet = nonSpeculativeTrades.reduce((acc, t) => acc + t.netPnL, 0);
   const totalBusinessNet = speculativeNet + nonSpeculativeNet;
 
-  // --- AUTOMATIC TAX SLAB DETECTION ---
-  const netAnnualIncome = Math.max(0, stcgNet + ltcgNet + totalBusinessNet);
-  
-  const getAutoSlabRate = (income: number): number => {
-    if (income <= 300000) return 0;
-    if (income <= 700000) return 5;
-    if (income <= 1000000) return 10;
-    if (income <= 1200000) return 15;
-    if (income <= 1500000) return 20;
-    return 30;
+  // Speculative loss can only offset speculative profit
+  const netSpeculativeProfit = Math.max(0, speculativeNet);
+  const unabsorbedSpeculativeLoss = speculativeNet < 0 ? Math.abs(speculativeNet) : 0;
+
+  // Non-speculative business profit
+  const netNonSpeculativeProfit = Math.max(0, nonSpeculativeNet);
+  const unabsorbedNonSpeculativeLoss = nonSpeculativeNet < 0 ? Math.abs(nonSpeculativeNet) : 0;
+
+  const totalTaxableBusiness = netSpeculativeProfit + netNonSpeculativeProfit;
+
+  // --- PROGRESSIVE SLAB TAX CALCULATION (SLAB-BY-SLAB) ---
+  const calculateProgressiveSlabTax = (income: number, regime: 'NEW' | 'OLD') => {
+    if (income <= 0) {
+      return { baseTax: 0, rebate: 0, cess: 0, totalTax: 0, effectiveRate: 0, tiers: [] };
+    }
+
+    let rawTax = 0;
+    const tiers: { label: string; chunk: number; ratePct: number; tax: number }[] = [];
+
+    if (regime === 'NEW') {
+      // Slabs: 0-3L @ 0%, 3-7L @ 5%, 7-10L @ 10%, 10-12L @ 15%, 12-15L @ 20%, >15L @ 30%
+      const slabRanges = [
+        { limit: 300000, rate: 0, label: 'Up to ₹3L (0%)' },
+        { limit: 700000, rate: 0.05, label: '₹3L - ₹7L (5%)' },
+        { limit: 1000000, rate: 0.10, label: '₹7L - ₹10L (10%)' },
+        { limit: 1200000, rate: 0.15, label: '₹10L - ₹12L (15%)' },
+        { limit: 1500000, rate: 0.20, label: '₹12L - ₹15L (20%)' },
+        { limit: Infinity, rate: 0.30, label: 'Above ₹15L (30%)' }
+      ];
+
+      let prevLimit = 0;
+      for (const s of slabRanges) {
+        if (income > prevLimit) {
+          const chunk = Math.min(income, s.limit) - prevLimit;
+          const chunkTax = chunk * s.rate;
+          rawTax += chunkTax;
+          if (chunk > 0) {
+            tiers.push({ label: s.label, chunk, ratePct: s.rate * 100, tax: chunkTax });
+          }
+          prevLimit = s.limit;
+        } else {
+          break;
+        }
+      }
+
+      // Sec 87A rebate: full rebate if taxable income <= ₹7,00,000 under New Regime
+      let rebate = 0;
+      let taxAfterRebate = rawTax;
+      if (income <= 700000) {
+        rebate = rawTax;
+        taxAfterRebate = 0;
+      }
+
+      const cess = Math.round(taxAfterRebate * 0.04);
+      const totalTax = taxAfterRebate + cess;
+      const effectiveRate = income > 0 ? (totalTax / income) * 100 : 0;
+      return { baseTax: rawTax, rebate, cess, totalTax, effectiveRate, tiers };
+    } else {
+      // OLD Regime: 0-2.5L @ 0%, 2.5-5L @ 5%, 5-10L @ 20%, >10L @ 30%
+      const slabRanges = [
+        { limit: 250000, rate: 0, label: 'Up to ₹2.5L (0%)' },
+        { limit: 500000, rate: 0.05, label: '₹2.5L - ₹5L (5%)' },
+        { limit: 1000000, rate: 0.20, label: '₹5L - ₹10L (20%)' },
+        { limit: Infinity, rate: 0.30, label: 'Above ₹10L (30%)' }
+      ];
+
+      let prevLimit = 0;
+      for (const s of slabRanges) {
+        if (income > prevLimit) {
+          const chunk = Math.min(income, s.limit) - prevLimit;
+          const chunkTax = chunk * s.rate;
+          rawTax += chunkTax;
+          if (chunk > 0) {
+            tiers.push({ label: s.label, chunk, ratePct: s.rate * 100, tax: chunkTax });
+          }
+          prevLimit = s.limit;
+        } else {
+          break;
+        }
+      }
+
+      // Sec 87A rebate: full rebate if taxable income <= ₹5,00,000 under Old Regime
+      let rebate = 0;
+      let taxAfterRebate = rawTax;
+      if (income <= 500000) {
+        rebate = rawTax;
+        taxAfterRebate = 0;
+      }
+
+      const cess = Math.round(taxAfterRebate * 0.04);
+      const totalTax = taxAfterRebate + cess;
+      const effectiveRate = income > 0 ? (totalTax / income) * 100 : 0;
+      return { baseTax: rawTax, rebate, cess, totalTax, effectiveRate, tiers };
+    }
   };
 
-  const autoSlabRate = getAutoSlabRate(netAnnualIncome);
+  const businessTaxCalc = calculateProgressiveSlabTax(totalTaxableBusiness, taxRegime);
 
-  // Auto-slab state
-  const [isAutoSlab, setIsAutoSlab] = useState<boolean>(() => {
-    const saved = localStorage.getItem('traders_diary_auto_slab');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
+  // Capital gains 4% Health & Education Cess
+  const capitalGainsCess = Math.round((stcgTax + ltcgTax) * 0.04);
+  const totalEstimatedTax = Math.round(stcgTax + ltcgTax + capitalGainsCess + businessTaxCalc.totalTax);
 
-  // Local storage for tax slab selector
-  const [slabRate, setSlabRate] = useState<number>(() => {
-    const saved = localStorage.getItem('traders_diary_tax_slab');
-    return saved ? parseInt(saved, 10) : autoSlabRate;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('traders_diary_auto_slab', JSON.stringify(isAutoSlab));
-  }, [isAutoSlab]);
-
-  useEffect(() => {
-    localStorage.setItem('traders_diary_tax_slab', slabRate.toString());
-  }, [slabRate]);
-
-  // Sync slabRate if autoSlab is enabled
-  useEffect(() => {
-    if (isAutoSlab) {
-      setSlabRate(autoSlabRate);
-    }
-  }, [isAutoSlab, autoSlabRate]);
-
-  // Business income is taxed at the individual's slab rate
-  const businessTax = totalBusinessNet > 0 ? totalBusinessNet * (slabRate / 100) : 0;
-
-  // 3. Totals
-  const totalEstimatedTax = stcgTax + ltcgTax + businessTax;
-  
   // 4. Charges Breakdown
   const totalBrokerage = trades.reduce((acc, t) => acc + t.brokerage, 0);
   const totalGovtTaxes = trades.reduce((acc, t) => acc + t.taxes, 0);
@@ -170,26 +273,74 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
             Indian Taxation & ITR Auditor
           </h2>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-            Real-time estimated tax liabilities and ITR filing compliance checks
+            Progressive slab-by-slab tax liabilities, Capital Gains set-offs, and Sec 44AB/44AD compliance checks
           </p>
         </div>
 
-        {/* Read-Only Active Financial Year Badge */}
-        <div 
-          style={{ 
-            padding: '6px 12px', 
-            background: 'rgba(255,255,255,0.02)', 
-            border: '1px solid var(--border-color)', 
-            borderRadius: '8px',
-            fontSize: '0.72rem',
-            fontWeight: 600,
-            color: 'var(--text-dim)',
-            height: '32px',
-            display: 'flex',
-            alignItems: 'center'
-          }}
-        >
-          Active FY: {selectedFY}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Regime Switcher */}
+          <div 
+            style={{ 
+              display: 'flex', 
+              background: 'rgba(255,255,255,0.06)', 
+              borderRadius: '8px', 
+              padding: '3px', 
+              border: '1px solid var(--border-color)' 
+            }}
+          >
+            <button
+              onClick={() => setTaxRegime('NEW')}
+              style={{
+                border: 'none',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '0.72rem',
+                fontWeight: 650,
+                cursor: 'pointer',
+                background: taxRegime === 'NEW' ? 'var(--primary)' : 'transparent',
+                color: taxRegime === 'NEW' ? '#fff' : 'var(--text-dim)',
+                transition: 'all 0.2s ease'
+              }}
+              title="Default regime under Section 115BAC (0% up to ₹3L, full 87A rebate up to ₹7L)"
+            >
+              New Regime (115BAC)
+            </button>
+            <button
+              onClick={() => setTaxRegime('OLD')}
+              style={{
+                border: 'none',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '0.72rem',
+                fontWeight: 650,
+                cursor: 'pointer',
+                background: taxRegime === 'OLD' ? 'var(--primary)' : 'transparent',
+                color: taxRegime === 'OLD' ? '#fff' : 'var(--text-dim)',
+                transition: 'all 0.2s ease'
+              }}
+              title="Traditional slab regime (0% up to ₹2.5L, full 87A rebate up to ₹5L)"
+            >
+              Old Regime
+            </button>
+          </div>
+
+          {/* Read-Only Active Financial Year Badge */}
+          <div 
+            style={{ 
+              padding: '6px 12px', 
+              background: 'rgba(255,255,255,0.02)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '8px',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              color: 'var(--text-dim)',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            Active FY: {selectedFY}
+          </div>
         </div>
       </div>
 
@@ -229,7 +380,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
                 {formatCurrency(totalEstimatedTax)}
               </h3>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-                Estimated liability for {selectedFY === 'All' ? 'All Transactions' : selectedFY}
+                Incl. 4% Cess ({taxRegime === 'NEW' ? 'New Regime Sec 115BAC' : 'Old Tax Regime'})
               </p>
             </div>
             <div style={{ background: 'var(--color-loss-bg)', padding: '8px', borderRadius: '8px' }}>
@@ -238,65 +389,44 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
           </div>
         </div>
 
-        {/* Business/Slab Selector Card */}
+        {/* Business/Slab Progressive Card */}
         <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Income Tax Slab (F&O / Intraday)
+                Business Tax ({taxRegime === 'NEW' ? 'New Slabs' : 'Old Slabs'})
               </span>
               <div style={{ background: 'var(--primary-glow)', padding: '6px', borderRadius: '6px' }}>
                 <Percent size={16} color="var(--primary)" />
               </div>
             </div>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>
-              Tax slab rate used for calculating Business & F&O taxes:
-            </p>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-              <input
-                type="checkbox"
-                id="isAutoSlab"
-                checked={isAutoSlab}
-                onChange={(e) => setIsAutoSlab(e.target.checked)}
-                style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <label htmlFor="isAutoSlab" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 550 }}>
-                Auto-detect slab based on trading profits
-              </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '10px' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Net Business Income:</span>
+              <strong style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)', color: totalTaxableBusiness > 0 ? 'var(--color-win)' : 'var(--text-dim)' }}>
+                {formatCurrency(totalTaxableBusiness)}
+              </strong>
             </div>
-            {isAutoSlab && (
-              <p style={{ fontSize: '0.68rem', color: 'var(--color-win)', marginTop: '4px', fontWeight: 500 }}>
-                💡 Est. Net Trading Income: {formatCurrency(netAnnualIncome)}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Progressive Slab Tax:</span>
+              <strong style={{ fontSize: '0.88rem', fontFamily: 'var(--font-mono)', color: businessTaxCalc.totalTax > 0 ? 'var(--color-loss)' : 'var(--color-win)' }}>
+                {formatCurrency(businessTaxCalc.totalTax)}
+              </strong>
+            </div>
+
+            {businessTaxCalc.rebate > 0 && (
+              <p style={{ fontSize: '0.68rem', color: 'var(--color-win)', marginTop: '6px', fontWeight: 600 }}>
+                ✓ Sec 87A Full Rebate: -{formatCurrency(businessTaxCalc.rebate)} (Taxable income under {taxRegime === 'NEW' ? '₹7 Lakh' : '₹5 Lakh'})
               </p>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '16px' }}>
-            <select
-              value={slabRate}
-              disabled={isAutoSlab}
-              onChange={(e) => setSlabRate(parseInt(e.target.value, 10))}
-              className="form-select"
-              style={{
-                flex: 1,
-                fontSize: '0.85rem',
-                height: '38px',
-                borderColor: isAutoSlab ? 'var(--border-color)' : 'var(--primary-glow)',
-                opacity: isAutoSlab ? 0.7 : 1,
-                cursor: isAutoSlab ? 'not-allowed' : 'pointer'
-              }}
-            >
-              <option value={0}>0% Slab (Income ≤ ₹3L)</option>
-              <option value={5}>5% Slab (Income ₹3L - ₹7L)</option>
-              <option value={10}>10% Slab (Income ₹7L - ₹10L)</option>
-              <option value={15}>15% Slab (Income ₹10L - ₹12L)</option>
-              <option value={20}>20% Slab (Income ₹12L - ₹15L)</option>
-              <option value={30}>30% Slab (Income &gt; ₹15L)</option>
-            </select>
-            <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-              {slabRate}%
-            </div>
+          <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Effective Business Tax Rate:</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>
+              {businessTaxCalc.effectiveRate.toFixed(1)}%
+            </span>
           </div>
         </div>
 
@@ -305,18 +435,22 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Section 44AB Tax Audit
+                Sec 44AB / 44AD Audit Check
               </span>
               <div style={{ background: requiresAudit ? 'var(--color-loss-bg)' : 'var(--color-win-bg)', padding: '6px', borderRadius: '6px' }}>
                 <ShieldAlert size={16} color={requiresAudit ? 'var(--color-loss)' : 'var(--color-win)'} />
               </div>
             </div>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Audit Turnover:</span>
-              <strong style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>F&O Absolute Turnover:</span>
+              <strong style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>
                 {formatCurrency(auditTurnover)}
               </strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Digital Audit Limit (95%+ Online):</span>
+              <span style={{ fontSize: '0.74rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>₹10.00 Crore</span>
             </div>
           </div>
 
@@ -327,14 +461,17 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
               padding: '6px 10px', 
               borderRadius: '6px',
               background: requiresAudit ? 'rgba(239, 68, 68, 0.04)' : 'rgba(16, 185, 129, 0.04)',
-              border: `1px solid ${requiresAudit ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'}`,
+              border: `1px solid ${requiresAudit ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'}`,
               color: requiresAudit ? 'var(--color-loss)' : 'var(--color-win)',
-              fontWeight: 550
+              fontWeight: 550,
+              lineHeight: 1.3
             }}
           >
             {requiresAudit 
-              ? '⚠️ Turnover > ₹10 Crore. Tax audit under Sec 44AB is likely required.'
-              : '✓ Turnover within ₹10 Crore limit. Audit is not legally mandatory.'}
+              ? '⚠️ Turnover > ₹10 Cr. Formal Tax Audit under Sec 44AB is mandatory.'
+              : isEligible44AD
+                ? '✓ Within limits. Eligible for Sec 44AD Presumptive Taxation (6% profit).'
+                : '✓ Turnover within ₹10 Crore digital limit. Tax audit is not legally mandatory.'}
           </div>
         </div>
       </div>
@@ -386,11 +523,28 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
                 </div>
               </div>
 
+              {/* Loss Set-off & Carry Forward Badges */}
+              {stcgNet < 0 && ltcgNet > 0 && (
+                <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)', fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
+                  ⚡ Auto Set-off: {formatCurrency(Math.min(Math.abs(stcgNet), ltcgNet))} STCL adjusted against LTCG gains!
+                </div>
+              )}
+              {unabsorbedStcl > 0 && (
+                <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.7rem', color: 'var(--color-loss)' }}>
+                  📌 Unabsorbed STCL: <strong>{formatCurrency(unabsorbedStcl)}</strong> (Eligible to carry forward for 8 years in ITR-2/3)
+                </div>
+              )}
+              {unabsorbedLtcl > 0 && (
+                <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.7rem', color: 'var(--color-loss)' }}>
+                  📌 Unabsorbed LTCL: <strong>{formatCurrency(unabsorbedLtcl)}</strong> (Can only offset future LTCG, 8 years carry-forward)
+                </div>
+              )}
+
               {/* Exemption Notice */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px', background: 'rgba(10, 132, 255, 0.03)', border: '1px solid rgba(10, 132, 255, 0.08)', borderRadius: '8px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                 <Info size={14} color="#0a84ff" style={{ marginTop: '2px', flexShrink: 0 }} />
                 <div>
-                  LTCG gains under ₹1,25,000 are fully exempt from taxes in a financial year. Tax applies only on the excess amount.
+                  LTCG gains under ₹1,25,000 are fully exempt in a financial year.
                   {ltcgNet > 0 && ltcgNet <= ltcgExemptionThreshold && (
                     <span style={{ color: 'var(--color-win)', display: 'block', marginTop: '2px', fontWeight: 600 }}>
                       ✓ Your LTCG is ₹{ltcgNet.toLocaleString('en-IN')}, which is under the threshold. Nil Tax applies!
@@ -420,9 +574,11 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
                   <div style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: speculativeNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
                     {formatCurrency(speculativeNet)}
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Slab Rate: {slabRate}%
-                  </div>
+                  {unabsorbedSpeculativeLoss > 0 && (
+                    <div style={{ fontSize: '0.65rem', color: 'var(--color-loss)', marginTop: '2px' }}>
+                      4-yr carry-forward
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -436,21 +592,23 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
                   <div style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: nonSpeculativeNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
                     {formatCurrency(nonSpeculativeNet)}
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Slab Rate: {slabRate}%
-                  </div>
+                  {unabsorbedNonSpeculativeLoss > 0 && (
+                    <div style={{ fontSize: '0.65rem', color: 'var(--color-loss)', marginTop: '2px' }}>
+                      8-yr carry-forward
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Total Business */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255, 255, 255, 0.03)', border: '1.5px solid var(--border-color-active)', borderRadius: '8px' }}>
-                <strong style={{ fontSize: '0.8rem', color: 'var(--text-main)' }}>Total Business Net Profit:</strong>
+                <strong style={{ fontSize: '0.8rem', color: 'var(--text-main)' }}>Total Taxable Business Profit:</strong>
                 <div style={{ textAlign: 'right' }}>
-                  <strong style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)', color: totalBusinessNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                    {formatCurrency(totalBusinessNet)}
+                  <strong style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)', color: totalTaxableBusiness >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                    {formatCurrency(totalTaxableBusiness)}
                   </strong>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
-                    Est. Tax: {formatCurrency(businessTax)}
+                    Est. Slab Tax: {formatCurrency(businessTaxCalc.totalTax)}
                   </div>
                 </div>
               </div>

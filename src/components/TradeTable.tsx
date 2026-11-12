@@ -209,15 +209,24 @@ export function TradeTable({
       'ROI %', 'Emotion', 'Mistake', 'Setup Type', 'Notes'
     ];
     
+    const sanitizeCsvCell = (val: any) => {
+      let str = String(val ?? '');
+      // Prevent formula injection in Excel/Sheets
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const rows = sortedTrades.map((t) => [
       t.date, t.entryTime, t.exitTime, t.symbol, t.segment, t.product, t.action,
       t.qty, t.entryPrice, t.exitPrice, t.grossPnL, (t.brokerage + t.taxes).toFixed(2), t.netPnL,
-      t.roi.toFixed(2), t.emotion, formatTradeMistakes(t), t.setupType || 'None', (t.notes || '').replace(/"/g, '""')
+      t.roi.toFixed(2), t.emotion, formatTradeMistakes(t), t.setupType || 'None', t.notes || ''
     ]);
     
     const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(val => `"${val}"`).join(','))
+      headers.map(sanitizeCsvCell).join(','),
+      ...rows.map(row => row.map(sanitizeCsvCell).join(','))
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -236,19 +245,21 @@ export function TradeTable({
       alert("Please allow popups to export PDF.");
       return;
     }
+
+    const escapeHtml = (str: any) => String(str ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m] || m);
     
     const tableRows = sortedTrades.map(t => `
       <tr>
-        <td>${t.date}</td>
-        <td>${t.symbol}</td>
-        <td><span style="color: ${t.action === 'BUY' ? '#10b981' : '#f87171'}; font-weight: bold;">${t.action}</span></td>
+        <td>${escapeHtml(t.date)}</td>
+        <td>${escapeHtml(t.symbol)}</td>
+        <td><span style="color: ${t.action === 'BUY' ? '#10b981' : '#f87171'}; font-weight: bold;">${escapeHtml(t.action)}</span></td>
         <td>${t.qty}</td>
         <td>₹${t.entryPrice}</td>
         <td>₹${t.exitPrice}</td>
         <td style="color: ${t.netPnL >= 0 ? '#10b981' : '#f87171'}; font-weight: bold;">₹${t.netPnL.toFixed(2)}</td>
-        <td>${t.emotion}</td>
-        <td>${formatTradeMistakes(t)}</td>
-        <td>${t.setupType || 'None'}</td>
+        <td>${escapeHtml(t.emotion)}</td>
+        <td>${escapeHtml(formatTradeMistakes(t))}</td>
+        <td>${escapeHtml(t.setupType || 'None')}</td>
       </tr>
     `).join('');
     

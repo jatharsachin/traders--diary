@@ -515,11 +515,13 @@ export const CapitalBreakdownModal: React.FC<CapitalBreakdownModalProps> = ({
                 </strong>
               </div>
 
-              {netInvestedCost > 0 && (
+              {netInvestedCost !== 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>- Deployed into Delivery Assets:</span>
-                  <strong style={{ fontFamily: 'var(--font-mono)', color: '#f59e0b' }}>
-                    {isPnlVisible ? `-${formatINR(netInvestedCost)}` : '••••'}
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {netInvestedCost > 0 ? '- Deployed into Delivery Assets:' : '+ Net Realized Return from Exited Assets:'}
+                  </span>
+                  <strong style={{ fontFamily: 'var(--font-mono)', color: netInvestedCost > 0 ? '#f59e0b' : 'var(--color-win)' }}>
+                    {isPnlVisible ? (netInvestedCost > 0 ? `-${formatINR(netInvestedCost)}` : `+${formatINR(Math.abs(netInvestedCost))}`) : '••••'}
                   </strong>
                 </div>
               )}

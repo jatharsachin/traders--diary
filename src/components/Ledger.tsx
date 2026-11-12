@@ -118,12 +118,18 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   };
 
   const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
+    const sanitizeCsvCell = (val: string) => {
+      let clean = (val || '').replace(/"/g, '""');
+      // Prevent CSV formula injection in spreadsheet applications
+      if (/^[=+\-@\t\r]/.test(clean)) {
+        clean = `'${clean}`;
+      }
+      return clean.includes(',') || clean.includes('\n') || clean.includes('"') ? `"${clean}"` : clean;
+    };
+
     const content = [
-      headers.join(','),
-      ...rows.map(r => r.map(val => {
-        const clean = (val || '').replace(/"/g, '""');
-        return clean.includes(',') || clean.includes('\n') ? `"${clean}"` : clean;
-      }).join(','))
+      headers.map(sanitizeCsvCell).join(','),
+      ...rows.map(r => r.map(sanitizeCsvCell).join(','))
     ].join('\n');
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -159,7 +165,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
         return [
           tx.date + ' ' + tx.time,
           bank ? `${bank.bankName} (${bank.accountHolderName})` : 'Unknown',
-          tx.category,
+          tx.notes || tx.category,
           tx.type,
           tx.amount.toString(),
           tx.category,

@@ -566,8 +566,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
     const sym = formData.symbol.toUpperCase().trim();
     if (!sym) return;
 
-    // Detect F&O index option format like: NIFTY 22400 CE, BANKNIFTY 48000 PE, FINNIFTY 20100 CE, etc.
-    const optionMatch = sym.match(/(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)?\s*(\d{5})\s*(CE|PE)/i);
+    // Detect F&O index & stock option format like: NIFTY 22400 CE, SENSEX 73300 PE, RELIANCE 2800 CE, etc.
+    const optionMatch = sym.match(/(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX|[A-Z]{3,12})?\s*(\d{4,6})\s*(CE|PE)/i);
     
     if (optionMatch) {
       const detectedStrike = parseInt(optionMatch[2], 10);
