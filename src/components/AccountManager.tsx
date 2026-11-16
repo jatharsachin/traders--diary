@@ -8,6 +8,7 @@ import {
 import logoImg from '../assets/tradediary_logo.png';
 import { BROKER_LOGOS } from '../utils/brandLogos';
 import { toast } from '../utils/toast';
+import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
 
 interface AccountManagerProps {
   activeAccountId?: string;
@@ -54,14 +55,7 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
   const [ledgerSubTab, setLedgerSubTab] = useState<'active' | 'exited'>('active');
 
   const isMatchAccount = (accId?: string, brokerName?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    const targetIds = activeAccountId.split(',').filter(Boolean);
-    if (accId && targetIds.includes(accId)) return true;
-    if (brokerName) {
-      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
-      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
-    }
-    return false;
+    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
   };
 
   // Filtered store data based on activeAccountId

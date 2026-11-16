@@ -10,6 +10,7 @@ import {
 import { filterTradesByFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
 import { toast } from '../utils/toast';
+import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
 
 interface TradeTableProps {
   onEditTrade: (id: string) => void;
@@ -81,14 +82,7 @@ export function TradeTable({
       });
 
   const isMatchAccount = (accId?: string, brokerName?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    const targetIds = activeAccountId.split(',').filter(Boolean);
-    if (accId && targetIds.includes(accId)) return true;
-    if (brokerName) {
-      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
-      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
-    }
-    return false;
+    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
   };
 
   const tradesFiltered = activeAccountId === 'Combined' 

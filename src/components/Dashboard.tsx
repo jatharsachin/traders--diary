@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, Legend, PieChart, Pie } from 'recharts';
 import { filterTradesByFY } from '../utils/fyHelper';
+import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
 import { OFFLINE_NSE_HOLIDAYS } from './TradingCalendar';
 import { ExecutiveReportModal } from './ExecutiveReportModal';
 import { WeeklyJournalModal } from './WeeklyJournalModal';
@@ -63,22 +64,32 @@ export function Dashboard({
     subscriptionExpenses
   } = useTradeStore();
 
-  const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
-  const currentActiveBrokers = brokerAccounts.filter(a => a.active).map(a => a.broker);
-  const activeTrades = allTrades.filter(t => 
-    (t.brokerAccountId && activeAccountIds.includes(t.brokerAccountId)) ||
-    (!t.brokerAccountId && t.broker && currentActiveBrokers.includes(t.broker))
-  );
-  const capitalAdjustments = allAdjustments.filter(a => 
-    !a.brokerAccountId || 
-    activeAccountIds.includes(a.brokerAccountId) ||
-    (a.broker && currentActiveBrokers.includes(a.broker))
-  );
-  const investments = allInvestments.filter(i => 
-    !i.brokerAccountId || 
-    activeAccountIds.includes(i.brokerAccountId) ||
-    (i.broker && currentActiveBrokers.includes(i.broker))
-  );
+  const isMatchAccount = (accId?: string | null, brokerName?: string | null) => {
+    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
+  };
+
+  const activeAccountIds = useMemo(() => brokerAccounts.filter(a => a.active).map(a => a.id), [brokerAccounts]);
+
+  const activeTrades = useMemo(() => {
+    return allTrades.filter(t => {
+      if (t.brokerAccountId && !activeAccountIds.includes(t.brokerAccountId)) return false;
+      return isMatchAccount(t.brokerAccountId, t.broker);
+    });
+  }, [allTrades, activeAccountIds, activeAccountId, brokerAccounts]);
+
+  const capitalAdjustments = useMemo(() => {
+    return allAdjustments.filter(a => {
+      if (a.brokerAccountId && !activeAccountIds.includes(a.brokerAccountId)) return false;
+      return isMatchAccount(a.brokerAccountId, a.broker);
+    });
+  }, [allAdjustments, activeAccountIds, activeAccountId, brokerAccounts]);
+
+  const investments = useMemo(() => {
+    return allInvestments.filter(i => {
+      if (i.brokerAccountId && !activeAccountIds.includes(i.brokerAccountId)) return false;
+      return isMatchAccount(i.brokerAccountId, i.broker);
+    });
+  }, [allInvestments, activeAccountIds, activeAccountId, brokerAccounts]);
   
   const [selectedBroker, setSelectedBroker] = useState<string>('All');
   const [selectedSegment, setSelectedSegment] = useState<string>('All');
@@ -86,6 +97,23 @@ export function Dashboard({
   const [selectedChartMonth, setSelectedChartMonth] = useState<string>('');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
+
+  // Filter brokers in the local dropdown to match selected accounts
+  const availableBrokersForSelection = useMemo(() => {
+    if (activeAccountId === 'Combined' || !activeAccountId) {
+      return activeBrokers;
+    }
+    const targetIds = activeAccountId.split(',').filter(Boolean);
+    const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
+    const brokers = Array.from(new Set(selectedAccs.map(a => a.broker).filter(Boolean)));
+    return brokers.length > 0 ? brokers : activeBrokers;
+  }, [activeAccountId, brokerAccounts, activeBrokers]);
+
+  useEffect(() => {
+    if (selectedBroker !== 'All' && !availableBrokersForSelection.includes(selectedBroker as any)) {
+      setSelectedBroker('All');
+    }
+  }, [availableBrokersForSelection, selectedBroker]);
 
   // 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries
   const getMissingLogDates = (): string[] => {
@@ -135,19 +163,6 @@ export function Dashboard({
 
   const missingLogDates = getMissingLogDates();
 
-
-
-  const isMatchAccount = (accId?: string, brokerName?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    const targetIds = activeAccountId.split(',').filter(Boolean);
-    if (accId && targetIds.includes(accId)) return true;
-    if (brokerName) {
-      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
-      return selectedAccs.some(a => a.broker === brokerName);
-    }
-    return false;
-  };
-
   const getStartingCapitalForActiveFY = () => {
     let startCap = 0;
     if (activeAccountId !== 'Combined') {
@@ -164,11 +179,11 @@ export function Dashboard({
     const startStr = `${startYear}-04-01`;
 
     const priorTradesPnL = activeTrades
-      .filter((t) => (t.exitDate || t.date) < startStr && isMatchAccount(t.brokerAccountId, t.broker))
+      .filter((t) => (t.exitDate || t.date) < startStr)
       .reduce((acc, t) => acc + t.netPnL, 0);
 
     const priorAdjustments = capitalAdjustments
-      .filter((a) => a.date < startStr && isMatchAccount(a.brokerAccountId, a.broker))
+      .filter((a) => a.date < startStr)
       .reduce((acc, a) => {
         if (a.type === 'DEPOSIT') return acc + a.amount;
         return acc - a.amount;
@@ -191,10 +206,8 @@ export function Dashboard({
   }, [activeTrades, selectedFY]);
 
   const rawTrades = useMemo(() => {
-    return activeAccountId === 'Combined'
-      ? rawTradesByFY
-      : rawTradesByFY.filter((t) => isMatchAccount(t.brokerAccountId, t.broker));
-  }, [rawTradesByFY, activeAccountId, brokerAccounts]);
+    return rawTradesByFY;
+  }, [rawTradesByFY]);
 
   const trades = useMemo(() => {
     return rawTrades.filter((t) => {
@@ -1473,7 +1486,7 @@ export function Dashboard({
               }}
             >
               <option value="All">All Brokers</option>
-              {activeBrokers.map((b) => (
+              {availableBrokersForSelection.map((b) => (
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>

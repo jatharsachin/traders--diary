@@ -8,6 +8,7 @@ import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
 import type { BankTransaction } from '../types';
 import { toast } from '../utils/toast';
+import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
 
 interface LedgerProps {
   activeAccountId?: string;
@@ -208,14 +209,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
   const { startLimit, endLimit } = getFYDateLimits();
 
   const isMatchAccount = useCallback((accId?: string, brokerName?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    const targetIds = activeAccountId.split(',').filter(Boolean);
-    if (accId && targetIds.includes(accId)) return true;
-    if (brokerName) {
-      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
-      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
-    }
-    return false;
+    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
   }, [activeAccountId, brokerAccounts]);
 
   // Filter Broker Ledger Trades & Adjustments (Memoized)

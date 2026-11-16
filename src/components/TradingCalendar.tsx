@@ -6,6 +6,7 @@ import { BrokerBadge } from './BrokerBadge';
 import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { WeeklyJournalModal } from './WeeklyJournalModal';
 import { toast } from '../utils/toast';
+import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
 
 export const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   // 2025
@@ -113,14 +114,7 @@ export function TradingCalendar({
 
 
   const isMatchAccount = useCallback((accId?: string, brokerName?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    const targetIds = activeAccountId.split(',').filter(Boolean);
-    if (accId && targetIds.includes(accId)) return true;
-    if (brokerName) {
-      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
-      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
-    }
-    return false;
+    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
   }, [activeAccountId, brokerAccounts]);
 
   const fyTrades = useMemo(() => filterTradesByFY(allTrades, selectedFY), [allTrades, selectedFY]);

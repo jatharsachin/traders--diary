@@ -6,6 +6,7 @@ import {
   CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown
 } from 'lucide-react';
 import { toast } from '../utils/toast';
+import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
 
 interface DayBookProps {
   activeAccountId?: string;
@@ -116,14 +117,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
   };
 
   const isMatchAccount = (accId?: string, brokerName?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    const targetIds = activeAccountId.split(',').filter(Boolean);
-    if (accId && targetIds.includes(accId)) return true;
-    if (brokerName) {
-      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
-      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
-    }
-    return false;
+    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
   };
 
   // Scoped trades, adjustments, and investments
