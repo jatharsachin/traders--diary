@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { getTradeMistakes, formatTradeMistakes } from '../types';
-import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen, Receipt, X, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen, Receipt, X, Check, Copy, FileText } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
 import { filterTradesByFY, getCurrentLiveFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { WeeklyJournalModal } from './WeeklyJournalModal';
 import { toast } from '../utils/toast';
 import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
+import { generateMonthlyPDFReport } from '../utils/monthlyStatementPdf';
 
 export const OFFLINE_NSE_HOLIDAYS: Record<string, string> = {
   // 2025
@@ -91,10 +92,12 @@ const formatInvAmountDisplay = (val: number, isPnlVisible: boolean) => {
 export function TradingCalendar({ 
   activeAccountId = 'Combined',
   onEditTrade,
+  onDuplicateTrade,
   onOpenDailyNotes
 }: { 
   activeAccountId?: string;
   onEditTrade?: (id: string) => void;
+  onDuplicateTrade?: (id: string) => void;
   onOpenDailyNotes?: (date?: string) => void;
 }) {
   const { 
@@ -109,7 +112,8 @@ export function TradingCalendar({
     contractNotes,
     dailyNotes,
     addOrUpdateContractNote,
-    lockedFYs
+    lockedFYs,
+    userName
   } = useTradeStore();
 
 
@@ -350,6 +354,24 @@ export function TradingCalendar({
 
   const daysInMonth = getDaysInMonth();
   const firstDayIndex = getFirstDayOfMonth();
+
+  const handleExportMonthlyPDF = () => {
+    const monthPrefix = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    const monthTrades = (trades || []).filter(t => (t.exitDate || t.date).startsWith(monthPrefix));
+
+    if (monthTrades.length === 0) {
+      toast.error(`No trades found for ${currentDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.`);
+      return;
+    }
+
+    generateMonthlyPDFReport({
+      trades: monthTrades,
+      monthStr: monthPrefix,
+      userName: userName || 'Sachin Jathar',
+      brokerAccounts,
+      activeAccountId,
+    });
+  };
 
   // Memoized daily summaries map: precomputes summaries for all active dates in O(N) single pass
   const dailySummariesMap = useMemo(() => {
@@ -2119,6 +2141,29 @@ export function TradingCalendar({
             <ChevronRight size={16} />
           </button>
 
+          {activePnlTab === 'monthly' && (
+            <button 
+              onClick={handleExportMonthlyPDF}
+              className="btn btn-secondary"
+              style={{ 
+                padding: '6px 12px', 
+                fontSize: '0.78rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                background: 'rgba(16, 185, 129, 0.08)',
+                color: '#10b981',
+                fontWeight: 650,
+                cursor: 'pointer'
+              }}
+              title="Print / Save 1-Page Monthly Performance Statement as PDF"
+            >
+              <FileText size={14} color="#10b981" />
+              <span>1-Page Month PDF</span>
+            </button>
+          )}
+
           <button 
             onClick={() => setIsJournalOpen(true)}
             className="btn btn-secondary"
@@ -2539,28 +2584,56 @@ export function TradingCalendar({
                         {t.notes || '-'}
                       </td>
                       <td>
-                        {onEditTrade && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditTrade(t.id);
-                            }}
-                            className="btn btn-secondary"
-                            style={{ 
-                              padding: '4px 8px', 
-                              fontSize: '0.72rem', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '4px',
-                              borderRadius: '6px',
-                              cursor: 'pointer'
-                            }}
-                            title="Edit Trade"
-                          >
-                            <Edit2 size={12} />
-                            <span>Edit</span>
-                          </button>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {onEditTrade && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditTrade(t.id);
+                              }}
+                              className="btn btn-secondary"
+                              style={{ 
+                                padding: '4px 8px', 
+                                fontSize: '0.72rem', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                              }}
+                              title="Edit Trade"
+                            >
+                              <Edit2 size={12} />
+                              <span>Edit</span>
+                            </button>
+                          )}
+
+                          {onDuplicateTrade && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDuplicateTrade(t.id);
+                              }}
+                              className="btn btn-secondary"
+                              style={{ 
+                                padding: '4px 8px', 
+                                fontSize: '0.72rem', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                color: '#eab308',
+                                border: '1px solid rgba(234, 179, 8, 0.35)',
+                                background: 'rgba(234, 179, 8, 0.08)'
+                              }}
+                              title="Clone this trade setup for a quick re-entry"
+                            >
+                              <Copy size={12} />
+                              <span>Duplicate</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

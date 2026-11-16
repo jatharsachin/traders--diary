@@ -5,15 +5,18 @@ import { getTradeMistakes, formatTradeMistakes } from '../types';
 import { 
   Edit2, Trash2, Search, ShieldAlert, ArrowUpDown, 
   ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, 
-  X, SlidersHorizontal, Upload, TrendingUp, TrendingDown, Layers
+  X, SlidersHorizontal, Upload, TrendingUp, TrendingDown, Layers,
+  Copy, FileText
 } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
 import { toast } from '../utils/toast';
 import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
+import { generateMonthlyPDFReport } from '../utils/monthlyStatementPdf';
 
 interface TradeTableProps {
   onEditTrade: (id: string) => void;
+  onDuplicateTrade?: (id: string) => void;
   activeAccountId?: string;
   initialDateFilter?: string | null;
   onClearDateFilter?: () => void;
@@ -22,6 +25,7 @@ interface TradeTableProps {
 
 export function TradeTable({ 
   onEditTrade, 
+  onDuplicateTrade,
   activeAccountId,
   initialDateFilter = null,
   onClearDateFilter,
@@ -35,7 +39,8 @@ export function TradeTable({
     selectedFY, 
     activeBrokers,
     investments: allInvestments,
-    brokerAccounts
+    brokerAccounts,
+    userName
   } = useTradeStore();
 
   const purchaseItems = (allInvestments || []).map(i => ({
@@ -460,6 +465,36 @@ export function TradeTable({
     printWindow.document.close();
   };
 
+  const handleExportMonthlyPDF = () => {
+    // Determine active target month
+    const now = new Date();
+    const currentMonthPrefix = now.toISOString().substring(0, 7);
+    
+    let targetMonthPrefix = currentMonthPrefix;
+    if (initialDateFilter && /^\d{4}-\d{2}/.test(initialDateFilter)) {
+      targetMonthPrefix = initialDateFilter.substring(0, 7);
+    } else if (sortedTrades.length > 0) {
+      targetMonthPrefix = sortedTrades[0].date.substring(0, 7);
+    }
+
+    const monthTrades = (allTrades || []).filter(t => 
+      t.date.startsWith(targetMonthPrefix) && isMatchAccount(t.brokerAccountId, t.broker)
+    );
+
+    if (monthTrades.length === 0) {
+      toast.error(`No trades found for ${targetMonthPrefix} to generate monthly statement.`);
+      return;
+    }
+
+    generateMonthlyPDFReport({
+      trades: monthTrades,
+      monthStr: targetMonthPrefix,
+      userName: userName || 'Sachin Jathar',
+      brokerAccounts,
+      activeAccountId,
+    });
+  };
+
   const activeFiltersCount = 
     (selectedSegment !== 'All' ? 1 : 0) +
     (selectedAction !== 'All' ? 1 : 0) +
@@ -571,6 +606,25 @@ export function TradeTable({
           >
             <Download size={14} color="var(--primary)" />
             <span>PDF</span>
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.78rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              height: '32px',
+              color: '#10b981',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              background: 'rgba(16, 185, 129, 0.08)'
+            }}
+            onClick={handleExportMonthlyPDF}
+            title="Generate 1-Page CA & Tax Monthly PDF Statement"
+          >
+            <FileText size={14} color="#10b981" />
+            <span>1-Page Monthly PDF</span>
           </button>
         </div>
       </div>
@@ -1063,6 +1117,31 @@ export function TradeTable({
                   <Edit2 size={13} />
                   <span>Edit Trade</span>
                 </button>
+
+                {onDuplicateTrade && (
+                  <button
+                    onClick={() => onDuplicateTrade(selectedTrade.id)}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.78rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      height: '32px',
+                      fontWeight: 650,
+                      background: 'rgba(234, 179, 8, 0.12)',
+                      border: '1px solid rgba(234, 179, 8, 0.4)',
+                      color: '#eab308',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                    title="Clone this trade setup for a quick re-entry with today's date & time"
+                  >
+                    <Copy size={13} />
+                    <span>⚡ Duplicate / Re-Entry</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => handleDeleteTrade(selectedTrade.id)}

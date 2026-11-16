@@ -3,13 +3,14 @@ import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
 import { getTradeMistakes } from '../types';
-import { X, Save, ShieldAlert, Check, AlertTriangle } from 'lucide-react';
+import { X, Save, ShieldAlert, Check, AlertTriangle, Copy } from 'lucide-react';
 import { getFinancialYear } from '../utils/fyHelper';
 
 interface TradeLoggerProps {
   isOpen: boolean;
   onClose: () => void;
   editTradeId?: string | null;
+  duplicateTradeId?: string | null;
   activeAccountId?: string;
 }
 
@@ -121,7 +122,7 @@ const MISTAKES: Mistake[] = [
   '10K Rule'
 ];
 
-export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: TradeLoggerProps) {
+export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, activeAccountId }: TradeLoggerProps) {
   const { addTrade, editTrade, trades, setups, selectedFY, defaultBroker, brokerAccounts } = useTradeStore();
   const lastTrade = trades.length > 0 ? trades[trades.length - 1] : undefined;
   const [formData, setFormData] = useState(DEFAULT_FORM_STATE);
@@ -412,6 +413,65 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
           }
         }
       }
+    } else if (duplicateTradeId) {
+      // Quick Re-Entry / Duplicate Mode: Clone existing trade properties, but set today's date & current time
+      setEditingLeg1Id(null);
+      setEditingLeg2Id(null);
+      setIsMultiLeg(false);
+
+      const existing = trades.find((t) => t.id === duplicateTradeId);
+      if (existing) {
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const currentTimeStr = now.toTimeString().slice(0, 5);
+        const exitTimeStr = new Date(Date.now() + 15 * 60 * 1000).toTimeString().slice(0, 5);
+
+        const cleanNotes = existing.notes ? `[Re-Entry] ${existing.notes}` : '[Re-Entry]';
+        const cleanTags = (existing.tags || []).filter(t => !['#spread_leg1', '#spread_leg2', '#hedge_leg', '#hedged'].includes(t.toLowerCase()));
+
+        setSelectedMistakes(['None']);
+        setFormData({
+          date: todayStr,
+          entryTime: currentTimeStr,
+          exitTime: exitTimeStr,
+          exitDate: todayStr,
+          segment: existing.segment,
+          product: existing.product,
+          action: existing.action,
+          symbol: existing.symbol,
+          qty: existing.qty,
+          entryPrice: existing.entryPrice,
+          exitPrice: 0,
+          slippagePoints: 0,
+          stopLoss: existing.stopLoss || 0,
+          target: existing.target || 0,
+          strategy: existing.strategy || '',
+          rulesFollowed: existing.rulesFollowed || [],
+          emotion: 'Calm',
+          mistake: 'None',
+          notes: cleanNotes,
+          strikePrice: existing.strikePrice || 0,
+          optionType: existing.optionType || 'None',
+          setupType: existing.setupType || 'None',
+          useManualCharges: false,
+          manualBrokerage: 0,
+          manualTaxes: 0,
+          holdingType: existing.holdingType || 'Short Term',
+          broker: existing.broker || 'Other',
+          brokerAccountId: existing.brokerAccountId || '',
+        });
+        setTagsInput(cleanTags.join(', ').replace(/#/g, ''));
+
+        const guessedSz = guessLotSize(existing.symbol);
+        setLotSizeInput(guessedSz.toString());
+        setLotsInput((existing.qty / guessedSz).toString());
+        if (existing.symbol) {
+          const match = existing.symbol.toUpperCase().match(/^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)/);
+          if (match) {
+            setUnderlyingIndex(match[1]);
+          }
+        }
+      }
     } else {
       setEditingLeg1Id(null);
       setEditingLeg2Id(null);
@@ -507,7 +567,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
       setLeg2ExitPrice(0);
       setLeg2Symbol('');
     }
-  }, [editTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
+  }, [editTradeId, duplicateTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
 
   // Keyboard Escape key listener to effortlessly close modal
   useEffect(() => {
@@ -871,7 +931,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         if (!window.confirm('Are you sure you want to update this trade log?')) return;
         editTrade(editTradeId, finalTradeData);
       } else {
-        if (!window.confirm('Are you sure you want to log this trade?')) return;
+        if (!window.confirm(duplicateTradeId ? 'Are you sure you want to save this duplicated re-entry as a new trade?' : 'Are you sure you want to log this trade?')) return;
         addTrade(finalTradeData);
       }
     }
@@ -923,13 +983,41 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2>{editTradeId ? (isMultiLeg ? 'Edit Hedged Spread (2 Legs)' : 'Edit Options/Equity Log') : (isMultiLeg ? 'Log Hedged Spread (2 Legs)' : 'Log Options/Equity Trade')}</h2>
+          <h2>
+            {duplicateTradeId 
+              ? '⚡ Quick Re-Entry / Duplicate Trade' 
+              : editTradeId 
+                ? (isMultiLeg ? 'Edit Hedged Spread (2 Legs)' : 'Edit Options/Equity Log') 
+                : (isMultiLeg ? 'Log Hedged Spread (2 Legs)' : 'Log Options/Equity Trade')
+            }
+          </h2>
           <button type="button" className="btn-secondary" style={{ padding: '6px', borderRadius: '50%', border: 'none', background: 'transparent' }} onClick={handleClose}>
             <X size={18} />
           </button>
         </div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flexGrow: 1 }}>
           <div className="modal-body" style={{ overflowY: 'auto', flexGrow: 1, padding: '20px' }}>
+            {duplicateTradeId && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                  border: '1px solid rgba(234, 179, 8, 0.35)',
+                  color: '#eab308',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  marginBottom: '16px',
+                  fontSize: '0.8rem'
+                }}
+              >
+                <Copy size={16} />
+                <span>
+                  <strong>⚡ Quick Re-Entry Mode:</strong> Pre-filled setup from <strong>{formData.symbol}</strong>. Your original trade is 100% safe. Adjust prices or time, and save as a brand new trade.
+                </span>
+              </div>
+            )}
             {error && (
               <div 
                 style={{ 
@@ -2000,7 +2088,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, activeAccountId }: T
             </button>
             <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Save size={16} />
-              <span>{editTradeId ? 'Update Log' : 'Save Trade'}</span>
+              <span>{duplicateTradeId ? '⚡ Save Duplicate Trade' : editTradeId ? 'Update Log' : 'Save Trade'}</span>
             </button>
           </div>
         </form>

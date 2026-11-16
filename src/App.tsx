@@ -65,6 +65,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [isLoggerOpen, setIsLoggerOpen] = useState(false);
   const [editTradeId, setEditTradeId] = useState<string | null>(null);
+  const [duplicateTradeId, setDuplicateTradeId] = useState<string | null>(null);
   const [isDailyNotesOpen, setIsDailyNotesOpen] = useState(false);
   const [dailyNotesDate, setDailyNotesDate] = useState<string | null>(null);
   const [isCapitalModalOpen, setIsCapitalModalOpen] = useState(false);
@@ -623,17 +624,26 @@ export default function App() {
 
   const handleEditTrade = (id: string) => {
     setEditTradeId(id);
+    setDuplicateTradeId(null);
+    setIsLoggerOpen(true);
+  };
+
+  const handleDuplicateTrade = (id: string) => {
+    setDuplicateTradeId(id);
+    setEditTradeId(null);
     setIsLoggerOpen(true);
   };
 
   const handleNewTrade = () => {
     setEditTradeId(null);
+    setDuplicateTradeId(null);
     setIsLoggerOpen(true);
   };
 
   const handleCloseLogger = () => {
     setIsLoggerOpen(false);
     setEditTradeId(null);
+    setDuplicateTradeId(null);
   };
 
   // Auth gate blocking access if not authenticated OR if recovery is active
@@ -1994,6 +2004,7 @@ export default function App() {
                 <TradingCalendar 
                   activeAccountId={activeAccountId} 
                   onEditTrade={handleEditTrade}
+                  onDuplicateTrade={handleDuplicateTrade}
                   onOpenDailyNotes={handleOpenDailyNotes}
                 />
               </ErrorBoundary>
@@ -2002,6 +2013,7 @@ export default function App() {
               <ErrorBoundary fallbackTitle="The Trade History table failed to render">
                 <TradeTable 
                   onEditTrade={handleEditTrade} 
+                  onDuplicateTrade={handleDuplicateTrade}
                   activeAccountId={activeAccountId} 
                   initialDateFilter={selectedDateFilter}
                   onClearDateFilter={() => setSelectedDateFilter(null)}
@@ -2062,6 +2074,7 @@ export default function App() {
           isOpen={isLoggerOpen} 
           onClose={handleCloseLogger} 
           editTradeId={editTradeId} 
+          duplicateTradeId={duplicateTradeId}
           activeAccountId={activeAccountId}
         />
 
