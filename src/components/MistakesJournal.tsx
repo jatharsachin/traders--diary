@@ -43,6 +43,19 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
   const [typeFilter, setTypeFilter] = useState<'all' | 'notes' | 'losses'>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [selectedAccountFilter, setSelectedAccountFilter] = useState<string>('All');
+
+  // Available accounts in Journal & Notes
+  const availableJournalAccounts = useMemo(() => {
+    const accMap = new Map<string, string>();
+    accountTrades.forEach(t => {
+      const accId = t.brokerAccountId || (brokerAccounts.find(a => a.broker?.toLowerCase() === t.broker?.toLowerCase())?.id) || t.broker || 'Other';
+      const matched = brokerAccounts.find(a => a.id === t.brokerAccountId) || brokerAccounts.find(a => a.broker?.toLowerCase() === t.broker?.toLowerCase());
+      const label = matched ? `${matched.broker} (${matched.accountName})` : (t.broker || 'Other');
+      accMap.set(accId, label);
+    });
+    return Array.from(accMap.entries()).map(([id, label]) => ({ id, label }));
+  }, [accountTrades, brokerAccounts]);
 
   const handleDeleteDailyNote = (date: string) => {
     if (window.confirm(`Are you sure you want to delete the Day-End Note for ${date}?`)) {
@@ -226,6 +239,10 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         strategy: string;
         note: string;
         tradePnL: number;
+        broker: string;
+        brokerAccountId: string;
+        accountName: string;
+        brokerDisplayName: string;
       }> = [];
       const seenEntries = new Set<string>();
 
@@ -249,12 +266,21 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         seenEntries.add(dedupeKey);
 
         const tradePnL = pos.combinedNetPnL;
+        const brokerAccountId = pos.leg1.brokerAccountId || (pos.leg2 && pos.leg2.brokerAccountId) || '';
+        const broker = pos.broker || pos.leg1.broker || 'Other';
+        const matchedAcc = brokerAccounts.find(a => a.id === brokerAccountId) || brokerAccounts.find(a => a.broker?.toLowerCase() === broker.toLowerCase());
+        const accountName = matchedAcc ? matchedAcc.accountName : '';
+        const brokerDisplayName = matchedAcc ? `${matchedAcc.broker} (${matchedAcc.accountName})` : broker;
 
         strategyNotesForDay.push({
           id: pos.id,
           strategy: stratName,
           note: cleaned,
-          tradePnL
+          tradePnL,
+          broker,
+          brokerAccountId,
+          accountName,
+          brokerDisplayName
         });
       }
 
@@ -316,6 +342,14 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
       // Month filter
       if (selectedMonth !== 'All' && !day.date.startsWith(selectedMonth)) return false;
 
+      // Account filter
+      if (selectedAccountFilter !== 'All') {
+        const hasMatchingTradeNotes = day.strategyNotes.some(
+          n => n.brokerAccountId === selectedAccountFilter || n.broker === selectedAccountFilter
+        );
+        if (!hasMatchingTradeNotes && !day.hasDayNotes) return false;
+      }
+
       // Search query (date, reflections, lessons, plan, strategy, notes)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -336,7 +370,7 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
         ? b.date.localeCompare(a.date) 
         : a.date.localeCompare(b.date);
     });
-  }, [journalDays, typeFilter, selectedMonth, searchQuery, sortOrder]);
+  }, [journalDays, typeFilter, selectedMonth, selectedAccountFilter, searchQuery, sortOrder]);
 
   // Metric counts for filter pills
   const notedDaysCount = useMemo(() => journalDays.filter(d => d.hasDayNotes || d.strategyNotes.length > 0).length, [journalDays]);
@@ -494,12 +528,28 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
 
         {/* Month, Layout, Sort, and + Write Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {/* Account Filter dropdown */}
+          {availableJournalAccounts.length > 1 && (
+            <select
+              value={selectedAccountFilter}
+              onChange={(e) => setSelectedAccountFilter(e.target.value)}
+              className="form-select"
+              style={{ padding: '3px 7px', fontSize: '0.72rem', height: '28px', width: 'auto', borderRadius: '5px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none' }}
+              title="Filter notes by Broker Account"
+            >
+              <option value="All">All Accounts ({availableJournalAccounts.length})</option>
+              {availableJournalAccounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.label}</option>
+              ))}
+            </select>
+          )}
+
           {availableMonths.length > 1 && (
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="form-select"
-              style={{ padding: '3px 7px', fontSize: '0.72rem', borderRadius: '5px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none' }}
+              style={{ padding: '3px 7px', fontSize: '0.72rem', height: '28px', width: 'auto', borderRadius: '5px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', outline: 'none' }}
             >
               <option value="All">All Months</option>
               {availableMonths.map(m => (
@@ -758,96 +808,260 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
                     </div>
                   )}
 
-                  {/* Right Column: Trade Log Notes */}
-                  {day.hasTradeNotes && (
-                    <div 
-                      style={{ 
-                        padding: '6px 8px', 
-                        borderRadius: '6px', 
-                        background: 'rgba(0, 0, 0, 0.2)', 
-                        border: '1px solid rgba(255, 255, 255, 0.04)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '3px',
-                        maxHeight: '190px',
-                        overflowY: 'auto',
-                        minWidth: 0
-                      }}
-                    >
-                      <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '1px' }}>
-                        Trade Log Notes ({day.strategyNotes.length}):
-                      </span>
+                  {/* Right Column: Trade Log Notes (Account/Broker Separated) */}
+                  {day.hasTradeNotes && (() => {
+                    const activeNotes = selectedAccountFilter === 'All' 
+                      ? day.strategyNotes 
+                      : day.strategyNotes.filter(n => n.brokerAccountId === selectedAccountFilter || n.broker === selectedAccountFilter);
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        {day.strategyNotes.map(item => (
-                          <div 
-                            key={item.id}
-                            style={{ 
-                              display: 'flex', 
-                              alignItems: 'baseline', 
-                              gap: '5px', 
-                              fontSize: '0.78rem', 
-                              lineHeight: 1.35,
-                              padding: '1px 2px'
-                            }}
-                          >
-                            <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
-                            <span 
-                              style={{ 
-                                fontWeight: 700, 
-                                color: '#38bdf8', 
-                                whiteSpace: 'nowrap',
-                                fontSize: '0.72rem'
-                              }}
-                            >
-                              {item.strategy}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: '0.67rem',
-                                fontWeight: 700,
-                                fontFamily: 'var(--font-mono)',
-                                color: item.tradePnL >= 0 ? '#10b981' : '#f87171',
-                                background: item.tradePnL >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                                padding: '0 4px',
-                                borderRadius: '3px',
-                                whiteSpace: 'nowrap'
-                              }}
-                              title={`Trade PnL for ${item.strategy}`}
-                            >
-                              {isPnlVisible ? `${item.tradePnL >= 0 ? '+' : ''}₹${Math.round(item.tradePnL).toLocaleString('en-IN')}` : '••••'}
-                            </span>
+                    if (activeNotes.length === 0) return null;
 
-                            {/* Note Text */}
-                            <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>:</span>
-                            <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
-                              {item.note}
-                            </span>
+                    // Group notes by Account/Broker
+                    const accMap = new Map<string, {
+                      accountKey: string;
+                      broker: string;
+                      accountName: string;
+                      displayName: string;
+                      netPnL: number;
+                      notes: typeof day.strategyNotes;
+                    }>();
 
-                            {/* Edit shortcut */}
-                            {onEditTrade && (
-                              <button
-                                onClick={() => onEditTrade(item.id)}
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: 'var(--text-dim)',
-                                  cursor: 'pointer',
-                                  padding: '0 2px',
+                    activeNotes.forEach(item => {
+                      const key = item.brokerAccountId || item.brokerDisplayName || item.broker || 'Other';
+                      const existing = accMap.get(key);
+                      if (existing) {
+                        existing.netPnL += item.tradePnL;
+                        existing.notes.push(item);
+                      } else {
+                        accMap.set(key, {
+                          accountKey: key,
+                          broker: item.broker || 'Other',
+                          accountName: item.accountName || '',
+                          displayName: item.brokerDisplayName || item.broker || 'Account',
+                          netPnL: item.tradePnL,
+                          notes: [item]
+                        });
+                      }
+                    });
+
+                    const groupedAccounts = Array.from(accMap.values());
+
+                    return (
+                      <div 
+                        style={{ 
+                          padding: '6px 8px', 
+                          borderRadius: '6px', 
+                          background: 'rgba(0, 0, 0, 0.2)', 
+                          border: '1px solid rgba(255, 255, 255, 0.04)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          maxHeight: '260px',
+                          overflowY: 'auto',
+                          minWidth: 0
+                        }}
+                      >
+                        {groupedAccounts.length === 1 ? (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1px' }}>
+                              <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Trade Log Notes ({activeNotes.length}):
+                              </span>
+                              <span 
+                                style={{ 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 700, 
+                                  color: '#38bdf8', 
+                                  background: 'rgba(56, 189, 248, 0.08)', 
+                                  border: '1px solid rgba(56, 189, 248, 0.22)', 
+                                  padding: '1px 6px', 
+                                  borderRadius: '4px',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  opacity: 0.7
+                                  gap: '4px'
                                 }}
-                                title="Edit Trade in TradeLogger"
                               >
-                                <ExternalLink size={10} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                                <span>🎯 {groupedAccounts[0].displayName}</span>
+                                <span style={{ color: groupedAccounts[0].netPnL >= 0 ? '#10b981' : '#f87171' }}>
+                                  ({isPnlVisible ? `${groupedAccounts[0].netPnL >= 0 ? '+' : ''}₹${Math.round(groupedAccounts[0].netPnL).toLocaleString('en-IN')}` : '••••'})
+                                </span>
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              {groupedAccounts[0].notes.map(item => (
+                                <div 
+                                  key={item.id}
+                                  style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'baseline', 
+                                    gap: '5px', 
+                                    fontSize: '0.78rem', 
+                                    lineHeight: 1.35,
+                                    padding: '1px 2px'
+                                  }}
+                                >
+                                  <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
+                                  <span style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>
+                                    {item.strategy}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: '0.67rem',
+                                      fontWeight: 700,
+                                      fontFamily: 'var(--font-mono)',
+                                      color: item.tradePnL >= 0 ? '#10b981' : '#f87171',
+                                      background: item.tradePnL >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                      padding: '0 4px',
+                                      borderRadius: '3px',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                    title={`Trade PnL for ${item.strategy}`}
+                                  >
+                                    {isPnlVisible ? `${item.tradePnL >= 0 ? '+' : ''}₹${Math.round(item.tradePnL).toLocaleString('en-IN')}` : '••••'}
+                                  </span>
+                                  <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>:</span>
+                                  <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
+                                    {item.note}
+                                  </span>
+                                  {onEditTrade && (
+                                    <button
+                                      onClick={() => onEditTrade(item.id)}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--text-dim)',
+                                        cursor: 'pointer',
+                                        padding: '0 2px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        opacity: 0.7
+                                      }}
+                                      title="Edit Trade in TradeLogger"
+                                    >
+                                      <ExternalLink size={10} />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1px' }}>
+                              <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Trade Log Notes ({activeNotes.length}) • {groupedAccounts.length} Accounts:
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {groupedAccounts.map(accGroup => (
+                                <div 
+                                  key={accGroup.accountKey}
+                                  style={{
+                                    background: 'rgba(255, 255, 255, 0.02)',
+                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                    borderRadius: '6px',
+                                    padding: '4px 7px'
+                                  }}
+                                >
+                                  {/* Account Sub-Header */}
+                                  <div 
+                                    style={{ 
+                                      display: 'flex', 
+                                      justifyContent: 'space-between', 
+                                      alignItems: 'center', 
+                                      paddingBottom: '3px', 
+                                      marginBottom: '3px',
+                                      borderBottom: '1px dashed rgba(255, 255, 255, 0.06)' 
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 750, color: '#38bdf8' }}>
+                                        🎯 {accGroup.displayName}
+                                      </span>
+                                      <span style={{ fontSize: '0.64rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                                        ({accGroup.notes.length} note{accGroup.notes.length > 1 ? 's' : ''})
+                                      </span>
+                                    </div>
+                                    <span 
+                                      style={{ 
+                                        fontSize: '0.68rem', 
+                                        fontWeight: 750, 
+                                        fontFamily: 'var(--font-mono)', 
+                                        color: accGroup.netPnL >= 0 ? '#10b981' : '#f87171' 
+                                      }}
+                                    >
+                                      {isPnlVisible ? `${accGroup.netPnL >= 0 ? '+' : ''}₹${Math.round(accGroup.netPnL).toLocaleString('en-IN')}` : '••••'}
+                                    </span>
+                                  </div>
+
+                                  {/* Account Notes Items */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                    {accGroup.notes.map(item => (
+                                      <div 
+                                        key={item.id}
+                                        style={{ 
+                                          display: 'flex', 
+                                          alignItems: 'baseline', 
+                                          gap: '5px', 
+                                          fontSize: '0.78rem', 
+                                          lineHeight: 1.35,
+                                          padding: '1px 2px'
+                                        }}
+                                      >
+                                        <span style={{ color: '#38bdf8', fontWeight: 800, userSelect: 'none', fontSize: '0.8rem' }}>•</span>
+                                        <span style={{ fontWeight: 700, color: '#38bdf8', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>
+                                          {item.strategy}
+                                        </span>
+                                        <span
+                                          style={{
+                                            fontSize: '0.67rem',
+                                            fontWeight: 700,
+                                            fontFamily: 'var(--font-mono)',
+                                            color: item.tradePnL >= 0 ? '#10b981' : '#f87171',
+                                            background: item.tradePnL >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                            padding: '0 4px',
+                                            borderRadius: '3px',
+                                            whiteSpace: 'nowrap'
+                                          }}
+                                          title={`Trade PnL for ${item.strategy}`}
+                                        >
+                                          {isPnlVisible ? `${item.tradePnL >= 0 ? '+' : ''}₹${Math.round(item.tradePnL).toLocaleString('en-IN')}` : '••••'}
+                                        </span>
+                                        <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>:</span>
+                                        <span style={{ color: '#f1f5f9', flex: 1, wordBreak: 'break-word' }}>
+                                          {item.note}
+                                        </span>
+                                        {onEditTrade && (
+                                          <button
+                                            onClick={() => onEditTrade(item.id)}
+                                            style={{
+                                              background: 'transparent',
+                                              border: 'none',
+                                              color: 'var(--text-dim)',
+                                              cursor: 'pointer',
+                                              padding: '0 2px',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              opacity: 0.7
+                                            }}
+                                            title="Edit Trade in TradeLogger"
+                                          >
+                                            <ExternalLink size={10} />
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             );
