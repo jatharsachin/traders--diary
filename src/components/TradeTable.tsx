@@ -2,7 +2,11 @@ import { useState, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Trade, Mistake } from '../types';
 import { getTradeMistakes, formatTradeMistakes } from '../types';
-import { Edit2, Trash2, Search, Filter, ShieldAlert, ArrowUpDown, ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, Settings, X, SlidersHorizontal, Upload } from 'lucide-react';
+import { 
+  Edit2, Trash2, Search, ShieldAlert, ArrowUpDown, 
+  ChevronLeft, ChevronRight, Clock, ShieldCheck, Download, 
+  X, SlidersHorizontal, Upload, TrendingUp, TrendingDown, Layers
+} from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { BrokerBadge } from './BrokerBadge';
 import { toast } from '../utils/toast';
@@ -71,7 +75,6 @@ export function TradeTable({
   const fyInvestments = selectedFY === 'All'
     ? purchaseItems
     : purchaseItems.filter(i => {
-        // ALWAYS keep all active investments visible across views, or exited in this FY
         if (!i.exitDate) return true;
         const fy = getFinancialYear(i.exitDate || i.date);
         return fy === selectedFY;
@@ -112,6 +115,7 @@ export function TradeTable({
 
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState('');
+  const [outcomeFilter, setOutcomeFilter] = useState<'ALL' | 'WIN' | 'LOSS'>('ALL');
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedSegment, setSelectedSegment] = useState<string>('All');
@@ -127,7 +131,7 @@ export function TradeTable({
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
 
   // Formatting helpers
   const formatCurrency = (val: number) => {
@@ -150,43 +154,86 @@ export function TradeTable({
   };
 
   // Filter trades
-  const filteredTrades = trades.filter((trade) => {
-    const matchesSearch = trade.symbol.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSegment = selectedSegment === 'All' || trade.segment === selectedSegment || (trade as any).rawType === selectedSegment;
-    const matchesAction = selectedAction === 'All' || trade.action === selectedAction;
-    const matchesStrategy = selectedStrategy === 'All' || trade.strategy === selectedStrategy;
-    const matchesMistake = selectedMistake === 'All' || getTradeMistakes(trade).includes(selectedMistake as Mistake);
-    const matchesSetupType = selectedSetupType === 'All' || trade.setupType === selectedSetupType;
-    const matchesTag = !selectedTag.trim() || (trade.tags && trade.tags.some((tag: string) => tag.toLowerCase().includes(selectedTag.trim().toLowerCase())));
-    const matchesBroker = selectedBroker === 'All' || trade.broker === selectedBroker;
-    const matchesDate = !initialDateFilter || trade.date === initialDateFilter;
+  const filteredTrades = useMemo(() => {
+    return trades.filter((trade) => {
+      const matchesSearch = searchTerm.trim() === '' || 
+        trade.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (trade.strategy && trade.strategy.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (trade.tags && trade.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())));
 
-    return matchesSearch && matchesSegment && matchesAction && matchesStrategy && matchesMistake && matchesSetupType && matchesTag && matchesBroker && matchesDate;
-  });
+      const matchesOutcome = 
+        outcomeFilter === 'ALL' || 
+        (outcomeFilter === 'WIN' && trade.netPnL > 0) || 
+        (outcomeFilter === 'LOSS' && trade.netPnL < 0);
+
+      const matchesSegment = selectedSegment === 'All' || trade.segment === selectedSegment || (trade as any).rawType === selectedSegment;
+      const matchesAction = selectedAction === 'All' || trade.action === selectedAction;
+      const matchesStrategy = selectedStrategy === 'All' || trade.strategy === selectedStrategy;
+      const matchesMistake = selectedMistake === 'All' || getTradeMistakes(trade).includes(selectedMistake as Mistake);
+      const matchesSetupType = selectedSetupType === 'All' || trade.setupType === selectedSetupType;
+      const matchesTag = !selectedTag.trim() || (trade.tags && trade.tags.some((tag: string) => tag.toLowerCase().includes(selectedTag.trim().toLowerCase())));
+      const matchesBroker = selectedBroker === 'All' || trade.broker === selectedBroker;
+      const matchesDate = !initialDateFilter || trade.date === initialDateFilter;
+
+      return matchesSearch && matchesOutcome && matchesSegment && matchesAction && matchesStrategy && matchesMistake && matchesSetupType && matchesTag && matchesBroker && matchesDate;
+    });
+  }, [trades, searchTerm, outcomeFilter, selectedSegment, selectedAction, selectedStrategy, selectedMistake, selectedSetupType, selectedTag, selectedBroker, initialDateFilter]);
 
   // Sort trades
-  const sortedTrades = [...filteredTrades].sort((a, b) => {
-    let valueA = (a as any)[sortField];
-    let valueB = (b as any)[sortField];
+  const sortedTrades = useMemo(() => {
+    return [...filteredTrades].sort((a, b) => {
+      let valueA = (a as any)[sortField];
+      let valueB = (b as any)[sortField];
 
-    if (sortField === 'date' || sortField === 'entryTime') {
-      const dateTimeA = new Date(`${a.date}T${a.entryTime}`).getTime();
-      const dateTimeB = new Date(`${b.date}T${b.entryTime}`).getTime();
-      return sortDirection === 'asc' ? dateTimeA - dateTimeB : dateTimeB - dateTimeA;
-    }
+      if (sortField === 'date' || sortField === 'entryTime') {
+        const dateTimeA = new Date(`${a.date}T${a.entryTime}`).getTime();
+        const dateTimeB = new Date(`${b.date}T${b.entryTime}`).getTime();
+        return sortDirection === 'asc' ? dateTimeA - dateTimeB : dateTimeB - dateTimeA;
+      }
 
-    if (typeof valueA === 'string' && typeof valueB === 'string') {
-      return sortDirection === 'asc' 
-        ? valueA.localeCompare(valueB) 
-        : valueB.localeCompare(valueA);
-    }
+      if (typeof valueA === 'string' && typeof valueB === 'string') {
+        return sortDirection === 'asc' 
+          ? valueA.localeCompare(valueB) 
+          : valueB.localeCompare(valueA);
+      }
 
-    if (typeof valueA === 'number' && typeof valueB === 'number') {
-      return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
-    }
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+      }
 
-    return 0;
-  });
+      return 0;
+    });
+  }, [filteredTrades, sortField, sortDirection]);
+
+  // Summary KPIs for current filtered set
+  const summaryStats = useMemo(() => {
+    let gross = 0;
+    let net = 0;
+    let charges = 0;
+    let wins = 0;
+    let losses = 0;
+
+    filteredTrades.forEach(t => {
+      gross += t.grossPnL || 0;
+      net += t.netPnL || 0;
+      charges += (t.brokerage || 0) + (t.taxes || 0);
+      if (t.netPnL > 0) wins++;
+      else if (t.netPnL < 0) losses++;
+    });
+
+    const totalDecisive = wins + losses;
+    const winRate = totalDecisive > 0 ? (wins / totalDecisive) * 100 : 0;
+
+    return {
+      total: filteredTrades.length,
+      wins,
+      losses,
+      winRate: Math.round(winRate),
+      gross: Math.round(gross * 100) / 100,
+      net: Math.round(net * 100) / 100,
+      charges: Math.round(charges * 100) / 100,
+    };
+  }, [filteredTrades]);
 
   // Pagination calculations
   const totalPages = Math.ceil(sortedTrades.length / itemsPerPage);
@@ -200,8 +247,35 @@ export function TradeTable({
     }
   };
 
+  const getPageNumbers = (current: number, total: number) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [];
+    pages.push(1);
+
+    if (current > 3) {
+      pages.push('...');
+    }
+
+    const start = Math.max(2, current - 1);
+    const end = Math.min(total - 1, current + 1);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (current < total - 2) {
+      pages.push('...');
+    }
+
+    pages.push(total);
+    return pages;
+  };
+
   const clearFilters = () => {
     setSearchTerm('');
+    setOutcomeFilter('ALL');
     setSelectedTag('');
     setSelectedSegment('All');
     setSelectedAction('All');
@@ -213,6 +287,30 @@ export function TradeTable({
       onClearDateFilter();
     }
     setCurrentPage(1);
+  };
+
+  const handleEdit = (id: string) => {
+    const tr = trades.find(t => t.id === id);
+    if (!tr) return;
+    if ((tr as any).isInvestment) {
+      toast.info('Please view and edit this investment in the Investments tab');
+      return;
+    }
+    onEditTrade(id);
+  };
+
+  const handleDeleteTrade = (id: string) => {
+    const tr = trades.find(t => t.id === id);
+    if (!tr) return;
+    if ((tr as any).isInvestment) {
+      toast.error('Investment holdings must be deleted in the Investments tab');
+      return;
+    }
+    if (window.confirm(`Delete trade ${tr.symbol} on ${tr.date}?`)) {
+      deleteTrade(id);
+      if (selectedRowId === id) setSelectedRowId(null);
+      toast.success('Trade deleted');
+    }
   };
 
   const exportToCSV = () => {
@@ -231,7 +329,6 @@ export function TradeTable({
     
     const sanitizeCsvCell = (val: any) => {
       let str = String(val ?? '');
-      // Prevent formula injection in Excel/Sheets
       if (/^[=+\-@\t\r]/.test(str)) {
         str = `'${str}`;
       }
@@ -364,16 +461,28 @@ export function TradeTable({
     printWindow.document.close();
   };
 
+  const activeFiltersCount = 
+    (selectedSegment !== 'All' ? 1 : 0) +
+    (selectedAction !== 'All' ? 1 : 0) +
+    (selectedStrategy !== 'All' ? 1 : 0) +
+    (selectedMistake !== 'All' ? 1 : 0) +
+    (selectedSetupType !== 'All' ? 1 : 0) +
+    (selectedBroker !== 'All' ? 1 : 0) +
+    (selectedTag.trim() !== '' ? 1 : 0) +
+    (initialDateFilter ? 1 : 0) +
+    (outcomeFilter !== 'ALL' ? 1 : 0);
+
   return (
     <div className="glass-card animate-tab-panel" style={{ padding: '24px' }}>
+      {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '4px' }}>Trade Logs History</h2>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '4px', fontWeight: 700 }}>Trade Logs History</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Review, filter, and modify your logged trading executions
+            Review, filter, and manage your logged trading executions
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Active Financial Year Badge */}
           <div 
             style={{ 
@@ -407,11 +516,11 @@ export function TradeTable({
                 style={{ 
                   padding: '6px 14px', 
                   border: '1.5px solid var(--border-color)', 
-                  borderRadius: '12px',
+                  borderRadius: '10px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  height: '38px',
+                  height: '32px',
                   background: 'rgba(255,255,255,0.02)'
                 }}
               >
@@ -437,492 +546,449 @@ export function TradeTable({
           {onOpenImport && (
             <button 
               className="btn btn-secondary" 
-              style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', height: '32px' }}
               onClick={onOpenImport}
               title="Import Zerodha, Dhan or Kotak Tradebook CSV"
             >
               <Upload size={14} color="var(--primary)" />
-              <span>Import Trades</span>
+              <span>Import</span>
             </button>
           )}
+
           <button 
             className="btn btn-secondary" 
-            style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', height: '32px' }}
             onClick={exportToCSV}
             title="Download CSV for Excel/Tax filing"
           >
             <Download size={14} />
-            <span>Export CSV</span>
+            <span>CSV</span>
           </button>
           <button 
             className="btn btn-secondary" 
-            style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', height: '32px' }}
             onClick={exportToPDF}
             title="Generate Performance Report PDF"
           >
             <Download size={14} color="var(--primary)" />
-            <span>Export PDF</span>
+            <span>PDF</span>
           </button>
         </div>
       </div>
 
-      {/* Selectable Row Actions Toolbar */}
-      <div 
-        className="glass-card" 
-        style={{ 
-          padding: '12px 16px', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '20px',
-          background: selectedRowId ? 'var(--primary-glow)' : 'rgba(255,255,255,0.01)',
-          border: selectedRowId ? '1px solid var(--border-color-active)' : '1px solid var(--border-color)',
-          borderRadius: '8px',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Settings size={15} color={selectedRowId ? 'var(--primary)' : 'var(--text-muted)'} />
-          <span style={{ fontSize: '0.78rem', color: selectedRowId ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: selectedRowId ? 600 : 500 }}>
-            {selectedRowId ? (
-              (() => {
-                const tr = trades.find(t => t.id === selectedRowId);
-                if (!tr) return 'Selected Row';
-                if ((tr as any).isInvestment) {
-                  return `Selected Investment: ${tr.date} - ${tr.symbol} (${tr.action}) | Note: Please edit/delete this in the Investments tab.`;
-                }
-                return `Selected: ${tr.date} - ${tr.symbol} (${tr.action}) | P&L: ${isPnlVisible ? formatCurrency(tr.netPnL) : '••••'}`;
-              })()
-            ) : (
-              '💡 Click on any trade row in the list below to select it, then use this toolbar to Edit or Delete.'
-            )}
-          </span>
+      {/* Top Summary Stats Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+        {/* Card 1: Total Trades & Win Rate */}
+        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Layers size={13} color="var(--primary)" />
+            <span>Filtered Trades</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
+            <span style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+              {summaryStats.total}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: summaryStats.winRate >= 50 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700 }}>
+              {summaryStats.winRate}% Win Rate
+            </span>
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+            🟢 {summaryStats.wins} Wins • 🔴 {summaryStats.losses} Losses
+          </div>
         </div>
-        
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {(() => {
-            const selectedTrade = trades.find(t => t.id === selectedRowId);
-            const isSelectedInvestment = !!(selectedTrade as any)?.isInvestment;
-            return (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={!selectedRowId || isSelectedInvestment}
-                  onClick={() => {
-                    if (selectedRowId && !isSelectedInvestment) {
-                      onEditTrade(selectedRowId);
-                    }
-                  }}
-                  title={isSelectedInvestment ? "Investment logs must be edited in the Investments tab" : undefined}
-                  style={{ 
-                    padding: '6px 12px', 
-                    fontSize: '0.75rem',
-                    height: '30px', 
-                    opacity: (selectedRowId && !isSelectedInvestment) ? 1 : 0.4, 
-                    cursor: (selectedRowId && !isSelectedInvestment) ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <Edit2 size={12} />
-                  <span>Edit Log</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  disabled={!selectedRowId || isSelectedInvestment}
-                  onClick={() => {
-                    if (selectedRowId && !isSelectedInvestment) {
-                      if (window.confirm('Are you sure you want to delete this selected trade log?')) {
-                        deleteTrade(selectedRowId);
-                        setSelectedRowId(null);
-                      }
-                    }
-                  }}
-                  title={isSelectedInvestment ? "Investment logs must be deleted in the Investments tab" : undefined}
-                  style={{ 
-                    padding: '6px 12px', 
-                    fontSize: '0.75rem',
-                    height: '30px', 
-                    opacity: (selectedRowId && !isSelectedInvestment) ? 1 : 0.4, 
-                    cursor: (selectedRowId && !isSelectedInvestment) ? 'pointer' : 'not-allowed',
-                    color: '#fff',
-                    background: 'var(--color-loss)',
-              border: 'none',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <Trash2 size={12} />
-            <span>Delete Log</span>
-          </button>
-              </>
-            );
-          })()}
-          {selectedRowId && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setSelectedRowId(null)}
-              style={{ padding: '6px 10px', fontSize: '0.75rem', height: '30px', border: 'none' }}
-            >
-              Cancel
-            </button>
-          )}
+
+        {/* Card 2: Net Realized P&L */}
+        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {summaryStats.net >= 0 ? <TrendingUp size={13} color="var(--color-win)" /> : <TrendingDown size={13} color="var(--color-loss)" />}
+            <span>Net Realized P&L</span>
+          </div>
+          <div style={{ marginTop: '6px' }}>
+            <span style={{ 
+              fontSize: '1.25rem', 
+              fontWeight: 800, 
+              fontFamily: 'var(--font-mono)',
+              color: !isPnlVisible ? 'var(--text-dim)' : summaryStats.net >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
+            }}>
+              {isPnlVisible ? (
+                <>
+                  {summaryStats.net >= 0 ? '+' : ''}{formatCurrency(summaryStats.net)}
+                </>
+              ) : '••••••'}
+            </span>
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+            Gross: {isPnlVisible ? `${summaryStats.gross >= 0 ? '+' : ''}${formatCurrency(summaryStats.gross)}` : '••••'}
+          </div>
+        </div>
+
+        {/* Card 3: Total Charges & Brokerage */}
+        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Clock size={13} color="var(--text-dim)" />
+            <span>Total Charges</span>
+          </div>
+          <div style={{ marginTop: '6px' }}>
+            <span style={{ 
+              fontSize: '1.25rem', 
+              fontWeight: 800, 
+              fontFamily: 'var(--font-mono)',
+              color: !isPnlVisible ? 'var(--text-dim)' : '#ff9500'
+            }}>
+              {isPnlVisible ? formatCurrency(summaryStats.charges) : '••••••'}
+            </span>
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+            Brokerage + Taxes
+          </div>
         </div>
       </div>
 
-      {/* Advanced Filter Ribbon & Collapse Layout */}
-      {(() => {
-          const activeFiltersCount = 
-    (selectedSegment !== 'All' ? 1 : 0) +
-    (selectedAction !== 'All' ? 1 : 0) +
-    (selectedStrategy !== 'All' ? 1 : 0) +
-    (selectedMistake !== 'All' ? 1 : 0) +
-    (selectedSetupType !== 'All' ? 1 : 0) +
-    (selectedBroker !== 'All' ? 1 : 0) +
-    (selectedTag.trim() !== '' ? 1 : 0) +
-    (initialDateFilter ? 1 : 0);
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-            {/* Primary Search & Ribbon Actions */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexGrow: 1, flexWrap: 'wrap' }}>
-                {/* Search Input */}
-                <div style={{ position: 'relative', minWidth: '220px', flexGrow: 1 }}>
-                  <Search 
-                    size={15} 
-                    style={{ 
-                      position: 'absolute', 
-                      left: '12px', 
-                      top: '50%', 
-                      transform: 'translateY(-50%)', 
-                      color: 'var(--text-dim)' 
-                    }} 
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search by symbol (e.g. NIFTY)..."
-                    value={searchTerm}
-                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                    className="form-input"
-                    style={{ paddingLeft: '36px', height: '36px' }}
-                  />
-                </div>
-
-                {/* Tag Input */}
-                <div style={{ position: 'relative', minWidth: '180px', flexGrow: 0.5 }}>
-                  <Filter 
-                    size={14} 
-                    style={{ 
-                      position: 'absolute', 
-                      left: '12px', 
-                      top: '50%', 
-                      transform: 'translateY(-50%)', 
-                      color: 'var(--text-dim)' 
-                    }} 
-                  />
-                  <input
-                    type="text"
-                    placeholder="Filter by #tag..."
-                    value={selectedTag}
-                    onChange={(e) => { setSelectedTag(e.target.value); setCurrentPage(1); }}
-                    className="form-input"
-                    style={{ paddingLeft: '36px', height: '36px' }}
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button
-                  onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
-                  className="btn btn-secondary"
-                  style={{
-                    height: '36px',
-                    padding: '0 14px',
-                    fontSize: '0.78rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: isFilterDrawerOpen ? 'rgba(255,255,255,0.05)' : 'var(--bg-card)',
-                    border: isFilterDrawerOpen ? '1px solid var(--border-color-active)' : '1px solid var(--border-color)'
-                  }}
-                >
-                  <SlidersHorizontal size={13} color="var(--primary)" />
-                  <span>Advanced Filters</span>
-                  {activeFiltersCount > 0 && (
-                    <span 
-                      style={{ 
-                        background: 'var(--primary)', 
-                        color: '#fff', 
-                        fontSize: '0.62rem', 
-                        fontWeight: 'bold', 
-                        borderRadius: '50%', 
-                        width: '18px', 
-                        height: '18px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        boxShadow: '0 0 6px var(--primary-glow)'
-                      }}
-                    >
-                      {activeFiltersCount}
-                    </span>
-                  )}
-                </button>
-
-                {activeFiltersCount > 0 && (
-                  <button
-                    onClick={clearFilters}
-                    className="btn btn-secondary"
-                    style={{
-                      height: '36px',
-                      padding: '0 12px',
-                      fontSize: '0.78rem',
-                      color: 'var(--color-loss)',
-                      border: '1px solid var(--border-color)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <span>Reset</span>
-                  </button>
-                )}
-              </div>
+      {/* Filter and Search Ribbon */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Search & Quick Status Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexGrow: 1, flexWrap: 'wrap' }}>
+            {/* Search Input */}
+            <div style={{ position: 'relative', minWidth: '220px', flexGrow: 1 }}>
+              <Search 
+                size={14} 
+                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} 
+              />
+              <input
+                type="text"
+                placeholder="Search symbol, setup, tags..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="form-input"
+                style={{ paddingLeft: '34px', height: '36px', fontSize: '0.82rem' }}
+              />
             </div>
 
-            {/* Collapsible Dropdown Advanced Filters Drawer */}
-            {isFilterDrawerOpen && (
-              <div 
-                className="glass-card animate-tab-panel"
+            {/* Quick Outcome Filter Pills: All | Wins | Losses */}
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '3px', border: '1px solid var(--border-color)' }}>
+              {[
+                { key: 'ALL', label: 'All Trades' },
+                { key: 'WIN', label: '🟢 Wins' },
+                { key: 'LOSS', label: '🔴 Losses' }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => { setOutcomeFilter(tab.key as any); setCurrentPage(1); }}
+                  style={{
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '5px 12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: outcomeFilter === tab.key ? 'var(--primary)' : 'transparent',
+                    color: outcomeFilter === tab.key ? '#fff' : 'var(--text-dim)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: Advanced Filters Button & Clear */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
+              className="btn btn-secondary"
+              style={{
+                height: '36px',
+                padding: '0 12px',
+                fontSize: '0.78rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: isFilterDrawerOpen ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-card)',
+                border: isFilterDrawerOpen ? '1px solid var(--primary)' : '1px solid var(--border-color)'
+              }}
+            >
+              <SlidersHorizontal size={13} color="var(--primary)" />
+              <span>More Filters</span>
+              {activeFiltersCount > 0 && (
+                <span 
+                  style={{ 
+                    background: 'var(--primary)', 
+                    color: '#fff', 
+                    fontSize: '0.62rem', 
+                    fontWeight: 'bold', 
+                    borderRadius: '50%', 
+                    width: '18px', 
+                    height: '18px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center'
+                  }}
+                >
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+
+            {activeFiltersCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="btn btn-secondary"
                 style={{
-                  padding: '16px',
-                  background: 'rgba(255,255,255,0.01)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                  gap: '12px'
+                  height: '36px',
+                  padding: '0 10px',
+                  fontSize: '0.75rem',
+                  color: 'var(--color-loss)',
+                  border: '1px solid var(--border-color)'
                 }}
               >
-                {/* Segment Filter */}
-                <div>
-                  <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Segment</label>
-                  <select
-                    value={selectedSegment}
-                    onChange={(e) => { setSelectedSegment(e.target.value); setCurrentPage(1); }}
-                    className="form-select"
-                    style={{ height: '34px', fontSize: '0.75rem' }}
-                  >
-                    <option value="All">All Segments</option>
-                    <option value="Equity">Equity</option>
-                    <option value="F&O">F&O</option>
-                    <option value="Commodity">Commodity</option>
-                    <option value="Currency">Currency</option>
-                  </select>
-                </div>
-
-                {/* Action Filter */}
-                <div>
-                  <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Action</label>
-                  <select
-                    value={selectedAction}
-                    onChange={(e) => { setSelectedAction(e.target.value); setCurrentPage(1); }}
-                    className="form-select"
-                    style={{ height: '34px', fontSize: '0.75rem' }}
-                  >
-                    <option value="All">All Actions</option>
-                    <option value="BUY">BUY / Long</option>
-                    <option value="SELL">SELL / Short</option>
-                  </select>
-                </div>
-
-                {/* Strategy Filter */}
-                <div>
-                  <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Setup / Strategy</label>
-                  <select
-                    value={selectedStrategy}
-                    onChange={(e) => { setSelectedStrategy(e.target.value); setCurrentPage(1); }}
-                    className="form-select"
-                    style={{ height: '34px', fontSize: '0.75rem' }}
-                  >
-                    <option value="All">All Strategies</option>
-                    {allAvailableStrategies.map((name: string) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Setup Type Filter */}
-                <div>
-                  <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Setup Type</label>
-                  <select
-                    value={selectedSetupType}
-                    onChange={(e) => { setSelectedSetupType(e.target.value); setCurrentPage(1); }}
-                    className="form-select"
-                    style={{ height: '34px', fontSize: '0.75rem' }}
-                  >
-                    <option value="All">All Setup Types</option>
-                    <option value="None">None</option>
-                    <option value="Breakout">Breakout</option>
-                    <option value="Pullback">Pullback</option>
-                    <option value="Reversal">Reversal</option>
-                    <option value="Range Bound">Range Bound</option>
-                  </select>
-                </div>
-
-                {/* Mistake Filter */}
-                <div>
-                  <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Mistakes Tagged</label>
-                  <select
-                    value={selectedMistake}
-                    onChange={(e) => { setSelectedMistake(e.target.value); setCurrentPage(1); }}
-                    className="form-select"
-                    style={{ height: '34px', fontSize: '0.75rem' }}
-                  >
-                    <option value="All">All Mistakes</option>
-                    <option value="None">No Mistakes</option>
-                    <option value="Overtrading">Overtrading</option>
-                    <option value="FOMO Entry">FOMO Entry</option>
-                    <option value="Moving SL">Moving SL</option>
-                    <option value="Early Exit">Early Exit</option>
-                    <option value="No Setup">No Setup</option>
-                    <option value="10K Rule">10K Rule</option>
-                  </select>
-                </div>
-
-                {/* Broker Filter */}
-                <div>
-                  <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Broker Executed</label>
-                  <select
-                    value={selectedBroker}
-                    onChange={(e) => { setSelectedBroker(e.target.value); setCurrentPage(1); }}
-                    className="form-select"
-                    style={{ height: '34px', fontSize: '0.75rem' }}
-                  >
-                    <option value="All">All Brokers</option>
-                    {activeBrokers.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Active Filter Badges Ribbon */}
-            {activeFiltersCount > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginRight: '4px', fontWeight: 600 }}>Active Filters:</span>
-                
-                {/* Date Filter Badge */}
-                {initialDateFilter && (
-                  <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <span>Date: {initialDateFilter}</span>
-                    <X 
-                      size={10} 
-                      onClick={() => { if (onClearDateFilter) onClearDateFilter(); setCurrentPage(1); }} 
-                      style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
-                    />
-                  </span>
-                )}
-
-                {/* Segment Filter Badge */}
-                {selectedSegment !== 'All' && (
-                  <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <span>Segment: {selectedSegment}</span>
-                    <X 
-                      size={10} 
-                      onClick={() => { setSelectedSegment('All'); setCurrentPage(1); }} 
-                      style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
-                    />
-                  </span>
-                )}
-
-                {/* Action Filter Badge */}
-                {selectedAction !== 'All' && (
-                  <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <span>Action: {selectedAction}</span>
-                    <X 
-                      size={10} 
-                      onClick={() => { setSelectedAction('All'); setCurrentPage(1); }} 
-                      style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
-                    />
-                  </span>
-                )}
-
-                {/* Strategy Filter Badge */}
-                {selectedStrategy !== 'All' && (
-                  <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <span>Strategy: {selectedStrategy}</span>
-                    <X 
-                      size={10} 
-                      onClick={() => { setSelectedStrategy('All'); setCurrentPage(1); }} 
-                      style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
-                    />
-                  </span>
-                )}
-
-                {/* Setup Type Filter Badge */}
-                {selectedSetupType !== 'All' && (
-                  <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <span>Setup Type: {selectedSetupType}</span>
-                    <X 
-                      size={10} 
-                      onClick={() => { setSelectedSetupType('All'); setCurrentPage(1); }} 
-                      style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
-                    />
-                  </span>
-                )}
-
-                {/* Mistake Filter Badge */}
-                {selectedMistake !== 'All' && (
-                  <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <span>Mistake: {selectedMistake}</span>
-                    <X 
-                      size={10} 
-                      onClick={() => { setSelectedMistake('All'); setCurrentPage(1); }} 
-                      style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
-                    />
-                  </span>
-                )}
-
-                {/* Broker Filter Badge */}
-                {selectedBroker !== 'All' && (
-                  <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <span>Broker: {selectedBroker}</span>
-                    <X 
-                      size={10} 
-                      onClick={() => { setSelectedBroker('All'); setCurrentPage(1); }} 
-                      style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
-                    />
-                  </span>
-                )}
-
-                {/* Tag Filter Badge */}
-                {selectedTag.trim() !== '' && (
-                  <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                    <span>Tag: #{selectedTag}</span>
-                    <X 
-                      size={10} 
-                      onClick={() => { setSelectedTag(''); setCurrentPage(1); }} 
-                      style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
-                    />
-                  </span>
-                )}
-              </div>
+                Reset
+              </button>
             )}
           </div>
-        );
-      })()}
+        </div>
+
+        {/* Collapsible Dropdown Advanced Filters Drawer */}
+        {isFilterDrawerOpen && (
+          <div 
+            className="glass-card animate-tab-panel"
+            style={{
+              padding: '16px',
+              background: 'rgba(255,255,255,0.01)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: '12px'
+            }}
+          >
+            {/* Segment Filter */}
+            <div>
+              <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Segment</label>
+              <select
+                value={selectedSegment}
+                onChange={(e) => { setSelectedSegment(e.target.value); setCurrentPage(1); }}
+                className="form-select"
+                style={{ height: '34px', fontSize: '0.75rem' }}
+              >
+                <option value="All">All Segments</option>
+                <option value="Equity">Equity</option>
+                <option value="F&O">F&O</option>
+                <option value="Commodity">Commodity</option>
+                <option value="Currency">Currency</option>
+              </select>
+            </div>
+
+            {/* Action Filter */}
+            <div>
+              <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Action</label>
+              <select
+                value={selectedAction}
+                onChange={(e) => { setSelectedAction(e.target.value); setCurrentPage(1); }}
+                className="form-select"
+                style={{ height: '34px', fontSize: '0.75rem' }}
+              >
+                <option value="All">All Actions</option>
+                <option value="BUY">BUY / Long</option>
+                <option value="SELL">SELL / Short</option>
+              </select>
+            </div>
+
+            {/* Strategy Filter */}
+            <div>
+              <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Setup / Strategy</label>
+              <select
+                value={selectedStrategy}
+                onChange={(e) => { setSelectedStrategy(e.target.value); setCurrentPage(1); }}
+                className="form-select"
+                style={{ height: '34px', fontSize: '0.75rem' }}
+              >
+                <option value="All">All Strategies</option>
+                {allAvailableStrategies.map((name: string) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Setup Type Filter */}
+            <div>
+              <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Setup Type</label>
+              <select
+                value={selectedSetupType}
+                onChange={(e) => { setSelectedSetupType(e.target.value); setCurrentPage(1); }}
+                className="form-select"
+                style={{ height: '34px', fontSize: '0.75rem' }}
+              >
+                <option value="All">All Setup Types</option>
+                <option value="None">None</option>
+                <option value="Breakout">Breakout</option>
+                <option value="Pullback">Pullback</option>
+                <option value="Reversal">Reversal</option>
+                <option value="Range Bound">Range Bound</option>
+              </select>
+            </div>
+
+            {/* Mistake Filter */}
+            <div>
+              <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Mistakes Tagged</label>
+              <select
+                value={selectedMistake}
+                onChange={(e) => { setSelectedMistake(e.target.value); setCurrentPage(1); }}
+                className="form-select"
+                style={{ height: '34px', fontSize: '0.75rem' }}
+              >
+                <option value="All">All Mistakes</option>
+                <option value="None">No Mistakes</option>
+                <option value="Overtrading">Overtrading</option>
+                <option value="FOMO Entry">FOMO Entry</option>
+                <option value="Moving SL">Moving SL</option>
+                <option value="Early Exit">Early Exit</option>
+                <option value="No Setup">No Setup</option>
+                <option value="10K Rule">10K Rule</option>
+              </select>
+            </div>
+
+            {/* Broker Filter */}
+            <div>
+              <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Broker Executed</label>
+              <select
+                value={selectedBroker}
+                onChange={(e) => { setSelectedBroker(e.target.value); setCurrentPage(1); }}
+                className="form-select"
+                style={{ height: '34px', fontSize: '0.75rem' }}
+              >
+                <option value="All">All Brokers</option>
+                {activeBrokers.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tag Filter */}
+            <div>
+              <label style={{ fontSize: '0.68rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>Tag Filter</label>
+              <input
+                type="text"
+                placeholder="e.g. #expiry, #hero"
+                value={selectedTag}
+                onChange={(e) => { setSelectedTag(e.target.value); setCurrentPage(1); }}
+                className="form-input"
+                style={{ height: '34px', fontSize: '0.75rem' }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Active Filter Badges Ribbon */}
+        {activeFiltersCount > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginRight: '4px', fontWeight: 600 }}>Active Filters:</span>
+            
+            {initialDateFilter && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Date: {initialDateFilter}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { if (onClearDateFilter) onClearDateFilter(); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+
+            {outcomeFilter !== 'ALL' && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Outcome: {outcomeFilter === 'WIN' ? 'Wins' : 'Losses'}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { setOutcomeFilter('ALL'); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+
+            {selectedSegment !== 'All' && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Segment: {selectedSegment}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { setSelectedSegment('All'); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+
+            {selectedAction !== 'All' && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Action: {selectedAction}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { setSelectedAction('All'); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+
+            {selectedStrategy !== 'All' && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Strategy: {selectedStrategy}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { setSelectedStrategy('All'); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+
+            {selectedSetupType !== 'All' && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Setup: {selectedSetupType}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { setSelectedSetupType('All'); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+
+            {selectedMistake !== 'All' && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Mistake: {selectedMistake}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { setSelectedMistake('All'); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+
+            {selectedBroker !== 'All' && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Broker: {selectedBroker}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { setSelectedBroker('All'); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+
+            {selectedTag.trim() !== '' && (
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <span>Tag: #{selectedTag}</span>
+                <X 
+                  size={10} 
+                  onClick={() => { setSelectedTag(''); setCurrentPage(1); }} 
+                  style={{ cursor: 'pointer', color: 'var(--text-dim)' }} 
+                />
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Table Container */}
       <div className="table-container sticky-table-container">
         {currentTrades.length > 0 ? (
@@ -930,10 +996,10 @@ export function TradeTable({
             <thead className="sticky-table-header">
               <tr>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('date')}>
-                  Date & Duration <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
+                  Date & Time <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('symbol')}>
-                  Symbol <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
+                  Symbol & Setup <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
                 <th style={{ cursor: 'pointer', textAlign: 'center' }} onClick={() => handleSort('broker')}>
                   Broker <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
@@ -943,62 +1009,58 @@ export function TradeTable({
                 </th>
                 <th style={{ textAlign: 'center' }}>Action</th>
                 <th style={{ textAlign: 'right' }}>Qty</th>
-                <th style={{ textAlign: 'right' }}>Entry Price</th>
-                <th style={{ textAlign: 'right' }}>Exit Price</th>
+                <th style={{ textAlign: 'right' }}>Entry</th>
+                <th style={{ textAlign: 'right' }}>Exit</th>
                 <th style={{ cursor: 'pointer', textAlign: 'right' }} onClick={() => handleSort('netPnL')}>
                   Net P&L <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
                 <th>Psychology</th>
+                <th style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {currentTrades.map((trade) => {
                 const isProfit = trade.netPnL >= 0;
+                const totalCharges = (trade.brokerage || 0) + (trade.taxes || 0);
                 return (
                   <tr 
                     key={trade.id}
                     onClick={() => setSelectedRowId(selectedRowId === trade.id ? null : trade.id)}
+                    onDoubleClick={() => handleEdit(trade.id)}
                     className={selectedRowId === trade.id ? 'selected-row' : ''}
                     style={{
                       cursor: 'pointer',
                       transition: 'all 0.15s ease'
                     }}
+                    title="Click to select, double-click to edit"
                   >
                     <td>
-                      <div style={{ fontWeight: 500 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
                         {trade.product === 'Delivery' && trade.exitDate && trade.exitDate !== trade.date
                           ? `${trade.date} → ${trade.exitDate}`
                           : trade.date
                         }
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {formatTimeToAMPM(trade.entryTime)} - {formatTimeToAMPM(trade.exitTime)}
-                      </div>
-                      <div 
-                        style={{ 
-                          fontSize: '0.7rem', 
-                          color: 'var(--text-dim)', 
-                          fontWeight: 650,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          marginTop: '2px'
-                        }}
-                      >
-                        <Clock size={10} color="var(--text-dim)" />
-                        {trade.durationMinutes} mins
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                        <span>{formatTimeToAMPM(trade.entryTime)} - {formatTimeToAMPM(trade.exitTime)}</span>
+                        <span style={{ color: 'var(--text-dim)' }}>•</span>
+                        <span style={{ color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                          <Clock size={10} />
+                          {trade.durationMinutes}m
+                        </span>
                       </div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {trade.symbol}
+                      <div style={{ fontWeight: 650, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem' }}>
+                        <span>{trade.symbol}</span>
                         {trade.optionType && trade.optionType !== 'None' && (
                           <span 
                             className="badge" 
                             style={{ 
-                              fontSize: '0.6rem', 
-                              padding: '2px 6px',
-                              backgroundColor: trade.optionType === 'CE' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                              fontSize: '0.62rem', 
+                              padding: '1px 6px',
+                              fontWeight: 700,
+                              backgroundColor: trade.optionType === 'CE' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                               color: trade.optionType === 'CE' ? 'var(--color-win)' : 'var(--color-loss)',
                               border: `1px solid ${trade.optionType === 'CE' ? 'var(--color-win-border)' : 'var(--color-loss-border)'}`
                             }}
@@ -1010,11 +1072,11 @@ export function TradeTable({
                           <span 
                             className="badge" 
                             style={{ 
-                              fontSize: '0.6rem', 
-                              padding: '2px 6px',
-                              backgroundColor: 'rgba(139, 92, 246, 0.12)',
+                              fontSize: '0.58rem', 
+                              padding: '1px 5px',
+                              backgroundColor: 'rgba(139, 92, 246, 0.15)',
                               color: 'var(--color-neutral)',
-                              border: '1px solid rgba(139, 92, 246, 0.2)'
+                              border: '1px solid rgba(139, 92, 246, 0.3)'
                             }}
                             title="Nifty Weekly Expiry Day"
                           >
@@ -1022,78 +1084,74 @@ export function TradeTable({
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px', flexWrap: 'wrap' }}>
                         <span>{trade.strategy || 'No Setup'}</span>
                         {trade.setupType && trade.setupType !== 'None' && (
                           <span className="badge badge-neutral" style={{ fontSize: '0.6rem', padding: '1px 5px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)' }}>
                             {trade.setupType}
                           </span>
                         )}
+                        {trade.tags && trade.tags.map((t: string) => (
+                          <span 
+                            key={t} 
+                            style={{ 
+                              fontSize: '0.6rem', 
+                              padding: '1px 4px', 
+                              background: 'rgba(10, 132, 255, 0.08)', 
+                              border: '1px solid rgba(10, 132, 255, 0.18)', 
+                              color: '#38bdf8',
+                              borderRadius: '4px'
+                            }}
+                          >
+                            {t}
+                          </span>
+                        ))}
                       </div>
-                      {trade.tags && trade.tags.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                          {trade.tags.map((t: string) => (
-                            <span 
-                              key={t} 
-                              className="badge" 
-                              style={{ 
-                                fontSize: '0.58rem', 
-                                padding: '1px 4px', 
-                                background: 'rgba(10, 132, 255, 0.08)', 
-                                border: '1px solid rgba(10, 132, 255, 0.18)', 
-                                color: '#0a84ff',
-                                textTransform: 'lowercase'
-                              }}
-                            >
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <BrokerBadge broker={trade.broker} />
                     </td>
                     <td>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 500 }}>{trade.segment}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{trade.product}</div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{trade.segment}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{trade.product}</div>
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <span className={`badge ${trade.action === 'BUY' ? 'badge-win' : 'badge-loss'}`}>
+                      <span className={`badge ${trade.action === 'BUY' ? 'badge-win' : 'badge-loss'}`} style={{ padding: '2px 8px', fontSize: '0.72rem' }}>
                         {trade.action}
                       </span>
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{trade.qty}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right', fontWeight: 600 }}>{trade.qty}</td>
                     <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{trade.entryPrice.toFixed(2)}</td>
                     <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{trade.exitPrice.toFixed(2)}</td>
-                    <td 
-                      style={{ 
-                        fontFamily: 'var(--font-mono)', 
+                    <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>
+                      <div style={{ 
                         fontWeight: 700, 
                         color: isProfit ? 'var(--color-win)' : 'var(--color-loss)',
-                        textAlign: 'right'
-                      }}
-                    >
-                      {isProfit ? '+' : ''}{isPnlVisible ? formatCurrency(trade.netPnL) : '••••'}
-                      <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 400, marginTop: '2px', lineHeight: '1.2', textAlign: 'right' }}>
-                        <div>Brokerage: {isPnlVisible ? formatCurrency(trade.brokerage) : '••••'}</div>
-                        <div>Taxes & Fees: {isPnlVisible ? formatCurrency(trade.taxes) : '••••'}</div>
+                        fontSize: '0.92rem'
+                      }}>
+                        {isProfit ? '+' : ''}{isPnlVisible ? formatCurrency(trade.netPnL) : '••••'}
+                      </div>
+                      <div 
+                        style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px' }}
+                        title={isPnlVisible ? `Brokerage: ${formatCurrency(trade.brokerage)} | Taxes: ${formatCurrency(trade.taxes)}` : undefined}
+                      >
+                        {isPnlVisible ? `Chgs: ${formatCurrency(totalCharges)}` : '••••'}
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <span style={{ fontSize: '0.75rem' }}>Mood: {trade.emotion}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span style={{ fontSize: '0.72rem' }}>Mood: {trade.emotion}</span>
                         {getTradeMistakes(trade).length > 0 ? (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {getTradeMistakes(trade).map((m) => (
                               <span 
                                 key={m}
                                 style={{ 
-                                  fontSize: '0.68rem', 
+                                  fontSize: '0.65rem', 
                                   color: 'var(--color-loss)', 
                                   background: 'rgba(255, 69, 58, 0.1)',
                                   border: '1px solid rgba(255, 69, 58, 0.25)',
-                                  padding: '2px 6px',
+                                  padding: '1px 5px', 
                                   borderRadius: '4px',
                                   display: 'inline-flex', 
                                   alignItems: 'center', 
@@ -1108,7 +1166,7 @@ export function TradeTable({
                         ) : (
                           <span 
                             style={{ 
-                              fontSize: '0.7rem', 
+                              fontSize: '0.68rem', 
                               color: 'var(--color-win)',
                               display: 'inline-flex', 
                               alignItems: 'center', 
@@ -1117,6 +1175,66 @@ export function TradeTable({
                           >
                             <ShieldCheck size={10} />
                             Clean
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                        {!(trade as any).isInvestment ? (
+                          <>
+                            <button
+                              onClick={() => handleEdit(trade.id)}
+                              className="btn btn-secondary"
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '0.72rem',
+                                borderRadius: '6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                border: '1px solid var(--border-color)',
+                                background: 'rgba(255, 255, 255, 0.04)',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer'
+                              }}
+                              title="Edit trade log"
+                            >
+                              <Edit2 size={12} color="var(--primary)" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTrade(trade.id)}
+                              className="btn"
+                              style={{
+                                padding: '4px 7px',
+                                fontSize: '0.72rem',
+                                borderRadius: '6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                background: 'rgba(239, 68, 68, 0.08)',
+                                color: 'var(--color-loss)',
+                                cursor: 'pointer'
+                              }}
+                              title="Delete trade log"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        ) : (
+                          <span 
+                            style={{ 
+                              fontSize: '0.65rem', 
+                              color: 'var(--text-dim)', 
+                              background: 'rgba(255,255,255,0.03)', 
+                              padding: '2px 6px', 
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-color)'
+                            }}
+                            title="Holding investments are managed in the Investments tab"
+                          >
+                            Holding
                           </span>
                         )}
                       </div>
@@ -1134,55 +1252,92 @@ export function TradeTable({
       </div>
 
       {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div 
-          style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginTop: '20px' 
-          }}
-        >
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, sortedTrades.length)} of {sortedTrades.length} trades
+      <div 
+        style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginTop: '16px',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Showing {sortedTrades.length === 0 ? 0 : indexOfFirstItem + 1}–{Math.min(indexOfLastItem, sortedTrades.length)} of {sortedTrades.length} trades
           </span>
-          <div style={{ display: 'flex', gap: '8px' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Per page:</span>
+            <select 
+              value={itemsPerPage} 
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="form-select"
+              style={{ height: '28px', fontSize: '0.72rem', padding: '2px 6px', width: 'auto', background: 'rgba(255,255,255,0.04)' }}
+            >
+              <option value={15}>15</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
             <button 
               className="btn btn-secondary" 
-              style={{ padding: '6px 12px' }} 
+              style={{ padding: '4px 8px', fontSize: '0.75rem', height: '28px' }} 
               disabled={currentPage === 1}
               onClick={() => paginate(currentPage - 1)}
+              title="Previous Page"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={14} />
             </button>
             
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i + 1}
-                className="btn"
-                style={{
-                  padding: '6px 12px',
-                  background: currentPage === i + 1 ? 'var(--primary)' : 'var(--bg-card)',
-                  color: currentPage === i + 1 ? '#fff' : 'var(--text-main)',
-                  border: `1px solid ${currentPage === i + 1 ? 'var(--primary)' : 'var(--border-color)'}`
-                }}
-                onClick={() => paginate(i + 1)}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {getPageNumbers(currentPage, totalPages).map((p, idx) => {
+              if (p === '...') {
+                return (
+                  <span key={`el-${idx}`} style={{ padding: '0 4px', color: 'var(--text-dim)', fontSize: '0.75rem' }}>
+                    •••
+                  </span>
+                );
+              }
+              const pageNum = Number(p);
+              return (
+                <button
+                  key={pageNum}
+                  className="btn"
+                  style={{
+                    padding: '2px 8px',
+                    minWidth: '28px',
+                    height: '28px',
+                    fontSize: '0.75rem',
+                    fontWeight: currentPage === pageNum ? 700 : 500,
+                    background: currentPage === pageNum ? 'var(--primary)' : 'rgba(255,255,255,0.03)',
+                    color: currentPage === pageNum ? '#fff' : 'var(--text-main)',
+                    border: `1px solid ${currentPage === pageNum ? 'var(--primary)' : 'var(--border-color)'}`,
+                    borderRadius: '6px'
+                  }}
+                  onClick={() => paginate(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
 
             <button 
               className="btn btn-secondary" 
-              style={{ padding: '6px 12px' }} 
+              style={{ padding: '4px 8px', fontSize: '0.75rem', height: '28px' }} 
               disabled={currentPage === totalPages}
               onClick={() => paginate(currentPage + 1)}
+              title="Next Page"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={14} />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
