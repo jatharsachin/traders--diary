@@ -148,31 +148,100 @@ export function TradingCalendar({
 
   // Reconcile / Contract Note Modal state
   const [reconcileDate, setReconcileDate] = useState<string | null>(null);
+  const [reconcileAccId, setReconcileAccId] = useState<string>('');
   const [reconcileBrokerage, setReconcileBrokerage] = useState<string>('');
   const [reconcileTaxes, setReconcileTaxes] = useState<string>('');
   const [reconcileNotes, setReconcileNotes] = useState<string>('');
   const [reconcileSuccessMsg, setReconcileSuccessMsg] = useState<string | null>(null);
 
-  const handleOpenReconcile = (dateStr: string) => {
-    setReconcileDate(dateStr);
-    const existingNote = contractNotes?.find(cn => cn.date === dateStr);
+  // Accounts with trading activity on reconcileDate
+  const reconcileAccounts = useMemo(() => {
+    if (!reconcileDate) return [];
+    const dayTrades = allTrades.filter(t => (t.exitDate || t.date) === reconcileDate);
+    const accIds = new Set<string>();
+    dayTrades.forEach(t => {
+      if (t.brokerAccountId) accIds.add(t.brokerAccountId);
+      else if (t.broker) {
+        const matched = brokerAccounts.find(a => a.broker?.toLowerCase() === t.broker?.toLowerCase());
+        if (matched) accIds.add(matched.id);
+      }
+    });
+    const activeAccs = brokerAccounts.filter(a => a.active);
+    const matched = activeAccs.filter(a => accIds.has(a.id));
+    return matched.length > 0 ? matched : activeAccs;
+  }, [reconcileDate, allTrades, brokerAccounts]);
+
+  const loadAccountReconcileData = useCallback((dateStr: string, accId: string) => {
+    const existingNote = (contractNotes || []).find(cn => cn.date === dateStr && cn.brokerAccountId === accId);
     if (existingNote) {
       setReconcileBrokerage(existingNote.brokerage.toString());
       setReconcileTaxes(existingNote.taxes.toString());
       setReconcileNotes(existingNote.notes || '');
     } else {
-      const dayTradesForDate = trades.filter(t => (t.exitDate || t.date) === dateStr);
-      const curBrokerage = dayTradesForDate.reduce((sum, t) => sum + (t.brokerage || 0), 0);
-      const curTaxes = dayTradesForDate.reduce((sum, t) => sum + (t.taxes || 0), 0);
+      const accTrades = allTrades.filter(t => {
+        const tDate = t.exitDate || t.date;
+        if (tDate !== dateStr) return false;
+        if (t.brokerAccountId) return t.brokerAccountId === accId;
+        const accObj = brokerAccounts.find(a => a.id === accId);
+        if (accObj && t.broker) return t.broker.toLowerCase() === accObj.broker.toLowerCase();
+        return false;
+      });
+      const curBrokerage = accTrades.reduce((sum, t) => sum + (t.brokerage || 0), 0);
+      const curTaxes = accTrades.reduce((sum, t) => sum + (t.taxes || 0), 0);
       setReconcileBrokerage(curBrokerage > 0 ? (Math.round(curBrokerage * 100) / 100).toString() : '');
       setReconcileTaxes(curTaxes > 0 ? (Math.round(curTaxes * 100) / 100).toString() : '');
       setReconcileNotes('');
     }
+  }, [contractNotes, allTrades, brokerAccounts]);
+
+  const handleOpenReconcile = (dateStr: string) => {
+    setReconcileDate(dateStr);
+    const dayTrades = allTrades.filter(t => (t.exitDate || t.date) === dateStr);
+    let initialAccId = '';
+    if (activeAccountId !== 'Combined' && brokerAccounts.some(a => a.id === activeAccountId)) {
+      initialAccId = activeAccountId;
+    } else {
+      const firstTradeAcc = dayTrades.find(t => t.brokerAccountId)?.brokerAccountId;
+      if (firstTradeAcc) {
+        initialAccId = firstTradeAcc;
+      } else if (dayTrades[0]?.broker) {
+        const found = brokerAccounts.find(a => a.broker?.toLowerCase() === dayTrades[0].broker?.toLowerCase());
+        if (found) initialAccId = found.id;
+      }
+    }
+    if (!initialAccId) {
+      initialAccId = brokerAccounts.find(a => a.active)?.id || brokerAccounts[0]?.id || '';
+    }
+
+    setReconcileAccId(initialAccId);
+    loadAccountReconcileData(dateStr, initialAccId);
   };
+
+  const handleSelectReconcileAccount = (accId: string) => {
+    if (!reconcileDate) return;
+    setReconcileAccId(accId);
+    loadAccountReconcileData(reconcileDate, accId);
+  };
+
+  const selectedAccTradesOnDate = useMemo(() => {
+    if (!reconcileDate || !reconcileAccId) return [];
+    const accObj = brokerAccounts.find(a => a.id === reconcileAccId);
+    return allTrades.filter(t => {
+      const tDate = t.exitDate || t.date;
+      if (tDate !== reconcileDate) return false;
+      if (t.brokerAccountId) return t.brokerAccountId === reconcileAccId;
+      if (accObj && t.broker) return t.broker.toLowerCase() === accObj.broker.toLowerCase();
+      return false;
+    });
+  }, [allTrades, reconcileDate, reconcileAccId, brokerAccounts]);
+
+  const reconcileDayGrossPnL = useMemo(() => {
+    return Math.round(selectedAccTradesOnDate.reduce((sum, t) => sum + (t.grossPnL || 0), 0) * 100) / 100;
+  }, [selectedAccTradesOnDate]);
 
   const handleSaveReconcile = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reconcileDate) return;
+    if (!reconcileDate || !reconcileAccId) return;
 
     const fy = getFinancialYear(reconcileDate);
     if (lockedFYs?.includes(fy)) {
@@ -180,34 +249,28 @@ export function TradingCalendar({
       return;
     }
 
-    const dayTradesForDate = trades.filter(t => (t.exitDate || t.date) === reconcileDate);
-    const brokerToUse = dayTradesForDate[0]?.broker || 'Other';
-    const accountIdToUse = dayTradesForDate[0]?.brokerAccountId || undefined;
+    const targetAcc = brokerAccounts.find(a => a.id === reconcileAccId);
+    const brokerToUse = targetAcc ? targetAcc.broker : (selectedAccTradesOnDate[0]?.broker || 'Other');
 
     const numBrokerage = parseFloat(reconcileBrokerage) || 0;
     const numTaxes = parseFloat(reconcileTaxes) || 0;
 
     addOrUpdateContractNote({
       date: reconcileDate,
-      brokerAccountId: accountIdToUse,
+      brokerAccountId: reconcileAccId,
       broker: brokerToUse,
       brokerage: numBrokerage,
       taxes: numTaxes,
       notes: reconcileNotes.trim()
     });
 
-    setReconcileSuccessMsg(`Charges for ${reconcileDate} updated successfully!`);
+    const accName = targetAcc ? `${targetAcc.accountName} (${targetAcc.broker})` : 'Account';
+    toast.success(`Contract Note for ${accName} on ${reconcileDate} saved & applied to ${selectedAccTradesOnDate.length} trades!`);
+    setReconcileSuccessMsg(`Charges for ${accName} updated successfully!`);
     setTimeout(() => {
       setReconcileSuccessMsg(null);
-      setReconcileDate(null);
-    }, 1200);
+    }, 2500);
   };
-
-  const reconcileDayGrossPnL = useMemo(() => {
-    if (!reconcileDate) return 0;
-    const dayTradesForDate = trades.filter(t => (t.exitDate || t.date) === reconcileDate);
-    return Math.round(dayTradesForDate.reduce((sum, t) => sum + (t.grossPnL || 0), 0) * 100) / 100;
-  }, [trades, reconcileDate]);
 
   // Synchronize currentDate with selectedFY boundaries
   useEffect(() => {
@@ -2901,7 +2964,11 @@ export function TradingCalendar({
                 <div>
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Reconcile Brokerage & Charges</h3>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Date: <strong>{reconcileDate}</strong>
+                    Date: <strong>{reconcileDate}</strong> {reconcileAccId && (
+                      <span> • Account: <strong style={{ color: 'var(--primary)' }}>
+                        {brokerAccounts.find(a => a.id === reconcileAccId)?.accountName} ({brokerAccounts.find(a => a.id === reconcileAccId)?.broker})
+                      </strong></span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -2931,6 +2998,63 @@ export function TradingCalendar({
                 <span>{reconcileSuccessMsg}</span>
               </div>
             )}
+
+            {/* Account Selector Pill Tabs */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 650, color: 'var(--text-dim)', marginBottom: '8px' }}>
+                Select Broker Account to Reconcile:
+              </label>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {reconcileAccounts.map(acc => {
+                  const isSelected = acc.id === reconcileAccId;
+                  const accTrades = allTrades.filter(t => {
+                    const tDate = t.exitDate || t.date;
+                    if (tDate !== reconcileDate) return false;
+                    if (t.brokerAccountId) return t.brokerAccountId === acc.id;
+                    if (t.broker) return t.broker.toLowerCase() === acc.broker.toLowerCase();
+                    return false;
+                  });
+                  const hasNote = (contractNotes || []).some(cn => cn.date === reconcileDate && cn.brokerAccountId === acc.id);
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => handleSelectReconcileAccount(acc.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 650,
+                        cursor: 'pointer',
+                        border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                        background: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                        color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{acc.accountName} ({acc.broker})</span>
+                      <span style={{ 
+                        fontSize: '0.68rem', 
+                        background: isSelected ? 'var(--primary)' : 'rgba(255, 255, 255, 0.1)', 
+                        color: '#fff', 
+                        padding: '1px 5px', 
+                        borderRadius: '4px' 
+                      }}>
+                        {accTrades.length} trade{accTrades.length !== 1 ? 's' : ''}
+                      </span>
+                      {hasNote && (
+                        <span style={{ fontSize: '0.68rem', color: 'var(--color-win)', fontWeight: 700 }}>
+                          ✓ Saved
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Live Day Summary Box */}
             <div style={{ 
@@ -3033,7 +3157,7 @@ export function TradingCalendar({
                   style={{ padding: '7px 18px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
                   <Check size={16} />
-                  <span>Save & Apply Charges</span>
+                  <span>Save & Apply for {brokerAccounts.find(a => a.id === reconcileAccId)?.accountName || 'Account'}</span>
                 </button>
               </div>
             </form>

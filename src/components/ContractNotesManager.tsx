@@ -37,8 +37,16 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
     return sortedDates[0] || todayStr;
   }, [allTrades, todayStr]);
 
+  const activeAccountsList = useMemo(() => brokerAccounts.filter(a => a.active), [brokerAccounts]);
+
   const [selectedDate, setSelectedDate] = useState<string>(initialDate || latestTradeDate);
-  const [selectedAccount, setSelectedAccount] = useState<string>(activeAccountId);
+  const [selectedAccount, setSelectedAccount] = useState<string>(() => {
+    if (activeAccountId !== 'Combined' && activeAccountsList.some(a => a.id === activeAccountId)) {
+      return activeAccountId;
+    }
+    return activeAccountsList[0]?.id || 'acc-1';
+  });
+  const [tableAccountFilter, setTableAccountFilter] = useState<string>(activeAccountId === 'Combined' ? 'All' : activeAccountId);
   const [brokerageInput, setBrokerageInput] = useState<string>('');
   const [taxesInput, setTaxesInput] = useState<string>('');
   const [notesInput, setNotesInput] = useState<string>('');
@@ -53,24 +61,41 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
     }
   }, [latestTradeDate, initialDate, todayStr, selectedDate]);
 
-  // Active account list for dropdown
-  const activeAccountsList = brokerAccounts.filter(a => a.active);
-
   // Selected Account details
-  const currentAccObj = selectedAccount !== 'Combined' 
-    ? brokerAccounts.find(a => a.id === selectedAccount) 
-    : undefined;
+  const currentAccObj = useMemo(() => {
+    return brokerAccounts.find(a => a.id === selectedAccount);
+  }, [brokerAccounts, selectedAccount]);
 
-  // Trades on selected date
+  // Detect accounts with trades on selectedDate
+  const accountsTradedOnDate = useMemo(() => {
+    if (!selectedDate) return [];
+    const dayTradesAll = allTrades.filter(t => (t.exitDate || t.date) === selectedDate);
+    const accIdSet = new Set<string>();
+    dayTradesAll.forEach(t => {
+      if (t.brokerAccountId) accIdSet.add(t.brokerAccountId);
+      else if (t.broker) {
+        const found = brokerAccounts.find(a => a.broker?.toLowerCase() === t.broker?.toLowerCase());
+        if (found) accIdSet.add(found.id);
+      }
+    });
+    return activeAccountsList.filter(a => accIdSet.has(a.id));
+  }, [selectedDate, allTrades, activeAccountsList, brokerAccounts]);
+
+  // Auto-switch selectedAccount if the date changes and current account had no trades, but other accounts did
+  useEffect(() => {
+    if (accountsTradedOnDate.length > 0 && !accountsTradedOnDate.some(a => a.id === selectedAccount)) {
+      setSelectedAccount(accountsTradedOnDate[0].id);
+    }
+  }, [accountsTradedOnDate, selectedAccount]);
+
+  // Trades on selected date for the selected account
   const dayTrades = useMemo(() => {
     return allTrades.filter(t => {
       const tradeDate = t.exitDate || t.date;
       if (tradeDate !== selectedDate) return false;
-      if (selectedAccount !== 'Combined') {
-        if (t.brokerAccountId) return t.brokerAccountId === selectedAccount;
-        if (currentAccObj && t.broker) return t.broker.toLowerCase() === currentAccObj.broker.toLowerCase();
-      }
-      return true;
+      if (t.brokerAccountId) return t.brokerAccountId === selectedAccount;
+      if (currentAccObj && t.broker) return t.broker.toLowerCase() === currentAccObj.broker.toLowerCase();
+      return false;
     });
   }, [allTrades, selectedDate, selectedAccount, currentAccObj]);
 
@@ -84,13 +109,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
 
   // Check if a contract note already exists for this date & account
   const existingNoteForDate = useMemo(() => {
-    return (contractNotes || []).find(cn => {
-      if (cn.date !== selectedDate) return false;
-      if (selectedAccount !== 'Combined') {
-        return cn.brokerAccountId === selectedAccount;
-      }
-      return true;
-    });
+    return (contractNotes || []).find(cn => cn.date === selectedDate && cn.brokerAccountId === selectedAccount);
   }, [contractNotes, selectedDate, selectedAccount]);
 
   // Load existing note into form when date/account changes if not actively editing
@@ -133,12 +152,17 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
       return;
     }
 
-    const brokerToUse: Broker = currentAccObj ? currentAccObj.broker : (dayTrades[0]?.broker || 'Other');
-    const accountIdToUse = selectedAccount !== 'Combined' ? selectedAccount : (dayTrades[0]?.brokerAccountId || undefined);
+    if (!selectedAccount) {
+      toast.warning('Please select a broker account.');
+      return;
+    }
+
+    const targetAcc = brokerAccounts.find(a => a.id === selectedAccount);
+    const brokerToUse: Broker = targetAcc ? targetAcc.broker : (dayTrades[0]?.broker || 'Other');
 
     addOrUpdateContractNote({
       date: selectedDate,
-      brokerAccountId: accountIdToUse,
+      brokerAccountId: selectedAccount,
       broker: brokerToUse,
       brokerage: numBrokerage,
       taxes: numTaxes,
@@ -146,8 +170,9 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
     });
 
     setEditingNoteId(null);
-    toast.success(`Contract Note for ${selectedDate} saved & applied to ${dayTrades.length} trades!`);
-    setSaveSuccessMsg(`Contract Note for ${selectedDate} saved & applied to ${dayTrades.length} trades!`);
+    const accLabel = targetAcc ? `${targetAcc.accountName} (${targetAcc.broker})` : 'Account';
+    toast.success(`Contract Note for ${accLabel} on ${selectedDate} saved & applied to ${dayTrades.length} trades!`);
+    setSaveSuccessMsg(`Contract Note for ${accLabel} on ${selectedDate} saved & applied to ${dayTrades.length} trades!`);
     setTimeout(() => setSaveSuccessMsg(null), 4000);
   };
 
@@ -158,19 +183,21 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
     }
     setBrokerageInput(note.brokerage.toString());
     setTaxesInput(note.taxes.toString());
-    setNotesInput(note.notes || '');
-    setEditingNoteId(note.id);
+    setNotesInput(note.notes === 'Recorded from trade executions' ? '' : (note.notes || ''));
+    setEditingNoteId(note.noteId || note.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDeleteNote = (id: string, date: string) => {
+  const handleDeleteNote = (id: string, date: string, accountName?: string) => {
     const fy = getFinancialYear(date);
     if (lockedFYs.includes(fy)) {
       toast.error(`Cannot delete: Financial Year "${fy}" is locked.`);
       return;
     }
-    if (window.confirm(`Are you sure you want to remove the contract note record for ${date}?`)) {
+    const label = accountName ? `${accountName} on ${date}` : date;
+    if (window.confirm(`Are you sure you want to remove the contract note record for ${label}?`)) {
       deleteContractNote(id);
+      toast.success('Contract note removed.');
     }
   };
 
@@ -199,13 +226,21 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
     });
   }, [allTrades, selectedFY, activeAccountId, brokerAccounts]);
 
-  // Combined daily breakdown merging all trading days and recorded contract notes
+  // Combined daily breakdown merging all trading days and recorded contract notes, grouped by (date, account)
   const dailyBreakdownList = useMemo(() => {
-    const daysMap: Record<string, typeof allTrades> = {};
+    const groups: Record<string, { date: string; brokerAccountId: string; trades: typeof allTrades }> = {};
+
     fyTrades.forEach(t => {
       const d = t.exitDate || t.date;
-      if (!daysMap[d]) daysMap[d] = [];
-      daysMap[d].push(t);
+      const accId = t.brokerAccountId || (brokerAccounts.find(a => a.broker?.toLowerCase() === t.broker?.toLowerCase())?.id || 'default');
+      if (tableAccountFilter !== 'All' && accId !== tableAccountFilter) {
+        return;
+      }
+      const key = `${d}_${accId}`;
+      if (!groups[key]) {
+        groups[key] = { date: d, brokerAccountId: accId, trades: [] };
+      }
+      groups[key].trades.push(t);
     });
 
     (contractNotes || []).forEach(cn => {
@@ -213,23 +248,31 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
         const fy = getFinancialYear(cn.date);
         if (fy !== selectedFY) return;
       }
+      const accId = cn.brokerAccountId || (brokerAccounts.find(a => a.broker?.toLowerCase() === cn.broker?.toLowerCase())?.id || 'default');
+      if (tableAccountFilter !== 'All' && accId !== tableAccountFilter) {
+        return;
+      }
       if (activeAccountId !== 'Combined' && !isMatchAccount(cn.brokerAccountId)) {
         return;
       }
-      if (!daysMap[cn.date]) {
-        daysMap[cn.date] = [];
+      const key = `${cn.date}_${accId}`;
+      if (!groups[key]) {
+        groups[key] = { date: cn.date, brokerAccountId: accId, trades: [] };
       }
     });
 
-    const dates = Object.keys(daysMap).sort((a, b) => b.localeCompare(a));
+    const keys = Object.keys(groups).sort((a, b) => {
+      const dateA = groups[a].date;
+      const dateB = groups[b].date;
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return a.localeCompare(b);
+    });
 
-    return dates.map(date => {
-      const tradesForDay = daysMap[date] || [];
-      const cn = (contractNotes || []).find(n => {
-        if (n.date !== date) return false;
-        if (activeAccountId !== 'Combined' && !isMatchAccount(n.brokerAccountId)) return false;
-        return true;
-      });
+    return keys.map(key => {
+      const group = groups[key];
+      const tradesForDay = group.trades;
+      const cn = (contractNotes || []).find(n => n.date === group.date && n.brokerAccountId === group.brokerAccountId);
+      const accObj = brokerAccounts.find(a => a.id === group.brokerAccountId);
 
       const tradeCount = tradesForDay.length;
       const grossPnL = tradesForDay.reduce((sum, t) => sum + (t.grossPnL || 0), 0);
@@ -238,15 +281,16 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
       const totalCharges = Math.round((brokerage + taxes) * 100) / 100;
       const netPnL = Math.round((grossPnL - totalCharges) * 100) / 100;
 
-      const broker = cn?.broker || tradesForDay[0]?.broker || 'Other';
-      const brokerAccountId = cn?.brokerAccountId || tradesForDay[0]?.brokerAccountId;
+      const broker = cn?.broker || accObj?.broker || tradesForDay[0]?.broker || 'Other';
       const isReconciled = !!cn;
 
       return {
-        id: cn?.id || `day-${date}`,
-        date,
+        id: cn?.id || `day-${group.date}-${group.brokerAccountId}`,
+        noteId: cn?.id,
+        date: group.date,
         broker,
-        brokerAccountId,
+        brokerAccountId: group.brokerAccountId,
+        accountName: accObj?.accountName || 'Account',
         tradeCount,
         grossPnL,
         brokerage,
@@ -257,7 +301,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
         notes: cn?.notes || (isReconciled ? '' : 'Recorded from trade executions')
       };
     });
-  }, [fyTrades, contractNotes, selectedFY, activeAccountId]);
+  }, [fyTrades, contractNotes, selectedFY, tableAccountFilter, activeAccountId, brokerAccounts]);
 
   // Filtered breakdown with search
   const filteredBreakdownList = useMemo(() => {
@@ -437,6 +481,74 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
         </div>
 
         <form onSubmit={handleSaveContractNote}>
+          {/* Quick Account Switcher Pills for this Date */}
+          {accountsTradedOnDate.length > 0 && (
+            <div style={{ 
+              marginBottom: '16px', 
+              padding: '10px 14px', 
+              background: 'rgba(59, 130, 246, 0.05)', 
+              borderRadius: '10px', 
+              border: '1px solid rgba(59, 130, 246, 0.2)' 
+            }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 650, color: 'var(--text-dim)', display: 'block', marginBottom: '8px' }}>
+                ⚡ Accounts traded on {selectedDate} (Click to enter that account's contract note):
+              </span>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {accountsTradedOnDate.map(acc => {
+                  const isSelected = acc.id === selectedAccount;
+                  const accTrades = allTrades.filter(t => {
+                    const tDate = t.exitDate || t.date;
+                    if (tDate !== selectedDate) return false;
+                    if (t.brokerAccountId) return t.brokerAccountId === acc.id;
+                    if (t.broker) return t.broker.toLowerCase() === acc.broker.toLowerCase();
+                    return false;
+                  });
+                  const hasNote = (contractNotes || []).some(cn => cn.date === selectedDate && cn.brokerAccountId === acc.id);
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAccount(acc.id);
+                        setEditingNoteId(null);
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 650,
+                        cursor: 'pointer',
+                        border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                        background: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                        color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{acc.accountName} ({acc.broker})</span>
+                      <span style={{ 
+                        fontSize: '0.68rem', 
+                        background: isSelected ? 'var(--primary)' : 'rgba(255, 255, 255, 0.1)', 
+                        color: '#fff', 
+                        padding: '1px 5px', 
+                        borderRadius: '4px' 
+                      }}>
+                        {accTrades.length} trade{accTrades.length !== 1 ? 's' : ''}
+                      </span>
+                      {hasNote && (
+                        <span style={{ fontSize: '0.68rem', color: 'var(--color-win)', fontWeight: 700 }}>
+                          ✓ Reconciled
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Row 1: Date, Account, and Day Gross P&L Pill */}
           <div style={{ 
             display: 'grid', 
@@ -475,10 +587,9 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                 className="form-select"
                 style={{ height: '38px', fontSize: '0.88rem', width: '100%' }}
               >
-                <option value="Combined">All Accounts (Combined)</option>
                 {activeAccountsList.map(a => (
                   <option key={a.id} value={a.id}>
-                    {a.broker} ({a.accountName})
+                    {a.accountName} ({a.broker})
                   </option>
                 ))}
               </select>
@@ -691,6 +802,20 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <select
+              value={tableAccountFilter}
+              onChange={(e) => setTableAccountFilter(e.target.value)}
+              className="form-select"
+              style={{ height: '34px', fontSize: '0.75rem', minWidth: '160px' }}
+            >
+              <option value="All">All Accounts</option>
+              {activeAccountsList.map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.accountName} ({a.broker})
+                </option>
+              ))}
+            </select>
+
             <div style={{ position: 'relative', width: '220px' }}>
               <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
               <input
@@ -819,7 +944,7 @@ export function ContractNotesManager({ activeAccountId = 'Combined', initialDate
                           </button>
                           {item.isReconciled && (
                             <button
-                              onClick={() => handleDeleteNote(item.id, item.date)}
+                              onClick={() => handleDeleteNote(item.noteId || item.id, item.date, item.accountName)}
                               style={{ 
                                 background: 'rgba(239, 68, 68, 0.08)', 
                                 border: '1px solid rgba(239, 68, 68, 0.2)', 

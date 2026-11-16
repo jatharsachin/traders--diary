@@ -2026,25 +2026,39 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       localStorage.setItem(getScopedKey('traders_diary_contract_notes'), JSON.stringify(updatedNotes));
       syncMetaToCloud('contract_notes', updatedNotes);
 
-      // Distribute charges accurately to that day's trades for this account/broker
-      const dayTrades = state.trades.filter(t => {
+      // Target account matcher helper: strictly matches trades for this specific account
+      const matchesTarget = (t: Trade) => {
         const tradeDate = t.exitDate || t.date;
         if (tradeDate !== noteData.date) return false;
-        if (noteData.brokerAccountId && t.brokerAccountId && t.brokerAccountId !== noteData.brokerAccountId) return false;
-        if (!noteData.brokerAccountId && t.broker && t.broker !== noteData.broker) return false;
+        
+        if (noteData.brokerAccountId) {
+          if (t.brokerAccountId) {
+            return t.brokerAccountId === noteData.brokerAccountId;
+          }
+          // Legacy trade without explicit brokerAccountId: match if this broker has only one account
+          const targetAcc = state.brokerAccounts.find(a => a.id === noteData.brokerAccountId);
+          if (targetAcc && t.broker) {
+            const sameBrokerAccounts = state.brokerAccounts.filter(a => a.broker?.toLowerCase() === targetAcc.broker?.toLowerCase());
+            if (sameBrokerAccounts.length === 1) {
+              return t.broker.toLowerCase() === targetAcc.broker.toLowerCase();
+            }
+          }
+          return false;
+        }
+
+        if (noteData.broker && t.broker) {
+          return t.broker.toLowerCase() === noteData.broker.toLowerCase();
+        }
         return true;
-      });
+      };
+
+      const dayTrades = state.trades.filter(matchesTarget);
 
       if (dayTrades.length > 0) {
         const totalTurnover = dayTrades.reduce((sum, t) => sum + (t.entryPrice * t.qty) + (t.exitPrice * t.qty), 0);
         
         const updatedTrades = state.trades.map(t => {
-          const tradeDate = t.exitDate || t.date;
-          if (tradeDate === noteData.date && (
-            (noteData.brokerAccountId && t.brokerAccountId === noteData.brokerAccountId) ||
-            (!noteData.brokerAccountId && t.broker === noteData.broker) ||
-            (!noteData.brokerAccountId && !t.brokerAccountId)
-          )) {
+          if (matchesTarget(t)) {
             const tradeTurnover = (t.entryPrice * t.qty) + (t.exitPrice * t.qty);
             const proportion = totalTurnover > 0 ? (tradeTurnover / totalTurnover) : (1 / dayTrades.length);
             
@@ -2055,6 +2069,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
             const updatedT: Trade = {
               ...t,
+              brokerAccountId: t.brokerAccountId || noteData.brokerAccountId,
               useManualCharges: true,
               manualBrokerage: allocBrokerage,
               manualTaxes: allocTaxes,
@@ -2085,13 +2100,24 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       syncMetaToCloud('contract_notes', updatedNotes);
 
       if (targetNote) {
-        const updatedTrades = state.trades.map(t => {
+        const matchesTarget = (t: Trade) => {
           const tradeDate = t.exitDate || t.date;
-          if (tradeDate === targetNote.date && (
-            (targetNote.brokerAccountId && t.brokerAccountId === targetNote.brokerAccountId) ||
-            (!targetNote.brokerAccountId && t.broker === targetNote.broker) ||
-            (!targetNote.brokerAccountId && !t.brokerAccountId)
-          )) {
+          if (tradeDate !== targetNote.date) return false;
+          if (targetNote.brokerAccountId) {
+            if (t.brokerAccountId) return t.brokerAccountId === targetNote.brokerAccountId;
+            const targetAcc = state.brokerAccounts.find(a => a.id === targetNote.brokerAccountId);
+            if (targetAcc && t.broker) {
+              const sameBrokerAccounts = state.brokerAccounts.filter(a => a.broker?.toLowerCase() === targetAcc.broker?.toLowerCase());
+              if (sameBrokerAccounts.length === 1) return t.broker.toLowerCase() === targetAcc.broker.toLowerCase();
+            }
+            return false;
+          }
+          if (targetNote.broker && t.broker) return t.broker.toLowerCase() === targetNote.broker.toLowerCase();
+          return true;
+        };
+
+        const updatedTrades = state.trades.map(t => {
+          if (matchesTarget(t)) {
             const updatedT: Trade = {
               ...t,
               useManualCharges: false,
