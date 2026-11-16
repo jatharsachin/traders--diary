@@ -113,6 +113,11 @@ export function TradeTable({
 
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
+  const selectedTrade = useMemo(() => {
+    if (!selectedRowId) return null;
+    return trades.find(t => t.id === selectedRowId) || null;
+  }, [trades, selectedRowId]);
+
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [outcomeFilter, setOutcomeFilter] = useState<'ALL' | 'WIN' | 'LOSS'>('ALL');
@@ -989,6 +994,121 @@ export function TradeTable({
         )}
       </div>
 
+      {/* Common Selected Trade Action Toolbar */}
+      {selectedTrade && (
+        <div 
+          className="glass-card animate-tab-panel"
+          style={{
+            padding: '12px 18px',
+            marginBottom: '14px',
+            background: 'rgba(10, 132, 255, 0.09)',
+            border: '1.5px solid var(--primary)',
+            borderRadius: '12px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 20px rgba(10, 132, 255, 0.16)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div 
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'var(--primary)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 800,
+                fontSize: '0.9rem'
+              }}
+            >
+              ✓
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>{selectedTrade.symbol}</span>
+                <span className={`badge ${selectedTrade.action === 'BUY' ? 'badge-win' : 'badge-loss'}`} style={{ padding: '2px 8px', fontSize: '0.72rem' }}>
+                  {selectedTrade.action}
+                </span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>• {selectedTrade.date}</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Qty: {selectedTrade.qty} @ ₹{selectedTrade.entryPrice.toFixed(2)} → ₹{selectedTrade.exitPrice.toFixed(2)} | Net P&L: 
+                <strong style={{ 
+                  color: selectedTrade.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)',
+                  marginLeft: '4px',
+                  fontFamily: 'var(--font-mono)'
+                }}>
+                  {isPnlVisible ? `${selectedTrade.netPnL >= 0 ? '+' : ''}${formatCurrency(selectedTrade.netPnL)}` : '••••'}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {!(selectedTrade as any).isInvestment ? (
+              <>
+                <button
+                  onClick={() => handleEdit(selectedTrade.id)}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '0.78rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    height: '32px',
+                    fontWeight: 650
+                  }}
+                >
+                  <Edit2 size={13} />
+                  <span>Edit Trade</span>
+                </button>
+
+                <button
+                  onClick={() => handleDeleteTrade(selectedTrade.id)}
+                  className="btn"
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '0.78rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    height: '32px',
+                    background: 'rgba(239, 68, 68, 0.16)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    color: 'var(--color-loss)',
+                    borderRadius: '6px',
+                    fontWeight: 650,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Trash2 size={13} />
+                  <span>Delete Trade</span>
+                </button>
+              </>
+            ) : (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                Holding investment — manage in Investments tab
+              </span>
+            )}
+
+            <button
+              onClick={() => setSelectedRowId(null)}
+              className="btn btn-secondary"
+              style={{ padding: '6px 12px', fontSize: '0.78rem', height: '32px' }}
+            >
+              Deselect
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table Container */}
       <div className="table-container sticky-table-container">
         {currentTrades.length > 0 ? (
@@ -1015,7 +1135,6 @@ export function TradeTable({
                   Net P&L <ArrowUpDown size={12} style={{ marginLeft: '4px', display: 'inline' }} />
                 </th>
                 <th>Psychology</th>
-                <th style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1179,66 +1298,7 @@ export function TradeTable({
                         )}
                       </div>
                     </td>
-                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
-                        {!(trade as any).isInvestment ? (
-                          <>
-                            <button
-                              onClick={() => handleEdit(trade.id)}
-                              className="btn btn-secondary"
-                              style={{
-                                padding: '4px 8px',
-                                fontSize: '0.72rem',
-                                borderRadius: '6px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                border: '1px solid var(--border-color)',
-                                background: 'rgba(255, 255, 255, 0.04)',
-                                color: 'var(--text-main)',
-                                cursor: 'pointer'
-                              }}
-                              title="Edit trade log"
-                            >
-                              <Edit2 size={12} color="var(--primary)" />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTrade(trade.id)}
-                              className="btn"
-                              style={{
-                                padding: '4px 7px',
-                                fontSize: '0.72rem',
-                                borderRadius: '6px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                border: '1px solid rgba(239, 68, 68, 0.25)',
-                                background: 'rgba(239, 68, 68, 0.08)',
-                                color: 'var(--color-loss)',
-                                cursor: 'pointer'
-                              }}
-                              title="Delete trade log"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </>
-                        ) : (
-                          <span 
-                            style={{ 
-                              fontSize: '0.65rem', 
-                              color: 'var(--text-dim)', 
-                              background: 'rgba(255,255,255,0.03)', 
-                              padding: '2px 6px', 
-                              borderRadius: '4px',
-                              border: '1px solid var(--border-color)'
-                            }}
-                            title="Holding investments are managed in the Investments tab"
-                          >
-                            Holding
-                          </span>
-                        )}
-                      </div>
-                    </td>
+
                   </tr>
                 );
               })}
