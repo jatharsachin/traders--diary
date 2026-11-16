@@ -1373,6 +1373,7 @@ export function TradingCalendar({
     return [...dayTradesList, ...purchaseItems, ...exitItems];
   };
   const dayTrades = getSelectedTrades();
+  const selectedCalendarTrade = dayTrades.find(t => t.id === selectedRowId) || null;
 
   const getDetailsTitle = () => {
     if (activePnlTab === 'weekly' && selectedWeekNum !== null) {
@@ -2464,12 +2465,13 @@ export function TradingCalendar({
                   <button 
                     className="btn btn-secondary" 
                     style={{ 
-                      padding: '5px 12px', 
-                      fontSize: '0.78rem', 
+                      height: '32px',
+                      padding: '0 12px', 
+                      fontSize: '0.76rem', 
                       display: 'inline-flex', 
                       alignItems: 'center', 
                       gap: '6px',
-                      borderRadius: '6px',
+                      borderRadius: '8px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       background: dailyNotes && dailyNotes[selectedDate]?.notes ? 'rgba(56, 189, 248, 0.18)' : 'var(--bg-card)',
@@ -2479,34 +2481,35 @@ export function TradingCalendar({
                     onClick={() => onOpenDailyNotes && onOpenDailyNotes(selectedDate)}
                     title="View or record Day-End Notes (Divasachi Note & Reflection)"
                   >
-                    <BookOpen size={14} color="#38bdf8" />
-                    <span>{dailyNotes && dailyNotes[selectedDate]?.notes ? '📝 View Day-End Note' : '📝 + Add Day-End Note'}</span>
+                    <BookOpen size={13} color="#38bdf8" />
+                    <span>{dailyNotes && dailyNotes[selectedDate]?.notes ? 'View Day Note' : '+ Add Day Note'}</span>
                   </button>
                   <button 
                     className="btn btn-primary" 
                     style={{ 
-                      padding: '5px 12px', 
-                      fontSize: '0.78rem', 
+                      height: '32px',
+                      padding: '0 12px', 
+                      fontSize: '0.76rem', 
                       display: 'inline-flex', 
                       alignItems: 'center', 
                       gap: '6px',
                       backgroundColor: 'var(--primary)',
                       color: '#fff',
-                      borderRadius: '6px',
+                      borderRadius: '8px',
                       fontWeight: 600,
                       cursor: 'pointer'
                     }}
                     onClick={() => handleOpenReconcile(selectedDate)}
                     title="Enter/edit broker contract note charges for this date"
                   >
-                    <Receipt size={14} />
-                    <span>⚡ Edit Day's Charges / Contract Note</span>
+                    <Receipt size={13} />
+                    <span>Day's Charges / Contract Note</span>
                   </button>
                 </>
               )}
               <button 
                 className="btn btn-secondary" 
-                style={{ padding: '4px 10px', fontSize: '0.75rem', height: '30px' }}
+                style={{ height: '32px', padding: '0 12px', fontSize: '0.76rem', borderRadius: '8px' }}
                 onClick={handleClearSelection}
               >
                 Clear Selection
@@ -2514,9 +2517,71 @@ export function TradingCalendar({
             </div>
           </div>
 
+          {/* Selected Trade Common Action Toolbar */}
+          {selectedCalendarTrade && (
+            <div 
+              style={{
+                background: 'rgba(59, 130, 246, 0.08)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Selected:</span>
+                <strong style={{ color: 'var(--text-main)' }}>{selectedCalendarTrade.symbol}</strong>
+                <span className={`badge ${selectedCalendarTrade.action === 'BUY' ? 'badge-win' : 'badge-loss'}`} style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                  {selectedCalendarTrade.action}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: selectedCalendarTrade.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                  {isPnlVisible ? `${selectedCalendarTrade.netPnL >= 0 ? '+' : ''}${formatCurrency(selectedCalendarTrade.netPnL)}` : '••••'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {onEditTrade && (
+                  <button
+                    onClick={() => onEditTrade(selectedCalendarTrade.id)}
+                    className="btn btn-primary"
+                    style={{ height: '30px', padding: '0 12px', fontSize: '0.75rem', gap: '5px' }}
+                  >
+                    <Edit2 size={13} />
+                    <span>Edit Trade</span>
+                  </button>
+                )}
+
+                {onDuplicateTrade && (
+                  <button
+                    onClick={() => onDuplicateTrade(selectedCalendarTrade.id)}
+                    className="btn btn-secondary btn-accent-gold"
+                    style={{ height: '30px', padding: '0 12px', fontSize: '0.75rem', gap: '5px' }}
+                    title="Clone setup for quick re-entry with today's date & time"
+                  >
+                    <Copy size={13} />
+                    <span>⚡ Duplicate / Re-Entry</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setSelectedRowId(null)}
+                  className="btn btn-secondary"
+                  style={{ height: '30px', padding: '0 10px', fontSize: '0.75rem' }}
+                >
+                  Deselect
+                </button>
+              </div>
+            </div>
+          )}
+
           {dayTrades.length > 0 ? (
             <div className="table-container" style={{ maxHeight: '350px', overflowY: 'auto' }}>
-              <table className="custom-table" style={{ fontSize: '0.85rem' }}>
+              <table className="custom-table" style={{ fontSize: '0.82rem' }}>
                 <thead>
                   <tr>
                     <th>Entry/Exit</th>
@@ -2532,7 +2597,6 @@ export function TradingCalendar({
                     <th style={{ textAlign: 'right' }}>Net P&L</th>
                     <th>Setup/Mistake</th>
                     <th>Notes</th>
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2541,6 +2605,9 @@ export function TradingCalendar({
                       key={t.id}
                       className={selectedRowId === t.id ? 'selected-row' : ''}
                       onClick={() => setSelectedRowId(selectedRowId === t.id ? null : t.id)}
+                      onDoubleClick={() => onEditTrade && onEditTrade(t.id)}
+                      style={{ cursor: 'pointer' }}
+                      title="Click to select & use common action bar. Double-click to edit immediately."
                     >
                       <td style={{ fontWeight: 550, fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
                         <div>{formatTimeToAMPM(t.entryTime)} - {formatTimeToAMPM(t.exitTime)}</div>
@@ -2580,60 +2647,8 @@ export function TradingCalendar({
                           )}
                         </div>
                       </td>
-                      <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '250px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} title={t.notes}>
+                      <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '300px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} title={t.notes}>
                         {t.notes || '-'}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {onEditTrade && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditTrade(t.id);
-                              }}
-                              className="btn btn-secondary"
-                              style={{ 
-                                padding: '4px 8px', 
-                                fontSize: '0.72rem', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '4px',
-                                borderRadius: '6px',
-                                cursor: 'pointer'
-                              }}
-                              title="Edit Trade"
-                            >
-                              <Edit2 size={12} />
-                              <span>Edit</span>
-                            </button>
-                          )}
-
-                          {onDuplicateTrade && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDuplicateTrade(t.id);
-                              }}
-                              className="btn btn-secondary"
-                              style={{ 
-                                padding: '4px 8px', 
-                                fontSize: '0.72rem', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '4px',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                color: '#eab308',
-                                border: '1px solid rgba(234, 179, 8, 0.35)',
-                                background: 'rgba(234, 179, 8, 0.08)'
-                              }}
-                              title="Clone this trade setup for a quick re-entry"
-                            >
-                              <Copy size={12} />
-                              <span>Duplicate</span>
-                            </button>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   ))}
@@ -2741,13 +2756,13 @@ export function TradingCalendar({
           }
         }
         .calendar-day {
-          min-height: 85px;
-          border-radius: 12px;
+          min-height: 52px;
+          border-radius: 10px;
           border: 1px solid var(--border-color);
           background: var(--bg-card);
           backdrop-filter: blur(10px);
           -webkit-backdrop-filter: blur(10px);
-          padding: 10px;
+          padding: 6px 8px;
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
@@ -2762,6 +2777,9 @@ export function TradingCalendar({
             opacity var(--transition-glass);
           cursor: pointer;
           user-select: none;
+        }
+        .calendar-day.has-trades {
+          min-height: 64px;
         }
         .calendar-day.weekly-day {
           height: 88px !important;
@@ -2828,7 +2846,7 @@ export function TradingCalendar({
           font-weight: 800;
         }
         .day-holiday-label {
-          font-size: 0.74rem;
+          font-size: 0.64rem;
           color: var(--color-neutral);
           font-weight: 700;
           max-width: 90%;
@@ -2836,7 +2854,7 @@ export function TradingCalendar({
           text-overflow: ellipsis;
           white-space: nowrap;
           text-align: left;
-          margin-top: 18px;
+          margin-top: 10px;
           align-self: flex-start;
         }
         .calendar-day:hover {
@@ -2878,11 +2896,11 @@ export function TradingCalendar({
         }
         .day-number {
           position: absolute;
-          top: 7px;
-          left: 10px;
-          font-size: 0.92rem;
+          top: 5px;
+          left: 8px;
+          font-size: 0.8rem;
           color: var(--text-muted);
-          font-weight: 750;
+          font-weight: 700;
         }
         .calendar-day.has-trades .day-number {
           color: var(--text-main);
@@ -2896,13 +2914,13 @@ export function TradingCalendar({
         }
         .day-pnl {
           font-family: var(--font-mono);
-          font-size: 1.15rem;
+          font-size: 0.95rem;
           font-weight: 800;
           text-align: right;
           color: var(--text-muted);
           width: 100%;
           margin-top: auto;
-          padding-bottom: 2px;
+          padding-bottom: 0px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;

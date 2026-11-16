@@ -630,15 +630,15 @@ export function TradeTable({
       </div>
 
       {/* Top Summary Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px', marginBottom: '14px' }}>
         {/* Card 1: Total Trades & Win Rate */}
-        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Layers size={13} color="var(--primary)" />
             <span>Filtered Trades</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
-            <span style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+            <span style={{ fontSize: '1.2rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
               {summaryStats.total}
             </span>
             <span style={{ fontSize: '0.72rem', color: summaryStats.winRate >= 50 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700 }}>
@@ -651,14 +651,14 @@ export function TradeTable({
         </div>
 
         {/* Card 2: Net Realized P&L */}
-        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
             {summaryStats.net >= 0 ? <TrendingUp size={13} color="var(--color-win)" /> : <TrendingDown size={13} color="var(--color-loss)" />}
             <span>Net Realized P&L</span>
           </div>
-          <div style={{ marginTop: '6px' }}>
+          <div style={{ marginTop: '4px' }}>
             <span style={{ 
-              fontSize: '1.25rem', 
+              fontSize: '1.2rem', 
               fontWeight: 800, 
               fontFamily: 'var(--font-mono)',
               color: !isPnlVisible ? 'var(--text-dim)' : summaryStats.net >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
@@ -676,14 +676,14 @@ export function TradeTable({
         </div>
 
         {/* Card 3: Total Charges & Brokerage */}
-        <div className="glass-card" style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Clock size={13} color="var(--text-dim)" />
             <span>Total Charges</span>
           </div>
-          <div style={{ marginTop: '6px' }}>
+          <div style={{ marginTop: '4px' }}>
             <span style={{ 
-              fontSize: '1.25rem', 
+              fontSize: '1.2rem', 
               fontWeight: 800, 
               fontFamily: 'var(--font-mono)',
               color: !isPnlVisible ? 'var(--text-dim)' : '#ff9500'

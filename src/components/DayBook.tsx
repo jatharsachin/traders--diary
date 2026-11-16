@@ -3,7 +3,7 @@ import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { groupHedgedTrades } from '../utils/tradeGrouping';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown
+  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown, BookOpen
 } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
@@ -593,7 +593,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
               padding: '2px 8px', 
               borderRadius: '8px', 
               border: '1px solid var(--border-color)',
-              height: '34px',
+              height: '32px',
               boxSizing: 'border-box'
             }}
           >
@@ -603,7 +603,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
               style={{ 
                 padding: '0 6px', 
                 fontSize: '0.74rem', 
-                height: '26px', 
+                height: '24px', 
                 borderRadius: '6px', 
                 cursor: 'pointer', 
                 background: 'var(--bg-card)', 
@@ -644,7 +644,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
               style={{ 
                 padding: '0 6px', 
                 fontSize: '0.76rem', 
-                height: '26px', 
+                height: '24px', 
                 width: '124px', 
                 cursor: 'pointer',
                 borderRadius: '5px',
@@ -673,7 +673,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
               style={{ 
                 padding: '0 6px', 
                 fontSize: '0.76rem', 
-                height: '26px', 
+                height: '24px', 
                 width: '124px', 
                 cursor: 'pointer',
                 borderRadius: '5px',
@@ -688,7 +688,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
             type="button"
             onClick={togglePnlVisibility}
             className="btn btn-secondary"
-            style={{ width: '34px', height: '34px', padding: 0, borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: '32px', height: '32px', padding: 0, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title={isPnlVisible ? "Hide P&L" : "Show P&L"}
           >
             {isPnlVisible ? <EyeOff size={14} /> : <Eye size={14} color="var(--primary)" />}
@@ -700,11 +700,9 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
             onClick={() => setSortOrder(prev => prev === 'ASC' ? 'DESC' : 'ASC')}
             className="btn btn-secondary"
             style={{ 
-              fontSize: '0.74rem', 
+              fontSize: '0.75rem', 
               padding: '0 12px', 
-              border: '1px solid var(--border-color)', 
-              background: 'var(--bg-card)', 
-              height: '34px', 
+              height: '32px', 
               borderRadius: '8px',
               display: 'flex', 
               alignItems: 'center', 
@@ -722,11 +720,9 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
             onClick={handlePrintDayBook}
             className="btn btn-secondary"
             style={{ 
-              fontSize: '0.74rem', 
+              fontSize: '0.75rem', 
               padding: '0 12px', 
-              border: '1px solid var(--border-color)', 
-              background: 'var(--bg-card)', 
-              height: '34px', 
+              height: '32px', 
               borderRadius: '8px',
               display: 'flex', 
               alignItems: 'center', 
@@ -744,11 +740,9 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
               onClick={() => onOpenDailyNotes(endDate || todayStr)}
               className="btn btn-secondary"
               style={{ 
-                fontSize: '0.74rem', 
+                fontSize: '0.75rem', 
                 padding: '0 12px', 
-                border: '1px solid var(--border-color)', 
-                background: 'var(--bg-card)', 
-                height: '34px', 
+                height: '32px', 
                 borderRadius: '8px',
                 display: 'flex', 
                 alignItems: 'center', 
@@ -756,31 +750,35 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
               }}
               title="Add or view Day-End Note for selected date"
             >
-              <span>📝 Day-End Note</span>
+              <BookOpen size={13} color="#38bdf8" />
+              <span>Day-End Note</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* KPI Cards section */}
+      {/* Dynamic & Balanced KPI Cards section */}
       <div 
         style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '16px', 
-          marginBottom: '20px' 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', 
+          gap: '10px', 
+          marginBottom: '14px' 
         }}
       >
-        <div className="glass-card" style={{ padding: '14px', background: 'rgba(255,255,255,0.015)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)' }}>
           <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Opening Balance
           </span>
           <h4 style={{ margin: '4px 0 0 0', fontSize: '1.05rem', fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>
             {isPnlVisible ? formatCurrency(openingBalance) : '••••'}
           </h4>
+          <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', visibility: 'hidden' }}>
+            Placeholder
+          </span>
         </div>
 
-        <div className="glass-card" style={{ padding: '14px', background: 'rgba(255,255,255,0.015)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)' }}>
           <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Trading P&L
           </span>
@@ -799,7 +797,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
           </span>
         </div>
 
-        <div className="glass-card" style={{ padding: '14px', background: 'rgba(255,255,255,0.015)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)' }}>
           <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Capital Flows
           </span>
@@ -818,7 +816,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
           </span>
         </div>
 
-        <div className="glass-card" style={{ padding: '14px', background: 'rgba(255,255,255,0.015)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)' }}>
           <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Paid Charges
           </span>
@@ -837,13 +835,16 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
           </span>
         </div>
 
-        <div className="glass-card" style={{ padding: '14px', background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)' }}>
           <span style={{ fontSize: '0.62rem', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 650 }}>
             Closing Balance
           </span>
           <h4 style={{ margin: '4px 0 0 0', fontSize: '1.05rem', fontFamily: 'var(--font-mono)', color: 'var(--primary)', fontWeight: 800 }}>
             {isPnlVisible ? formatCurrency(endingBalance) : '••••'}
           </h4>
+          <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', visibility: 'hidden' }}>
+            Placeholder
+          </span>
         </div>
       </div>
 

@@ -481,18 +481,20 @@ h1, h2, h3, h4 {
   color: var(--text-muted);
 }
 
-/* Buttons (iOS Spring Click / Elastic Scale look) */
+/* Buttons (Consistent, Unified System) */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 18px;
+  padding: 6px 13px;
+  height: 32px;
   font-weight: 600;
-  font-size: 0.85rem;
-  border-radius: 9999px;
+  font-size: 0.76rem;
+  border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
+  box-sizing: border-box;
   transition: 
     transform var(--transition-ios-spring), 
     box-shadow var(--transition-ios-spring), 
@@ -503,12 +505,39 @@ h1, h2, h3, h4 {
 }
 
 .btn:hover {
-  transform: scale(1.025) translateY(-1.5px);
+  transform: translateY(-1px);
 }
 
 .btn:active {
-  transform: scale(0.94) translateY(0);
+  transform: translateY(0);
   transition: transform 0.08s ease;
+}
+
+.btn-sm {
+  height: 28px !important;
+  padding: 4px 10px !important;
+  font-size: 0.72rem !important;
+  border-radius: 6px !important;
+}
+
+.btn-accent-gold {
+  background: rgba(234, 179, 8, 0.12) !important;
+  border: 1px solid rgba(234, 179, 8, 0.35) !important;
+  color: #eab308 !important;
+}
+.btn-accent-gold:hover {
+  background: rgba(234, 179, 8, 0.2) !important;
+  border-color: #eab308 !important;
+}
+
+.btn-accent-green {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+  color: #10b981 !important;
+}
+.btn-accent-green:hover {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: #10b981 !important;
 }
 
 .btn-primary {
