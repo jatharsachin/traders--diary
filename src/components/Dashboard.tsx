@@ -1631,10 +1631,10 @@ export function Dashboard({
       />
 
       {/* Grid 2: Return Periods & Consistency Streaks */}
-      <div className="grid-2col-12-1" style={{ marginBottom: '24px' }}>
+      <div className="grid-2col-12-1" style={{ marginBottom: '16px' }}>
         
         {/* Card 1: Performance Returns Duration */}
-        <div className="glass-card" style={{ padding: '24px', borderTop: '2.5px solid var(--primary)', position: 'relative' }}>
+        <div className="glass-card" style={{ padding: '18px 20px', borderTop: '2.5px solid var(--primary)', position: 'relative' }}>
           <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <CalendarRange size={18} color="var(--primary)" />
             Returns Breakdown
@@ -1675,7 +1675,7 @@ export function Dashboard({
         </div>
 
         {/* Card 2: Consistency & Streaks */}
-        <div className="glass-card" style={{ padding: '24px', borderTop: '2.5px solid var(--color-win)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+        <div className="glass-card" style={{ padding: '18px 20px', borderTop: '2.5px solid var(--color-win)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
           <div>
             <h3 style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <ShieldCheck size={18} color="var(--color-win)" />
@@ -1969,7 +1969,7 @@ export function Dashboard({
       />
 
       {/* Weekly Trade Review & Retrospective Panel */}
-      <div className="glass-card" style={{ padding: '24px' }}>
+      <div className="glass-card" style={{ padding: '18px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2116,7 +2116,7 @@ export function Dashboard({
         <div className="grid-2col-equal">
           
           {/* Chart: Mistake Cost Analysis */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <AlertTriangle size={22} color="var(--color-loss)" />
               <div>
@@ -2156,7 +2156,7 @@ export function Dashboard({
           </div>
 
           {/* Discipline Scorecard */}
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div className="glass-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <Sparkles size={22} color="var(--primary)" />
@@ -2262,7 +2262,7 @@ export function Dashboard({
         {/* Dynamic Behavioral & Allocation Insights */}
         <div className="grid-2col-12-1">
           {/* Emotions P&L Impact */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '18px 20px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <TrendingUp size={22} color="var(--primary)" />
               Psychological Mood P&L Impact
@@ -2332,7 +2332,7 @@ export function Dashboard({
           </div>
 
           {/* Asset Allocation or Segment Allocation */}
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
+          <div className="glass-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Briefcase size={22} color="var(--primary)" />
               {showCombined ? 'Asset Allocation' : 'Trading Volume Allocation'}

@@ -385,7 +385,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
         </div>
 
         {/* Business/Slab Progressive Card */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="glass-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -426,7 +426,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
         </div>
 
         {/* Audit Advisory Card */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="glass-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -472,13 +472,13 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
       </div>
 
       {/* Main breakdown grids */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '16px' }}>
         
         {/* Left Column: Capital Gains & Business Breakdowns */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           {/* Card 1: Capital Gains (Equity CNC Delivery) */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '18px 20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
               <Briefcase size={16} color="var(--primary)" />
               1. Capital Gains Tax Summary (Equity Delivery)
@@ -551,7 +551,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
           </div>
 
           {/* Card 2: Business & Speculative Income (Intraday & Derivatives) */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '18px 20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
               <Scale size={16} color="var(--primary)" />
               2. Business Income Summary (F&O / Intraday)
@@ -611,7 +611,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
           </div>
 
           {/* Card: Broker-wise Breakdown */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '18px 20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
               <Coins size={16} color="var(--primary)" />
               Broker-Wise Charges & Performance Summary
@@ -666,10 +666,10 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
         </div>
 
         {/* Right Column: Fees Breakdown & ITR Coach */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           {/* Card 3: Brokerage & Govt Charges breakdown */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '18px 20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
               <Receipt size={16} color="var(--primary)" />
               3. Expenses & Government Levies Audit
@@ -707,7 +707,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
           </div>
 
           {/* Card 4: ITR Filing Coach */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          <div className="glass-card" style={{ padding: '18px 20px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
               <HelpCircle size={16} color="var(--primary)" />
               ITR Filing Coach & Loss Carry-Forward

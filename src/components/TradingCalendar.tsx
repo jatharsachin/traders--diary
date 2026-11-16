@@ -2010,13 +2010,13 @@ export function TradingCalendar({
         );
       })()}
 
-      <div className="glass-card animate-tab-panel" style={{ padding: '24px' }}>
+      <div className="glass-card animate-tab-panel" style={{ padding: '18px 20px' }}>
       <div 
         style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          marginBottom: '20px',
+          marginBottom: '16px',
           flexWrap: 'wrap',
           gap: '12px'
         }}

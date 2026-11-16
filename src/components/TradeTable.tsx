@@ -472,9 +472,9 @@ export function TradeTable({
     (outcomeFilter !== 'ALL' ? 1 : 0);
 
   return (
-    <div className="glass-card animate-tab-panel" style={{ padding: '24px' }}>
+    <div className="glass-card animate-tab-panel" style={{ padding: '18px 20px' }}>
       {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '4px', fontWeight: 700 }}>Trade Logs History</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>

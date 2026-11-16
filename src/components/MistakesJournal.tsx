@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { groupHedgedTrades, cleanHedgeNote, isHedgeLeg } from '../utils/tradeGrouping';
+import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
 import { 
   Calendar, Search, ArrowUpDown, X, Printer,
   BookOpenCheck, Edit3, Trash2, Plus,
@@ -25,16 +26,9 @@ export function MistakesJournal({ activeAccountId = 'Combined', onEditTrade, onO
     deleteDailyNote
   } = useTradeStore();
 
-  // Filter scoped to account
+  // Filter scoped to account (strict multi-account isolation)
   const isMatchAccount = (accId?: string, brokerName?: string) => {
-    if (activeAccountId === 'Combined' || !activeAccountId) return true;
-    const targetIds = activeAccountId.split(',').filter(Boolean);
-    if (accId && targetIds.includes(accId)) return true;
-    if (brokerName) {
-      const selectedAccs = brokerAccounts.filter(a => targetIds.includes(a.id));
-      return selectedAccs.some(a => (a.broker || '').toLowerCase() === (brokerName || '').toLowerCase());
-    }
-    return false;
+    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
   };
 
   const fyTrades = useMemo(() => filterTradesByFY(allTrades, selectedFY), [allTrades, selectedFY]);

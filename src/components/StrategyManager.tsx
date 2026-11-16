@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
+import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
+import { filterTradesByFY } from '../utils/fyHelper';
 import { 
   Plus, Trash2, Edit2, ShieldAlert, Award, Star, Compass, 
   BarChart2 as LucideBarChart
@@ -17,17 +19,27 @@ import {
   Pie
 } from 'recharts';
 
-export function StrategyManager() {
-  const { setups, addSetup, editSetup, deleteSetup, trades } = useTradeStore();
+interface StrategyManagerProps {
+  activeAccountId?: string;
+}
+
+export function StrategyManager({ activeAccountId = 'Combined' }: StrategyManagerProps) {
+  const { setups, addSetup, editSetup, deleteSetup, trades, selectedFY, brokerAccounts } = useTradeStore();
   const [newSetupName, setNewSetupName] = useState('');
   const [newSetupDesc, setNewSetupDesc] = useState('');
   const [editOldName, setEditOldName] = useState<string | null>(null);
   const [selectedStrategyName, setSelectedStrategyName] = useState<string | null>(null);
   const [error, setError] = useState('');
 
+  // Scoped trades matching selected FY and active account(s)
+  const scopedTrades = useMemo(() => {
+    const fyTrades = filterTradesByFY(trades, selectedFY);
+    return fyTrades.filter(t => isMatchAccountUtil(activeAccountId, brokerAccounts, t.brokerAccountId, t.broker));
+  }, [trades, selectedFY, activeAccountId, brokerAccounts]);
+
   // Calculate statistics for each setup
   const getSetupStats = (setupName: string) => {
-    const setupTrades = trades.filter((t) => t.strategy === setupName);
+    const setupTrades = scopedTrades.filter((t) => t.strategy === setupName);
     const count = setupTrades.length;
 
     if (count === 0) {
@@ -144,8 +156,8 @@ export function StrategyManager() {
     <div className="animate-tab-panel grid-2col-2-1">
       
       {/* List & Stats */}
-      <div className="glass-card" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
+      <div className="glass-card" style={{ padding: '18px 20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
           <div>
             <h2 style={{ fontSize: '1.25rem' }}>Strategies & Setups Matrix</h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -309,7 +321,7 @@ export function StrategyManager() {
       </div>
 
       {/* Add New Setup Form */}
-      <div className="glass-card" style={{ padding: '24px', height: 'fit-content' }}>
+      <div className="glass-card" style={{ padding: '18px 20px', height: 'fit-content' }}>
         <h2 style={{ fontSize: '1.1rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Compass size={18} className="text-primary" style={{ color: 'var(--primary)' }} />
           {editOldName ? 'Edit Strategy Tag' : 'Create Strategy Tag'}
@@ -383,7 +395,7 @@ export function StrategyManager() {
       </div>
 
       {/* Visual Analytics Charts Section */}
-      <div className="glass-card" style={{ gridColumn: 'span 2', padding: '24px', marginTop: '20px' }}>
+      <div className="glass-card" style={{ gridColumn: 'span 2', padding: '18px 20px', marginTop: '16px' }}>
         <h3 style={{ fontSize: '1.05rem', color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <LucideBarChart size={18} color="var(--primary)" />
           Strategy Performance & Distribution Visualizer

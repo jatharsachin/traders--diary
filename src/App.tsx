@@ -2039,7 +2039,7 @@ export default function App() {
             )}
             {activeTab === 'strategies' && (
               <ErrorBoundary fallbackTitle="The Strategy Manager failed to render">
-                <StrategyManager />
+                <StrategyManager activeAccountId={activeAccountId} />
               </ErrorBoundary>
             )}
             {activeTab === 'account' && (

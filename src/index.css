@@ -1324,17 +1324,17 @@ h1, h2, h3, h4 {
 }
 
 .sidebar-layout .main-content-wrapper {
-  padding: 24px;
+  padding: 18px 22px;
 }
 
 .main-content-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding-bottom: 16px;
-  margin-bottom: 20px;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
   border-bottom: 1.5px solid var(--border-color);
 }
 
