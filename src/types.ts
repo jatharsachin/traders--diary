@@ -123,6 +123,7 @@ export interface BrokerAccount {
   accountName: string; // e.g. "Sachin" or "Wife"
   startingCapital: number;
   active: boolean;
+  startDate?: string; // Optional trading start date / account opening date (YYYY-MM-DD)
 }
 
 export interface BankAccount {

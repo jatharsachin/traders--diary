@@ -123,6 +123,7 @@ export function ProfileSettingsModal({
   const [newAccBroker, setNewAccBroker] = useState<Broker>('Zerodha');
   const [newAccName, setNewAccName] = useState('');
   const [newAccCapital, setNewAccCapital] = useState('100000');
+  const [newAccStartDate, setNewAccStartDate] = useState('');
 
   // Add Bank Form
   const [newBankName, setNewBankName] = useState('');
@@ -243,7 +244,8 @@ export function ProfileSettingsModal({
       broker: newAccBroker,
       accountName: newAccName.trim(),
       startingCapital: cap,
-      active: true
+      active: true,
+      startDate: newAccStartDate || undefined
     });
     
     // Auto add to active list if not already
@@ -253,6 +255,7 @@ export function ProfileSettingsModal({
     
     setNewAccName('');
     setNewAccCapital('100000');
+    setNewAccStartDate('');
     toast.success('Broker Account successfully added!');
   };
 
@@ -689,6 +692,7 @@ export function ProfileSettingsModal({
                           <th style={{ padding: '8px' }}>User/Account Name</th>
                           <th style={{ padding: '8px' }}>Broker</th>
                           <th style={{ padding: '8px' }}>Starting Capital</th>
+                          <th style={{ padding: '8px' }}>Trading Start Date</th>
                           <th style={{ padding: '8px', textAlign: 'center' }}>Active</th>
                           <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
                         </tr>
@@ -706,6 +710,15 @@ export function ProfileSettingsModal({
                                 value={acc.startingCapital} 
                                 onChange={(e) => editBrokerAccount(acc.id, { startingCapital: parseFloat(e.target.value) || 0 })}
                                 style={{ width: '90px', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', color: 'var(--text)', fontSize: '0.75rem', outline: 'none' }}
+                              />
+                            </td>
+                            <td style={{ padding: '8px' }}>
+                              <input 
+                                type="date" 
+                                value={acc.startDate || ''} 
+                                onChange={(e) => editBrokerAccount(acc.id, { startDate: e.target.value || undefined })}
+                                style={{ width: '120px', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', color: 'var(--text)', fontSize: '0.75rem', outline: 'none' }}
+                                title="Date when trading started for this account"
                               />
                             </td>
                             <td style={{ padding: '8px', textAlign: 'center' }}>
@@ -753,6 +766,10 @@ export function ProfileSettingsModal({
                     <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: '100px' }}>
                       <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Starting Capital</label>
                       <input type="number" value={newAccCapital} onChange={(e) => setNewAccCapital(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }} required />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: '115px' }}>
+                      <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Trading Start Date</label>
+                      <input type="date" value={newAccStartDate} onChange={(e) => setNewAccStartDate(e.target.value)} className="form-input" style={{ height: '28px', fontSize: '0.72rem', padding: '2px 8px' }} />
                     </div>
                     <button type="submit" className="btn btn-primary" style={{ height: '28px', padding: '0 10px', fontSize: '0.72rem' }}>
                       <Plus size={12} />

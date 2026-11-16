@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import { getTradeMistakes } from '../types';
+import { getTradeMistakes, type BrokerAccount } from '../types';
 import { 
   Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
   ToggleLeft, ToggleRight, Briefcase, TrendingUp, AlertTriangle, Sparkles,
@@ -58,6 +58,7 @@ export function Dashboard({
     userName,
     userAvatar,
     brokerAccounts,
+    editBrokerAccount,
     capitalAdjustments: allAdjustments,
     noTradeDays,
     toggleNoTradeDay,
@@ -115,6 +116,55 @@ export function Dashboard({
     }
   }, [availableBrokersForSelection, selectedBroker]);
 
+  // Calculate effective trading start date for active scope so accounts don't get nagged for dates before inception
+  const effectiveTradingStartDate = useMemo(() => {
+    let inScopeAccounts: BrokerAccount[] = [];
+    if (activeAccountId && activeAccountId !== 'Combined') {
+      const targetIds = activeAccountId.split(',').filter(Boolean);
+      inScopeAccounts = brokerAccounts.filter(a => targetIds.includes(a.id));
+    } else {
+      inScopeAccounts = brokerAccounts.filter(a => a.active);
+    }
+
+    if (inScopeAccounts.length === 0) return null;
+
+    // 1. Check if explicit start dates are set
+    const explicitDates = inScopeAccounts.map(a => a.startDate).filter(Boolean) as string[];
+
+    // 2. Collect trade & capital adjustment dates for in-scope accounts
+    const tradeDates = activeTrades.map(t => t.date || t.exitDate).filter(Boolean) as string[];
+    const adjDates = capitalAdjustments.map(a => a.date).filter(Boolean) as string[];
+    const allActivityDates = [...tradeDates, ...adjDates].sort();
+
+    // If explicit start dates exist for all in-scope accounts, pick the earliest
+    if (explicitDates.length === inScopeAccounts.length && explicitDates.length > 0) {
+      return explicitDates.sort()[0];
+    }
+
+    // If explicit start date exists for at least one:
+    if (explicitDates.length > 0) {
+      const earliestExplicit = explicitDates.sort()[0];
+      if (allActivityDates.length > 0) {
+        return earliestExplicit < allActivityDates[0] ? earliestExplicit : allActivityDates[0];
+      }
+      return earliestExplicit;
+    }
+
+    // If no explicit start date is set at all:
+    // If the account has recorded trades or adjustments, its earliest activity date is its natural inception date!
+    if (allActivityDates.length > 0) {
+      return allActivityDates[0];
+    }
+
+    // If account has ZERO trades, ZERO adjustments, and NO explicit startDate:
+    // It is a newly added account that has not started trading yet; return today's date so past days aren't flagged.
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, [activeAccountId, brokerAccounts, activeTrades, capitalAdjustments]);
+
   // 12. Weekend/Holiday-Aware Coach Reminder for Missing Log Entries
   const getMissingLogDates = (): string[] => {
     const dates: string[] = [];
@@ -137,6 +187,11 @@ export function Dashboard({
       const dayOfWeek = checkDate.getDay(); // 0 = Sun, 6 = Sat
       const dateStr = formatLocalYYYYMMDD(checkDate);
       
+      // Stop checking if we have reached before this account's trading start date!
+      if (effectiveTradingStartDate && dateStr < effectiveTradingStartDate) {
+        break;
+      }
+
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isNseHoliday = !!OFFLINE_NSE_HOLIDAYS[dateStr];
       
@@ -1217,6 +1272,42 @@ export function Dashboard({
               );
             })}
           </div>
+
+          {/* Quick Helper for Newly Started Accounts */}
+          {activeAccountId && activeAccountId !== 'Combined' && !activeAccountId.includes(',') && (
+            <div 
+              style={{ 
+                marginTop: '4px', 
+                paddingTop: '8px', 
+                borderTop: '1px dashed rgba(239, 68, 68, 0.2)', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                flexWrap: 'wrap', 
+                gap: '8px' 
+              }}
+            >
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                Started trading recently on this account? Set your trading start date so previous dates aren't flagged:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const accId = activeAccountId;
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const chosenDate = prompt('Enter Trading Start Date for this account (YYYY-MM-DD):', effectiveTradingStartDate || todayStr);
+                  if (chosenDate && /^\d{4}-\d{2}-\d{2}$/.test(chosenDate)) {
+                    editBrokerAccount(accId, { startDate: chosenDate });
+                    toast.success(`Trading start date set to ${chosenDate} for this account!`);
+                  }
+                }}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.7rem', padding: '3px 8px', height: '26px' }}
+              >
+                📅 Set Trading Start Date
+              </button>
+            </div>
+          )}
         </div>
       )}
       

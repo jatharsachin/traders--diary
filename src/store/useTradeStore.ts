@@ -158,9 +158,9 @@ const DEFAULT_SETUPS: Setup[] = [
 ];
 
 const DEFAULT_BROKER_ACCOUNTS: BrokerAccount[] = [
-  { id: 'acc-1', broker: 'Zerodha', accountName: 'Sachin', startingCapital: 500000, active: true },
-  { id: 'acc-2', broker: 'Dhan', accountName: 'Sachin', startingCapital: 200000, active: true },
-  { id: 'acc-3', broker: 'Dhan', accountName: 'Rupali', startingCapital: 100000, active: true },
+  { id: 'acc-1', broker: 'Zerodha', accountName: 'Sachin', startingCapital: 500000, active: true, startDate: '2026-04-01' },
+  { id: 'acc-2', broker: 'Dhan', accountName: 'Sachin', startingCapital: 200000, active: true, startDate: '2026-04-01' },
+  { id: 'acc-3', broker: 'Dhan', accountName: 'Rupali', startingCapital: 100000, active: true, startDate: '2026-11-12' },
 ];
 
 const DEFAULT_BANK_ACCOUNTS: BankAccount[] = [
@@ -372,6 +372,10 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           const updated = parsed.map(a => {
             if (a && a.accountName === 'Wife') {
               a.accountName = 'Rupali';
+              changed = true;
+            }
+            if (a && (a.id === 'acc-3' || a.accountName === 'Rupali') && !a.startDate) {
+              a.startDate = '2026-11-12';
               changed = true;
             }
             return a;
