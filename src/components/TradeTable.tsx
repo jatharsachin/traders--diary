@@ -1213,7 +1213,6 @@ export function TradeTable({
             <tbody>
               {currentTrades.map((trade) => {
                 const isProfit = trade.netPnL >= 0;
-                const totalCharges = (trade.brokerage || 0) + (trade.taxes || 0);
                 return (
                   <tr 
                     key={trade.id}
@@ -1324,10 +1323,10 @@ export function TradeTable({
                         {isProfit ? '+' : ''}{isPnlVisible ? formatCurrency(trade.netPnL) : '••••'}
                       </div>
                       <div 
-                        style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px' }}
-                        title={isPnlVisible ? `Brokerage: ${formatCurrency(trade.brokerage)} | Taxes: ${formatCurrency(trade.taxes)}` : undefined}
+                        style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px', whiteSpace: 'nowrap' }}
+                        title={isPnlVisible ? `Brokerage: ${formatCurrency(trade.brokerage)} | Taxes & Charges: ${formatCurrency(trade.taxes)}` : undefined}
                       >
-                        {isPnlVisible ? `Chgs: ${formatCurrency(totalCharges)}` : '••••'}
+                        {isPnlVisible ? `Brk: ₹${Math.round(trade.brokerage || 0)} • Chgs: ₹${Math.round(trade.taxes || 0)}` : '••••'}
                       </div>
                     </td>
                     <td>

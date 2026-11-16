@@ -2584,17 +2584,19 @@ export function TradingCalendar({
               <table className="custom-table" style={{ fontSize: '0.82rem', width: '100%' }}>
                 <thead>
                   <tr>
-                    <th style={{ width: '125px', whiteSpace: 'nowrap' }}>Entry/Exit</th>
+                    <th style={{ width: '120px', whiteSpace: 'nowrap' }}>Entry/Exit</th>
                     <th style={{ whiteSpace: 'nowrap' }}>Symbol</th>
-                    <th style={{ width: '80px' }}>Broker</th>
-                    <th style={{ width: '60px' }}>Action</th>
-                    <th style={{ textAlign: 'right', width: '65px' }}>Qty</th>
-                    <th style={{ textAlign: 'right', width: '75px' }}>Entry</th>
-                    <th style={{ textAlign: 'right', width: '75px' }}>Exit</th>
-                    <th style={{ textAlign: 'right', width: '90px' }}>Gross P&L</th>
-                    <th style={{ textAlign: 'right', width: '100px' }}>Net P&L</th>
-                    <th style={{ minWidth: '100px' }}>Setup/Mistake</th>
-                    <th style={{ minWidth: '350px', width: '40%' }}>Notes / Remarks</th>
+                    <th style={{ width: '75px' }}>Broker</th>
+                    <th style={{ width: '55px' }}>Action</th>
+                    <th style={{ textAlign: 'right', width: '60px' }}>Qty</th>
+                    <th style={{ textAlign: 'right', width: '70px' }}>Entry</th>
+                    <th style={{ textAlign: 'right', width: '70px' }}>Exit</th>
+                    <th style={{ textAlign: 'right', width: '85px' }}>Gross P&L</th>
+                    <th style={{ textAlign: 'right', width: '75px' }}>Brokerage</th>
+                    <th style={{ textAlign: 'right', width: '75px' }}>Charges</th>
+                    <th style={{ textAlign: 'right', width: '90px' }}>Net P&L</th>
+                    <th style={{ minWidth: '95px' }}>Setup/Mistake</th>
+                    <th style={{ minWidth: '280px', width: '32%' }}>Notes / Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2628,16 +2630,14 @@ export function TradingCalendar({
                       <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: t.grossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
                         {t.grossPnL >= 0 ? '+' : ''}{formatCurrency(t.grossPnL)}
                       </td>
-                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                        <div style={{ fontWeight: 700, color: t.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                          {t.netPnL >= 0 ? '+' : ''}{formatCurrency(t.netPnL)}
-                        </div>
-                        <div 
-                          style={{ fontSize: '0.63rem', color: 'var(--text-dim)', marginTop: '2px' }}
-                          title={`Brokerage: ₹${Math.round(t.brokerage || 0)} | Taxes: ₹${Math.round(t.taxes || 0)}`}
-                        >
-                          Chgs: ₹{Math.round((t.brokerage || 0) + (t.taxes || 0))}
-                        </div>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                        ₹{Math.round(t.brokerage || 0)}
+                      </td>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                        ₹{Math.round(t.taxes || 0)}
+                      </td>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: t.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                        {t.netPnL >= 0 ? '+' : ''}{formatCurrency(t.netPnL)}
                       </td>
                       <td>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
@@ -2650,7 +2650,7 @@ export function TradingCalendar({
                       <td style={{ 
                         fontSize: '0.8rem', 
                         color: 'var(--text-main)', 
-                        minWidth: '350px', 
+                        minWidth: '280px', 
                         maxWidth: '650px', 
                         whiteSpace: 'pre-wrap', 
                         wordBreak: 'break-word', 
