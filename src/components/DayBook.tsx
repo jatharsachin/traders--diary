@@ -26,14 +26,15 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
   } = useTradeStore();
 
   const todayStr = new Date().toISOString().split('T')[0];
-  // Default to past 30 days (1 month) range
+  const now = new Date();
+  const currentMonthFirstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const oneMonthAgo = new Date();
   oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
   const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0];
 
-  const [startDate, setStartDate] = useState(oneMonthAgoStr);
+  const [startDate, setStartDate] = useState(currentMonthFirstDay);
   const [endDate, setEndDate] = useState(todayStr);
-  const [selectedPreset, setSelectedPreset] = useState<string>('30days');
+  const [selectedPreset, setSelectedPreset] = useState<string>('month');
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
