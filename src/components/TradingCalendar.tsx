@@ -634,10 +634,10 @@ export function TradingCalendar({
             const dayRoi = summary.deployedCapital > 0 ? (summary.netPnL / summary.deployedCapital) * 100 : 0;
             return (
               <div>
-                <span className="pnl-desktop">
+                <span className="pnl-desktop" style={{ fontSize: '1.04rem', fontWeight: 850, letterSpacing: '-0.015em' }}>
                   {isPnlVisible ? (summary.netPnL > 0 ? '+' : '') : ''}
                   {isPnlVisible ? Math.round(summary.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.76rem', opacity: 0.9, marginLeft: '3px' }}>
+                  <span style={{ fontSize: '0.63rem', fontWeight: 650, opacity: 0.8, marginLeft: '3px' }}>
                     ({summary.netPnL >= 0 ? '+' : ''}{dayRoi.toFixed(1)}%)
                   </span>
                 </span>
@@ -645,7 +645,7 @@ export function TradingCalendar({
                   {isPnlVisible ? formatCompactPnLMobile(summary.netPnL) : (
                     <>
                       ••••
-                      <span style={{ fontSize: '0.68rem', opacity: 0.9, marginLeft: '3px' }}>
+                      <span style={{ fontSize: '0.56rem', fontWeight: 650, opacity: 0.8, marginLeft: '2px' }}>
                         ({summary.netPnL >= 0 ? '+' : ''}{dayRoi.toFixed(1)}%)
                       </span>
                     </>
@@ -1468,10 +1468,10 @@ export function TradingCalendar({
           {hasTrades && (
             <>
               <div>
-                <span className="pnl-desktop">
+                <span className="pnl-desktop" style={{ fontSize: '1.04rem', fontWeight: 850, letterSpacing: '-0.015em' }}>
                   {isPnlVisible ? (w.netPnL > 0 ? '+' : '') : ''}
                   {isPnlVisible ? Math.round(w.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.76rem', opacity: 0.9, marginLeft: '3px' }}>
+                  <span style={{ fontSize: '0.63rem', fontWeight: 650, opacity: 0.8, marginLeft: '3px' }}>
                     ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
                   </span>
                 </span>
@@ -1479,7 +1479,7 @@ export function TradingCalendar({
                   {isPnlVisible ? formatCompactPnLMobile(w.netPnL) : (
                     <>
                       ••••
-                      <span style={{ fontSize: '0.68rem', opacity: 0.9, marginLeft: '3px' }}>
+                      <span style={{ fontSize: '0.56rem', fontWeight: 650, opacity: 0.8, marginLeft: '2px' }}>
                         ({w.netPnL >= 0 ? '+' : ''}{weekRoi.toFixed(1)}%)
                       </span>
                     </>
@@ -1667,10 +1667,10 @@ export function TradingCalendar({
           {hasTrades && (
             <>
               <div>
-                <span className="pnl-desktop">
+                <span className="pnl-desktop" style={{ fontSize: '1.04rem', fontWeight: 850, letterSpacing: '-0.015em' }}>
                   {isPnlVisible ? (m.netPnL > 0 ? '+' : '') : ''}
                   {isPnlVisible ? Math.round(m.netPnL).toLocaleString('en-IN') : '••••'}
-                  <span style={{ fontSize: '0.76rem', opacity: 0.9, marginLeft: '3px' }}>
+                  <span style={{ fontSize: '0.63rem', fontWeight: 650, opacity: 0.8, marginLeft: '3px' }}>
                     ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
                   </span>
                 </span>
@@ -1678,7 +1678,7 @@ export function TradingCalendar({
                   {isPnlVisible ? formatCompactPnLMobile(m.netPnL) : (
                     <>
                       ••••
-                      <span style={{ fontSize: '0.68rem', opacity: 0.9, marginLeft: '3px' }}>
+                      <span style={{ fontSize: '0.56rem', fontWeight: 650, opacity: 0.8, marginLeft: '2px' }}>
                         ({m.netPnL >= 0 ? '+' : ''}{monthRoi.toFixed(1)}%)
                       </span>
                     </>
@@ -3031,8 +3031,9 @@ export function TradingCalendar({
         }
         .day-pnl {
           font-family: var(--font-mono);
-          font-size: 0.95rem;
-          font-weight: 800;
+          font-size: 1.04rem;
+          font-weight: 850;
+          letter-spacing: -0.015em;
           text-align: right;
           color: var(--text-muted);
           width: 100%;
