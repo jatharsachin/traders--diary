@@ -1430,19 +1430,13 @@ export function TradingCalendar({
         onClick={() => setSelectedWeekNum(w.weekNum === selectedWeekNum ? null : w.weekNum)}
         style={{ height: '88px', minHeight: '88px', maxHeight: '88px', boxSizing: 'border-box' }}
       >
-        <span className="day-number" style={{ fontSize: '0.92rem', top: '5px', left: '8px', fontWeight: 800 }}>W{w.weekNum}</span>
-        
-        <div 
-          style={{ 
-            fontSize: '0.78rem', 
-            color: 'var(--text-muted)', 
-            alignSelf: 'flex-start',
-            marginTop: '15px',
-            fontWeight: 650,
-            lineHeight: 1.15
-          }}
-        >
-          {w.formattedRange}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignSelf: 'flex-start' }}>
+          <span style={{ fontSize: '0.94rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.015em', lineHeight: 1.1 }}>
+            W{w.weekNum}
+          </span>
+          <span style={{ fontSize: '0.70rem', fontWeight: 600, color: 'var(--text-muted)', lineHeight: 1 }}>
+            {w.formattedRange}
+          </span>
         </div>
 
         <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', marginTop: 'auto' }}>
@@ -1629,19 +1623,13 @@ export function TradingCalendar({
         onClick={() => setSelectedMonthNum(m.monthNum === selectedMonthNum ? null : m.monthNum)}
         style={{ height: '108px', minHeight: '108px', maxHeight: '108px', boxSizing: 'border-box' }}
       >
-        <span className="day-number" style={{ fontSize: '0.92rem', top: '7px', left: '10px', fontWeight: 800 }}>{m.name}</span>
-        
-        <div 
-          style={{ 
-            fontSize: '0.78rem', 
-            color: 'var(--text-muted)', 
-            alignSelf: 'flex-start',
-            marginTop: '16px',
-            fontWeight: 650,
-            lineHeight: 1.15
-          }}
-        >
-          {m.year}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignSelf: 'flex-start' }}>
+          <span style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.015em', lineHeight: 1.1 }}>
+            {m.name}
+          </span>
+          <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', lineHeight: 1 }}>
+            {m.year}
+          </span>
         </div>
 
         <div className="day-pnl" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', marginTop: 'auto' }}>
@@ -2852,7 +2840,8 @@ export function TradingCalendar({
           height: 88px !important;
           min-height: 88px !important;
           max-height: 88px !important;
-          padding: 6px 9px !important;
+          padding: 7px 10px !important;
+          justify-content: space-between !important;
           box-sizing: border-box !important;
         }
         .calendar-day.weekly-day .day-pnl {
@@ -2865,6 +2854,7 @@ export function TradingCalendar({
             min-height: 80px !important;
             max-height: 80px !important;
             padding: 5px 6px !important;
+            justify-content: space-between !important;
           }
           .calendar-day.weekly-day .day-pnl {
             font-size: 0.92rem;
@@ -2874,7 +2864,8 @@ export function TradingCalendar({
           height: 108px !important;
           min-height: 108px !important;
           max-height: 108px !important;
-          padding: 7px 10px !important;
+          padding: 8px 12px !important;
+          justify-content: space-between !important;
           box-sizing: border-box !important;
         }
         .calendar-day.yearly-day .day-pnl {
