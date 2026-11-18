@@ -1709,15 +1709,18 @@ export default function App() {
                 value={selectedFY}
                 onChange={(e) => setSelectedFY(e.target.value)}
                 style={{
-                  fontSize: '0.78rem',
+                  fontFamily: 'var(--font-sidebar)',
+                  fontSize: '0.80rem',
                   fontWeight: 700,
+                  letterSpacing: '-0.01em',
                   padding: '2px 14px',
                   background: 'var(--bg-card)',
                   color: 'var(--text-main)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '9999px',
                   height: '32px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  outline: 'none'
                 }}
               >
                 {FINANCIAL_YEARS.map((fy) => (

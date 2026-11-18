@@ -121,9 +121,11 @@ export function AccountFilterDropdown({
           display: 'flex',
           alignItems: 'center',
           gap: '7px',
-          padding: '4px 12px',
-          fontSize: '0.78rem',
+          padding: '4px 13px',
+          fontFamily: 'var(--font-sidebar)',
+          fontSize: '0.80rem',
           fontWeight: 650,
+          letterSpacing: '-0.01em',
           height: '32px',
           background: 'var(--bg-card)',
           border: isOpen ? '1px solid var(--primary)' : '1px solid var(--border-color)',
@@ -168,6 +170,7 @@ export function AccountFilterDropdown({
             display: 'flex',
             flexDirection: 'column',
             gap: '2px',
+            fontFamily: 'var(--font-sidebar)',
             animation: 'fadeIn 0.15s ease-out'
           }}
         >

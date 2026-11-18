@@ -2045,8 +2045,8 @@ export function TradingCalendar({
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.25rem' }}>Trading Calendar</h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+          <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-sidebar)', fontWeight: 800, letterSpacing: '-0.025em' }}>Trading Calendar</h2>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'var(--font-sidebar)', letterSpacing: '-0.01em' }}>
             {activePnlTab === 'monthly' && "Daily realized net profit and loss mapping"}
             {activePnlTab === 'weekly' && "Weekly financial year profit and loss mapping"}
             {activePnlTab === 'yearly' && "Monthly financial year profit and loss mapping"}
@@ -2063,7 +2063,7 @@ export function TradingCalendar({
             <ChevronLeft size={16} />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 650, fontSize: '0.95rem', minWidth: '110px', textAlign: 'center' }}>
+            <span style={{ fontFamily: 'var(--font-sidebar)', fontWeight: 750, fontSize: '1.02rem', letterSpacing: '-0.02em', minWidth: '110px', textAlign: 'center' }}>
               {headerTitle}
             </span>
 
@@ -2071,18 +2071,19 @@ export function TradingCalendar({
             <span 
               className="badge"
               style={{
-                fontSize: '0.72rem',
+                fontSize: '0.74rem',
                 fontWeight: 650,
+                fontFamily: 'var(--font-sidebar)',
+                letterSpacing: '-0.01em',
                 backgroundColor: 'rgba(255, 255, 255, 0.04)',
                 color: 'var(--text-main)',
                 border: '1px solid var(--border-color)',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                fontFamily: 'var(--font-mono)'
+                padding: '3px 8px',
+                borderRadius: '6px'
               }}
               title={`Gross Realized P&L for ${headerTitle}`}
             >
-              Gross: <span style={{ color: headerGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700, marginLeft: '2px' }}>
+              Gross: <span style={{ color: headerGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700, marginLeft: '2px', fontFamily: 'var(--font-mono)' }}>
                 {isPnlVisible ? `${headerGrossPnL >= 0 ? '+' : ''}${formatCurrency(headerGrossPnL)}` : '••••'}
               </span>
             </span>
@@ -2091,18 +2092,19 @@ export function TradingCalendar({
             <span 
               className="badge"
               style={{
-                fontSize: '0.72rem',
+                fontSize: '0.74rem',
                 fontWeight: 650,
+                fontFamily: 'var(--font-sidebar)',
+                letterSpacing: '-0.01em',
                 backgroundColor: 'rgba(239, 68, 68, 0.06)',
                 color: 'var(--text-muted)',
                 border: '1px solid rgba(239, 68, 68, 0.2)',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                fontFamily: 'var(--font-mono)'
+                padding: '3px 8px',
+                borderRadius: '6px'
               }}
               title={`Brokerage & Taxes for ${headerTitle}`}
             >
-              Chgs: <span style={{ color: '#f87171', fontWeight: 700, marginLeft: '2px' }}>
+              Chgs: <span style={{ color: '#f87171', fontWeight: 700, marginLeft: '2px', fontFamily: 'var(--font-mono)' }}>
                 {isPnlVisible ? formatCurrency(headerCharges) : '••••'}
               </span>
             </span>
@@ -2111,25 +2113,30 @@ export function TradingCalendar({
             <span 
               className="badge"
               style={{
-                fontSize: '0.75rem',
+                fontSize: '0.76rem',
                 fontWeight: 700,
+                fontFamily: 'var(--font-sidebar)',
+                letterSpacing: '-0.01em',
                 backgroundColor: headerPnL >= 0 ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
                 color: headerPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)',
                 border: `1px solid ${headerPnL >= 0 ? 'var(--color-win-border)' : 'var(--color-loss-border)'}`,
-                padding: '2px 8px',
+                padding: '3px 8px',
                 borderRadius: '6px'
               }}
               title={headerBadgeTitle}
             >
               <>
-                Net: {isPnlVisible ? (
-                  <>
-                    {headerPnL >= 0 ? '+' : ''}{formatCurrency(headerPnL)}
-                  </>
-                ) : (
-                  '••••'
-                )}{' '}
-                ({headerPnL >= 0 ? '+' : ''}{headerRoi.toFixed(1)}%)
+                Net:{' '}
+                <span style={{ fontFamily: 'var(--font-mono)' }}>
+                  {isPnlVisible ? (
+                    <>
+                      {headerPnL >= 0 ? '+' : ''}{formatCurrency(headerPnL)}
+                    </>
+                  ) : (
+                    '••••'
+                  )}{' '}
+                  ({headerPnL >= 0 ? '+' : ''}{headerRoi.toFixed(1)}%)
+                </span>
               </>
             </span>
           </div>
@@ -2148,7 +2155,9 @@ export function TradingCalendar({
               className="btn btn-secondary"
               style={{ 
                 padding: '6px 12px', 
-                fontSize: '0.78rem', 
+                fontSize: '0.80rem', 
+                fontFamily: 'var(--font-sidebar)',
+                letterSpacing: '-0.01em',
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '6px',
@@ -2170,7 +2179,9 @@ export function TradingCalendar({
             className="btn btn-secondary"
             style={{ 
               padding: '6px 12px', 
-              fontSize: '0.78rem', 
+              fontSize: '0.80rem', 
+              fontFamily: 'var(--font-sidebar)',
+              letterSpacing: '-0.01em',
               display: 'flex', 
               alignItems: 'center', 
               gap: '6px',
@@ -2221,9 +2232,11 @@ export function TradingCalendar({
                 style={{
                   border: 'none',
                   borderRadius: '6px',
-                  padding: '5px 12px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
+                  padding: '5px 14px',
+                  fontSize: '0.80rem',
+                  fontFamily: 'var(--font-sidebar)',
+                  letterSpacing: '-0.01em',
+                  fontWeight: 650,
                   textTransform: 'capitalize',
                   cursor: 'pointer',
                   transition: 'all 0.2s var(--transition-ios-ease)',
@@ -2252,9 +2265,11 @@ export function TradingCalendar({
               style={{
                 border: 'none',
                 borderRadius: '6px',
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
+                padding: '5px 14px',
+                fontSize: '0.80rem',
+                fontFamily: 'var(--font-sidebar)',
+                letterSpacing: '-0.01em',
+                fontWeight: 650,
                 cursor: 'pointer',
                 transition: 'all 0.2s var(--transition-ios-ease)',
                 background: calendarViewMode === 'tile' ? 'var(--primary)' : 'transparent',
@@ -2270,9 +2285,11 @@ export function TradingCalendar({
               style={{
                 border: 'none',
                 borderRadius: '6px',
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
+                padding: '5px 14px',
+                fontSize: '0.80rem',
+                fontFamily: 'var(--font-sidebar)',
+                letterSpacing: '-0.01em',
+                fontWeight: 650,
                 cursor: 'pointer',
                 transition: 'all 0.2s var(--transition-ios-ease)',
                 background: calendarViewMode === 'row' ? 'var(--primary)' : 'transparent',
@@ -2375,7 +2392,7 @@ export function TradingCalendar({
               >
                 {stat.value}
               </div>
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '0.64rem', fontFamily: 'var(--font-sidebar)', color: 'var(--text-dim)', fontWeight: 650, letterSpacing: '-0.01em', textAlign: 'center', whiteSpace: 'nowrap' }}>
                 {stat.label}
               </span>
             </div>
@@ -2720,11 +2737,12 @@ export function TradingCalendar({
           margin-bottom: 8px;
         }
         .weekday-header {
+          font-family: var(--font-sidebar);
           font-size: 0.75rem;
-          font-weight: 600;
+          font-weight: 700;
           color: var(--text-muted);
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.08em;
           padding: 6px;
         }
         .calendar-grid {
