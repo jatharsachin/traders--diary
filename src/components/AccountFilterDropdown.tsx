@@ -121,10 +121,10 @@ export function AccountFilterDropdown({
           display: 'flex',
           alignItems: 'center',
           gap: '7px',
-          padding: '4px 13px',
-          fontFamily: 'var(--font-sidebar)',
-          fontSize: '0.80rem',
+          padding: '4px 12px',
+          fontSize: '0.78rem',
           fontWeight: 650,
+          fontFamily: 'var(--font-sans)',
           letterSpacing: '-0.01em',
           height: '32px',
           background: 'var(--bg-card)',
@@ -161,6 +161,7 @@ export function AccountFilterDropdown({
             top: 'calc(100% + 6px)',
             left: 0,
             minWidth: '240px',
+            fontFamily: 'var(--font-sans)',
             background: 'var(--bg-tooltip-opaque)',
             border: '1.5px solid var(--border-color)',
             borderRadius: '14px',
@@ -170,7 +171,6 @@ export function AccountFilterDropdown({
             display: 'flex',
             flexDirection: 'column',
             gap: '2px',
-            fontFamily: 'var(--font-sidebar)',
             animation: 'fadeIn 0.15s ease-out'
           }}
         >

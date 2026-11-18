@@ -90,7 +90,7 @@ html {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
 }
 
-body, input, select, textarea, button, table, td, th {
+body, input, select, textarea, button, table, td, th, h1, h2, h3, h4, h5, h6, .btn, .badge {
   font-family: var(--font-sans);
 }
 
@@ -178,9 +178,8 @@ body {
 }
 
 h1, h2, h3, h4 {
-  font-family: var(--font-sidebar);
-  font-weight: 750;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  letter-spacing: -0.022em;
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -265,10 +264,8 @@ h1, h2, h3, h4 {
   align-items: center;
   padding: 3px 8px;
   border-radius: 9999px;
-  font-family: var(--font-sidebar);
   font-size: 0.72rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -495,10 +492,8 @@ h1, h2, h3, h4 {
   gap: 6px;
   padding: 6px 13px;
   height: 32px;
-  font-family: var(--font-sidebar);
-  font-weight: 650;
-  font-size: 0.78rem;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  font-size: 0.76rem;
   border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;

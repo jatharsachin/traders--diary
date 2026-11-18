@@ -1019,6 +1019,8 @@ export default function App() {
                     style={{
                       fontSize: '1.1rem',
                       fontWeight: 800,
+                      fontFamily: 'var(--font-sans)',
+                      letterSpacing: '-0.02em',
                       padding: '2px 10px',
                       background: 'var(--bg-card)',
                       color: 'var(--text-main)',
@@ -1026,7 +1028,6 @@ export default function App() {
                       borderRadius: '8px',
                       outline: 'none',
                       cursor: 'pointer',
-                      fontFamily: 'inherit',
                       transition: 'all 0.15s ease',
                       marginLeft: '8px',
                       height: '34px',
@@ -1709,9 +1710,9 @@ export default function App() {
                 value={selectedFY}
                 onChange={(e) => setSelectedFY(e.target.value)}
                 style={{
-                  fontFamily: 'var(--font-sidebar)',
-                  fontSize: '0.80rem',
+                  fontSize: '0.78rem',
                   fontWeight: 700,
+                  fontFamily: 'var(--font-sans)',
                   letterSpacing: '-0.01em',
                   padding: '2px 14px',
                   background: 'var(--bg-card)',
@@ -1719,8 +1720,7 @@ export default function App() {
                   border: '1px solid var(--border-color)',
                   borderRadius: '9999px',
                   height: '32px',
-                  cursor: 'pointer',
-                  outline: 'none'
+                  cursor: 'pointer'
                 }}
               >
                 {FINANCIAL_YEARS.map((fy) => (
