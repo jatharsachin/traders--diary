@@ -257,6 +257,8 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
     { name: 'Stocks', value: activeInvestments.filter(i => i.type === 'EQUITY').reduce((acc, i) => acc + (i.currentPrice * i.qty), 0), color: '#ff9500' }
   ].filter(item => item.value > 0);
 
+  const totalAllocationWealth = pieChartData.reduce((sum, item) => sum + item.value, 0);
+
   return (
     <div className="animate-tab-panel grid-2col-12-2" style={{ alignItems: 'start', gap: '24px' }}>
       
@@ -305,12 +307,12 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
         </div>
 
         {/* Allocation Pie Chart */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        <div className="glass-card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
           <h3 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <BarChart2 size={15} color="var(--primary)" />
             Asset Allocation Ratio
           </h3>
-          <div style={{ height: '140px' }}>
+          <div style={{ height: '145px' }}>
             {pieChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -318,17 +320,17 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
                     data={pieChartData}
                     cx="50%"
                     cy="45%"
-                    innerRadius={30}
-                    outerRadius={45}
-                    paddingAngle={3}
+                    innerRadius={36}
+                    outerRadius={52}
+                    paddingAngle={4}
                     dataKey="value"
                   >
                     {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
-                  <Legend iconSize={6} iconType="circle" wrapperStyle={{ fontSize: '0.68rem' }} />
+                  <Legend iconSize={7} iconType="circle" wrapperStyle={{ fontSize: '0.7rem' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -337,6 +339,40 @@ export function AccountManager({ activeAccountId }: AccountManagerProps) {
               </div>
             )}
           </div>
+
+          {pieChartData.length > 0 && (
+            <div style={{ marginTop: '14px', borderTop: '1px solid var(--border-color)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {pieChartData.map((item) => {
+                const pct = totalAllocationWealth > 0 ? (item.value / totalAllocationWealth) * 100 : 0;
+                return (
+                  <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem' }}>
+                      <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.color, boxShadow: `0 0 6px ${item.color}` }} />
+                        {item.name}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 650 }}>
+                        {isPnlVisible ? `₹${Math.round(item.value).toLocaleString('en-IN')}` : '••••'}
+                        <span style={{ marginLeft: '4px', color: item.color, fontWeight: 700 }}>({pct.toFixed(1)}%)</span>
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '9999px', overflow: 'hidden' }}>
+                      <div 
+                        style={{ 
+                          width: `${pct}%`, 
+                          height: '100%', 
+                          background: item.color,
+                          borderRadius: '9999px',
+                          boxShadow: `0 0 8px ${item.color}88`,
+                          transition: 'width 0.4s ease'
+                        }} 
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
       </div>

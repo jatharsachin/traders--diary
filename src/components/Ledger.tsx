@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download, ArrowUpDown, ArrowLeftRight
+  Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download, ArrowUpDown, ArrowLeftRight,
+  Coins, TrendingUp, Wallet, Scale
 } from 'lucide-react';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { getBankLogoSvg } from '../utils/brandLogos';
@@ -957,7 +958,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
             return (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
                 {/* Card 1: Carry Forward */}
-                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px' }}>
+                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', position: 'relative', overflow: 'hidden' }}>
+                  <Coins size={52} style={{ position: 'absolute', right: -6, bottom: -8, opacity: 0.06, color: 'var(--text-main)', pointerEvents: 'none' }} />
                   <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
                     Opening Carry Forward
                   </span>
@@ -970,7 +972,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 </div>
 
                 {/* Card 2: Realized Gross P&L */}
-                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px' }}>
+                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', position: 'relative', overflow: 'hidden' }}>
+                  <TrendingUp size={52} style={{ position: 'absolute', right: -6, bottom: -8, opacity: 0.06, color: monthlyGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', pointerEvents: 'none' }} />
                   <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
                     Realized Gross P&L
                   </span>
@@ -983,7 +986,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 </div>
 
                 {/* Card 3: Total Charges */}
-                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px' }}>
+                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', position: 'relative', overflow: 'hidden' }}>
+                  <Receipt size={52} style={{ position: 'absolute', right: -6, bottom: -8, opacity: 0.06, color: 'var(--color-loss)', pointerEvents: 'none' }} />
                   <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
                     Brokerage & Taxes
                   </span>
@@ -996,7 +1000,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 </div>
 
                 {/* Card 4: Net Month Impact */}
-                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px' }}>
+                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', position: 'relative', overflow: 'hidden' }}>
+                  <Scale size={52} style={{ position: 'absolute', right: -6, bottom: -8, opacity: 0.06, color: monthlyNetImpact >= 0 ? 'var(--color-win)' : 'var(--color-loss)', pointerEvents: 'none' }} />
                   <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 650 }}>
                     Net Month Impact
                   </span>
@@ -1009,7 +1014,8 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
                 </div>
 
                 {/* Card 5: Closing Balance */}
-                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.04)', borderColor: 'rgba(56, 189, 248, 0.25)' }}>
+                <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', position: 'relative', overflow: 'hidden', background: 'rgba(56, 189, 248, 0.04)', borderColor: 'rgba(56, 189, 248, 0.25)' }}>
+                  <Wallet size={52} style={{ position: 'absolute', right: -6, bottom: -8, opacity: 0.08, color: '#38bdf8', pointerEvents: 'none' }} />
                   <span style={{ fontSize: '0.62rem', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
                     Closing Month Balance
                   </span>

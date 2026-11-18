@@ -74,6 +74,9 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
     return null;
   };
 
+  const isOverallWin = equityData.length > 0 ? (equityData[equityData.length - 1].tradingPnL >= 0) : true;
+  const curveColor = isOverallWin ? '#30d158' : '#ff453a';
+
   return (
     <div className="glass-card" style={{ padding: '24px', marginBottom: '14px' }}>
       {/* Header controls layout matching the premium design */}
@@ -148,7 +151,7 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ height: '3px', width: '20px', background: 'var(--color-win)', borderRadius: '2px', display: 'inline-block' }}></span>
+            <span style={{ height: '3px', width: '20px', background: curveColor, borderRadius: '2px', display: 'inline-block', boxShadow: `0 0 6px ${curveColor}` }}></span>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
               Capital Equity Curve (Manual Logs)
             </span>
@@ -160,13 +163,13 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
         <ResponsiveContainer>
           <AreaChart data={equityData} margin={{ top: 12, right: 12, left: 10, bottom: 0 }}>
             <defs>
-              <linearGradient id="colorGreenTrading" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#30d158" stopOpacity={0.32}/>
-                <stop offset="45%" stopColor="#10b981" stopOpacity={0.12}/>
-                <stop offset="100%" stopColor="#10b981" stopOpacity={0.0}/>
+              <linearGradient id="colorDynamicTrading" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={curveColor} stopOpacity={0.34}/>
+                <stop offset="45%" stopColor={curveColor} stopOpacity={0.10}/>
+                <stop offset="100%" stopColor={curveColor} stopOpacity={0.0}/>
               </linearGradient>
               <filter id="equityCurveGlow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="3" stdDeviation="4.5" floodColor="#30d158" floodOpacity="0.45"/>
+                <feDropShadow dx="0" dy="3" stdDeviation="5" floodColor={curveColor} floodOpacity={0.5}/>
               </filter>
             </defs>
             <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.03)" />
@@ -200,18 +203,18 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
               }} 
             />
             <Tooltip 
-              cursor={{ stroke: 'rgba(48,209,88,0.35)', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+              cursor={{ stroke: `${curveColor}66`, strokeWidth: 1.5, strokeDasharray: '4 4' }}
               content={<CustomEquityTooltip />} 
             />
             <Area 
               type="monotone" 
               dataKey="tradingPnL" 
               name="Value" 
-              stroke="#30d158" 
+              stroke={curveColor} 
               strokeWidth={2.8} 
               filter="url(#equityCurveGlow)"
               fillOpacity={1} 
-              fill="url(#colorGreenTrading)" 
+              fill="url(#colorDynamicTrading)" 
             />
           </AreaChart>
         </ResponsiveContainer>

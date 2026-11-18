@@ -262,7 +262,6 @@ export default function App() {
     investments: allInvestments,
     syncAllInvestmentPrices,
     bankAccounts,
-    dailyNotes,
   } = useTradeStore();
 
   const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
@@ -399,7 +398,6 @@ export default function App() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   })();
   const todayTradesCount = filteredTrades.filter(t => (t.exitDate || t.date) === currentTodayDateStr).length;
-  const notesCount = Object.keys(dailyNotes || {}).length;
 
 
   // Dynamic Alert / Notification Center calculations
@@ -823,9 +821,6 @@ export default function App() {
             >
               <BookOpenCheck size={17} color={activeTab === 'mistakes' ? '#fff' : '#38bdf8'} />
               <span className="hide-collapsed">Journal & Notes</span>
-              {notesCount > 0 && (
-                <span className="hide-collapsed sidebar-counter-badge">{notesCount}</span>
-              )}
             </button>
 
             {/* Portfolio & Audit */}

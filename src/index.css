@@ -262,23 +262,33 @@ h1, h2, h3, h4 {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Scrollbar */
+/* Custom Ultra-Sleek Floating Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-color);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 120, 120, 0.18);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.13);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 120, 120, 0.3);
+  background: rgba(10, 132, 255, 0.55);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* iOS Segmented Tab Navigation Control */
@@ -1672,22 +1682,20 @@ h1, h2, h3, h4 {
    Deep Apple OS / WalletPulse Native Styling
    ========================================== */
 
-/* Authentic Apple macOS Page Entrance Animation */
+/* Authentic Apple macOS / VisionOS Fluid Page Entrance Animation */
 @keyframes iosPageSlideIn {
   0% {
     opacity: 0;
-    transform: translateY(14px) scale(0.992);
-    filter: blur(6px);
+    transform: translateY(6px) scale(0.996);
   }
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
-    filter: blur(0px);
   }
 }
 
 .ios-page-enter {
-  animation: iosPageSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: iosPageSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* macOS Sequoia Window Traffic Light Dots */
