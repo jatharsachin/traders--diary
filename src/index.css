@@ -45,6 +45,41 @@
   --bg-tooltip-opaque: #1c1c1e;
 }
 
+/* Pulsing Live Market & P&L Dot Animation */
+@keyframes livePulseDotGreen {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+    box-shadow: 0 0 0 0 rgba(48, 209, 88, 0.75);
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+    box-shadow: 0 0 0 5px rgba(48, 209, 88, 0);
+  }
+}
+
+@keyframes livePulseDotRed {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+    box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.75);
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+    box-shadow: 0 0 0 5px rgba(255, 69, 58, 0);
+  }
+}
+
+.live-pulse-dot-green {
+  animation: livePulseDotGreen 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.live-pulse-dot-red {
+  animation: livePulseDotRed 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
 
 /* Background Ambient Aurora Mesh Lighting */
 @keyframes auroraBreathe {

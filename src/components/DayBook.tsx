@@ -3,7 +3,8 @@ import { formatTimeToAMPM, getFinancialYear } from '../utils/fyHelper';
 import { groupHedgedTrades } from '../utils/tradeGrouping';
 import { useTradeStore } from '../store/useTradeStore';
 import { 
-  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown, BookOpen
+  CalendarRange, Printer, Eye, EyeOff, Edit2, ArrowUpDown, BookOpen,
+  Coins, TrendingUp, ArrowDownUp, Receipt, Wallet
 } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
@@ -766,7 +767,8 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
           marginBottom: '14px' 
         }}
       >
-        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)', position: 'relative', overflow: 'hidden' }}>
+          <Coins size={48} color="var(--text-main)" style={{ position: 'absolute', right: '-6px', bottom: '-6px', opacity: 0.05, pointerEvents: 'none' }} />
           <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Opening Balance
           </span>
@@ -778,7 +780,8 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
           </span>
         </div>
 
-        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)', position: 'relative', overflow: 'hidden' }}>
+          <TrendingUp size={48} color={netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'} style={{ position: 'absolute', right: '-6px', bottom: '-6px', opacity: 0.06, pointerEvents: 'none' }} />
           <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Trading P&L
           </span>
@@ -797,7 +800,8 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
           </span>
         </div>
 
-        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)', position: 'relative', overflow: 'hidden' }}>
+          <ArrowDownUp size={48} color="var(--primary)" style={{ position: 'absolute', right: '-6px', bottom: '-6px', opacity: 0.05, pointerEvents: 'none' }} />
           <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Capital Flows
           </span>
@@ -816,7 +820,8 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
           </span>
         </div>
 
-        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.015)', position: 'relative', overflow: 'hidden' }}>
+          <Receipt size={48} color="var(--color-loss)" style={{ position: 'absolute', right: '-6px', bottom: '-6px', opacity: 0.05, pointerEvents: 'none' }} />
           <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Paid Charges
           </span>
@@ -835,7 +840,8 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
           </span>
         </div>
 
-        <div className="glass-card" style={{ padding: '10px 14px', background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', background: 'var(--primary-glow)', border: '1px solid var(--border-color-active)', position: 'relative', overflow: 'hidden' }}>
+          <Wallet size={48} color="var(--primary)" style={{ position: 'absolute', right: '-6px', bottom: '-6px', opacity: 0.08, pointerEvents: 'none' }} />
           <span style={{ fontSize: '0.62rem', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 650 }}>
             Closing Balance
           </span>
@@ -901,14 +907,18 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
                           style={{ 
                             padding: '12px 10px', 
                             verticalAlign: 'middle', 
-                            width: '110px', 
-                            minWidth: '110px', 
+                            width: '120px', 
+                            minWidth: '120px', 
                             whiteSpace: 'nowrap',
-                            borderRight: '1px solid var(--border-color)',
-                            background: 'var(--bg-card-hover)'
+                            borderRight: '1.5px solid rgba(10, 132, 255, 0.25)',
+                            background: 'linear-gradient(90deg, var(--bg-card) 0%, rgba(10, 132, 255, 0.05) 100%)',
+                            position: 'relative'
                           }}
                         >
-                          <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.8rem' }}>{group.date}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 8px var(--primary-glow), 0 0 4px var(--primary)', flexShrink: 0 }} />
+                            <div style={{ fontWeight: 750, color: 'var(--text-main)', fontSize: '0.8rem' }}>{group.date}</div>
+                          </div>
                         </td>
                       )}
                       <td style={{ padding: '12px 10px', verticalAlign: 'middle' }} onClick={(e) => e.stopPropagation()}>

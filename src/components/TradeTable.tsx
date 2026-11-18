@@ -632,33 +632,56 @@ export function TradeTable({
       {/* Top Summary Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px', marginBottom: '14px' }}>
         {/* Card 1: Total Trades & Win Rate */}
-        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', position: 'relative', overflow: 'hidden' }}>
+          <Layers size={58} color="var(--primary)" style={{ position: 'absolute', right: '-8px', bottom: '-8px', opacity: 0.05, pointerEvents: 'none' }} />
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Layers size={13} color="var(--primary)" />
             <span>Filtered Trades</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
-            <span style={{ fontSize: '1.2rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
-              {summaryStats.total}
-            </span>
-            <span style={{ fontSize: '0.72rem', color: summaryStats.winRate >= 50 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700 }}>
-              {summaryStats.winRate}% Win Rate
-            </span>
-          </div>
-          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-            🟢 {summaryStats.wins} Wins • 🔴 {summaryStats.losses} Losses
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '4px' }}>
+            <div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+                {summaryStats.total}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                🟢 {summaryStats.wins} Wins • 🔴 {summaryStats.losses} Losses
+              </div>
+            </div>
+            {/* Circular Win Rate Gauge */}
+            <div style={{ position: 'relative', width: '38px', height: '38px', flexShrink: 0 }}>
+              <svg width="38" height="38" viewBox="0 0 38 38">
+                <circle cx="19" cy="19" r="15" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3.5" />
+                <circle 
+                  cx="19" 
+                  cy="19" 
+                  r="15" 
+                  fill="none" 
+                  stroke={summaryStats.winRate >= 50 ? '#34d399' : '#f87171'} 
+                  strokeWidth="3.5" 
+                  strokeDasharray={94.2}
+                  strokeDashoffset={94.2 - (94.2 * (summaryStats.winRate || 0)) / 100}
+                  strokeLinecap="round"
+                  transform="rotate(-90 19 19)"
+                  style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                />
+              </svg>
+              <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.62rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: summaryStats.winRate >= 50 ? '#34d399' : '#f87171' }}>
+                {summaryStats.winRate}%
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Card 2: Net Realized P&L */}
-        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', position: 'relative', overflow: 'hidden' }}>
+          <TrendingUp size={58} color={summaryStats.net >= 0 ? 'var(--color-win)' : 'var(--color-loss)'} style={{ position: 'absolute', right: '-8px', bottom: '-8px', opacity: 0.06, pointerEvents: 'none' }} />
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
             {summaryStats.net >= 0 ? <TrendingUp size={13} color="var(--color-win)" /> : <TrendingDown size={13} color="var(--color-loss)" />}
             <span>Net Realized P&L</span>
           </div>
           <div style={{ marginTop: '4px' }}>
             <span style={{ 
-              fontSize: '1.2rem', 
+              fontSize: '1.25rem', 
               fontWeight: 800, 
               fontFamily: 'var(--font-mono)',
               color: !isPnlVisible ? 'var(--text-dim)' : summaryStats.net >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
@@ -676,14 +699,15 @@ export function TradeTable({
         </div>
 
         {/* Card 3: Total Charges & Brokerage */}
-        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+        <div className="glass-card" style={{ padding: '10px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', position: 'relative', overflow: 'hidden' }}>
+          <Clock size={58} color="#ff9500" style={{ position: 'absolute', right: '-8px', bottom: '-8px', opacity: 0.05, pointerEvents: 'none' }} />
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Clock size={13} color="var(--text-dim)" />
             <span>Total Charges</span>
           </div>
           <div style={{ marginTop: '4px' }}>
             <span style={{ 
-              fontSize: '1.2rem', 
+              fontSize: '1.25rem', 
               fontWeight: 800, 
               fontFamily: 'var(--font-mono)',
               color: !isPnlVisible ? 'var(--text-dim)' : '#ff9500'
@@ -1251,9 +1275,10 @@ export function TradeTable({
                               fontSize: '0.62rem', 
                               padding: '1px 6px',
                               fontWeight: 700,
-                              backgroundColor: trade.optionType === 'CE' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: trade.optionType === 'CE' ? 'var(--color-win)' : 'var(--color-loss)',
-                              border: `1px solid ${trade.optionType === 'CE' ? 'var(--color-win-border)' : 'var(--color-loss-border)'}`
+                              backgroundColor: trade.optionType === 'CE' ? 'rgba(10, 132, 255, 0.16)' : 'rgba(191, 90, 242, 0.16)',
+                              color: trade.optionType === 'CE' ? '#60a5fa' : '#c084fc',
+                              border: `1px solid ${trade.optionType === 'CE' ? 'rgba(10, 132, 255, 0.38)' : 'rgba(191, 90, 242, 0.38)'}`,
+                              boxShadow: `0 0 8px ${trade.optionType === 'CE' ? 'rgba(10, 132, 255, 0.22)' : 'rgba(191, 90, 242, 0.22)'}`
                             }}
                           >
                             {trade.optionType}
@@ -1307,7 +1332,18 @@ export function TradeTable({
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{trade.product}</div>
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <span className={`badge ${trade.action === 'BUY' ? 'badge-win' : 'badge-loss'}`} style={{ padding: '2px 8px', fontSize: '0.72rem' }}>
+                      <span 
+                        className="badge" 
+                        style={{ 
+                          padding: '2px 8px', 
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          backgroundColor: trade.action === 'BUY' ? 'rgba(48, 209, 88, 0.14)' : 'rgba(245, 158, 11, 0.14)',
+                          color: trade.action === 'BUY' ? '#34d399' : '#fbbf24',
+                          border: `1px solid ${trade.action === 'BUY' ? 'rgba(48, 209, 88, 0.38)' : 'rgba(245, 158, 11, 0.38)'}`,
+                          boxShadow: `0 0 8px ${trade.action === 'BUY' ? 'rgba(48, 209, 88, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`
+                        }}
+                      >
                         {trade.action}
                       </span>
                     </td>
@@ -1331,7 +1367,21 @@ export function TradeTable({
                     </td>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        <span style={{ fontSize: '0.72rem' }}>Mood: {trade.emotion}</span>
+                        <span style={{ 
+                          fontSize: '0.72rem', 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '4px',
+                          color: trade.emotion === 'Calm' ? '#34d399' : (trade.emotion === 'Fearful' ? '#f87171' : 'var(--text-main)'),
+                          fontWeight: 600
+                        }}>
+                          {trade.emotion === 'Calm' && '🧘'}
+                          {trade.emotion === 'Fearful' && '⚡'}
+                          {trade.emotion === 'Greedy' && '🤑'}
+                          {trade.emotion === 'Revengeful' && '🔥'}
+                          {trade.emotion === 'Impatient' && '⏳'}
+                          <span>{trade.emotion || 'Neutral'}</span>
+                        </span>
                         {getTradeMistakes(trade).length > 0 ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {getTradeMistakes(trade).map((m) => (

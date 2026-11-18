@@ -2629,12 +2629,35 @@ export function TradingCalendar({
                           <div style={{ fontSize: '0.62rem', color: '#60a5fa', fontWeight: 600 }}>Entry: {t.date}</div>
                         )}
                       </td>
-                      <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{t.symbol}</td>
+                      <td style={{ fontWeight: 650, whiteSpace: 'nowrap' }}>
+                        <span>{t.symbol}</span>
+                        {t.symbol.includes(' CE') && (
+                          <span className="badge" style={{ marginLeft: '6px', fontSize: '0.6rem', padding: '1px 5px', fontWeight: 700, background: 'rgba(10, 132, 255, 0.16)', color: '#60a5fa', border: '1px solid rgba(10, 132, 255, 0.38)', boxShadow: '0 0 6px rgba(10, 132, 255, 0.22)' }}>
+                            CE
+                          </span>
+                        )}
+                        {t.symbol.includes(' PE') && (
+                          <span className="badge" style={{ marginLeft: '6px', fontSize: '0.6rem', padding: '1px 5px', fontWeight: 700, background: 'rgba(191, 90, 242, 0.16)', color: '#c084fc', border: '1px solid rgba(191, 90, 242, 0.38)', boxShadow: '0 0 6px rgba(191, 90, 242, 0.22)' }}>
+                            PE
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <BrokerBadge broker={t.broker} />
                       </td>
                       <td>
-                        <span className={`badge ${t.action === 'BUY' ? 'badge-win' : 'badge-loss'}`} style={{ padding: '2px 6px', fontSize: '0.65rem' }}>
+                        <span 
+                          className="badge" 
+                          style={{ 
+                            padding: '2px 7px', 
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            backgroundColor: t.action === 'BUY' ? 'rgba(48, 209, 88, 0.14)' : 'rgba(245, 158, 11, 0.14)',
+                            color: t.action === 'BUY' ? '#34d399' : '#fbbf24',
+                            border: `1px solid ${t.action === 'BUY' ? 'rgba(48, 209, 88, 0.38)' : 'rgba(245, 158, 11, 0.38)'}`,
+                            boxShadow: `0 0 6px ${t.action === 'BUY' ? 'rgba(48, 209, 88, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`
+                          }}
+                        >
                           {t.action}
                         </span>
                       </td>
@@ -2654,8 +2677,20 @@ export function TradingCalendar({
                         {t.netPnL >= 0 ? '+' : ''}{formatCurrency(t.netPnL)}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          <span className="badge badge-neutral" style={{ padding: '2px 5px', fontSize: '0.62rem' }}>{t.emotion}</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                          <span 
+                            className="badge badge-neutral" 
+                            style={{ 
+                              padding: '2px 6px', 
+                              fontSize: '0.64rem',
+                              fontWeight: 650,
+                              background: t.emotion === 'Calm' ? 'rgba(48, 209, 88, 0.12)' : (t.emotion === 'Fearful' ? 'rgba(255, 69, 58, 0.12)' : 'rgba(255,255,255,0.05)'),
+                              color: t.emotion === 'Calm' ? '#34d399' : (t.emotion === 'Fearful' ? '#f87171' : 'var(--text-main)'),
+                              border: `1px solid ${t.emotion === 'Calm' ? 'rgba(48, 209, 88, 0.3)' : (t.emotion === 'Fearful' ? 'rgba(255, 69, 58, 0.3)' : 'var(--border-color)')}`
+                            }}
+                          >
+                            {t.emotion === 'Calm' ? '🧘 Calm' : (t.emotion === 'Fearful' ? '⚡ Fear' : t.emotion)}
+                          </span>
                           {getTradeMistakes(t).length > 0 && (
                             <span className="badge badge-loss" style={{ padding: '2px 5px', fontSize: '0.62rem' }}>{formatTradeMistakes(t)}</span>
                           )}

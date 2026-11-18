@@ -1770,12 +1770,14 @@ export default function App() {
                 return (
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
                     <span 
+                      className={todayPnL !== null ? (isProfit ? 'live-pulse-dot-green' : 'live-pulse-dot-red') : ''}
                       style={{ 
-                        width: '6px', 
-                        height: '6px', 
+                        width: '7px', 
+                        height: '7px', 
                         borderRadius: '50%', 
                         background: todayPnL === null ? '#888' : isProfit ? 'var(--color-win)' : 'var(--color-loss)',
-                        boxShadow: todayPnL === null ? 'none' : isProfit ? '0 0 6px var(--color-win)' : '0 0 6px var(--color-loss)'
+                        boxShadow: todayPnL === null ? 'none' : isProfit ? '0 0 8px var(--color-win)' : '0 0 8px var(--color-loss)',
+                        flexShrink: 0
                       }}
                     />
                     <span>Today's P&L:</span>
@@ -1791,7 +1793,17 @@ export default function App() {
 
               {/* Nifty */}
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isMarketOpen() ? 'var(--color-win)' : 'var(--color-loss)', boxShadow: isMarketOpen() ? '0 0 6px var(--color-win)' : '0 0 6px var(--color-loss)' }} />
+                <span 
+                  className={isMarketOpen() ? 'live-pulse-dot-green' : 'live-pulse-dot-red'}
+                  style={{ 
+                    width: '7px', 
+                    height: '7px', 
+                    borderRadius: '50%', 
+                    background: isMarketOpen() ? 'var(--color-win)' : 'var(--color-loss)', 
+                    boxShadow: isMarketOpen() ? '0 0 8px var(--color-win)' : '0 0 8px var(--color-loss)',
+                    flexShrink: 0 
+                  }} 
+                />
                 <span>NIFTY:</span>
                 <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                   {niftyPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
