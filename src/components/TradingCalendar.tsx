@@ -1873,15 +1873,15 @@ export function TradingCalendar({
     const totalCharges = rows.reduce((sum, r) => sum + r.charges, 0);
 
     return (
-      <div className="table-container" style={{ maxHeight: '450px', overflowY: 'auto' }}>
-        <table className="custom-table" style={{ width: '100%', fontSize: '0.85rem' }}>
+      <div className="table-container" style={{ width: '100%', minHeight: '480px', overflowX: 'auto', overflowY: 'visible' }}>
+        <table className="custom-table" style={{ width: '100%', fontSize: '0.86rem' }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'center' }}>No. of Trades</th>
-              <th style={{ textAlign: 'right' }}>Overall P&L</th>
-              <th style={{ textAlign: 'right' }}>Net P&L</th>
-              <th style={{ textAlign: 'right' }}>Charges</th>
+              <th style={{ textAlign: 'left', padding: '11px 16px' }}>Name</th>
+              <th style={{ textAlign: 'center', padding: '11px 16px' }}>No. of Trades</th>
+              <th style={{ textAlign: 'right', padding: '11px 16px' }}>Overall P&L</th>
+              <th style={{ textAlign: 'right', padding: '11px 16px' }}>Net P&L</th>
+              <th style={{ textAlign: 'right', padding: '11px 16px' }}>Charges</th>
             </tr>
           </thead>
           <tbody>
@@ -1891,16 +1891,17 @@ export function TradingCalendar({
                 onClick={row.onClick}
                 style={{ 
                   cursor: 'pointer',
-                  transition: 'background-color 0.2s ease'
+                  transition: 'all 0.18s ease'
                 }}
                 className={row.isSelected ? 'selected-row' : ''}
               >
-                <td style={{ fontWeight: 600 }}>{row.name}</td>
-                <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)' }}>{row.tradeCount}</td>
+                <td style={{ fontWeight: 650, padding: '11px 16px' }}>{row.name}</td>
+                <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', padding: '11px 16px' }}>{row.tradeCount}</td>
                 <td style={{ 
                   textAlign: 'right', 
                   fontFamily: 'var(--font-mono)', 
-                  fontWeight: 600,
+                  fontWeight: 650,
+                  padding: '11px 16px',
                   color: !isPnlVisible ? 'var(--text-dim)' : row.grossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
                 }}>
                   {isPnlVisible ? `${row.grossPnL >= 0 ? '+' : ''}${formatCurrency(row.grossPnL)}` : '••••'}
@@ -1908,12 +1909,14 @@ export function TradingCalendar({
                 <td style={{ 
                   textAlign: 'right', 
                   fontFamily: 'var(--font-mono)', 
-                  fontWeight: 700,
+                  fontWeight: 750,
+                  fontSize: '0.92rem',
+                  padding: '11px 16px',
                   color: !isPnlVisible ? 'var(--text-dim)' : row.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
                 }}>
                   {isPnlVisible ? `${row.netPnL >= 0 ? '+' : ''}${formatCurrency(row.netPnL)}` : '••••'}
                 </td>
-                <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', padding: '11px 16px' }}>
                   {formatCurrency(row.charges)}
                 </td>
               </tr>
@@ -1923,21 +1926,22 @@ export function TradingCalendar({
             <tr 
               style={{ 
                 borderTop: '2px solid var(--border-color)', 
-                background: 'rgba(255, 255, 255, 0.03)', 
+                background: 'rgba(255, 255, 255, 0.04)', 
                 fontWeight: 700 
               }}
             >
-              <td style={{ fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+              <td style={{ fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: '0.8rem', color: 'var(--text-main)', padding: '12px 16px' }}>
                 Total Summary
               </td>
-              <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.9rem', color: 'var(--primary)' }}>
+              <td style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.92rem', color: 'var(--primary)', padding: '12px 16px' }}>
                 {totalTradeCount}
               </td>
               <td style={{ 
                 textAlign: 'right', 
                 fontFamily: 'var(--font-mono)', 
                 fontWeight: 800,
-                fontSize: '0.9rem',
+                fontSize: '0.92rem',
+                padding: '12px 16px',
                 color: !isPnlVisible ? 'var(--text-dim)' : totalGrossPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
               }}>
                 {isPnlVisible ? `${totalGrossPnL >= 0 ? '+' : ''}${formatCurrency(totalGrossPnL)}` : '••••'}
@@ -1946,12 +1950,13 @@ export function TradingCalendar({
                 textAlign: 'right', 
                 fontFamily: 'var(--font-mono)', 
                 fontWeight: 850,
-                fontSize: '0.95rem',
+                fontSize: '0.98rem',
+                padding: '12px 16px',
                 color: !isPnlVisible ? 'var(--text-dim)' : totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
               }}>
                 {isPnlVisible ? `${totalNetPnL >= 0 ? '+' : ''}${formatCurrency(totalNetPnL)}` : '••••'}
               </td>
-              <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-muted)', padding: '12px 16px' }}>
                 {formatCurrency(totalCharges)}
               </td>
             </tr>
