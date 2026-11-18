@@ -28,6 +28,7 @@
   
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, "Fira Code", monospace;
+  --font-sidebar: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   
   --transition-fast: 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
   --transition-normal: 0.35s cubic-bezier(0.25, 1, 0.3, 1);
@@ -221,8 +222,10 @@ h1, h2, h3, h4 {
   background: transparent;
   border: none;
   color: var(--text-muted);
+  font-family: var(--font-sidebar);
   font-weight: 600;
   font-size: 0.85rem;
+  letter-spacing: -0.01em;
   padding: 8px 18px;
   cursor: pointer;
   border-radius: 9999px;
@@ -1227,6 +1230,9 @@ h1, h2, h3, h4 {
   flex-shrink: 0;
   z-index: 100;
   overflow-y: auto;
+  font-family: var(--font-sidebar);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s ease;
 }
 
@@ -1265,6 +1271,13 @@ h1, h2, h3, h4 {
   gap: 10px;
   padding-bottom: 12px;
   border-bottom: 1.5px solid var(--border-color);
+  font-family: var(--font-sidebar);
+}
+
+.sidebar-brand h1 {
+  font-family: var(--font-sidebar) !important;
+  font-weight: 800;
+  letter-spacing: -0.025em;
 }
 
 .sidebar-menu {
@@ -1273,6 +1286,17 @@ h1, h2, h3, h4 {
   gap: 4px;
   flex-grow: 1;
   margin-top: 12px;
+}
+
+.sidebar-section-title {
+  font-family: var(--font-sidebar);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #8e98a8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-left: 8px;
+  user-select: none;
 }
 
 @keyframes iosPillGlide {
@@ -1294,15 +1318,19 @@ h1, h2, h3, h4 {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 16px;
+  padding: 9px 15px;
   border-radius: 9999px;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-muted);
+  color: #9da9bb;
   cursor: pointer;
   text-align: left;
-  font-size: 0.86rem;
+  font-family: var(--font-sidebar);
+  font-size: 0.865rem;
   font-weight: 600;
+  letter-spacing: -0.012em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition: 
     background-color 0.32s cubic-bezier(0.16, 1, 0.3, 1), 
     border-color 0.32s cubic-bezier(0.16, 1, 0.3, 1), 
@@ -1314,8 +1342,8 @@ h1, h2, h3, h4 {
 }
 
 .sidebar-tab-btn:hover {
-  background: rgba(120, 120, 128, 0.14);
-  color: var(--text-main);
+  background: rgba(120, 120, 128, 0.16);
+  color: #ffffff;
   transform: translateX(3px);
 }
 
@@ -1328,6 +1356,7 @@ h1, h2, h3, h4 {
   background: linear-gradient(135deg, rgba(10, 132, 255, 0.95) 0%, rgba(0, 113, 227, 0.95) 100%);
   border-color: rgba(255, 255, 255, 0.25);
   color: #ffffff !important;
+  font-weight: 700;
   border-radius: 9999px;
   box-shadow: 
     inset 0 1px 0 rgba(255, 255, 255, 0.35),

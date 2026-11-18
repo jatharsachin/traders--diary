@@ -714,7 +714,7 @@ export default function App() {
                       }} 
                     />
                   </div>
-                  <h1 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, whiteSpace: 'nowrap', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>TradeDiary Pro</h1>
+                  <h1 style={{ fontFamily: 'var(--font-sidebar)', fontSize: '0.98rem', fontWeight: 800, margin: 0, whiteSpace: 'nowrap', letterSpacing: '-0.025em', color: 'var(--text-main)' }}>TradeDiary Pro</h1>
                 </div>
                 <button 
                   onClick={() => {
@@ -737,8 +737,10 @@ export default function App() {
               width: isSidebarCollapsed ? '36px' : '100%', 
               height: '38px', 
               borderRadius: isSidebarCollapsed ? '50%' : '9999px', 
-              fontSize: '0.84rem', 
+              fontSize: '0.86rem', 
               fontWeight: 700,
+              fontFamily: 'var(--font-sidebar)',
+              letterSpacing: '-0.01em',
               display: 'flex',
               alignItems: 'center',
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
@@ -765,7 +767,7 @@ export default function App() {
 
           {/* Sidebar Menu Groups */}
           <div className="sidebar-menu">
-            <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginBottom: '4px' }}>
+            <span className="hide-collapsed sidebar-section-title" style={{ marginBottom: '4px' }}>
               Journal & Tracking
             </span>
             <button 
@@ -810,7 +812,7 @@ export default function App() {
               <span className="hide-collapsed">Journal & Notes</span>
             </button>
 
-            <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginTop: '12px', marginBottom: '4px' }}>
+            <span className="hide-collapsed sidebar-section-title" style={{ marginTop: '12px', marginBottom: '4px' }}>
               Portfolio & Audit
             </span>
             <button 
@@ -838,7 +840,7 @@ export default function App() {
               <span className="hide-collapsed">Contract Notes</span>
             </button>
 
-            <span className="hide-collapsed" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', paddingLeft: '8px', marginTop: '12px', marginBottom: '4px' }}>
+            <span className="hide-collapsed sidebar-section-title" style={{ marginTop: '12px', marginBottom: '4px' }}>
               Analysis & Config
             </span>
             <button 
@@ -859,8 +861,8 @@ export default function App() {
             </button>
 
             {/* Support & Info Tab */}
-            <div style={{ padding: '0 12px', marginTop: '12px' }} className="hide-collapsed">
-              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em' }}>SUPPORT & INFO</span>
+            <div style={{ padding: '0 8px', marginTop: '12px', marginBottom: '4px' }} className="hide-collapsed">
+              <span className="sidebar-section-title" style={{ paddingLeft: 0 }}>SUPPORT & INFO</span>
             </div>
             <button 
               onClick={() => { setActiveTab('help'); setIsMobileSidebarOpen(false); }}
@@ -915,7 +917,7 @@ export default function App() {
                   </div>
                 )}
                 {!isSidebarCollapsed && (
-                  <span style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70px' }}>
+                  <span style={{ color: 'var(--text-main)', fontFamily: 'var(--font-sidebar)', fontWeight: 700, fontSize: '0.78rem', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75px' }}>
                     {userName || 'Sachin'}
                   </span>
                 )}
