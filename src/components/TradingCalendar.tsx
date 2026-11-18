@@ -675,25 +675,6 @@ export function TradingCalendar({
             </div>
           )}
 
-          {summary && summary.count > 0 && (
-            <svg 
-              viewBox="0 0 48 10" 
-              style={{ 
-                width: '38px', 
-                height: '8px', 
-                marginTop: '1px', 
-                opacity: 0.85,
-                filter: summary.netPnL >= 0 ? 'drop-shadow(0 0 3px rgba(48,209,88,0.55))' : 'drop-shadow(0 0 3px rgba(255,69,58,0.55))' 
-              }}
-            >
-              {summary.netPnL >= 0 ? (
-                <path d="M 0,9 Q 12,9 22,5 T 38,2 T 48,1" fill="none" stroke="#34d399" strokeWidth="1.6" strokeLinecap="round" />
-              ) : (
-                <path d="M 0,1 Q 12,2 22,5 T 38,8 T 48,9" fill="none" stroke="#f87171" strokeWidth="1.6" strokeLinecap="round" />
-              )}
-            </svg>
-          )}
-
           {summary && summary.invested > 0 && (
             <div 
               style={{ 
