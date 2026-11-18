@@ -2896,12 +2896,46 @@ export function TradingCalendar({
           transition: transform 0.1s ease;
         }
         .calendar-day.day-win {
-          background-color: var(--color-win-bg);
-          border-color: var(--color-win-border);
+          background: linear-gradient(145deg, rgba(48, 209, 88, 0.15) 0%, rgba(16, 185, 129, 0.04) 100%) !important;
+          border-color: rgba(48, 209, 88, 0.32) !important;
+          box-shadow: inset 0 1px 0 rgba(48, 209, 88, 0.22);
+        }
+        .calendar-day.day-win:hover {
+          background: linear-gradient(145deg, rgba(48, 209, 88, 0.24) 0%, rgba(16, 185, 129, 0.08) 100%) !important;
+          border-color: rgba(48, 209, 88, 0.6) !important;
+          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5), 0 0 24px rgba(48, 209, 88, 0.32) !important;
+        }
+        .calendar-day.day-win::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 14%;
+          right: 14%;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, #30d158 50%, transparent);
+          border-radius: 2px;
+          box-shadow: 0 0 8px rgba(48, 209, 88, 0.85);
         }
         .calendar-day.day-loss {
-          background-color: var(--color-loss-bg);
-          border-color: var(--color-loss-border);
+          background: linear-gradient(145deg, rgba(255, 69, 58, 0.15) 0%, rgba(239, 68, 68, 0.04) 100%) !important;
+          border-color: rgba(255, 69, 58, 0.3) !important;
+          box-shadow: inset 0 1px 0 rgba(255, 69, 58, 0.2);
+        }
+        .calendar-day.day-loss:hover {
+          background: linear-gradient(145deg, rgba(255, 69, 58, 0.24) 0%, rgba(239, 68, 68, 0.08) 100%) !important;
+          border-color: rgba(255, 69, 58, 0.6) !important;
+          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5), 0 0 22px rgba(255, 69, 58, 0.28) !important;
+        }
+        .calendar-day.day-loss::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 14%;
+          right: 14%;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, #ff453a 50%, transparent);
+          border-radius: 2px;
+          box-shadow: 0 0 8px rgba(255, 69, 58, 0.85);
         }
         .calendar-day.day-breakeven {
           background-color: rgba(120, 120, 120, 0.04);
@@ -2917,7 +2951,7 @@ export function TradingCalendar({
         }
         .calendar-day.selected {
           border-color: var(--primary) !important;
-          box-shadow: 0 0 0 3px var(--primary-glow), var(--shadow-glow) !important;
+          box-shadow: 0 0 0 3px var(--primary-glow), 0 0 26px var(--primary-glow) !important;
           transform: translateY(-4px) scale(1.04);
           z-index: 6;
         }
@@ -2934,10 +2968,12 @@ export function TradingCalendar({
           font-weight: 800;
         }
         .calendar-day.day-win .day-pnl {
-          color: var(--color-win);
+          color: #34d399;
+          text-shadow: 0 0 12px rgba(52, 211, 153, 0.35);
         }
         .calendar-day.day-loss .day-pnl {
-          color: var(--color-loss);
+          color: #f87171;
+          text-shadow: 0 0 10px rgba(248, 113, 113, 0.25);
         }
         .day-pnl {
           font-family: var(--font-mono);

@@ -158,14 +158,18 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
 
       <div className="chart-container-large" style={{ height: '280px' }}>
         <ResponsiveContainer>
-          <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+          <AreaChart data={equityData} margin={{ top: 12, right: 12, left: 10, bottom: 0 }}>
             <defs>
               <linearGradient id="colorGreenTrading" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-win)" stopOpacity={0.18}/>
-                <stop offset="95%" stopColor="var(--color-win)" stopOpacity={0.01}/>
+                <stop offset="0%" stopColor="#30d158" stopOpacity={0.32}/>
+                <stop offset="45%" stopColor="#10b981" stopOpacity={0.12}/>
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0.0}/>
               </linearGradient>
+              <filter id="equityCurveGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="3" stdDeviation="4.5" floodColor="#30d158" floodOpacity="0.45"/>
+              </filter>
             </defs>
-            <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.02)" />
+            <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.03)" />
             <XAxis 
               dataKey="date" 
               stroke="var(--text-dim)" 
@@ -196,15 +200,16 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
               }} 
             />
             <Tooltip 
-              cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '3 3' }}
+              cursor={{ stroke: 'rgba(48,209,88,0.35)', strokeWidth: 1.5, strokeDasharray: '4 4' }}
               content={<CustomEquityTooltip />} 
             />
             <Area 
               type="monotone" 
               dataKey="tradingPnL" 
               name="Value" 
-              stroke="var(--color-win)" 
-              strokeWidth={2} 
+              stroke="#30d158" 
+              strokeWidth={2.8} 
+              filter="url(#equityCurveGlow)"
               fillOpacity={1} 
               fill="url(#colorGreenTrading)" 
             />
