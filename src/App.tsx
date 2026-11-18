@@ -262,6 +262,7 @@ export default function App() {
     investments: allInvestments,
     syncAllInvestmentPrices,
     bankAccounts,
+    dailyNotes,
   } = useTradeStore();
 
   const activeAccountIds = brokerAccounts.filter(a => a.active).map(a => a.id);
@@ -392,6 +393,13 @@ export default function App() {
     .filter(i => i.status === 'ACTIVE' || !(i as any).status)
     .reduce((sum, i) => sum + (i.qty * (i.currentPrice || i.buyPrice)), 0);
   const combinedWealth = currentCapital + totalInvCurrent;
+
+  const currentTodayDateStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const todayTradesCount = filteredTrades.filter(t => (t.exitDate || t.date) === currentTodayDateStr).length;
+  const notesCount = Object.keys(dailyNotes || {}).length;
 
 
   // Dynamic Alert / Notification Center calculations
@@ -732,11 +740,11 @@ export default function App() {
 
           {/* Action Log Trade CTA */}
           <button 
-            className={`sidebar-tab-btn ${isLoggerOpen ? 'active' : ''}`}
+            className={`sidebar-tab-btn sidebar-log-trade-btn ${isLoggerOpen ? 'active' : ''}`}
             style={{ 
               width: isSidebarCollapsed ? '36px' : '100%', 
               height: '38px', 
-              borderRadius: isSidebarCollapsed ? '50%' : '9999px', 
+              borderRadius: isSidebarCollapsed ? '50%' : '10px', 
               fontSize: '0.86rem', 
               fontWeight: 700,
               fontFamily: 'var(--font-sidebar)',
@@ -747,29 +755,28 @@ export default function App() {
               gap: isSidebarCollapsed ? '0' : '10px',
               marginTop: '4px',
               flexShrink: 0,
-              padding: isSidebarCollapsed ? '0' : '0 16px',
-              border: isLoggerOpen ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid var(--border-color)',
-              background: isLoggerOpen 
-                ? 'linear-gradient(135deg, rgba(10, 132, 255, 0.95) 0%, rgba(0, 113, 227, 0.95) 100%)' 
-                : 'rgba(255, 255, 255, 0.03)',
-              color: isLoggerOpen ? '#ffffff' : 'var(--text-main)',
-              boxShadow: isLoggerOpen ? '0 6px 20px var(--primary-glow)' : 'none',
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+              padding: isSidebarCollapsed ? '0' : '0 14px',
             }} 
             onClick={handleNewTrade}
-            title="Log Trade"
+            title="Log Trade (N)"
           >
             <Plus size={18} color={isLoggerOpen ? '#ffffff' : 'var(--primary)'} />
-            {!isSidebarCollapsed && <span>Log Trade</span>}
+            {!isSidebarCollapsed && (
+              <>
+                <span>Log Trade</span>
+                <span className="sidebar-kbd-shortcut">N</span>
+              </>
+            )}
           </button>
-
-
 
           {/* Sidebar Menu Groups */}
           <div className="sidebar-menu">
-            <span className="hide-collapsed sidebar-section-title" style={{ marginBottom: '4px' }}>
-              Journal & Tracking
-            </span>
+            {/* Journal & Tracking */}
+            <div className="sidebar-section-header hide-collapsed">
+              <span className="sidebar-section-title">Journal & Tracking</span>
+              <span className="sidebar-section-line" />
+            </div>
+
             <button 
               onClick={() => { setActiveTab('dashboard'); setIsMobileSidebarOpen(false); }} 
               className={"sidebar-tab-btn " + (activeTab === 'dashboard' ? 'active' : '')}
@@ -785,6 +792,9 @@ export default function App() {
             >
               <Calendar size={17} color={activeTab === 'calendar' ? '#fff' : '#a855f7'} />
               <span className="hide-collapsed">Calendar</span>
+              {todayTradesCount > 0 && (
+                <span className="hide-collapsed live-pulse-dot-green" style={{ width: '6px', height: '6px', marginLeft: 'auto', flexShrink: 0 }} title="Trades active today" />
+              )}
             </button>
             <button 
               onClick={() => { setActiveTab('daybook'); setIsMobileSidebarOpen(false); }} 
@@ -802,6 +812,9 @@ export default function App() {
             >
               <History size={17} color={activeTab === 'logs' ? '#fff' : '#34d399'} />
               <span className="hide-collapsed">Logs</span>
+              <span className="hide-collapsed sidebar-counter-badge">
+                {todayTradesCount > 0 ? `${todayTradesCount} today` : filteredTrades.length}
+              </span>
             </button>
             <button 
               onClick={() => { setActiveTab('mistakes'); setIsMobileSidebarOpen(false); }} 
@@ -810,11 +823,17 @@ export default function App() {
             >
               <BookOpenCheck size={17} color={activeTab === 'mistakes' ? '#fff' : '#38bdf8'} />
               <span className="hide-collapsed">Journal & Notes</span>
+              {notesCount > 0 && (
+                <span className="hide-collapsed sidebar-counter-badge">{notesCount}</span>
+              )}
             </button>
 
-            <span className="hide-collapsed sidebar-section-title" style={{ marginTop: '12px', marginBottom: '4px' }}>
-              Portfolio & Audit
-            </span>
+            {/* Portfolio & Audit */}
+            <div className="sidebar-section-header hide-collapsed">
+              <span className="sidebar-section-title">Portfolio & Audit</span>
+              <span className="sidebar-section-line" />
+            </div>
+
             <button 
               onClick={() => { setActiveTab('ledger'); setIsMobileSidebarOpen(false); }} 
               className={"sidebar-tab-btn " + (activeTab === 'ledger' ? 'active' : '')}
@@ -840,9 +859,12 @@ export default function App() {
               <span className="hide-collapsed">Contract Notes</span>
             </button>
 
-            <span className="hide-collapsed sidebar-section-title" style={{ marginTop: '12px', marginBottom: '4px' }}>
-              Analysis & Config
-            </span>
+            {/* Analysis & Config */}
+            <div className="sidebar-section-header hide-collapsed">
+              <span className="sidebar-section-title">Analysis & Config</span>
+              <span className="sidebar-section-line" />
+            </div>
+
             <button 
               onClick={() => { setActiveTab('strategies'); setIsMobileSidebarOpen(false); }} 
               className={"sidebar-tab-btn " + (activeTab === 'strategies' ? 'active' : '')}
@@ -861,9 +883,11 @@ export default function App() {
             </button>
 
             {/* Support & Info Tab */}
-            <div style={{ padding: '0 8px', marginTop: '12px', marginBottom: '4px' }} className="hide-collapsed">
-              <span className="sidebar-section-title" style={{ paddingLeft: 0 }}>SUPPORT & INFO</span>
+            <div className="sidebar-section-header hide-collapsed">
+              <span className="sidebar-section-title">Support & Info</span>
+              <span className="sidebar-section-line" />
             </div>
+
             <button 
               onClick={() => { setActiveTab('help'); setIsMobileSidebarOpen(false); }}
               className={"sidebar-tab-btn " + (activeTab === 'help' ? 'active' : '')}
@@ -872,6 +896,25 @@ export default function App() {
               <HelpCircle size={17} color={activeTab === 'help' ? '#fff' : '#06b6d4'} />
               <span className="hide-collapsed">Help & Guides</span>
             </button>
+          </div>
+
+          {/* Bottom Live Status Widget */}
+          <div className="hide-collapsed sidebar-status-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span className="live-pulse-dot-green" style={{ width: '6px', height: '6px' }} />
+                {activeAccountIds.length > 1 ? `${activeAccountIds.length} Brokers Linked` : '1 Broker Linked'}
+              </span>
+              <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#60a5fa', background: 'rgba(10, 132, 255, 0.14)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(10, 132, 255, 0.28)' }}>
+                {selectedFY || 'FY 26-27'}
+              </span>
+            </div>
+            <div style={{ fontSize: '0.66rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {isCombinedView ? 'Multi-Broker Terminal' : (() => {
+                const acc = brokerAccounts.find(a => a.id === activeAccountId);
+                return acc ? `${acc.broker} (${acc.accountName})` : 'Primary Broker';
+              })()}
+            </div>
           </div>
 
           {/* Sidebar Footer */}
