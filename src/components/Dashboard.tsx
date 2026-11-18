@@ -1695,6 +1695,14 @@ export function Dashboard({
           </button>
         </div>
       </div>
+
+      {/* Broker-wise Performance Summary placed right at top after controls */}
+      <BrokerPerformanceSection
+        brokerStats={brokerStats}
+        selectedFY={selectedFY}
+        isPnlVisible={isPnlVisible}
+      />
+
       {/* Equity Curve Chart */}
       <EquityCurveChart
         buttonStats={buttonStats}
@@ -2051,13 +2059,6 @@ export function Dashboard({
           </div>
         </div>
       </div>
-
-      {/* Card: Broker-wise performance stats */}
-      <BrokerPerformanceSection
-        brokerStats={brokerStats}
-        selectedFY={selectedFY}
-        isPnlVisible={isPnlVisible}
-      />
 
       {/* Weekly Trade Review & Retrospective Panel */}
       <div className="glass-card" style={{ padding: '18px 20px' }}>
