@@ -1342,8 +1342,10 @@ export function TradingCalendar({
       brokerage: 0,
       taxes: 0,
       netPnL: 0,
-      emotion: 'None',
+      emotion: 'None' as const,
       mistake: 'None',
+      strategy: 'Delivery Investment',
+      setupType: 'None' as const,
       notes: i.notes ? `Investment Purchase: ${i.notes}` : `Investment Purchase (${i.type})`,
       isInvestment: true,
       typeLabel: i.type
@@ -1363,8 +1365,10 @@ export function TradingCalendar({
       brokerage: 0,
       taxes: 0,
       netPnL: i.qty * (i.exitPrice! - i.buyPrice),
-      emotion: 'None',
+      emotion: 'None' as const,
       mistake: 'None',
+      strategy: 'Investment Exit',
+      setupType: 'None' as const,
       notes: `Exit from investment (Purchase Buy Avg: ₹${i.buyPrice})`,
       isInvestment: true,
       typeLabel: i.type
@@ -2543,6 +2547,11 @@ export function TradingCalendar({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Selected:</span>
                 <strong style={{ color: 'var(--text-main)' }}>{selectedCalendarTrade.symbol}</strong>
+                {selectedCalendarTrade.strategy && selectedCalendarTrade.strategy !== 'None' && (
+                  <span style={{ fontSize: '0.70rem', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                    🎯 {selectedCalendarTrade.strategy}
+                  </span>
+                )}
                 <span className={`badge ${selectedCalendarTrade.action === 'BUY' ? 'badge-win' : 'badge-loss'}`} style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
                   {selectedCalendarTrade.action}
                 </span>
@@ -2671,21 +2680,58 @@ export function TradingCalendar({
                       </td>
                       <td>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-                          <span 
-                            className="badge badge-neutral" 
-                            style={{ 
-                              padding: '2px 6px', 
-                              fontSize: '0.64rem',
-                              fontWeight: 650,
-                              background: t.emotion === 'Calm' ? 'rgba(48, 209, 88, 0.12)' : (t.emotion === 'Fearful' ? 'rgba(255, 69, 58, 0.12)' : 'rgba(255,255,255,0.05)'),
-                              color: t.emotion === 'Calm' ? '#34d399' : (t.emotion === 'Fearful' ? '#f87171' : 'var(--text-main)'),
-                              border: `1px solid ${t.emotion === 'Calm' ? 'rgba(48, 209, 88, 0.3)' : (t.emotion === 'Fearful' ? 'rgba(255, 69, 58, 0.3)' : 'var(--border-color)')}`
-                            }}
-                          >
-                            {t.emotion === 'Calm' ? '🧘 Calm' : (t.emotion === 'Fearful' ? '⚡ Fear' : t.emotion)}
-                          </span>
-                          {getTradeMistakes(t).length > 0 && (
-                            <span className="badge badge-loss" style={{ padding: '2px 5px', fontSize: '0.62rem' }}>{formatTradeMistakes(t)}</span>
+                          {t.strategy && t.strategy !== 'None' && (
+                            <span 
+                              className="badge" 
+                              style={{ 
+                                padding: '2px 6px', 
+                                fontSize: '0.64rem',
+                                fontWeight: 750,
+                                background: 'rgba(56, 189, 248, 0.12)',
+                                color: '#38bdf8',
+                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={`Strategy / Setup: ${t.strategy}`}
+                            >
+                              <span>🎯</span>
+                              <span>{t.strategy}</span>
+                            </span>
+                          )}
+                          {t.setupType && t.setupType !== 'None' && (
+                            <span 
+                              className="badge badge-neutral" 
+                              style={{ 
+                                fontSize: '0.62rem', 
+                                padding: '1px 5px', 
+                                background: 'rgba(255,255,255,0.05)', 
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-muted)'
+                              }}
+                            >
+                              {t.setupType}
+                            </span>
+                          )}
+                          {t.emotion && t.emotion !== 'None' && (
+                            <span 
+                              className="badge badge-neutral" 
+                              style={{ 
+                                padding: '2px 6px', 
+                                fontSize: '0.64rem',
+                                fontWeight: 650,
+                                background: t.emotion === 'Calm' ? 'rgba(48, 209, 88, 0.12)' : (t.emotion === 'Fearful' ? 'rgba(255, 69, 58, 0.12)' : 'rgba(255,255,255,0.05)'),
+                                color: t.emotion === 'Calm' ? '#34d399' : (t.emotion === 'Fearful' ? '#f87171' : 'var(--text-main)'),
+                                border: `1px solid ${t.emotion === 'Calm' ? 'rgba(48, 209, 88, 0.3)' : (t.emotion === 'Fearful' ? 'rgba(255, 69, 58, 0.3)' : 'var(--border-color)')}`
+                              }}
+                            >
+                              {t.emotion === 'Calm' ? '🧘 Calm' : (t.emotion === 'Fearful' ? '⚡ Fear' : t.emotion)}
+                            </span>
+                          )}
+                          {getTradeMistakes(t as any).length > 0 && (
+                            <span className="badge badge-loss" style={{ padding: '2px 5px', fontSize: '0.62rem' }}>{formatTradeMistakes(t as any)}</span>
                           )}
                         </div>
                       </td>
@@ -2694,16 +2740,55 @@ export function TradingCalendar({
                         color: 'var(--text-main)', 
                         minWidth: '280px', 
                         maxWidth: '650px', 
-                        whiteSpace: 'pre-wrap', 
                         wordBreak: 'break-word', 
                         lineHeight: 1.45,
                         verticalAlign: 'top' 
                       }} title={t.notes}>
-                        {t.notes ? (
-                          <span style={{ color: 'var(--text-main)' }}>{t.notes}</span>
-                        ) : (
-                          <span style={{ color: 'var(--text-dim)' }}>-</span>
-                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {t.strategy && t.strategy !== 'None' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                              <span 
+                                style={{ 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 750, 
+                                  color: '#38bdf8', 
+                                  background: 'rgba(56, 189, 248, 0.10)', 
+                                  border: '1px solid rgba(56, 189, 248, 0.25)', 
+                                  padding: '1px 6px', 
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={`Strategy: ${t.strategy}`}
+                              >
+                                <span>🎯</span>
+                                <span>{t.strategy}</span>
+                              </span>
+                              {t.setupType && t.setupType !== 'None' && (
+                                <span 
+                                  style={{ 
+                                    fontSize: '0.64rem', 
+                                    fontWeight: 600, 
+                                    color: 'var(--text-muted)', 
+                                    background: 'rgba(255, 255, 255, 0.04)', 
+                                    border: '1px solid var(--border-color)', 
+                                    padding: '1px 5px', 
+                                    borderRadius: '4px' 
+                                  }}
+                                >
+                                  {t.setupType}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {t.notes ? (
+                            <span style={{ color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>{t.notes}</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-dim)', fontStyle: 'italic', fontSize: '0.74rem' }}>-</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
