@@ -1565,12 +1565,12 @@ export function Dashboard({
               onChange={(e) => setSelectedBroker(e.target.value)}
               className="form-select"
               style={{
-                padding: '4px 10px',
+                padding: '4px 14px',
                 fontSize: '0.78rem',
                 height: '32px',
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border-color)',
-                borderRadius: '6px',
+                borderRadius: '9999px',
                 color: 'var(--text-main)',
                 cursor: 'pointer',
                 minWidth: '120px'
@@ -1591,12 +1591,12 @@ export function Dashboard({
               onChange={(e) => setSelectedSegment(e.target.value)}
               className="form-select"
               style={{
-                padding: '4px 10px',
+                padding: '4px 14px',
                 fontSize: '0.78rem',
                 height: '32px',
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border-color)',
-                borderRadius: '6px',
+                borderRadius: '9999px',
                 color: 'var(--text-main)',
                 cursor: 'pointer',
                 minWidth: '135px'
@@ -1614,7 +1614,7 @@ export function Dashboard({
           {/* Active FY Indicator */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 550 }}>Active FY:</span>
-            <span className="badge badge-primary-subtle" style={{ fontSize: '0.78rem', fontWeight: 650, padding: '3px 8px' }}>
+            <span className="badge badge-primary-subtle" style={{ fontSize: '0.78rem', fontWeight: 650, padding: '4px 12px', borderRadius: '9999px' }}>
               {selectedFY}
             </span>
           </div>

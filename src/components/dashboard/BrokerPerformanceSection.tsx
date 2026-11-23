@@ -72,8 +72,8 @@ export const BrokerPerformanceSection: React.FC<BrokerPerformanceSectionProps> =
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
-            padding: '3px 8px',
-            borderRadius: '6px',
+            padding: '4px 12px',
+            borderRadius: '9999px',
             transition: 'all 0.18s ease'
           }}
           title={isCollapsed ? 'Expand Broker Summary' : 'Collapse Broker Summary'}

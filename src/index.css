@@ -573,19 +573,19 @@ h1, h2, h3, h4 {
   color: var(--text-muted);
 }
 
-/* Buttons (Tactile Linear & Raycast System) */
+/* Buttons (Tactile Linear & Raycast System with Universal Pill Capsule Shape) */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 5px 14px;
   height: 32px;
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: 0.77rem;
   letter-spacing: -0.01em;
-  border-radius: 9px;
+  border-radius: 9999px !important;
   cursor: pointer;
   white-space: nowrap;
   box-sizing: border-box;
@@ -609,9 +609,30 @@ h1, h2, h3, h4 {
 
 .btn-sm {
   height: 28px !important;
-  padding: 4px 10px !important;
+  padding: 3px 12px !important;
   font-size: 0.72rem !important;
-  border-radius: 6px !important;
+  border-radius: 9999px !important;
+}
+
+/* Universal Capsule Pill Shape for all buttons, options, selects and badges */
+.btn,
+.btn-sm,
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-accent-gold,
+.btn-accent-green,
+button:not(.calendar-day):not(.swatch):not(.modal-close-icon):not(.close-btn):not(.sidebar-icon-pod):not(.calendar-nav-arrow):not(.date-nav-btn):not(.btn-icon-only),
+select,
+.form-select,
+.custom-select,
+.header-cardlet,
+.sidebar-tab-btn,
+.badge,
+.pill-button,
+.view-mode-btn,
+.segmented-tab-btn {
+  border-radius: 9999px !important;
 }
 
 .btn-accent-gold {

@@ -520,10 +520,10 @@ export function TradeTable({
           {/* Active Financial Year Badge */}
           <div 
             style={{ 
-              padding: '6px 12px', 
+              padding: '6px 14px', 
               background: 'rgba(255,255,255,0.02)', 
               border: '1px solid var(--border-color)', 
-              borderRadius: '8px',
+              borderRadius: '9999px',
               fontSize: '0.72rem',
               fontWeight: 600,
               color: 'var(--text-dim)',
@@ -550,7 +550,7 @@ export function TradeTable({
                 style={{ 
                   padding: '6px 14px', 
                   border: '1.5px solid var(--border-color)', 
-                  borderRadius: '10px',
+                  borderRadius: '9999px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
@@ -743,7 +743,7 @@ export function TradeTable({
             </div>
 
             {/* Quick Outcome Filter Pills: All | Wins | Losses */}
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '3px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '9999px', padding: '3px', border: '1px solid var(--border-color)' }}>
               {[
                 { key: 'ALL', label: 'All Trades' },
                 { key: 'WIN', label: '🟢 Wins' },
@@ -754,8 +754,8 @@ export function TradeTable({
                   onClick={() => { setOutcomeFilter(tab.key as any); setCurrentPage(1); }}
                   style={{
                     border: 'none',
-                    borderRadius: '6px',
-                    padding: '5px 12px',
+                    borderRadius: '9999px',
+                    padding: '5px 14px',
                     fontSize: '0.75rem',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -965,7 +965,7 @@ export function TradeTable({
             <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginRight: '4px', fontWeight: 600 }}>Active Filters:</span>
             
             {initialDateFilter && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Date: {initialDateFilter}</span>
                 <X 
                   size={10} 
@@ -976,7 +976,7 @@ export function TradeTable({
             )}
 
             {outcomeFilter !== 'ALL' && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Outcome: {outcomeFilter === 'WIN' ? 'Wins' : 'Losses'}</span>
                 <X 
                   size={10} 
@@ -987,7 +987,7 @@ export function TradeTable({
             )}
 
             {selectedSegment !== 'All' && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Segment: {selectedSegment}</span>
                 <X 
                   size={10} 
@@ -998,7 +998,7 @@ export function TradeTable({
             )}
 
             {selectedAction !== 'All' && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Action: {selectedAction}</span>
                 <X 
                   size={10} 
@@ -1009,7 +1009,7 @@ export function TradeTable({
             )}
 
             {selectedStrategy !== 'All' && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Strategy: {selectedStrategy}</span>
                 <X 
                   size={10} 
@@ -1020,7 +1020,7 @@ export function TradeTable({
             )}
 
             {selectedSetupType !== 'All' && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Setup: {selectedSetupType}</span>
                 <X 
                   size={10} 
@@ -1031,7 +1031,7 @@ export function TradeTable({
             )}
 
             {selectedMistake !== 'All' && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Mistake: {selectedMistake}</span>
                 <X 
                   size={10} 
@@ -1042,7 +1042,7 @@ export function TradeTable({
             )}
 
             {selectedBroker !== 'All' && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Broker: {selectedBroker}</span>
                 <X 
                   size={10} 
@@ -1053,7 +1053,7 @@ export function TradeTable({
             )}
 
             {selectedTag.trim() !== '' && (
-              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', fontSize: '0.68rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '9999px' }}>
                 <span>Tag: #{selectedTag}</span>
                 <X 
                   size={10} 
@@ -1157,7 +1157,7 @@ export function TradeTable({
                       background: 'rgba(234, 179, 8, 0.12)',
                       border: '1px solid rgba(234, 179, 8, 0.4)',
                       color: '#eab308',
-                      borderRadius: '6px',
+                      borderRadius: '9999px',
                       cursor: 'pointer'
                     }}
                     title="Clone this trade setup for a quick re-entry with today's date & time"
@@ -1180,7 +1180,7 @@ export function TradeTable({
                     background: 'rgba(239, 68, 68, 0.16)',
                     border: '1px solid rgba(239, 68, 68, 0.4)',
                     color: 'var(--color-loss)',
-                    borderRadius: '6px',
+                    borderRadius: '9999px',
                     fontWeight: 650,
                     cursor: 'pointer'
                   }}

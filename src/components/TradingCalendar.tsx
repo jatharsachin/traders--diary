@@ -2073,8 +2073,8 @@ export function TradingCalendar({
                 backgroundColor: 'rgba(255, 255, 255, 0.04)',
                 color: 'var(--text-main)',
                 border: '1px solid var(--border-color)',
-                padding: '2px 8px',
-                borderRadius: '6px',
+                padding: '3px 10px',
+                borderRadius: '9999px',
                 fontFamily: 'var(--font-sans)'
               }}
               title={`Gross Realized P&L for ${headerTitle}`}
@@ -2093,8 +2093,8 @@ export function TradingCalendar({
                 backgroundColor: 'rgba(239, 68, 68, 0.06)',
                 color: 'var(--text-muted)',
                 border: '1px solid rgba(239, 68, 68, 0.2)',
-                padding: '2px 8px',
-                borderRadius: '6px',
+                padding: '3px 10px',
+                borderRadius: '9999px',
                 fontFamily: 'var(--font-sans)'
               }}
               title={`Brokerage & Taxes for ${headerTitle}`}
@@ -2113,8 +2113,8 @@ export function TradingCalendar({
                 backgroundColor: headerPnL >= 0 ? 'var(--color-win-bg)' : 'var(--color-loss-bg)',
                 color: headerPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)',
                 border: `1px solid ${headerPnL >= 0 ? 'var(--color-win-border)' : 'var(--color-loss-border)'}`,
-                padding: '2px 8px',
-                borderRadius: '6px',
+                padding: '3px 10px',
+                borderRadius: '9999px',
                 fontFamily: 'var(--font-sans)'
               }}
               title={headerBadgeTitle}
@@ -2214,7 +2214,7 @@ export function TradingCalendar({
             style={{ 
               display: 'flex', 
               background: 'rgba(255,255,255,0.06)', 
-              borderRadius: '8px', 
+              borderRadius: '9999px', 
               padding: '3px', 
               border: '1px solid var(--border-color)' 
             }}
@@ -2225,8 +2225,8 @@ export function TradingCalendar({
                 onClick={() => setActivePnlTab(tab)}
                 style={{
                   border: 'none',
-                  borderRadius: '6px',
-                  padding: '5px 12px',
+                  borderRadius: '9999px',
+                  padding: '5px 14px',
                   fontSize: '0.78rem',
                   fontWeight: 650,
                   fontFamily: 'var(--font-sans)',
@@ -2249,7 +2249,7 @@ export function TradingCalendar({
             style={{ 
               display: 'flex', 
               background: 'rgba(255,255,255,0.06)', 
-              borderRadius: '8px', 
+              borderRadius: '9999px', 
               padding: '3px', 
               border: '1px solid var(--border-color)',
             }}
@@ -2258,8 +2258,8 @@ export function TradingCalendar({
               onClick={() => setCalendarViewMode('tile')}
               style={{
                 border: 'none',
-                borderRadius: '6px',
-                padding: '5px 12px',
+                borderRadius: '9999px',
+                padding: '5px 14px',
                 fontSize: '0.78rem',
                 fontWeight: 650,
                 fontFamily: 'var(--font-sans)',
@@ -2278,8 +2278,8 @@ export function TradingCalendar({
               onClick={() => setCalendarViewMode('row')}
               style={{
                 border: 'none',
-                borderRadius: '6px',
-                padding: '5px 12px',
+                borderRadius: '9999px',
+                padding: '5px 14px',
                 fontSize: '0.78rem',
                 fontWeight: 650,
                 fontFamily: 'var(--font-sans)',
@@ -2477,12 +2477,12 @@ export function TradingCalendar({
                     className="btn btn-secondary" 
                     style={{ 
                       height: '32px',
-                      padding: '0 12px', 
+                      padding: '0 14px', 
                       fontSize: '0.76rem', 
                       display: 'inline-flex', 
                       alignItems: 'center', 
                       gap: '6px',
-                      borderRadius: '8px',
+                      borderRadius: '9999px',
                       fontWeight: 600,
                       cursor: 'pointer',
                       background: dailyNotes && dailyNotes[selectedDate]?.notes ? 'rgba(56, 189, 248, 0.18)' : 'var(--bg-card)',
@@ -2499,14 +2499,14 @@ export function TradingCalendar({
                     className="btn btn-primary" 
                     style={{ 
                       height: '32px',
-                      padding: '0 12px', 
+                      padding: '0 14px', 
                       fontSize: '0.76rem', 
                       display: 'inline-flex', 
                       alignItems: 'center', 
                       gap: '6px',
                       backgroundColor: 'var(--primary)',
                       color: '#fff',
-                      borderRadius: '8px',
+                      borderRadius: '9999px',
                       fontWeight: 600,
                       cursor: 'pointer'
                     }}
@@ -2520,7 +2520,7 @@ export function TradingCalendar({
               )}
               <button 
                 className="btn btn-secondary" 
-                style={{ height: '32px', padding: '0 12px', fontSize: '0.76rem', borderRadius: '8px' }}
+                style={{ height: '32px', padding: '0 14px', fontSize: '0.76rem', borderRadius: '9999px' }}
                 onClick={handleClearSelection}
               >
                 Clear Selection
@@ -2827,9 +2827,9 @@ export function TradingCalendar({
                 onClick={() => toggleNoTradeDay(selectedDate)}
                 className="btn btn-secondary"
                 style={{
-                  padding: '6px 14px',
+                  padding: '6px 16px',
                   fontSize: '0.78rem',
-                  borderRadius: '8px',
+                  borderRadius: '9999px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',

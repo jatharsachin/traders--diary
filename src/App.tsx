@@ -746,7 +746,7 @@ export default function App() {
             style={{ 
               width: isSidebarCollapsed ? '36px' : '100%', 
               height: '38px', 
-              borderRadius: isSidebarCollapsed ? '50%' : '10px', 
+              borderRadius: isSidebarCollapsed ? '50%' : '9999px', 
               fontSize: '0.86rem', 
               fontWeight: 700,
               fontFamily: 'var(--font-sidebar)',
@@ -922,7 +922,7 @@ export default function App() {
               <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#cbd5e1' }}>
                 {activeAccountIds.length > 1 ? `${activeAccountIds.length} Brokers Linked` : '1 Broker Linked'}
               </span>
-              <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#60a5fa', background: 'rgba(10, 132, 255, 0.14)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(10, 132, 255, 0.28)' }}>
+              <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#60a5fa', background: 'rgba(10, 132, 255, 0.14)', padding: '1px 8px', borderRadius: '9999px', border: '1px solid rgba(10, 132, 255, 0.28)' }}>
                 {selectedFY || 'FY 26-27'}
               </span>
             </div>
@@ -1081,11 +1081,11 @@ export default function App() {
                       fontWeight: 800,
                       fontFamily: 'var(--font-sans)',
                       letterSpacing: '-0.02em',
-                      padding: '2px 10px',
+                      padding: '2px 14px',
                       background: 'var(--bg-card)',
                       color: 'var(--text-main)',
                       border: '1.5px solid var(--border-color)',
-                      borderRadius: '8px',
+                      borderRadius: '9999px',
                       outline: 'none',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
@@ -1740,7 +1740,7 @@ export default function App() {
               style={{
                 background: 'var(--bg-card)',
                 border: '1.2px solid var(--border-color)',
-                borderRadius: '8px',
+                borderRadius: '9999px',
                 width: '32px',
                 height: '32px',
                 display: 'flex',
@@ -1802,8 +1802,8 @@ export default function App() {
                   color: 'var(--text-muted)', 
                   background: 'rgba(255, 255, 255, 0.035)', 
                   border: '1px solid rgba(255, 255, 255, 0.08)', 
-                  borderRadius: '7px', 
-                  padding: '4px 10px', 
+                  borderRadius: '9999px', 
+                  padding: '4px 12px', 
                   height: '30px', 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -1828,8 +1828,8 @@ export default function App() {
                   color: 'var(--text-muted)', 
                   background: 'rgba(255, 255, 255, 0.035)', 
                   border: '1px solid rgba(255, 255, 255, 0.08)', 
-                  borderRadius: '7px', 
-                  padding: '4px 10px', 
+                  borderRadius: '9999px', 
+                  padding: '4px 12px', 
                   height: '30px', 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -1866,8 +1866,8 @@ export default function App() {
                       border: todayPnL !== null
                         ? `1px solid ${isProfit ? 'rgba(48, 209, 88, 0.28)' : 'rgba(255, 69, 58, 0.28)'}`
                         : '1px solid rgba(255, 255, 255, 0.08)', 
-                      borderRadius: '7px', 
-                      padding: '4px 10px', 
+                      borderRadius: '9999px', 
+                      padding: '4px 12px', 
                       height: '30px', 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -1902,8 +1902,8 @@ export default function App() {
                   color: 'var(--text-muted)', 
                   background: 'rgba(255, 255, 255, 0.035)', 
                   border: '1px solid rgba(255, 255, 255, 0.08)', 
-                  borderRadius: '7px', 
-                  padding: '4px 10px', 
+                  borderRadius: '9999px', 
+                  padding: '4px 12px', 
                   height: '30px', 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -1932,8 +1932,8 @@ export default function App() {
                   color: 'var(--text-muted)', 
                   background: 'rgba(255, 255, 255, 0.025)', 
                   border: '1px solid rgba(255, 255, 255, 0.06)', 
-                  borderRadius: '7px', 
-                  padding: '4px 9px', 
+                  borderRadius: '9999px', 
+                  padding: '4px 12px', 
                   height: '30px', 
                   display: 'flex', 
                   alignItems: 'center', 
