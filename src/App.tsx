@@ -790,9 +790,6 @@ export default function App() {
             >
               <Calendar size={17} color={activeTab === 'calendar' ? '#fff' : '#a855f7'} />
               <span className="hide-collapsed">Calendar</span>
-              {todayTradesCount > 0 && (
-                <span className="hide-collapsed live-pulse-dot-green" style={{ width: '6px', height: '6px', marginLeft: 'auto', flexShrink: 0 }} title="Trades active today" />
-              )}
             </button>
             <button 
               onClick={() => { setActiveTab('daybook'); setIsMobileSidebarOpen(false); }} 
@@ -896,8 +893,7 @@ export default function App() {
           {/* Bottom Live Status Widget */}
           <div className="hide-collapsed sidebar-status-card">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span className="live-pulse-dot-green" style={{ width: '6px', height: '6px' }} />
+              <span style={{ fontSize: '0.67rem', fontWeight: 700, color: '#cbd5e1' }}>
                 {activeAccountIds.length > 1 ? `${activeAccountIds.length} Brokers Linked` : '1 Broker Linked'}
               </span>
               <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#60a5fa', background: 'rgba(10, 132, 255, 0.14)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(10, 132, 255, 0.28)' }}>
