@@ -14,7 +14,11 @@ import { AuthScreen } from './components/AuthScreen';
 import { useTradeStore } from './store/useTradeStore';
 import { getTradeMistakes } from './types';
 import { AccountFilterDropdown } from './components/AccountFilterDropdown';
-import { Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, BookOpen, BookOpenCheck, Menu, HelpCircle, FileSpreadsheet, NotebookPen } from 'lucide-react';
+import { 
+  Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, 
+  BookOpen, BookOpenCheck, Menu, HelpCircle, FileSpreadsheet, NotebookPen,
+  CalendarRange, ScrollText, Target, Landmark, LifeBuoy, TrendingUp, TrendingDown
+} from 'lucide-react';
 import { getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
@@ -780,7 +784,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'dashboard' ? 'active' : '')}
               title="Dashboard"
             >
-              <LayoutDashboard size={17} color={activeTab === 'dashboard' ? '#fff' : '#38bdf8'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(14, 165, 233, 0.12)', color: activeTab === 'dashboard' ? '#fff' : '#38bdf8' }}>
+                <LayoutDashboard size={15} />
+              </div>
               <span className="hide-collapsed">Dashboard</span>
             </button>
             <button 
@@ -788,7 +794,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'calendar' ? 'active' : '')}
               title="Calendar"
             >
-              <Calendar size={17} color={activeTab === 'calendar' ? '#fff' : '#a855f7'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(168, 85, 247, 0.12)', color: activeTab === 'calendar' ? '#fff' : '#c084fc' }}>
+                <Calendar size={15} />
+              </div>
               <span className="hide-collapsed">Calendar</span>
             </button>
             <button 
@@ -796,7 +804,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'daybook' ? 'active' : '')}
               title="Day Book"
             >
-              <BookOpen size={17} color={activeTab === 'daybook' ? '#fff' : '#60a5fa'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(56, 189, 248, 0.12)', color: activeTab === 'daybook' ? '#fff' : '#38bdf8' }}>
+                <CalendarRange size={15} />
+              </div>
               <span className="hide-collapsed">Day Book</span>
             </button>
 
@@ -805,7 +815,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'logs' ? 'active' : '')}
               title="Logs"
             >
-              <History size={17} color={activeTab === 'logs' ? '#fff' : '#34d399'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(52, 211, 153, 0.12)', color: activeTab === 'logs' ? '#fff' : '#34d399' }}>
+                <ScrollText size={15} />
+              </div>
               <span className="hide-collapsed">Logs</span>
               <span className="hide-collapsed sidebar-counter-badge">
                 {todayTradesCount > 0 ? `${todayTradesCount} today` : filteredTrades.length}
@@ -816,7 +828,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'mistakes' ? 'active' : '')}
               title="Journal & Notes"
             >
-              <BookOpenCheck size={17} color={activeTab === 'mistakes' ? '#fff' : '#38bdf8'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(129, 140, 248, 0.12)', color: activeTab === 'mistakes' ? '#fff' : '#818cf8' }}>
+                <BookOpenCheck size={15} />
+              </div>
               <span className="hide-collapsed">Journal & Notes</span>
             </button>
 
@@ -831,7 +845,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'ledger' ? 'active' : '')}
               title="Ledger"
             >
-              <Receipt size={17} color={activeTab === 'ledger' ? '#fff' : '#f59e0b'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(245, 158, 11, 0.12)', color: activeTab === 'ledger' ? '#fff' : '#fbbf24' }}>
+                <Receipt size={15} />
+              </div>
               <span className="hide-collapsed">Ledger</span>
             </button>
             <button 
@@ -839,7 +855,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'account' ? 'active' : '')}
               title="Investments"
             >
-              <Briefcase size={17} color={activeTab === 'account' ? '#fff' : '#3b82f6'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(59, 130, 246, 0.12)', color: activeTab === 'account' ? '#fff' : '#60a5fa' }}>
+                <Briefcase size={15} />
+              </div>
               <span className="hide-collapsed">Investments</span>
             </button>
             <button 
@@ -847,7 +865,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'contractNotes' ? 'active' : '')}
               title="Contract Notes"
             >
-              <FileSpreadsheet size={17} color={activeTab === 'contractNotes' ? '#fff' : '#10b981'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(16, 185, 129, 0.12)', color: activeTab === 'contractNotes' ? '#fff' : '#34d399' }}>
+                <FileSpreadsheet size={15} />
+              </div>
               <span className="hide-collapsed">Contract Notes</span>
             </button>
 
@@ -862,7 +882,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'strategies' ? 'active' : '')}
               title="Setups"
             >
-              <Compass size={17} color={activeTab === 'strategies' ? '#fff' : '#ec4899'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(236, 72, 153, 0.12)', color: activeTab === 'strategies' ? '#fff' : '#f472b6' }}>
+                <Target size={15} />
+              </div>
               <span className="hide-collapsed">Setups</span>
             </button>
             <button 
@@ -870,7 +892,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'taxation' ? 'active' : '')}
               title="Taxation"
             >
-              <Percent size={17} color={activeTab === 'taxation' ? '#fff' : '#f97316'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(249, 115, 22, 0.12)', color: activeTab === 'taxation' ? '#fff' : '#fb923c' }}>
+                <Landmark size={15} />
+              </div>
               <span className="hide-collapsed">Taxation</span>
             </button>
 
@@ -885,7 +909,9 @@ export default function App() {
               className={"sidebar-tab-btn " + (activeTab === 'help' ? 'active' : '')}
               title="Help & Guides"
             >
-              <HelpCircle size={17} color={activeTab === 'help' ? '#fff' : '#06b6d4'} />
+              <div className="sidebar-icon-pod" style={{ background: 'rgba(6, 182, 212, 0.12)', color: activeTab === 'help' ? '#fff' : '#22d3ee' }}>
+                <LifeBuoy size={15} />
+              </div>
               <span className="hide-collapsed">Help & Guides</span>
             </button>
           </div>
@@ -1770,21 +1796,48 @@ export default function App() {
               {/* Capital */}
               <div 
                 onClick={() => setIsCapitalModalOpen(true)}
-                style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '5px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', cursor: 'pointer', transition: 'all 0.15s ease' }}
-                className="hover-card"
+                className="header-cardlet hover-card"
+                style={{ 
+                  fontSize: '0.73rem', 
+                  color: 'var(--text-muted)', 
+                  background: 'rgba(255, 255, 255, 0.035)', 
+                  border: '1px solid rgba(255, 255, 255, 0.08)', 
+                  borderRadius: '7px', 
+                  padding: '4px 10px', 
+                  height: '30px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  cursor: 'pointer', 
+                  transition: 'all 0.15s ease' 
+                }}
                 title="Click to view Pocket Money In vs Trading Profit/Loss breakdown"
               >
-                <span>Capital:</span>
-                <strong style={{ color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                <span style={{ fontSize: '0.67rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Capital</span>
+                <strong style={{ color: totalNetPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)', fontWeight: 750 }}>
                   ₹{isPnlVisible ? Math.round(currentCapital).toLocaleString('en-IN') : '••••'}
                 </strong>
-                <span style={{ fontSize: '0.62rem', color: 'var(--primary)', opacity: 0.85 }}>📊</span>
+                <span style={{ fontSize: '0.60rem', color: 'var(--primary)', opacity: 0.85 }}>📊</span>
               </div>
 
               {/* Wealth */}
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '5px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
-                <span>Wealth:</span>
-                <strong style={{ color: 'var(--color-win)', fontFamily: 'var(--font-mono)' }}>
+              <div 
+                className="header-cardlet"
+                style={{ 
+                  fontSize: '0.73rem', 
+                  color: 'var(--text-muted)', 
+                  background: 'rgba(255, 255, 255, 0.035)', 
+                  border: '1px solid rgba(255, 255, 255, 0.08)', 
+                  borderRadius: '7px', 
+                  padding: '4px 10px', 
+                  height: '30px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px' 
+                }}
+              >
+                <span style={{ fontSize: '0.67rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Wealth</span>
+                <strong style={{ color: 'var(--color-win)', fontFamily: 'var(--font-mono)', fontWeight: 750 }}>
                   ₹{isPnlVisible ? Math.round(combinedWealth).toLocaleString('en-IN') : '••••'}
                 </strong>
               </div>
@@ -1802,20 +1855,36 @@ export default function App() {
                 const isProfit = todayPnL !== null && todayPnL >= 0;
 
                 return (
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+                  <div 
+                    className="header-cardlet"
+                    style={{ 
+                      fontSize: '0.73rem', 
+                      color: 'var(--text-muted)', 
+                      background: todayPnL !== null 
+                        ? (isProfit ? 'rgba(48, 209, 88, 0.08)' : 'rgba(255, 69, 58, 0.08)')
+                        : 'rgba(255, 255, 255, 0.035)', 
+                      border: todayPnL !== null
+                        ? `1px solid ${isProfit ? 'rgba(48, 209, 88, 0.28)' : 'rgba(255, 69, 58, 0.28)'}`
+                        : '1px solid rgba(255, 255, 255, 0.08)', 
+                      borderRadius: '7px', 
+                      padding: '4px 10px', 
+                      height: '30px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px' 
+                    }}
+                  >
                     <span 
-                      className={todayPnL !== null ? (isProfit ? 'live-pulse-dot-green' : 'live-pulse-dot-red') : ''}
                       style={{ 
-                        width: '7px', 
-                        height: '7px', 
+                        width: '6px', 
+                        height: '6px', 
                         borderRadius: '50%', 
-                        background: todayPnL === null ? '#888' : isProfit ? 'var(--color-win)' : 'var(--color-loss)',
-                        boxShadow: todayPnL === null ? 'none' : isProfit ? '0 0 8px var(--color-win)' : '0 0 8px var(--color-loss)',
+                        background: todayPnL === null ? '#64748b' : isProfit ? 'var(--color-win)' : 'var(--color-loss)',
                         flexShrink: 0
                       }}
                     />
-                    <span>Today's P&L:</span>
-                    <strong style={{ color: todayPnL === null ? 'var(--text-dim)' : isProfit ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>
+                    <span style={{ fontSize: '0.67rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Today's P&L</span>
+                    <strong style={{ color: todayPnL === null ? 'var(--text-dim)' : isProfit ? 'var(--color-win)' : 'var(--color-loss)', fontFamily: 'var(--font-mono)', fontWeight: 750 }}>
                       {todayPnL === null 
                         ? 'No Trades' 
                         : (isProfit ? '+' : '') + '₹' + (isPnlVisible ? Math.round(todayPnL).toLocaleString('en-IN') : '••••')
@@ -1825,30 +1894,52 @@ export default function App() {
                 );
               })()}
 
-              {/* Nifty */}
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
-                <span 
-                  className={isMarketOpen() ? 'live-pulse-dot-green' : 'live-pulse-dot-red'}
-                  style={{ 
-                    width: '7px', 
-                    height: '7px', 
-                    borderRadius: '50%', 
-                    background: isMarketOpen() ? 'var(--color-win)' : 'var(--color-loss)', 
-                    boxShadow: isMarketOpen() ? '0 0 8px var(--color-win)' : '0 0 8px var(--color-loss)',
-                    flexShrink: 0 
-                  }} 
-                />
-                <span>NIFTY:</span>
-                <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+              {/* NIFTY 50 Live Indicator */}
+              <div 
+                className="header-cardlet"
+                style={{ 
+                  fontSize: '0.73rem', 
+                  color: 'var(--text-muted)', 
+                  background: 'rgba(255, 255, 255, 0.035)', 
+                  border: '1px solid rgba(255, 255, 255, 0.08)', 
+                  borderRadius: '7px', 
+                  padding: '4px 10px', 
+                  height: '30px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px' 
+                }}
+              >
+                {niftyChange >= 0 ? (
+                  <TrendingUp size={13} color="var(--color-win)" style={{ flexShrink: 0 }} />
+                ) : (
+                  <TrendingDown size={13} color="var(--color-loss)" style={{ flexShrink: 0 }} />
+                )}
+                <span style={{ fontSize: '0.67rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700, color: '#94a3b8' }}>NIFTY</span>
+                <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)', fontWeight: 750 }}>
                   {niftyPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </strong>
-                <span style={{ color: niftyChange >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                  {niftyChange >= 0 ? '+' : ''}{niftyChange.toFixed(2)}
+                <span style={{ color: niftyChange >= 0 ? 'var(--color-win)' : 'var(--color-loss)', fontWeight: 750, fontFamily: 'var(--font-mono)', fontSize: '0.70rem' }}>
+                  ({niftyChange >= 0 ? '+' : ''}{niftyChange.toFixed(2)})
                 </span>
               </div>
 
-              {/* Clock */}
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '4px 10px', height: '32px', display: 'flex', alignItems: 'center', fontFamily: 'var(--font-mono)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+              {/* Live Clock */}
+              <div 
+                className="header-cardlet"
+                style={{ 
+                  fontSize: '0.71rem', 
+                  color: 'var(--text-muted)', 
+                  background: 'rgba(255, 255, 255, 0.025)', 
+                  border: '1px solid rgba(255, 255, 255, 0.06)', 
+                  borderRadius: '7px', 
+                  padding: '4px 9px', 
+                  height: '30px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  fontFamily: 'var(--font-mono)' 
+                }}
+              >
                 {liveTime || 'Loading...'}
               </div>
 
