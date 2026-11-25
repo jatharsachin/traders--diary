@@ -515,7 +515,10 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         return todayStr;
       };
 
-      const matchedAcc = brokerAccounts.find((a) => a.id === activeAccountId) || brokerAccounts.find(a => a.active) || brokerAccounts[0];
+      const selectedIds = activeAccountId && activeAccountId !== 'Combined'
+        ? activeAccountId.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      const matchedAcc = (selectedIds.length > 0 ? brokerAccounts.find((a) => selectedIds.includes(a.id)) : undefined) || brokerAccounts.find(a => a.active) || brokerAccounts[0];
       const initialBroker = matchedAcc ? matchedAcc.broker : (lastTrade ? (lastTrade.broker || defaultBroker) : defaultBroker);
       const initialAccId = matchedAcc ? matchedAcc.id : '';
       const initialDate = getDefaultDateForFY(selectedFY);
@@ -1197,11 +1200,19 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                       }}
                       className="form-select"
                     >
-                      {brokerAccounts.filter(a => a.active).map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.accountName} ({acc.broker})
-                        </option>
-                      ))}
+                      {(() => {
+                        const selectedIds = activeAccountId && activeAccountId !== 'Combined'
+                          ? activeAccountId.split(',').map(s => s.trim()).filter(Boolean)
+                          : [];
+                        const visibleAccounts = selectedIds.length > 0
+                          ? brokerAccounts.filter(a => a.active && (selectedIds.includes(a.id) || a.id === formData.brokerAccountId))
+                          : brokerAccounts.filter(a => a.active);
+                        return visibleAccounts.map((acc) => (
+                          <option key={acc.id} value={acc.id}>
+                            {acc.accountName} ({acc.broker})
+                          </option>
+                        ));
+                      })()}
                       {formData.brokerAccountId && !brokerAccounts.find(a => a.id === formData.brokerAccountId) && (
                         <option value={formData.brokerAccountId}>
                           {formData.broker} Account (Inactive)
