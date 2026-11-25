@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { X, Download, Printer, Eye, EyeOff, ShieldCheck, Sparkles, Award } from 'lucide-react';
+import { Download, Printer, Eye, EyeOff, ShieldCheck, Sparkles, Award } from 'lucide-react';
+import { Modal } from './ui/Modal';
 import { useTradeStore } from '../store/useTradeStore';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { downloadExecutiveReportCardPNG, type ExecutiveReportData } from '../utils/executiveCardExporter';
@@ -150,55 +150,46 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
     window.print();
   };
 
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div className="modal-overlay" style={{ zIndex: 9999 }}>
-      <div 
-        className="modal-content glass-card animate-scale-up" 
-        style={{ 
-          width: '900px', 
-          maxWidth: '95vw', 
-          padding: 0, 
-          maxHeight: '92vh', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          overflow: 'hidden' 
-        }}
-      >
-        {/* Header Bar */}
-        <div 
-          className="modal-header" 
-          style={{ 
-            padding: '16px 24px', 
-            borderBottom: '1px solid var(--border-color)', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.02)' 
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)' }}>
-              <Award size={20} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Executive Performance Report Generator</h3>
-              <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                Download high-resolution image cards or print official PDF executive statements.
-              </p>
-            </div>
-          </div>
-
-          <button 
-            onClick={onClose} 
-            className="btn btn-secondary" 
-            style={{ border: 'none', padding: '6px', borderRadius: '50%' }}
-          >
-            <X size={18} />
-          </button>
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="900px"
+      maxHeight="92vh"
+      closeOnBackdropClick={true}
+      icon={
+        <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)' }}>
+          <Award size={20} />
         </div>
-
+      }
+      title="Executive Performance Report Generator"
+      subtitle="Download high-resolution image cards or print official PDF executive statements."
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            Exported PNG cards are clean, high-resolution, and formatted for sharing.
+          </span>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={handlePrintPDF}
+              className="btn btn-secondary"
+              style={{ padding: '8px 16px', fontSize: '0.8rem', gap: '6px' }}
+            >
+              <Printer size={15} />
+              <span>Print / Save PDF</span>
+            </button>
+            <button
+              onClick={handleDownloadPNG}
+              className="btn btn-primary"
+              style={{ padding: '8px 18px', fontSize: '0.8rem', gap: '8px', fontWeight: 700 }}
+            >
+              <Download size={16} />
+              <span>Download PNG Card</span>
+            </button>
+          </div>
+        </div>
+      }
+    >
         {/* Controls Toolbar */}
         <div 
           style={{ 
@@ -448,44 +439,6 @@ export function ExecutiveReportModal({ isOpen, onClose }: ExecutiveReportModalPr
 
         </div>
 
-        {/* Modal Footer Actions */}
-        <div 
-          className="modal-footer" 
-          style={{ 
-            padding: '16px 24px', 
-            borderTop: '1px solid var(--border-color)', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            background: 'rgba(255,255,255,0.02)' 
-          }}
-        >
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            💡 PNG images are rendered at 2x High-DPI Retina resolution for sharing.
-          </span>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={handlePrintPDF}
-              className="btn btn-secondary"
-              style={{ padding: '8px 16px', fontSize: '0.8rem', gap: '6px' }}
-            >
-              <Printer size={15} />
-              <span>Print / Save PDF</span>
-            </button>
-            <button
-              onClick={handleDownloadPNG}
-              className="btn btn-primary"
-              style={{ padding: '8px 18px', fontSize: '0.8rem', gap: '8px', fontWeight: 700 }}
-            >
-              <Download size={16} />
-              <span>Download PNG Card</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

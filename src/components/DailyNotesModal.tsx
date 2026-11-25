@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { 
-  X, Save, Trash2, ChevronLeft, ChevronRight, CheckCircle2, 
+  Save, Trash2, ChevronLeft, ChevronRight, CheckCircle2, 
   AlertCircle, List, ListOrdered, Bold, Italic, 
   Underline, Strikethrough, BookOpenCheck, Palette
 } from 'lucide-react';
+import { Modal } from './ui/Modal';
 import { useTradeStore } from '../store/useTradeStore';
 
 interface DailyNotesModalProps {
@@ -195,62 +195,71 @@ export function DailyNotesModal({
 
   const isToday = selectedDate === getTodayStr();
 
-  return createPortal(
-    <div className="modal-overlay" style={{ zIndex: 99999 }}>
-      <div 
-        className="modal-content glass-card animate-scale-up" 
-        style={{ 
-          width: '780px', 
-          maxWidth: '96vw', 
-          maxHeight: '92vh',
-          padding: 0,
-          display: 'flex', 
-          flexDirection: 'column', 
-          overflow: 'hidden',
-          borderRadius: '16px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.75)',
-          border: '1px solid var(--border-color)',
-          background: 'rgba(20, 20, 24, 0.98)',
-          backdropFilter: 'blur(20px)'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Minimal Header */}
-        <div 
-          style={{ 
-            padding: '12px 18px', 
-            borderBottom: '1px solid var(--border-color)', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.02)' 
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BookOpenCheck size={18} color="#38bdf8" />
-            <span style={{ fontSize: '0.95rem', fontWeight: 750, color: 'var(--text-main)' }}>
-              Day-End Note
-            </span>
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="780px"
+      maxHeight="92vh"
+      closeOnBackdropClick={false}
+      icon={<BookOpenCheck size={18} color="#38bdf8" />}
+      title="Day-End Note"
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            {dailyNotes[selectedDate] && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="btn btn-secondary"
+                style={{ 
+                  padding: '6px 12px', 
+                  fontSize: '0.78rem', 
+                  color: '#ef4444', 
+                  borderColor: 'rgba(239, 68, 68, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px' 
+                }}
+                title="Delete this note"
+              >
+                <Trash2 size={13} />
+                <span>Delete</span>
+              </button>
+            )}
           </div>
 
-          <button 
-            onClick={onClose} 
-            className="btn btn-secondary" 
-            style={{ 
-              width: '30px', 
-              height: '30px', 
-              padding: 0, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              borderRadius: '50%',
-              cursor: 'pointer' 
-            }}
-            title="Close (Esc)"
-          >
-            <X size={15} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+              style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+            >
+              Close
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              className="btn btn-primary"
+              style={{ 
+                padding: '6px 16px', 
+                fontSize: '0.8rem', 
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Save size={14} />
+              <span>Save Note</span>
+            </button>
+          </div>
         </div>
+      }
+    >
+      <div style={{ margin: '-20px' }}>
 
         {/* Clean Date Navigation Bar */}
         <div 
@@ -681,71 +690,7 @@ export function DailyNotesModal({
           </div>
         </div>
 
-        {/* Minimal Footer */}
-        <div 
-          style={{ 
-            padding: '12px 18px', 
-            borderTop: '1px solid var(--border-color)', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.02)' 
-          }}
-        >
-          <div>
-            {dailyNotes[selectedDate] && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="btn btn-secondary"
-                style={{ 
-                  padding: '6px 12px', 
-                  fontSize: '0.78rem', 
-                  color: '#ef4444', 
-                  borderColor: 'rgba(239, 68, 68, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px' 
-                }}
-                title="Delete this note"
-              >
-                <Trash2 size={13} />
-                <span>Delete</span>
-              </button>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary"
-              style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-            >
-              Close
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSave}
-              className="btn btn-primary"
-              style={{ 
-                padding: '6px 16px', 
-                fontSize: '0.8rem', 
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                borderRadius: '8px'
-              }}
-            >
-              <Save size={14} />
-              <span>Save Note</span>
-            </button>
-          </div>
-        </div>
       </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

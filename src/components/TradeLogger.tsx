@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
 import { getTradeMistakes } from '../types';
-import { X, Save, ShieldAlert, Check, AlertTriangle, Copy, Zap, CheckCircle2 } from 'lucide-react';
+import { X, Save, ShieldAlert, Check, AlertTriangle, Copy, Zap, CheckCircle2, Image as ImageIcon, ExternalLink, Trash2 } from 'lucide-react';
 import { getFinancialYear } from '../utils/fyHelper';
 
 interface TradeLoggerProps {
@@ -35,6 +35,7 @@ const DEFAULT_FORM_STATE = {
   emotion: 'Calm' as Emotion,
   mistake: 'None' as Mistake,
   notes: '',
+  chartUrl: '',
   strikePrice: 0,
   optionType: 'CE' as 'CE' | 'PE' | 'None',
   setupType: 'None' as 'Breakout' | 'Pullback' | 'Reversal' | 'Range Bound' | 'None',
@@ -328,6 +329,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
             emotion: leg1.emotion,
             mistake: leg1.mistake,
             notes: cleanNotes,
+            chartUrl: leg1.chartUrl || '',
             strikePrice: leg1.strikePrice || 0,
             optionType: leg1.optionType || 'None',
             setupType: leg1.setupType || 'None',
@@ -384,6 +386,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
           emotion: existing.emotion,
           mistake: existing.mistake,
           notes: existing.notes,
+          chartUrl: existing.chartUrl || '',
           strikePrice: existing.strikePrice || 0,
           optionType: existing.optionType || 'None',
           setupType: existing.setupType || 'None',
@@ -452,6 +455,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
           emotion: 'Calm',
           mistake: 'None',
           notes: cleanNotes,
+          chartUrl: '',
           strikePrice: existing.strikePrice || 0,
           optionType: existing.optionType || 'None',
           setupType: existing.setupType || 'None',
@@ -2107,6 +2111,85 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                 className="form-textarea"
                 style={{ marginBottom: '14px' }}
               />
+            </div>
+
+            {/* Chart Screenshot (Ctrl+V Paste) or TradingView Link */}
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <ImageIcon size={13} color="var(--primary)" />
+                  Chart Screenshot (Ctrl+V Paste) / TradingView Link
+                </span>
+                {formData.chartUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, chartUrl: '' }))}
+                    style={{ background: 'none', border: 'none', color: 'var(--color-loss)', fontSize: '0.7rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: 0 }}
+                  >
+                    <Trash2 size={11} /> Remove Chart
+                  </button>
+                )}
+              </label>
+              <input
+                type="text"
+                name="chartUrl"
+                value={formData.chartUrl?.startsWith('data:image') ? '[Pasted Chart Screenshot Attached]' : (formData.chartUrl || '')}
+                readOnly={Boolean(formData.chartUrl?.startsWith('data:image'))}
+                onChange={(e) => setFormData(prev => ({ ...prev, chartUrl: e.target.value }))}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.startsWith('image/')) {
+                      e.preventDefault();
+                      const file = items[i].getAsFile();
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                          const maxW = 960;
+                          const scale = img.width > maxW ? maxW / img.width : 1;
+                          const canvas = document.createElement('canvas');
+                          canvas.width = Math.round(img.width * scale);
+                          canvas.height = Math.round(img.height * scale);
+                          const ctx = canvas.getContext('2d');
+                          if (ctx) {
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            const compressed = canvas.toDataURL('image/webp', 0.78);
+                            setFormData(prev => ({ ...prev, chartUrl: compressed }));
+                          }
+                        };
+                        if (typeof ev.target?.result === 'string') img.src = ev.target.result;
+                      };
+                      reader.readAsDataURL(file);
+                      break;
+                    }
+                  }
+                }}
+                placeholder="Paste image with Ctrl+V here OR paste TradingView snapshot URL..."
+                className="form-input"
+              />
+              {formData.chartUrl && (
+                <div style={{ marginTop: '8px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.3)', padding: '6px' }}>
+                  {formData.chartUrl.startsWith('data:image') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(formData.chartUrl) || formData.chartUrl.includes('tradingview.com/x/') ? (
+                    <img
+                      src={formData.chartUrl}
+                      alt="Trade Chart Preview"
+                      style={{ width: '100%', maxHeight: '190px', objectFit: 'contain', borderRadius: '6px', display: 'block' }}
+                    />
+                  ) : (
+                    <a
+                      href={formData.chartUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: 'var(--primary)', padding: '4px 6px' }}
+                    >
+                      <ExternalLink size={13} /> Open Chart Link
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Collapsible Custom Tags */}

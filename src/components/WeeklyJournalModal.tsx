@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { 
-  X, Save, Star, Calendar, CheckCircle2, AlertTriangle, Target, 
+  Save, Star, Calendar, CheckCircle2, AlertTriangle, Target, 
   MessageSquare, ExternalLink, ChevronRight
 } from 'lucide-react';
+import { Modal } from './ui/Modal';
 import { useTradeStore } from '../store/useTradeStore';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { groupHedgedTrades } from '../utils/tradeGrouping';
@@ -220,82 +220,78 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
     }
   };
 
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div className="modal-overlay" style={{ zIndex: 9999 }}>
-      <div 
-        className="modal-content glass-card animate-scale-up" 
-        style={{ 
-          width: '920px', 
-          maxWidth: '96vw', 
-          padding: 0, 
-          maxHeight: '94vh', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          overflow: 'hidden',
-          borderRadius: '22px'
-        }}
-      >
-        {/* Modal Header */}
-        <div 
-          className="modal-header" 
-          style={{ 
-            padding: '16px 22px', 
-            borderBottom: '1px solid var(--border-color)', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.02)' 
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              width: '40px', 
-              height: '40px', 
-              borderRadius: '12px', 
-              background: 'linear-gradient(135deg, rgba(10, 132, 255, 0.25) 0%, rgba(191, 90, 242, 0.25) 100%)', 
-              color: 'var(--primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.25rem',
-              border: '1px solid rgba(255, 255, 255, 0.15)'
-            }}>
-              🗓️
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
-                  Weekend Review & Notes Audit
-                </h3>
-                <span style={{ 
-                  fontSize: '0.68rem', 
-                  fontWeight: 700, 
-                  background: 'rgba(10, 132, 255, 0.15)', 
-                  color: 'var(--primary)', 
-                  padding: '2px 8px', 
-                  borderRadius: '9999px',
-                  border: '1px solid rgba(10, 132, 255, 0.25)'
-                }}>
-                  Weekly Audit
-                </span>
-              </div>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                Review all trade notes, execution errors, and psychology logged across this week.
-              </p>
-            </div>
-          </div>
-
-          <button 
-            onClick={onClose} 
-            className="btn btn-secondary" 
-            style={{ border: 'none', padding: '8px', borderRadius: '50%', cursor: 'pointer' }}
-            title="Close"
-          >
-            <X size={18} />
-          </button>
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="920px"
+      maxHeight="94vh"
+      closeOnBackdropClick={true}
+      icon={
+        <div style={{ 
+          width: '40px', 
+          height: '40px', 
+          borderRadius: '12px', 
+          background: 'linear-gradient(135deg, rgba(10, 132, 255, 0.25) 0%, rgba(191, 90, 242, 0.25) 100%)', 
+          color: 'var(--primary)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '1.25rem',
+          border: '1px solid rgba(255, 255, 255, 0.15)'
+        }}>
+          🗓️
         </div>
+      }
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
+            Weekend Review & Notes Audit
+          </h3>
+          <span style={{ 
+            fontSize: '0.68rem', 
+            fontWeight: 700, 
+            background: 'rgba(10, 132, 255, 0.15)', 
+            color: 'var(--primary)', 
+            padding: '2px 8px', 
+            borderRadius: '9999px',
+            border: '1px solid rgba(10, 132, 255, 0.25)'
+          }}>
+            Weekly Audit
+          </span>
+        </div>
+      }
+      subtitle="Review all trade notes, execution errors, and psychology logged across this week."
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            🔒 Read-only review: Trade, ledger, and capital records are strictly preserved.
+          </span>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+              style={{ padding: '7px 16px', fontSize: '0.8rem' }}
+            >
+              Close
+            </button>
+            {activeTab === 'notes' && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('reflection')}
+                className="btn btn-primary"
+                style={{ padding: '7px 18px', fontSize: '0.8rem', gap: '6px', fontWeight: 700 }}
+              >
+                <span>Write Rules & Reflection</span>
+                <ChevronRight size={15} />
+              </button>
+            )}
+          </div>
+        </div>
+      }
+    >
+      <div style={{ margin: '-20px' }}>
 
         {/* Week Selector Bar & Key Performance Metrics */}
         <div style={{ 
@@ -779,6 +775,26 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                               </span>
                             )}
                           </div>
+
+                          {(pos.leg1.chartUrl || pos.leg2?.chartUrl) && (() => {
+                            const url = pos.leg1.chartUrl || pos.leg2?.chartUrl || '';
+                            const isImg = url.startsWith('data:image') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url) || url.includes('tradingview.com/x/');
+                            return isImg ? (
+                              <div style={{ marginTop: '4px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.28)', padding: '4px' }}>
+                                <img
+                                  src={url}
+                                  alt={`${pos.leg1.symbol} chart`}
+                                  style={{ width: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '6px', display: 'block', cursor: 'pointer' }}
+                                  onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+                                  title="Click to view full chart"
+                                />
+                              </div>
+                            ) : (
+                              <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.74rem', color: 'var(--primary)', marginTop: '2px' }}>
+                                <ExternalLink size={12} /> View TradingView Chart
+                              </a>
+                            );
+                          })()}
                         </div>
                       );
                     }
@@ -958,6 +974,25 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                             </span>
                           )}
                         </div>
+
+                        {t.chartUrl && (() => {
+                          const isImg = t.chartUrl.startsWith('data:image') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(t.chartUrl) || t.chartUrl.includes('tradingview.com/x/');
+                          return isImg ? (
+                            <div style={{ marginTop: '4px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.28)', padding: '4px' }}>
+                              <img
+                                src={t.chartUrl}
+                                alt={`${t.symbol} chart`}
+                                style={{ width: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '6px', display: 'block', cursor: 'pointer' }}
+                                onClick={() => window.open(t.chartUrl, '_blank', 'noopener,noreferrer')}
+                                title="Click to view full chart"
+                              />
+                            </div>
+                          ) : (
+                            <a href={t.chartUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.74rem', color: 'var(--primary)', marginTop: '2px' }}>
+                              <ExternalLink size={12} /> View TradingView Chart
+                            </a>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -1066,48 +1101,7 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
           )}
 
         </div>
-
-        {/* Modal Footer Actions */}
-        <div 
-          className="modal-footer" 
-          style={{ 
-            padding: '14px 22px', 
-            borderTop: '1px solid var(--border-color)', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            background: 'rgba(255,255,255,0.02)' 
-          }}
-        >
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            🔒 Read-only review: Trade, ledger, and capital records are strictly preserved.
-          </span>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary"
-              style={{ padding: '7px 16px', fontSize: '0.8rem' }}
-            >
-              Close
-            </button>
-            {activeTab === 'notes' && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('reflection')}
-                className="btn btn-primary"
-                style={{ padding: '7px 18px', fontSize: '0.8rem', gap: '6px', fontWeight: 700 }}
-              >
-                <span>Write Rules & Reflection</span>
-                <ChevronRight size={15} />
-              </button>
-            )}
-          </div>
-        </div>
-
       </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
+import { useShallow } from 'zustand/react/shallow';
 import { 
   Receipt, Plus, Trash2, X, Save, CreditCard, Layers, Edit2, Download, ArrowUpDown, ArrowLeftRight,
   Coins, TrendingUp, Wallet, Scale
@@ -24,8 +25,6 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     isPnlVisible,
     selectedFY,
     activeBrokers,
-    
-    // NEW STATES & ACTIONS
     brokerAccounts,
     bankAccounts,
     subscriptionExpenses,
@@ -38,7 +37,29 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     editDirectBankTransaction,
     transferBankFunds,
     investments
-  } = useTradeStore();
+  } = useTradeStore(
+    useShallow((s) => ({
+      trades: s.trades,
+      capitalAdjustments: s.capitalAdjustments,
+      addCapitalAdjustment: s.addCapitalAdjustment,
+      deleteCapitalAdjustment: s.deleteCapitalAdjustment,
+      isPnlVisible: s.isPnlVisible,
+      selectedFY: s.selectedFY,
+      activeBrokers: s.activeBrokers,
+      brokerAccounts: s.brokerAccounts,
+      bankAccounts: s.bankAccounts,
+      subscriptionExpenses: s.subscriptionExpenses,
+      bankTransactions: s.bankTransactions,
+      addSubscriptionExpense: s.addSubscriptionExpense,
+      editSubscriptionExpense: s.editSubscriptionExpense,
+      deleteSubscriptionExpense: s.deleteSubscriptionExpense,
+      addDirectBankTransaction: s.addDirectBankTransaction,
+      deleteDirectBankTransaction: s.deleteDirectBankTransaction,
+      editDirectBankTransaction: s.editDirectBankTransaction,
+      transferBankFunds: s.transferBankFunds,
+      investments: s.investments,
+    }))
+  );
 
   const [activeLedgerTab, setActiveLedgerTab] = useState<'broker' | 'bank' | 'subscriptions'>('broker');
   const [selectedBrokerFilter, setSelectedBrokerFilter] = useState<string>('All');

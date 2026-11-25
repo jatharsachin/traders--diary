@@ -154,7 +154,7 @@ export function ProfileSettingsModal({
   const [resetConfirmInput, setResetConfirmInput] = useState('');
   const [yeSelectedFY, setYeSelectedFY] = useState('FY 2026-27');
 
-  // Sync inputs on open
+  // Sync inputs on open only (avoid resetting tab while editing charges/profile)
   useEffect(() => {
     if (isOpen) {
       if (initialTab) setActiveTab(initialTab);
@@ -165,14 +165,27 @@ export function ProfileSettingsModal({
       setProfileNameInput(userName);
       setProfileAvatarInput(userAvatar);
       setResetConfirmInput('');
-      
-      // Load current charges config for first active broker
+
       const firstActive = brokerCharges.find(c => c.broker === selectedChargesBroker) || brokerCharges[0];
       if (firstActive) {
         setChargesForm(firstActive);
       }
     }
-  }, [isOpen, userName, userAvatar, brokerCharges, initialTab, autoOpenImport]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialTab, autoOpenImport]);
+
+  // Escape key closes ProfileSettingsModal (or nested import modal first)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isImportModalOpen) setIsImportModalOpen(false);
+        else onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, isImportModalOpen, onClose]);
 
   const setChargesForm = (config: BrokerChargesConfig) => {
     setDeliveryRate(config.deliveryRatePct.toString());

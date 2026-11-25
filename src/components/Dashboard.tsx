@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getTradeMistakes, type BrokerAccount } from '../types';
 import { 
   Percent, Clock, ShieldCheck, Flame, CalendarRange, Scale, 
@@ -48,10 +49,10 @@ export function Dashboard({
 }) {
   const {
     trades: allTrades,
-    investments: allInvestments, 
-    isPnlVisible, 
-    togglePnlVisibility, 
-    weeklyRetrospectives, 
+    investments: allInvestments,
+    isPnlVisible,
+    togglePnlVisibility,
+    weeklyRetrospectives,
     saveWeeklyRetrospective,
     selectedFY,
     activeBrokers,
@@ -63,7 +64,26 @@ export function Dashboard({
     noTradeDays,
     toggleNoTradeDay,
     subscriptionExpenses
-  } = useTradeStore();
+  } = useTradeStore(
+    useShallow((s) => ({
+      trades: s.trades,
+      investments: s.investments,
+      isPnlVisible: s.isPnlVisible,
+      togglePnlVisibility: s.togglePnlVisibility,
+      weeklyRetrospectives: s.weeklyRetrospectives,
+      saveWeeklyRetrospective: s.saveWeeklyRetrospective,
+      selectedFY: s.selectedFY,
+      activeBrokers: s.activeBrokers,
+      userName: s.userName,
+      userAvatar: s.userAvatar,
+      brokerAccounts: s.brokerAccounts,
+      editBrokerAccount: s.editBrokerAccount,
+      capitalAdjustments: s.capitalAdjustments,
+      noTradeDays: s.noTradeDays,
+      toggleNoTradeDay: s.toggleNoTradeDay,
+      subscriptionExpenses: s.subscriptionExpenses,
+    }))
+  );
 
   const isMatchAccount = (accId?: string | null, brokerName?: string | null) => {
     return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);

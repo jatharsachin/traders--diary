@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getTradeMistakes, formatTradeMistakes } from '../types';
 import { ChevronLeft, ChevronRight, Info, Eye, EyeOff, Edit2, BookOpen, Receipt, X, Check, Copy, FileText } from 'lucide-react';
 import { BrokerBadge } from './BrokerBadge';
@@ -114,7 +115,23 @@ export function TradingCalendar({
     addOrUpdateContractNote,
     lockedFYs,
     userName
-  } = useTradeStore();
+  } = useTradeStore(
+    useShallow((s) => ({
+      trades: s.trades,
+      isPnlVisible: s.isPnlVisible,
+      togglePnlVisibility: s.togglePnlVisibility,
+      selectedFY: s.selectedFY,
+      brokerAccounts: s.brokerAccounts,
+      investments: s.investments,
+      noTradeDays: s.noTradeDays,
+      toggleNoTradeDay: s.toggleNoTradeDay,
+      contractNotes: s.contractNotes,
+      dailyNotes: s.dailyNotes,
+      addOrUpdateContractNote: s.addOrUpdateContractNote,
+      lockedFYs: s.lockedFYs,
+      userName: s.userName,
+    }))
+  );
 
 
   const isMatchAccount = useCallback((accId?: string, brokerName?: string) => {
