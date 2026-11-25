@@ -760,6 +760,30 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
       return;
     }
     
+    if (name === 'segment') {
+      const nextSegment = value as Segment;
+      if (nextSegment !== 'F&O') {
+        setIsMultiLeg(false);
+      }
+      setFormData((prev) => {
+        const isOldIndexOption = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)\s+\d+\s+(CE|PE)$/i.test(
+          prev.symbol.trim()
+        );
+        return {
+          ...prev,
+          segment: nextSegment,
+          ...(nextSegment !== 'F&O'
+            ? {
+                optionType: 'None',
+                strikePrice: 0,
+                symbol: isOldIndexOption ? '' : prev.symbol,
+              }
+            : {}),
+        };
+      });
+      return;
+    }
+
     let parsedVal: any = value;
     if (name === 'symbol') {
       parsedVal = value.toUpperCase();
@@ -790,6 +814,15 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
     });
   };
 
+
+  const handleQuickSymbol = (sym: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      symbol: sym,
+      optionType: 'None',
+      strikePrice: 0,
+    }));
+  };
 
   const handleQuickIndexOption = (index: 'NIFTY' | 'SENSEX', type: 'CE' | 'PE') => {
     const strike = index === 'NIFTY' ? 23000 : 80000;
@@ -1542,7 +1575,15 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                         name="symbol"
                         value={formData.symbol}
                         onChange={handleChange}
-                        placeholder="e.g. NIFTY 22400 CE"
+                        placeholder={
+                          formData.segment === 'Equity'
+                            ? 'e.g. RELIANCE, HDFCBANK, TCS'
+                            : formData.segment === 'Commodity'
+                            ? 'e.g. GOLD, SILVER, CRUDEOIL'
+                            : formData.segment === 'Currency'
+                            ? 'e.g. USDINR, EURINR'
+                            : 'e.g. NIFTY 23000 CE'
+                        }
                         className="form-input"
                         required
                       />
@@ -1592,42 +1633,95 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                   </div>
                 )}
 
-                {/* Quick Auto-Fill Index Option Tags */}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Option:</span>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIndexOption('NIFTY', 'CE')}
-                    className="btn"
-                    style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
-                  >
-                    + NIFTY CE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIndexOption('NIFTY', 'PE')}
-                    className="btn"
-                    style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
-                  >
-                    + NIFTY PE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIndexOption('SENSEX', 'CE')}
-                    className="btn"
-                    style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
-                  >
-                    + SENSEX CE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickIndexOption('SENSEX', 'PE')}
-                    className="btn"
-                    style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
-                  >
-                    + SENSEX PE
-                  </button>
-                </div>
+                {/* Segment-Aware Quick Auto-Fill Tags */}
+                {formData.segment === 'F&O' && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Option:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickIndexOption('NIFTY', 'CE')}
+                      className="btn"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                    >
+                      + NIFTY CE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickIndexOption('NIFTY', 'PE')}
+                      className="btn"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                    >
+                      + NIFTY PE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickIndexOption('SENSEX', 'CE')}
+                      className="btn"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                    >
+                      + SENSEX CE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickIndexOption('SENSEX', 'PE')}
+                      className="btn"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                    >
+                      + SENSEX PE
+                    </button>
+                  </div>
+                )}
+
+                {formData.segment === 'Equity' && !isMultiLeg && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Equity:</span>
+                    {['RELIANCE', 'HDFCBANK', 'TCS', 'INFY', 'SBIN', 'ICICIBANK'].map((stock) => (
+                      <button
+                        key={stock}
+                        type="button"
+                        onClick={() => handleQuickSymbol(stock)}
+                        className="btn"
+                        style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.22)', color: '#10b981', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                      >
+                        + {stock}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {formData.segment === 'Commodity' && !isMultiLeg && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Commodity:</span>
+                    {['GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS'].map((comm) => (
+                      <button
+                        key={comm}
+                        type="button"
+                        onClick={() => handleQuickSymbol(comm)}
+                        className="btn"
+                        style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.22)', color: '#f59e0b', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                      >
+                        + {comm}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {formData.segment === 'Currency' && !isMultiLeg && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Currency:</span>
+                    {['USDINR', 'EURINR', 'GBPINR', 'JPYINR'].map((curr) => (
+                      <button
+                        key={curr}
+                        type="button"
+                        onClick={() => handleQuickSymbol(curr)}
+                        className="btn"
+                        style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.22)', color: '#38bdf8', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                      >
+                        + {curr}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Conditionally Render Equity Delivery Holding Type (STCG vs LTCG) */}
                 {formData.segment === 'Equity' && formData.product === 'Delivery' && (
@@ -1756,8 +1850,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                   />
                 </div>
                 <div className="form-group" style={{ position: 'relative' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="form-label">Exit Price</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>Exit Price</label>
                     <button 
                       type="button"
                       onClick={() => {
@@ -1767,7 +1861,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                           setPartialExits([{ id: '1', qty: formData.qty || 0, price: formData.exitPrice || 0, time: formData.exitTime || new Date().toTimeString().slice(0, 5) }]);
                         }
                       }}
-                      style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: '0.72rem', cursor: 'pointer', padding: 0 }}
+                      style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: '0.72rem', cursor: 'pointer', padding: 0, lineHeight: 1 }}
                     >
                       {usePartialExits ? "← Single Exit" : "+ Partial Exits"}
                     </button>
