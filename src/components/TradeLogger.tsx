@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
 import { getTradeMistakes } from '../types';
-import { X, Save, ShieldAlert, Check, AlertTriangle, Copy } from 'lucide-react';
+import { X, Save, ShieldAlert, Check, AlertTriangle, Copy, Zap, CheckCircle2 } from 'lucide-react';
 import { getFinancialYear } from '../utils/fyHelper';
 
 interface TradeLoggerProps {
@@ -130,6 +130,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
   const [tagsInput, setTagsInput] = useState('');
   const [showTagsField, setShowTagsField] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [keepOpenAfterSave, setKeepOpenAfterSave] = useState(false);
 
   const toggleMistakeTag = (m: Mistake) => {
     if (m === 'None') {
@@ -569,17 +571,23 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
     }
   }, [editTradeId, duplicateTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
 
-  // Keyboard Escape key listener to effortlessly close modal
+  // Keyboard Escape key listener to close modal safely with unsaved work confirmation
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        handleClose();
+        if (duplicateTradeId || formData.entryPrice > 0 || formData.exitPrice > 0) {
+          if (window.confirm('Do you want to discard this trade entry and close?')) {
+            handleClose();
+          }
+        } else {
+          handleClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, duplicateTradeId, formData.entryPrice, formData.exitPrice]);
 
   // Sync lots and quantity when lots or lot size changes
   const handleLotsChange = (val: string) => {
@@ -793,9 +801,9 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = (shouldKeepOpen: boolean = keepOpenAfterSave) => {
     setError('');
+    setSuccessMessage('');
 
     // Validations
     if (isMultiLeg) {
@@ -912,7 +920,6 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         editTrade(editTradeId, finalTradeData);
         addTrade(finalTrade2Data);
       } else {
-        if (!window.confirm('Are you sure you want to log both spread legs?')) return;
         addTrade(finalTradeData);
         addTrade(finalTrade2Data);
       }
@@ -931,7 +938,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         if (!window.confirm('Are you sure you want to update this trade log?')) return;
         editTrade(editTradeId, finalTradeData);
       } else {
-        if (!window.confirm(duplicateTradeId ? 'Are you sure you want to save this duplicated re-entry as a new trade?' : 'Are you sure you want to log this trade?')) return;
+        // Fast instant save without blocking popups
         addTrade(finalTradeData);
       }
     }
@@ -951,8 +958,29 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
       console.error('Error saving lot size on submit', e);
     }
 
-    localStorage.removeItem('traders_diary_draft_trade');
-    onClose();
+    if (shouldKeepOpen) {
+      setSuccessMessage(`✓ Re-entry for ${finalSymbol || formData.symbol} saved successfully! Form is ready for your next trade.`);
+      const now = new Date();
+      const currentTimeStr = now.toTimeString().slice(0, 5);
+      const exitTimeStr = new Date(Date.now() + 15 * 60 * 1000).toTimeString().slice(0, 5);
+      setFormData(prev => ({
+        ...prev,
+        entryTime: currentTimeStr,
+        exitTime: exitTimeStr,
+        exitPrice: 0,
+      }));
+      setUsePartialExits(false);
+      setPartialExits([{ id: '1', qty: 0, price: 0, time: currentTimeStr }]);
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } else {
+      localStorage.removeItem('traders_diary_draft_trade');
+      onClose();
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSave(keepOpenAfterSave);
   };
 
   const handleClose = () => {
@@ -976,7 +1004,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
   };
 
   return createPortal(
-    <div className="modal-overlay" style={{ zIndex: 99999 }} onClick={handleClose}>
+    <div className="modal-overlay" style={{ zIndex: 99999 }}>
       <div 
         className="modal-content glass-card animate-fade-in" 
         style={{ padding: 0, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
@@ -997,6 +1025,27 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         </div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flexGrow: 1 }}>
           <div className="modal-body" style={{ overflowY: 'auto', flexGrow: 1, padding: '20px' }}>
+            {successMessage && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                  border: '1px solid rgba(52, 211, 153, 0.4)',
+                  color: 'var(--color-win)',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  marginBottom: '16px',
+                  fontSize: '0.82rem',
+                  fontWeight: 650
+                }}
+              >
+                <CheckCircle2 size={16} />
+                <span>{successMessage}</span>
+              </div>
+            )}
+
             {duplicateTradeId && (
               <div
                 style={{
@@ -2082,14 +2131,55 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
             </div>
           </div>
           
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={handleClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Save size={16} />
-              <span>{duplicateTradeId ? '⚡ Save Duplicate Trade' : editTradeId ? 'Update Log' : 'Save Trade'}</span>
-            </button>
+          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button type="button" className="btn btn-secondary" onClick={handleClose}>
+                Cancel
+              </button>
+              {(duplicateTradeId || !editTradeId) && (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={keepOpenAfterSave}
+                    onChange={(e) => setKeepOpenAfterSave(e.target.checked)}
+                    style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                  />
+                  <span>Keep open for continuous re-entries</span>
+                </label>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {(duplicateTradeId || !editTradeId) && (
+                <button
+                  type="button"
+                  onClick={() => handleSave(true)}
+                  className="btn btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(234, 179, 8, 0.15)',
+                    border: '1px solid rgba(234, 179, 8, 0.4)',
+                    color: '#eab308',
+                    fontWeight: 650
+                  }}
+                  title="Save this trade and keep window open with the same setup for faster consecutive trade entries"
+                >
+                  <Zap size={15} />
+                  <span>⚡ Save & Add Another (Keep Open)</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleSave(false)}
+                className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 650 }}
+              >
+                <Save size={16} />
+                <span>{duplicateTradeId ? '⚡ Save & Close' : editTradeId ? 'Update Log' : 'Save & Close'}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

@@ -196,7 +196,7 @@ export function DailyNotesModal({
   const isToday = selectedDate === getTodayStr();
 
   return createPortal(
-    <div className="modal-overlay" style={{ zIndex: 99999 }} onClick={onClose}>
+    <div className="modal-overlay" style={{ zIndex: 99999 }}>
       <div 
         className="modal-content glass-card animate-scale-up" 
         style={{ 
