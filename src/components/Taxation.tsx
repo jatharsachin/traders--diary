@@ -28,7 +28,7 @@ interface TaxCalculationResult {
 }
 
 export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
-  const { trades: allTrades, selectedFY, brokerAccounts } = useTradeStore();
+  const { trades: allTrades, selectedFY, brokerAccounts, sessionUser } = useTradeStore();
   const fyTrades = filterTradesByFY(allTrades, selectedFY);
   const isMatchAccount = (accId?: string, brokerName?: string) => {
     return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
@@ -37,10 +37,12 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
     ? fyTrades
     : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
 
+  const taxScopeKey = `${sessionUser?.id || 'guest'}_${selectedFY}_${activeAccountId}`;
+
   // --- REGIME SELECTION STATE ---
   const [taxRegime, setTaxRegime] = useState<'NEW' | 'OLD'>(() => {
     try {
-      const saved = localStorage.getItem('traders_diary_tax_regime');
+      const saved = localStorage.getItem(`traders_diary_tax_regime_${taxScopeKey}`) || localStorage.getItem('traders_diary_tax_regime');
       return (saved === 'OLD' || saved === 'NEW') ? saved : 'NEW';
     } catch {
       return 'NEW';
@@ -49,16 +51,14 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
 
   useEffect(() => {
     try {
-      localStorage.setItem('traders_diary_tax_regime', taxRegime);
-    } catch {
-      // ignore
-    }
-  }, [taxRegime]);
+      localStorage.setItem(`traders_diary_tax_regime_${taxScopeKey}`, taxRegime);
+    } catch {}
+  }, [taxRegime, taxScopeKey]);
 
   // --- SECTION 37 ALLOWABLE BUSINESS EXPENSES ---
   const [allowableExpenses, setAllowableExpenses] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('traders_diary_tax_expenses');
+      const saved = localStorage.getItem(`traders_diary_tax_expenses_${taxScopeKey}`) || localStorage.getItem('traders_diary_tax_expenses');
       return saved ? Number(saved) || 0 : 0;
     } catch {
       return 0;
@@ -69,16 +69,14 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
 
   useEffect(() => {
     try {
-      localStorage.setItem('traders_diary_tax_expenses', allowableExpenses.toString());
-    } catch {
-      // ignore
-    }
-  }, [allowableExpenses]);
+      localStorage.setItem(`traders_diary_tax_expenses_${taxScopeKey}`, allowableExpenses.toString());
+    } catch {}
+  }, [allowableExpenses, taxScopeKey]);
 
   // --- TAXES ALREADY PAID / ADVANCE TAX / TDS CREDITS ---
   const [advanceTaxPaid, setAdvanceTaxPaid] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('traders_diary_advance_tax_paid');
+      const saved = localStorage.getItem(`traders_diary_advance_tax_paid_${taxScopeKey}`) || localStorage.getItem('traders_diary_advance_tax_paid');
       return saved ? Number(saved) || 0 : 0;
     } catch {
       return 0;
@@ -87,7 +85,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
 
   const [tdsCredits, setTdsCredits] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('traders_diary_tds_credits');
+      const saved = localStorage.getItem(`traders_diary_tds_credits_${taxScopeKey}`) || localStorage.getItem('traders_diary_tds_credits');
       return saved ? Number(saved) || 0 : 0;
     } catch {
       return 0;
@@ -98,12 +96,23 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
 
   useEffect(() => {
     try {
-      localStorage.setItem('traders_diary_advance_tax_paid', advanceTaxPaid.toString());
-      localStorage.setItem('traders_diary_tds_credits', tdsCredits.toString());
-    } catch {
-      // ignore
-    }
-  }, [advanceTaxPaid, tdsCredits]);
+      localStorage.setItem(`traders_diary_advance_tax_paid_${taxScopeKey}`, advanceTaxPaid.toString());
+      localStorage.setItem(`traders_diary_tds_credits_${taxScopeKey}`, tdsCredits.toString());
+    } catch {}
+  }, [advanceTaxPaid, tdsCredits, taxScopeKey]);
+
+  useEffect(() => {
+    try {
+      const reg = localStorage.getItem(`traders_diary_tax_regime_${taxScopeKey}`);
+      setTaxRegime((reg === 'OLD' || reg === 'NEW') ? reg : 'NEW');
+      const exp = localStorage.getItem(`traders_diary_tax_expenses_${taxScopeKey}`);
+      setAllowableExpenses(exp ? Number(exp) || 0 : 0);
+      const adv = localStorage.getItem(`traders_diary_advance_tax_paid_${taxScopeKey}`);
+      setAdvanceTaxPaid(adv ? Number(adv) || 0 : 0);
+      const tds = localStorage.getItem(`traders_diary_tds_credits_${taxScopeKey}`);
+      setTdsCredits(tds ? Number(tds) || 0 : 0);
+    } catch {}
+  }, [taxScopeKey]);
 
   // =========================================================================
   // 1. CAPITAL GAINS (EQUITY DELIVERY TRADES)
@@ -378,7 +387,11 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
 
     businessTrades.forEach(t => {
       absPnl += Math.abs(t.grossPnL);
-      const isOption = t.segment === 'F&O' && (t.optionType === 'CE' || t.optionType === 'PE' || /CE|PE/i.test(t.symbol));
+      const isOption = t.segment === 'F&O' && (
+        t.optionType === 'CE' ||
+        t.optionType === 'PE' ||
+        (t.optionType !== 'None' && /\b\d+(?:CE|PE)\b|\s(?:CE|PE)\b/i.test(t.symbol) && !/FUT/i.test(t.symbol))
+      );
       if (isOption) {
         // Premium received on sale: if action is SELL (shorting) => entryPrice * qty; if BUY => exitPrice * qty
         const salePremium = t.action === 'SELL' ? (t.entryPrice * t.qty) : (t.exitPrice * t.qty);
@@ -421,17 +434,20 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
       reason = 'Applicable for delivery share trades (STCG/LTCG) without any intraday or derivative business operations.';
     }
 
+    const fyMatch = selectedFY.match(/FY (\d{4})/);
+    const ayYear = fyMatch ? parseInt(fyMatch[1], 10) + 1 : new Date().getFullYear() + 1;
+
     return {
       recommendedItr: form,
       itrReason: reason,
       itrDueDates: {
-        nonAuditDueDate: '31 July 2027',
-        auditReportDueDate: '30 September 2027',
-        auditItrDueDate: '31 October 2027',
-        belatedDueDate: '31 December 2027'
+        nonAuditDueDate: `31 July ${ayYear}`,
+        auditReportDueDate: `30 September ${ayYear}`,
+        auditItrDueDate: `31 October ${ayYear}`,
+        belatedDueDate: `31 December ${ayYear}`
       }
     };
-  }, [speculativeTrades.length, nonSpeculativeTrades.length, stcgTrades.length, ltcgTrades.length, isEligible44AD, grossTaxableBusiness, auditTurnover]);
+  }, [speculativeTrades.length, nonSpeculativeTrades.length, stcgTrades.length, ltcgTrades.length, isEligible44AD, grossTaxableBusiness, auditTurnover, selectedFY]);
 
   // Section 44AA Books of Accounts Check
   // Individuals: Income > ₹2.5L or Turnover > ₹25L in any of 3 preceding years
@@ -683,7 +699,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
       )}
 
       {/* Primary KPI Grid: Tax Estimates */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '16px' }}>
         
         {/* Total Estimated Tax Card */}
         <div 
@@ -1397,7 +1413,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
       )}
 
       {/* Main breakdown grids: Capital Gains & Broker-wise Breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: '16px' }}>
         
         {/* Left Column: Capital Gains & Loss Set-offs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

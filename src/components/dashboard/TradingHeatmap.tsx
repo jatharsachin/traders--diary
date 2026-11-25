@@ -57,7 +57,7 @@ export const TradingHeatmap: React.FC<TradingHeatmapProps> = ({
   const [selectedHeatmapDate, setSelectedHeatmapDate] = useState<string | null>(null);
 
   const getHeatmapRange = () => {
-    if (selectedFY === 'ALL') {
+    if (selectedFY.toUpperCase() === 'ALL') {
       const today = new Date();
       const currentYear = today.getFullYear();
       const startYear = today.getMonth() >= 3 ? currentYear : currentYear - 1;
@@ -303,7 +303,7 @@ export const TradingHeatmap: React.FC<TradingHeatmapProps> = ({
                             transition: 'transform 0.1s ease'
                           }}
                           onClick={() => setSelectedHeatmapDate(dateStr)} className="heatmap-cell"
-                          title={isPnlVisible ? title : title.replace(/Net PnL: [+-]₹\d+/, 'Net P&L: Hidden')}
+                          title={isPnlVisible ? title : `${dateStr}: ${stats.count} trades | Net P&L: Hidden`}
                         />
                       );
                     })}

@@ -456,21 +456,33 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
     const startYear = parseInt(match[1], 10);
     const startStr = `${startYear}-04-01`;
 
-    const priorTrades = allTrades.filter(t => t.date < startStr && (
+    const priorTrades = allTrades.filter(t => (t.exitDate || t.date) < startStr && (
       activeAccountId !== 'Combined' 
-        ? isMatchAccount(t.brokerAccountId) 
+        ? isMatchAccount(t.brokerAccountId, t.broker) 
         : (selectedBrokerFilter !== 'All' ? t.broker === selectedBrokerFilter : true)
     ));
     const priorPnL = priorTrades.reduce((sum, t) => sum + t.netPnL, 0);
 
     const priorAdjs = allCapitalAdjustments.filter(a => a.date < startStr && (
       activeAccountId !== 'Combined' 
-        ? isMatchAccount(a.brokerAccountId) 
+        ? isMatchAccount(a.brokerAccountId, a.broker) 
         : (selectedBrokerFilter !== 'All' ? a.broker === selectedBrokerFilter : true)
     ));
     const priorAdjSum = priorAdjs.reduce((sum, a) => a.type === 'DEPOSIT' ? sum + a.amount : sum - a.amount, 0);
 
-    return startingCap + priorPnL + priorAdjSum;
+    const priorInvOut = investments.filter(i => i.date < startStr && (
+      activeAccountId !== 'Combined'
+        ? isMatchAccount(i.brokerAccountId, i.broker)
+        : (selectedBrokerFilter !== 'All' ? i.broker === selectedBrokerFilter : true)
+    )).reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+
+    const priorInvIn = investments.filter(i => i.status === 'EXITED' && i.exitDate && i.exitDate < startStr && (
+      activeAccountId !== 'Combined'
+        ? isMatchAccount(i.brokerAccountId, i.broker)
+        : (selectedBrokerFilter !== 'All' ? i.broker === selectedBrokerFilter : true)
+    )).reduce((sum, i) => sum + (i.qty * (i.exitPrice || 0)), 0);
+
+    return startingCap + priorPnL + priorAdjSum - priorInvOut + priorInvIn;
   };
 
   const getCarryForwardCapitalForMonth = () => {
@@ -1469,7 +1481,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
           </div>
 
           {/* Transactions list */}
-          <div className="glass-card" style={{ padding: '20px' }}>
+          <div className="glass-card" style={{ padding: '20px', overflowX: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <h3 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>Bank Transaction History</h3>
               
@@ -1692,7 +1704,7 @@ export function Ledger({ activeAccountId = 'Combined' }: LedgerProps) {
             </div>
           </div>
 
-          <div className="glass-card" style={{ padding: '20px' }}>
+          <div className="glass-card" style={{ padding: '20px', overflowX: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>Subscriptions & Expenses Log</h3>

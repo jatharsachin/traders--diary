@@ -241,9 +241,21 @@ const computeTradeCalculations = (
   
   const getCleanTime = (t: string) => {
     if (!t) return '00:00';
-    const parts = t.trim().split(':');
+    const trimmed = t.trim().toUpperCase();
+    const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/);
+    if (ampmMatch) {
+      let hrs = parseInt(ampmMatch[1], 10);
+      const mins = ampmMatch[2];
+      const meridiem = ampmMatch[3];
+      if (meridiem === 'PM' && hrs < 12) hrs += 12;
+      if (meridiem === 'AM' && hrs === 12) hrs = 0;
+      return `${String(hrs).padStart(2, '0')}:${mins}`;
+    }
+    const parts = trimmed.split(':');
     if (parts.length >= 2) {
-      return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+      const hrs = parts[0].replace(/\D/g, '').padStart(2, '0');
+      const mins = parts[1].replace(/\D/g, '').slice(0, 2).padStart(2, '0');
+      return `${hrs}:${mins}`;
     }
     return '00:00';
   };
@@ -344,6 +356,8 @@ const computeTradeCalculations = (
 const updateBaseCapital = (accounts: BrokerAccount[]) => {
   return accounts.filter(a => a.active).reduce((sum, a) => sum + a.startingCapital, 0);
 };
+
+let inFlightPullPromise: Promise<boolean> | null = null;
 
 export const useTradeStore = create<TradeStore>((set, get) => {
   const getMockInvestments = (): Investment[] => {
@@ -550,7 +564,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
   };
 
   const loadSelectedFY = (): string => {
-    const saved = localStorage.getItem('traders_diary_selected_fy');
+    const saved = localStorage.getItem(getScopedKey('traders_diary_selected_fy')) || localStorage.getItem('traders_diary_selected_fy');
     return saved || getCurrentLiveFY();
   };
 
@@ -593,7 +607,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         if (Array.isArray(bankTxs)) {
           bankTxs.forEach(tx => {
             if (tx && (tx.category === 'Broker Pay-in' || tx.category === 'Broker Pay-out') && tx.brokerAccountId) {
-              const exists = updated.some(a => a.id === `adj-${tx.id}`);
+              const normalizedId = tx.id.replace(/^btx-/, '');
+              const exists = updated.some(a => a.id === normalizedId || a.id === `adj-${tx.id}` || a.id === `adj-${normalizedId}`);
               if (!exists) {
                 const matchedAcc = safeAccounts.find(a => a.id === tx.brokerAccountId);
                 const adjType = (tx.type === 'DEPOSIT' ? 'WITHDRAWAL' : 'DEPOSIT') as 'DEPOSIT' | 'WITHDRAWAL';
@@ -653,7 +668,14 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
   const loadPnlVisibility = (): boolean => {
     const saved = localStorage.getItem(getScopedKey('traders_diary_pnl_visibility'));
-    return saved !== null ? JSON.parse(saved) : true;
+    if (saved !== null) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return true;
+      }
+    }
+    return true;
   };
 
   const loadDailyNotes = (): Record<string, DailyNote> => {
@@ -936,6 +958,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
             broker: merged.broker,
             brokerage: merged.brokerage,
             taxes: merged.taxes,
+            partialExits: merged.partialExits,
           }, chargesConfig);
           const updatedTrade = { ...merged, ...calculated };
           
@@ -1165,92 +1188,123 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       };
     }),
 
-    pullTradesFromCloud: async () => {
+    pullTradesFromCloud: async (): Promise<boolean> => {
       const userId = get().sessionUser?.id;
       if (!userId) return false;
-
-      // 1. Fetch from cloud
-      const cloudTrades = await fetchTradesFromCloud();
-      if (cloudTrades === null) {
-        console.error("Cloud trades fetch failed. Aborting sync to protect local data.");
-        return false;
+      if (inFlightPullPromise) {
+        return inFlightPullPromise;
       }
 
-      const cloudMeta = await fetchMetaBatchFromCloud();
-      if (cloudMeta === null) {
-        console.error("Cloud metadata batch fetch failed. Aborting sync to protect local data.");
-        return false;
-      }
-
-      // Sync Trades: Cloud-first priority (Cloud updates local database)
-      set({ trades: cloudTrades });
-      localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
-
-      // Helper function for metadata keys using cloud-first priority
-      const processMetaKey = async (key: string, storeSetter: (val: any) => void, localKey: string, defaultValue: any) => {
-        const cloudVal = cloudMeta[key];
-        
-        if (cloudVal !== undefined && cloudVal !== null) {
-          // Cloud has data: use it to overwrite local data (priority)
-          storeSetter(cloudVal);
-          localStorage.setItem(localKey, JSON.stringify(cloudVal));
-        } else {
-          // Cloud is empty/new: push local data to cloud if it has custom values
-          const localValStr = localStorage.getItem(localKey);
-          const localVal = localValStr ? JSON.parse(localValStr) : null;
-          
-          const isLocalDefaultOrEmpty = !localVal ||
-            JSON.stringify(localVal) === JSON.stringify(defaultValue) ||
-            (Array.isArray(localVal) && localVal.length === 0) ||
-            (typeof localVal === 'object' && Object.keys(localVal).length === 0);
-
-          if (localVal && !isLocalDefaultOrEmpty) {
-            await syncMetaToCloud(key, localVal);
-            storeSetter(localVal);
-          } else {
-            storeSetter(defaultValue);
-            localStorage.setItem(localKey, JSON.stringify(defaultValue));
+      const runPull = async (): Promise<boolean> => {
+        try {
+          // 1. Fetch from cloud
+          const cloudTrades = await fetchTradesFromCloud();
+          if (cloudTrades === null) {
+            console.error("Cloud trades fetch failed. Aborting sync to protect local data.");
+            return false;
           }
+
+          const cloudMeta = await fetchMetaBatchFromCloud();
+          if (cloudMeta === null) {
+            console.error("Cloud metadata batch fetch failed. Aborting sync to protect local data.");
+            return false;
+          }
+
+          // Sync Trades: Cloud-first priority (Cloud updates local database)
+          set({ trades: cloudTrades });
+          try {
+            localStorage.setItem(`traders_diary_trades_${userId}`, JSON.stringify(cloudTrades));
+          } catch {}
+
+          // Helper function for metadata keys using cloud-first priority
+          const processMetaKey = async (key: string, storeSetter: (val: any) => void, localKey: string, defaultValue: any) => {
+            const cloudVal = cloudMeta[key];
+            
+            if (cloudVal !== undefined && cloudVal !== null) {
+              // Cloud has data: use it to overwrite local data (priority)
+              storeSetter(cloudVal);
+              try {
+                localStorage.setItem(localKey, JSON.stringify(cloudVal));
+              } catch {}
+            } else {
+              // Cloud is empty/new: push local data to cloud if it has custom values
+              const localValStr = localStorage.getItem(localKey);
+              let localVal: any = null;
+              if (localValStr) {
+                try {
+                  localVal = JSON.parse(localValStr);
+                } catch {
+                  localVal = null;
+                }
+              }
+              
+              const isLocalDefaultOrEmpty = !localVal ||
+                JSON.stringify(localVal) === JSON.stringify(defaultValue) ||
+                (Array.isArray(localVal) && localVal.length === 0) ||
+                (typeof localVal === 'object' && Object.keys(localVal).length === 0);
+
+              if (localVal && !isLocalDefaultOrEmpty) {
+                await syncMetaToCloud(key, localVal);
+                storeSetter(localVal);
+              } else {
+                storeSetter(defaultValue);
+                try {
+                  localStorage.setItem(localKey, JSON.stringify(defaultValue));
+                } catch {}
+              }
+            }
+          };
+
+          // Setups
+          await processMetaKey('setups', (val) => set({ setups: val }), `traders_diary_setups_${userId}`, DEFAULT_SETUPS);
+
+          // Investments
+          await processMetaKey('investments', (val) => set({ investments: val }), `traders_diary_investments_${userId}`, []);
+
+          // Capital Adjustments
+          await processMetaKey('capital_adjustments', (val) => set({ capitalAdjustments: val }), `traders_diary_adjustments_${userId}`, []);
+
+          // Contract Notes
+          await processMetaKey('contract_notes', (val) => set({ contractNotes: val }), `traders_diary_contract_notes_${userId}`, []);
+
+          // Day-End Notes
+          await processMetaKey('daily_notes', (val) => set({ dailyNotes: val }), `traders_diary_daily_notes_${userId}`, {});
+
+          // Weekly Retrospectives
+          await processMetaKey('weekly_retrospectives', (val) => set({ weeklyRetrospectives: val }), `traders_diary_weekly_retrospectives_${userId}`, {});
+
+          // Broker Accounts
+          await processMetaKey('broker_accounts', (val) => set({ brokerAccounts: val, baseCapital: updateBaseCapital(val) }), `traders_diary_broker_accounts_${userId}`, DEFAULT_BROKER_ACCOUNTS);
+
+          // Bank Accounts
+          await processMetaKey('bank_accounts', (val) => set({ bankAccounts: val }), `traders_diary_bank_accounts_${userId}`, DEFAULT_BANK_ACCOUNTS);
+
+          // Broker Charges
+          await processMetaKey('broker_charges', (val) => set({ brokerCharges: val }), `traders_diary_broker_charges_${userId}`, DEFAULT_BROKER_CHARGES);
+
+          // Expenses
+          await processMetaKey('subscription_expenses', (val) => set({ subscriptionExpenses: val }), `traders_diary_subscription_expenses_${userId}`, DEFAULT_SUBSCRIPTION_EXPENSES);
+
+          // Bank Transactions
+          await processMetaKey('bank_transactions', (val) => set({ bankTransactions: val }), `traders_diary_bank_transactions_${userId}`, []);
+
+          // No Trade Days
+          await processMetaKey('notradedays', (val) => set({ noTradeDays: val }), `traders_diary_notradedays_${userId}`, []);
+
+          // Mark the sync initialization as completed
+          try {
+            localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');
+          } catch {}
+
+          return true;
+        } finally {
+          inFlightPullPromise = null;
         }
       };
 
-      // Setups
-      await processMetaKey('setups', (val) => set({ setups: val }), `traders_diary_setups_${userId}`, DEFAULT_SETUPS);
-
-      // Investments
-      await processMetaKey('investments', (val) => set({ investments: val }), `traders_diary_investments_${userId}`, []);
-
-      // Capital Adjustments
-      await processMetaKey('capital_adjustments', (val) => set({ capitalAdjustments: val }), `traders_diary_adjustments_${userId}`, []);
-
-      // Day-End Notes
-      await processMetaKey('daily_notes', (val) => set({ dailyNotes: val }), `traders_diary_daily_notes_${userId}`, {});
-
-      // Weekly Retrospectives
-      await processMetaKey('weekly_retrospectives', (val) => set({ weeklyRetrospectives: val }), `traders_diary_weekly_retrospectives_${userId}`, {});
-
-      // Broker Accounts
-      await processMetaKey('broker_accounts', (val) => set({ brokerAccounts: val, baseCapital: updateBaseCapital(val) }), `traders_diary_broker_accounts_${userId}`, DEFAULT_BROKER_ACCOUNTS);
-
-      // Bank Accounts
-      await processMetaKey('bank_accounts', (val) => set({ bankAccounts: val }), `traders_diary_bank_accounts_${userId}`, DEFAULT_BANK_ACCOUNTS);
-
-      // Broker Charges
-      await processMetaKey('broker_charges', (val) => set({ brokerCharges: val }), `traders_diary_broker_charges_${userId}`, DEFAULT_BROKER_CHARGES);
-
-      // Expenses
-      await processMetaKey('subscription_expenses', (val) => set({ subscriptionExpenses: val }), `traders_diary_subscription_expenses_${userId}`, DEFAULT_SUBSCRIPTION_EXPENSES);
-
-      // Bank Transactions
-      await processMetaKey('bank_transactions', (val) => set({ bankTransactions: val }), `traders_diary_bank_transactions_${userId}`, []);
-
-      // No Trade Days
-      await processMetaKey('notradedays', (val) => set({ noTradeDays: val }), `traders_diary_notradedays_${userId}`, []);
-
-      // Mark the sync initialization as completed
-      localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');
-
-      return true;
+      const promise = runPull();
+      inFlightPullPromise = promise;
+      return promise;
     },
 
     // Investments Action implementations
@@ -1478,6 +1532,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const investments = getOrMigrate('traders_diary_investments', getMockInvestments());
       const dailyNotes = getOrMigrate('traders_diary_daily_notes', {});
       const weeklyRetrospectives = getOrMigrate('traders_diary_weekly_retrospectives', {});
+      const contractNotes = getOrMigrate('traders_diary_contract_notes', []);
 
       
 
@@ -1487,9 +1542,13 @@ export const useTradeStore = create<TradeStore>((set, get) => {
       const defaultBroker = localStorage.getItem(`traders_diary_default_broker_${userId}`) || localStorage.getItem('traders_diary_default_broker') || 'Zerodha';
 
       const lockedFYs = getOrMigrate('traders_diary_locked_fys', ['FY 2024-25', 'FY 2025-26']);
-      const isPnlVisible = localStorage.getItem(`traders_diary_pnl_visibility_${userId}`) !== null 
-        ? JSON.parse(localStorage.getItem(`traders_diary_pnl_visibility_${userId}`)!) 
-        : (localStorage.getItem('traders_diary_pnl_visibility') !== null ? JSON.parse(localStorage.getItem('traders_diary_pnl_visibility')!) : true);
+      let isPnlVisible = true;
+      try {
+        const scopedPnl = localStorage.getItem(`traders_diary_pnl_visibility_${userId}`);
+        const legacyPnl = localStorage.getItem('traders_diary_pnl_visibility');
+        if (scopedPnl !== null) isPnlVisible = JSON.parse(scopedPnl);
+        else if (legacyPnl !== null) isPnlVisible = JSON.parse(legacyPnl);
+      } catch {}
       const noTradeDays = getOrMigrate('traders_diary_notradedays', []);
 
       set({
@@ -1498,6 +1557,7 @@ export const useTradeStore = create<TradeStore>((set, get) => {
         baseCapital,
         capitalAdjustments,
         investments,
+        contractNotes,
         dailyNotes,
         weeklyRetrospectives,
         userName,
@@ -2070,6 +2130,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
             const allocTaxes = Math.round((noteData.taxes * proportion) * 100) / 100;
             const allocTotalCharges = Math.round((allocBrokerage + allocTaxes) * 100) / 100;
             const netPnL = Math.round((t.grossPnL - allocTotalCharges) * 100) / 100;
+            const deployedCap = t.entryPrice * t.qty;
+            const roi = deployedCap > 0 ? Math.round((netPnL / deployedCap) * 10000) / 100 : 0;
 
             const updatedT: Trade = {
               ...t,
@@ -2079,7 +2141,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
               manualTaxes: allocTaxes,
               brokerage: allocBrokerage,
               taxes: allocTaxes,
-              netPnL
+              netPnL,
+              roi
             };
             syncTradeToCloud('update', updatedT);
             return updatedT;
@@ -2122,6 +2185,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
 
         const updatedTrades = state.trades.map(t => {
           if (matchesTarget(t)) {
+            const deployedCap = t.entryPrice * t.qty;
+            const roi = deployedCap > 0 ? Math.round((t.grossPnL / deployedCap) * 10000) / 100 : 0;
             const updatedT: Trade = {
               ...t,
               useManualCharges: false,
@@ -2129,7 +2194,8 @@ export const useTradeStore = create<TradeStore>((set, get) => {
               manualTaxes: 0,
               brokerage: 0,
               taxes: 0,
-              netPnL: t.grossPnL
+              netPnL: t.grossPnL,
+              roi
             };
             syncTradeToCloud('update', updatedT);
             return updatedT;
@@ -2189,11 +2255,16 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           contractNotes: [],
           dailyNotes: {},
           weeklyRetrospectives: {},
+          brokerAccounts: DEFAULT_BROKER_ACCOUNTS,
+          bankAccounts: DEFAULT_BANK_ACCOUNTS,
+          bankTransactions: [],
+          subscriptionExpenses: DEFAULT_SUBSCRIPTION_EXPENSES,
+          brokerCharges: DEFAULT_BROKER_CHARGES,
           selectedFY: getCurrentLiveFY(),
-          noTradeDays: loadNoTradeDays(),
-          lockedFYs: loadLockedFYs(),
+          noTradeDays: [],
+          lockedFYs: [],
           theme: loadTheme(),
-          isPnlVisible: loadPnlVisibility()
+          isPnlVisible: true
         });
         return { error: null };
       } catch (e: any) {

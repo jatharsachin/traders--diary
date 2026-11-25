@@ -108,32 +108,28 @@ body::before, body::after {
   content: '';
   position: fixed;
   border-radius: 50%;
-  filter: blur(140px);
   z-index: -10;
   pointer-events: none;
-  will-change: transform, opacity;
 }
 
 body::before {
-  width: 650px;
-  height: 650px;
-  top: -120px;
-  right: -80px;
-  background: radial-gradient(circle, rgba(10, 132, 255, 0.45) 0%, rgba(14, 165, 233, 0.25) 45%, rgba(0, 0, 0, 0) 70%);
-  animation: auroraBreathe 20s ease-in-out infinite;
+  width: 720px;
+  height: 720px;
+  top: -160px;
+  right: -120px;
+  background: radial-gradient(circle, rgba(10, 132, 255, 0.14) 0%, rgba(14, 165, 233, 0.06) 45%, rgba(0, 0, 0, 0) 72%);
 }
 
 body::after {
-  width: 600px;
-  height: 600px;
-  bottom: -150px;
-  left: -80px;
-  background: radial-gradient(circle, rgba(191, 90, 242, 0.38) 0%, rgba(139, 92, 246, 0.22) 45%, rgba(0, 0, 0, 0) 70%);
-  animation: auroraBreatheReverse 25s ease-in-out infinite;
+  width: 680px;
+  height: 680px;
+  bottom: -180px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(191, 90, 242, 0.12) 0%, rgba(139, 92, 246, 0.05) 45%, rgba(0, 0, 0, 0) 72%);
 }
 
-/* Smooth globally applied transitions */
-body, input, select, textarea, tr, td, th {
+/* Smooth globally applied transitions (scoped to interactive controls, not table cells) */
+body, input, select, textarea, button {
   transition: background-color var(--transition-glass), border-color var(--transition-glass), color var(--transition-glass), box-shadow var(--transition-glass);
 }
 
@@ -168,7 +164,6 @@ body {
   color: var(--text-main);
   min-height: 100vh;
   overflow-x: hidden;
-  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.005em;
@@ -932,6 +927,7 @@ select,
   cursor: pointer;
 }
 
+.custom-table tbody tr:nth-child(even):hover td,
 .custom-table tbody tr:hover td,
 .custom-table tr:hover td {
   background-color: var(--primary-glow) !important;
@@ -959,6 +955,8 @@ select,
   animation: excelSelectionGlide 0.26s cubic-bezier(0.1, 0.85, 0.25, 1) forwards;
 }
 
+.custom-table tbody tr.selected-row:nth-child(even) td,
+.custom-table tbody tr.selected-row td,
 .custom-table tr.selected-row td {
   background-color: rgba(10, 132, 255, 0.18) !important;
   color: var(--text-main) !important;
@@ -1207,7 +1205,7 @@ select,
   border-bottom: 1px solid var(--border-color);
 }
 :root {
-  --bg-sticky: var(--bg-color);
+  --bg-sticky: rgba(7, 9, 14, 0.82);
 }
 
 @media (max-width: 480px) {
@@ -1269,7 +1267,7 @@ select,
     padding: 12px !important;
   }
   .metrics-grid {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: 1fr !important;
     gap: 10px !important;
     margin-bottom: 16px !important;
   }
@@ -1905,10 +1903,8 @@ table, .custom-table, [style*="var(--font-mono)"], .day-pnl, .metric-value, .fon
   position: sticky !important;
   top: 0 !important;
   z-index: 10 !important;
-  background: var(--bg-card) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  background: var(--bg-tooltip-opaque) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 

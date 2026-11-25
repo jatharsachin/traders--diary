@@ -45,7 +45,10 @@ function prepareTradeForCloud(trade: any, userId: string) {
     strikePrice: trade.strikePrice !== undefined && trade.strikePrice !== null ? Number(trade.strikePrice) : undefined,
     optionType: trade.optionType || undefined,
     setupType: trade.setupType || undefined,
-    holdingType: trade.holdingType || undefined
+    holdingType: trade.holdingType || undefined,
+    mistakes: Array.isArray(trade.mistakes) ? trade.mistakes : undefined,
+    partialExits: Array.isArray(trade.partialExits) ? trade.partialExits : undefined,
+    chartUrl: trade.chartUrl || undefined
   };
 
   let cleanNotes = trade.notes || '';
@@ -142,8 +145,11 @@ function parseTradeFromCloud(dbRow: any): Trade {
     target: Number(dbRow.target || 0),
     strategy: dbRow.strategy || '',
     rulesFollowed: dbRow.rulesfollowed || [],
-    emotion: dbRow.emotion || 'Neutral',
+    emotion: dbRow.emotion || 'Calm',
     mistake: dbRow.mistake || 'None',
+    mistakes: Array.isArray(metadata.mistakes) ? metadata.mistakes : undefined,
+    partialExits: Array.isArray(metadata.partialExits) ? metadata.partialExits : undefined,
+    chartUrl: metadata.chartUrl || undefined,
     notes: notes,
     strikePrice: strikeVal,
     optionType: optTypeVal,

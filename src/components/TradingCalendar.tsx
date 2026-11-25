@@ -1009,9 +1009,9 @@ export function TradingCalendar({
       }
       wEnd.setHours(23, 59, 59, 999);
       
-      // Calculate P&L for this week
-      const wStartStr = wStart.toISOString().split('T')[0];
-      const wEndStr = wEnd.toISOString().split('T')[0];
+      const fmtLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const wStartStr = fmtLocal(wStart);
+      const wEndStr = fmtLocal(wEnd);
       
       const weeklyTrades = trades.filter((t) => {
         const d = t.exitDate || t.date;
@@ -2561,7 +2561,7 @@ export function TradingCalendar({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {onEditTrade && (
+                {onEditTrade && !(selectedCalendarTrade as any).isInvestment && (
                   <button
                     onClick={() => onEditTrade(selectedCalendarTrade.id)}
                     className="btn btn-primary"
@@ -2572,7 +2572,7 @@ export function TradingCalendar({
                   </button>
                 )}
 
-                {onDuplicateTrade && (
+                {onDuplicateTrade && !(selectedCalendarTrade as any).isInvestment && (
                   <button
                     onClick={() => onDuplicateTrade(selectedCalendarTrade.id)}
                     className="btn btn-secondary btn-accent-gold"

@@ -332,6 +332,37 @@ export function ProfileSettingsModal({
     }
   };
 
+  const handleExportCSV = () => {
+    try {
+      const headers = [
+        'Date', 'ExitDate', 'EntryTime', 'ExitTime', 'Broker', 'Segment',
+        'Product', 'Action', 'Symbol', 'Qty', 'EntryPrice', 'ExitPrice',
+        'GrossPnL', 'Brokerage', 'Taxes', 'NetPnL', 'Strategy', 'Mistake', 'Notes'
+      ];
+      const escapeCsv = (val: unknown) => {
+        const s = String(val ?? '');
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const rows = trades.map(t => [
+        t.date, t.exitDate || t.date, t.entryTime, t.exitTime, t.broker || 'Other',
+        t.segment, t.product, t.action, t.symbol, t.qty, t.entryPrice, t.exitPrice,
+        t.grossPnL, t.brokerage, t.taxes, t.netPnL, t.strategy || '', t.mistake || 'None', t.notes || ''
+      ].map(escapeCsv).join(','));
+
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tradediary_logs_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${trades.length} trade logs to CSV!`);
+    } catch {
+      toast.error('Failed to export trade logs as CSV.');
+    }
+  };
+
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileReader = new FileReader();
     if (e.target.files && e.target.files[0]) {
@@ -1153,7 +1184,7 @@ export function ProfileSettingsModal({
                   </div>
 
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    <button type="button" className="btn btn-primary" onClick={handleExportBackup} style={{ fontSize: '0.75rem', height: '32px' }}>
+                    <button type="button" className="btn btn-primary" onClick={handleExportCSV} style={{ fontSize: '0.75rem', height: '32px' }}>
                       <Download size={13} />
                       <span>Export Logs (CSV)</span>
                     </button>

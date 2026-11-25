@@ -431,7 +431,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         const cleanNotes = existing.notes ? `[Re-Entry] ${existing.notes}` : '[Re-Entry]';
         const cleanTags = (existing.tags || []).filter(t => !['#spread_leg1', '#spread_leg2', '#hedge_leg', '#hedged'].includes(t.toLowerCase()));
 
-        setSelectedMistakes(['None']);
+        setSelectedMistakes([]);
         setFormData({
           date: todayStr,
           entryTime: currentTimeStr,
@@ -569,7 +569,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
       setLeg2ExitPrice(0);
       setLeg2Symbol('');
     }
-  }, [editTradeId, duplicateTradeId, trades, setups, isOpen, selectedFY, activeAccountId, brokerAccounts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTradeId, duplicateTradeId, isOpen, selectedFY, activeAccountId]);
 
   // Keyboard Escape key listener to close modal safely with unsaved work confirmation
   useEffect(() => {
@@ -683,6 +684,11 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
   // Dynamically auto-construct symbol from index, strike price, and option type
   useEffect(() => {
     if (formData.segment === 'F&O' && formData.strikePrice > 0 && formData.optionType !== 'None' && isOpen) {
+      const currentPrefix = formData.symbol.trim().split(' ')[0].toUpperCase();
+      const isKnownIndex = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'SENSEX', 'BANKEX'].includes(currentPrefix);
+      if (formData.symbol.trim() && !isKnownIndex && currentPrefix !== underlyingIndex) {
+        return; // Preserve stock option ticker (e.g. RELIANCE 2800 CE)
+      }
       const newSymbol = `${underlyingIndex} ${formData.strikePrice} ${formData.optionType}`;
       if (formData.symbol !== newSymbol) {
         setFormData(prev => ({
@@ -811,12 +817,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         setError('Quantity must be greater than zero.');
         return;
       }
-      if (formData.entryPrice <= 0 || formData.exitPrice <= 0) {
-        setError('Leg 1 prices must be greater than zero.');
+      if (formData.entryPrice <= 0 || formData.exitPrice < 0 || isNaN(formData.exitPrice)) {
+        setError('Leg 1 Entry Price must be > 0 and Exit Price cannot be negative.');
         return;
       }
-      if (leg2EntryPrice <= 0 || leg2ExitPrice <= 0) {
-        setError('Leg 2 prices must be greater than zero.');
+      if (leg2EntryPrice <= 0 || leg2ExitPrice < 0 || isNaN(leg2ExitPrice)) {
+        setError('Leg 2 Entry Price must be > 0 and Exit Price cannot be negative.');
         return;
       }
       if (!leg2Strike) {
@@ -836,8 +842,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         setError('Quantity must be greater than zero.');
         return;
       }
-      if (formData.entryPrice <= 0 || formData.exitPrice <= 0) {
-        setError('Prices must be greater than zero.');
+      if (formData.entryPrice <= 0 || formData.exitPrice < 0 || isNaN(formData.exitPrice)) {
+        setError('Entry Price must be greater than zero and Exit Price cannot be negative.');
         return;
       }
     }

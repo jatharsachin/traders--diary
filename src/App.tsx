@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, lazy, Suspense } from 'react';
 
 
 
@@ -17,7 +17,7 @@ import { AccountFilterDropdown } from './components/AccountFilterDropdown';
 import { 
   Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, 
   BookOpen, BookOpenCheck, Menu, HelpCircle, FileSpreadsheet, NotebookPen,
-  CalendarRange, ScrollText, Target, Landmark, LifeBuoy, TrendingUp, TrendingDown
+  CalendarRange, ScrollText, Target, Landmark, LifeBuoy, TrendingUp, TrendingDown, FileText
 } from 'lucide-react';
 import { getSupabaseClient } from './utils/supabaseClient';
 import logoImg from './assets/tradediary_logo.png';
@@ -26,6 +26,39 @@ import { ToastContainer } from './components/ToastContainer';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 type Tab = 'dashboard' | 'daybook' | 'dailyNotes' | 'calendar' | 'logs' | 'mistakes' | 'strategies' | 'ledger' | 'account' | 'taxation' | 'contractNotes' | 'help';
+
+const LiveClock = memo(function LiveClock() {
+  const [nowText, setNowText] = useState<string>(() =>
+    new Date().toLocaleString('en-IN', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    })
+  );
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setNowText(
+        new Date().toLocaleString('en-IN', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        })
+      );
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return <>{nowText}</>;
+});
 
 
 const safeLazy = (importFn: () => Promise<any>) =>
@@ -143,8 +176,7 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const hasAutoSyncedInvestments = useRef(false);
 
-  // Live clock and Nifty live index ticker
-  const [liveTime, setLiveTime] = useState<string>('');
+  // Nifty live index ticker (Clock is isolated in LiveClock to avoid 1s full-app re-renders)
   const [niftyPrice, setNiftyPrice] = useState<number>(24056.00);
   const [niftyChange, setNiftyChange] = useState<number>(34.35);
   const [niftyFlash, setNiftyFlash] = useState<'up' | 'down' | null>(null);
@@ -163,86 +195,86 @@ export default function App() {
     return currentMinutes >= startMinutes && currentMinutes < endMinutes;
   };
 
-  const fetchLiveNiftyPrice = async () => {
-    const ticker = '^NSEI';
-    const urls = [
-      `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`,
-      `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`
-    ];
-    const proxies = [
-      (targetUrl: string) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-      (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
-    ];
+  useEffect(() => {
+    let isMounted = true;
+    let flashTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
-    for (const url of urls) {
-      for (const getProxyUrl of proxies) {
-        try {
-          const proxyUrl = getProxyUrl(url);
-          const response = await fetch(proxyUrl);
-          if (!response.ok) continue;
-          const json = await response.json();
-          let data = json && json.contents ? JSON.parse(json.contents) : json;
+    const fetchLiveNiftyPrice = async (signal?: AbortSignal) => {
+      const ticker = '^NSEI';
+      const urls = [
+        `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`,
+        `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`
+      ];
+      const proxies = [
+        (targetUrl: string) => `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+        (targetUrl: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+      ];
 
-          const quoteResult = data?.quoteResponse?.result?.[0];
-          const quotePrice = quoteResult?.regularMarketPrice;
-          const quoteChange = quoteResult?.regularMarketChange;
-          if (quotePrice && typeof quotePrice === 'number') {
-            return { price: quotePrice, change: quoteChange || 0 };
+      for (const url of urls) {
+        for (const getProxyUrl of proxies) {
+          if (signal?.aborted) return null;
+          try {
+            const proxyUrl = getProxyUrl(url);
+            const response = await fetch(proxyUrl, { signal });
+            if (!response.ok) continue;
+            const json = await response.json();
+            const data = json && json.contents ? JSON.parse(json.contents) : json;
+
+            const quoteResult = data?.quoteResponse?.result?.[0];
+            const quotePrice = quoteResult?.regularMarketPrice;
+            const quoteChange = quoteResult?.regularMarketChange;
+            if (quotePrice && typeof quotePrice === 'number') {
+              return { price: quotePrice, change: quoteChange || 0 };
+            }
+
+            const meta = data?.chart?.result?.[0]?.meta;
+            const chartPrice = meta?.regularMarketPrice;
+            const chartChange = meta ? (meta.regularMarketPrice - meta.previousClose) : 0;
+            if (chartPrice && typeof chartPrice === 'number') {
+              return { price: chartPrice, change: chartChange };
+            }
+          } catch {
+            // Silent fallback and try next proxy/url
           }
-
-          const meta = data?.chart?.result?.[0]?.meta;
-          const chartPrice = meta?.regularMarketPrice;
-          const chartChange = meta ? (meta.regularMarketPrice - meta.previousClose) : 0;
-          if (chartPrice && typeof chartPrice === 'number') {
-            return { price: chartPrice, change: chartChange };
-          }
-        } catch (e) {
-          // Silent fallback and try next proxy/url
         }
       }
-    }
-    return null;
-  };
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setLiveTime(now.toLocaleString('en-IN', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric', 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        second: '2-digit',
-        hour12: true 
-      }));
+      return null;
     };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
+
+    const controller = new AbortController();
 
     const updateNiftyPrice = async () => {
-      const live = await fetchLiveNiftyPrice();
-      if (live) {
-        setNiftyPrice(prev => {
-          if (prev !== live.price) {
-            setNiftyFlash(live.price > prev ? 'up' : 'down');
-            setTimeout(() => setNiftyFlash(null), 800);
-          }
-          return live.price;
-        });
-        setNiftyChange(live.change);
-      }
+      const live = await fetchLiveNiftyPrice(controller.signal);
+      if (!isMounted || !live) return;
+      setNiftyPrice(prev => {
+        if (prev !== live.price) {
+          setNiftyFlash(live.price > prev ? 'up' : 'down');
+          if (flashTimer) clearTimeout(flashTimer);
+          flashTimer = setTimeout(() => {
+            if (isMounted) setNiftyFlash(null);
+          }, 800);
+        }
+        return live.price;
+      });
+      setNiftyChange(live.change);
+    };
+
+    const scheduleNext = () => {
+      pollTimer = setTimeout(async () => {
+        await updateNiftyPrice();
+        if (isMounted) scheduleNext();
+      }, isMarketOpen() ? 15000 : 120000);
     };
 
     updateNiftyPrice();
-    // Poll every 15 seconds during market hours, or every 2 minutes in off hours
-    const niftyInterval = setInterval(() => {
-      updateNiftyPrice();
-    }, isMarketOpen() ? 15000 : 120000);
+    scheduleNext();
 
     return () => {
-      clearInterval(timer);
-      clearInterval(niftyInterval);
+      isMounted = false;
+      controller.abort();
+      if (flashTimer) clearTimeout(flashTimer);
+      if (pollTimer) clearTimeout(pollTimer);
     };
   }, []);
 
@@ -331,59 +363,56 @@ export default function App() {
     localStorage.setItem(`traders_diary_active_account_${userKey}`, newActive);
   };
 
-  const trades = allTrades.filter(t => 
+  const trades = useMemo(() => allTrades.filter(t => 
     !t.brokerAccountId || 
-    activeAccountIds.includes(t.brokerAccountId) ||
-    brokerAccounts.some(a => a.active && a.broker === t.broker)
-  );
-  const capitalAdjustments = allAdjustments.filter(a => 
-    !a.brokerAccountId || 
-    activeAccountIds.includes(a.brokerAccountId) ||
-    brokerAccounts.some(a => a.active && a.broker === a.broker)
-  );
-  const investments = allInvestments.filter(i => 
-    !i.brokerAccountId || 
-    activeAccountIds.includes(i.brokerAccountId) ||
-    brokerAccounts.some(a => a.active && a.broker === i.broker)
-  );
+    activeAccountIds.includes(t.brokerAccountId)
+  ), [allTrades, activeAccountIds]);
 
-  const validSelected = selectedAccountIds.filter(id => activeAccountIds.includes(id));
+  const capitalAdjustments = useMemo(() => allAdjustments.filter(a => 
+    !a.brokerAccountId || 
+    activeAccountIds.includes(a.brokerAccountId)
+  ), [allAdjustments, activeAccountIds]);
+
+  const investments = useMemo(() => allInvestments.filter(i => 
+    !i.brokerAccountId || 
+    activeAccountIds.includes(i.brokerAccountId)
+  ), [allInvestments, activeAccountIds]);
+
+  const validSelected = useMemo(() => selectedAccountIds.filter(id => activeAccountIds.includes(id)), [selectedAccountIds, activeAccountIds]);
   const isCombinedView = activeAccountId === 'Combined' || 
                          validSelected.length === 0 || 
                          (activeAccountIds.length > 0 && activeAccountIds.every(id => validSelected.includes(id)));
-  const effectiveSelectedIds = isCombinedView ? activeAccountIds : validSelected;
-  const selectedBrokers = brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).map(a => a.broker);
+  const effectiveSelectedIds = useMemo(() => isCombinedView ? activeAccountIds : validSelected, [isCombinedView, activeAccountIds, validSelected]);
+  const selectedBrokers = useMemo(() => brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).map(a => a.broker), [brokerAccounts, effectiveSelectedIds]);
 
-  const filteredTrades = isCombinedView
+  const filteredTrades = useMemo(() => isCombinedView
     ? trades
     : trades.filter((t) => {
-        if (t.brokerAccountId && effectiveSelectedIds.includes(t.brokerAccountId)) return true;
-        if (!t.brokerAccountId && t.broker && selectedBrokers.includes(t.broker)) return true;
-        return false;
-      });
+        if (t.brokerAccountId) return effectiveSelectedIds.includes(t.brokerAccountId);
+        return Boolean(t.broker && selectedBrokers.includes(t.broker));
+      }), [isCombinedView, trades, effectiveSelectedIds, selectedBrokers]);
 
-  const filteredAdjustments = isCombinedView
+  const filteredAdjustments = useMemo(() => isCombinedView
     ? capitalAdjustments
     : capitalAdjustments.filter((a) => {
-        if (a.brokerAccountId && effectiveSelectedIds.includes(a.brokerAccountId)) return true;
-        if (!a.brokerAccountId && a.broker && selectedBrokers.includes(a.broker)) return true;
-        return false;
-      });
+        if (a.brokerAccountId) return effectiveSelectedIds.includes(a.brokerAccountId);
+        return Boolean(a.broker && selectedBrokers.includes(a.broker));
+      }), [isCombinedView, capitalAdjustments, effectiveSelectedIds, selectedBrokers]);
 
-  const filteredBaseCapital = isCombinedView
+  const filteredBaseCapital = useMemo(() => isCombinedView
     ? baseCapital
-    : brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0);
+    : brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id)).reduce((sum, a) => sum + (Number(a.startingCapital) || 0), 0),
+    [isCombinedView, baseCapital, brokerAccounts, effectiveSelectedIds]);
 
-  const totalNetPnL = filteredTrades.reduce((acc, t) => acc + t.netPnL, 0);
-  const totalDeposits = filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0);
-  const totalWithdrawals = filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0);
-  const filteredInvestments = isCombinedView
+  const totalNetPnL = useMemo(() => filteredTrades.reduce((acc, t) => acc + t.netPnL, 0), [filteredTrades]);
+  const totalDeposits = useMemo(() => filteredAdjustments.filter((a) => a.type === 'DEPOSIT').reduce((acc, a) => acc + a.amount, 0), [filteredAdjustments]);
+  const totalWithdrawals = useMemo(() => filteredAdjustments.filter((a) => a.type === 'WITHDRAWAL').reduce((acc, a) => acc + a.amount, 0), [filteredAdjustments]);
+  const filteredInvestments = useMemo(() => isCombinedView
     ? investments
     : investments.filter(i => {
-        if (i.brokerAccountId && effectiveSelectedIds.includes(i.brokerAccountId)) return true;
-        const matchedAccs = brokerAccounts.filter(a => effectiveSelectedIds.includes(a.id));
-        return matchedAccs.some(a => i.broker === a.broker);
-      });
+        if (i.brokerAccountId) return effectiveSelectedIds.includes(i.brokerAccountId);
+        return Boolean(i.broker && selectedBrokers.includes(i.broker));
+      }), [isCombinedView, investments, effectiveSelectedIds, selectedBrokers]);
 
   const totalInvPurchasedCost = filteredInvestments.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
   const totalInvExitedCredit = filteredInvestments
@@ -569,34 +598,59 @@ export default function App() {
   useEffect(() => {
     const client = getSupabaseClient();
     if (!client) return;
+    let isMounted = true;
+    let initialLoadedUserId: string | null = null;
 
     // Check active session
     client.auth.getSession().then(({ data }: any) => {
+      if (!isMounted) return;
       const session = data?.session;
       if (session?.user) {
+        initialLoadedUserId = session.user.id;
         setSessionUser(session.user);
         loadUserData(session.user.id);
       } else {
         setSessionUser(null);
       }
-    });
+    }).catch(() => {});
 
     // Listen for auth changes
     const { data: { subscription } } = client.auth.onAuthStateChange((event: any, session: any) => {
+      if (!isMounted) return;
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecoveryActive(true);
       } else if (session?.user) {
+        if (event === 'INITIAL_SESSION' && initialLoadedUserId === session.user.id) {
+          return; // Already loaded by getSession()
+        }
+        initialLoadedUserId = session.user.id;
         setSessionUser(session.user);
         loadUserData(session.user.id);
       } else {
+        initialLoadedUserId = null;
         setSessionUser(null);
       }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [setSessionUser, loadUserData]);
+
+  // Global 'N' shortcut to open Trade Logger when no input or modal is active
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'n' || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isLoggerOpen || isDailyNotesOpen || isProfileSettingsOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
+      e.preventDefault();
+      handleNewTrade();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isLoggerOpen, isDailyNotesOpen, isProfileSettingsOpen]);
 
   // Centralized Investments Price Sync on Startup
   useEffect(() => {
@@ -1585,7 +1639,7 @@ export default function App() {
             <div style={{ padding: '4px 10px', background: 'rgba(255, 255, 255, 0.03)', border: '1.5px solid var(--border-color)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px', height: '38px', whiteSpace: 'nowrap', flexShrink: 0 }}>
               <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)' }}></span>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-                {liveTime || 'Loading...'}
+                <LiveClock />
               </span>
             </div>
           </div>
@@ -1666,6 +1720,14 @@ export default function App() {
               >
                 <Briefcase size={15} color="#3b82f6" />
                 Investments
+              </button>
+              <button 
+                onClick={() => setActiveTab('contractNotes')} 
+                className={"nav-tab " + (activeTab === 'contractNotes' ? 'active' : '')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <FileText size={15} color="#10b981" />
+                Contract Notes
               </button>
             </div>
           </div>
@@ -1940,7 +2002,7 @@ export default function App() {
                   fontFamily: 'var(--font-mono)' 
                 }}
               >
-                {liveTime || 'Loading...'}
+                <LiveClock />
               </div>
 
 
@@ -2212,37 +2274,44 @@ export default function App() {
 
       <Suspense fallback={null}>
         {/* Log Form Modal Overlay */}
-        <TradeLogger 
-          isOpen={isLoggerOpen} 
-          onClose={handleCloseLogger} 
-          editTradeId={editTradeId} 
-          duplicateTradeId={duplicateTradeId}
-          activeAccountId={activeAccountId}
-        />
+        {isLoggerOpen && (
+          <TradeLogger 
+            isOpen={isLoggerOpen} 
+            onClose={handleCloseLogger} 
+            editTradeId={editTradeId} 
+            duplicateTradeId={duplicateTradeId}
+            activeAccountId={activeAccountId}
+          />
+        )}
 
         {/* Day-End Notes Modal Overlay */}
-        <DailyNotesModal
-          isOpen={isDailyNotesOpen}
-          onClose={() => setIsDailyNotesOpen(false)}
-          initialDate={dailyNotesDate || undefined}
-          activeAccountId={activeAccountId}
-        />
+        {isDailyNotesOpen && (
+          <DailyNotesModal
+            isOpen={isDailyNotesOpen}
+            onClose={() => setIsDailyNotesOpen(false)}
+            initialDate={dailyNotesDate || undefined}
+            activeAccountId={activeAccountId}
+          />
+        )}
 
         {/* Profile & Settings Modal Overlay */}
-        <ProfileSettingsModal 
-          isOpen={isProfileSettingsOpen}
-          onClose={() => {
-            setIsProfileSettingsOpen(false);
-            setProfileAutoOpenImport(false);
-          }}
-          useTwoRowHeader={useTwoRowHeader}
-          setUseTwoRowHeader={setUseTwoRowHeader}
-          initialTab={profileInitialTab}
-          autoOpenImport={profileAutoOpenImport}
-        />
+        {isProfileSettingsOpen && (
+          <ProfileSettingsModal 
+            isOpen={isProfileSettingsOpen}
+            onClose={() => {
+              setIsProfileSettingsOpen(false);
+              setProfileAutoOpenImport(false);
+            }}
+            useTwoRowHeader={useTwoRowHeader}
+            setUseTwoRowHeader={setUseTwoRowHeader}
+            initialTab={profileInitialTab}
+            autoOpenImport={profileAutoOpenImport}
+          />
+        )}
 
         {/* Capital Breakdown & Pocket Money Audit Modal Overlay */}
-        <CapitalBreakdownModal
+        {isCapitalModalOpen && (
+          <CapitalBreakdownModal
           isOpen={isCapitalModalOpen}
           onClose={() => setIsCapitalModalOpen(false)}
           isPnlVisible={isPnlVisible}
@@ -2267,6 +2336,7 @@ export default function App() {
           bankAccounts={bankAccounts}
           onNavigateToLedger={() => setActiveTab('ledger')}
         />
+        )}
 
         {/* Global Toast Notifications */}
         <ToastContainer />

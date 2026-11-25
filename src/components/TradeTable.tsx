@@ -43,62 +43,57 @@ export function TradeTable({
     userName
   } = useTradeStore();
 
-  const purchaseItems = (allInvestments || []).map(i => ({
-    id: `${i.id}-buy`,
-    date: i.date,
-    exitDate: i.status === 'EXITED' ? i.exitDate : undefined,
-    entryTime: '09:15',
-    exitTime: i.status === 'EXITED' ? '15:30' : '09:15',
-    durationMinutes: 0,
-    symbol: i.symbol,
-    broker: i.broker || 'Other',
-    brokerAccountId: i.brokerAccountId,
-    segment: (i.type === 'ETF' || i.type === 'BOND') ? 'Equity' : (i.type || 'Equity'),
-    rawType: i.type,
-    product: 'Delivery' as const,
-    action: 'BUY' as const,
-    qty: i.qty,
-    entryPrice: i.buyPrice,
-    exitPrice: i.status === 'EXITED' ? (i.exitPrice || 0) : (i.currentPrice || i.buyPrice),
-    grossPnL: i.status === 'EXITED' ? i.qty * ((i.exitPrice || 0) - i.buyPrice) : i.qty * ((i.currentPrice || i.buyPrice) - i.buyPrice),
-    brokerage: 0,
-    taxes: 0,
-    netPnL: i.status === 'EXITED' ? i.qty * ((i.exitPrice || 0) - i.buyPrice) : i.qty * ((i.currentPrice || i.buyPrice) - i.buyPrice),
-    strategy: 'Delivery Investment',
-    mistake: 'None',
-    setupType: 'None' as const,
-    notes: i.notes || 'Investment holding log',
-    isInvestment: true,
-    emotion: 'Calm' as const,
-    roi: i.buyPrice > 0 ? (((i.status === 'EXITED' ? (i.exitPrice || 0) : (i.currentPrice || i.buyPrice)) - i.buyPrice) / i.buyPrice) * 100 : 0,
-    actualRR: 0,
-    isExpiryDay: false,
-    optionType: 'None' as const,
-    tags: ['#investment', `#${i.type || 'HOLDING'}`] as string[]
-  }));
+  const fyTrades = useMemo(() => filterTradesByFY(allTrades, selectedFY), [allTrades, selectedFY]);
 
-  const fyTrades = filterTradesByFY(allTrades, selectedFY);
-  const fyInvestments = selectedFY === 'All'
-    ? purchaseItems
-    : purchaseItems.filter(i => {
-        if (!i.exitDate) return true;
-        const fy = getFinancialYear(i.exitDate || i.date);
-        return fy === selectedFY;
-      });
+  const fyInvestments = useMemo(() => {
+    const purchaseItems = (allInvestments || []).map(i => ({
+      id: `${i.id}-buy`,
+      date: i.date,
+      exitDate: i.status === 'EXITED' ? i.exitDate : undefined,
+      entryTime: '09:15',
+      exitTime: i.status === 'EXITED' ? '15:30' : '09:15',
+      durationMinutes: 0,
+      symbol: i.symbol,
+      broker: i.broker || 'Other',
+      brokerAccountId: i.brokerAccountId,
+      segment: (i.type === 'ETF' || i.type === 'BOND') ? 'Equity' : (i.type || 'Equity'),
+      rawType: i.type,
+      product: 'Delivery' as const,
+      action: 'BUY' as const,
+      qty: i.qty,
+      entryPrice: i.buyPrice,
+      exitPrice: i.status === 'EXITED' ? (i.exitPrice || 0) : (i.currentPrice || i.buyPrice),
+      grossPnL: i.status === 'EXITED' ? i.qty * ((i.exitPrice || 0) - i.buyPrice) : i.qty * ((i.currentPrice || i.buyPrice) - i.buyPrice),
+      brokerage: 0,
+      taxes: 0,
+      netPnL: i.status === 'EXITED' ? i.qty * ((i.exitPrice || 0) - i.buyPrice) : i.qty * ((i.currentPrice || i.buyPrice) - i.buyPrice),
+      strategy: 'Delivery Investment',
+      mistake: 'None',
+      setupType: 'None' as const,
+      notes: i.notes || 'Investment holding log',
+      isInvestment: true,
+      emotion: 'Calm' as const,
+      roi: i.buyPrice > 0 ? (((i.status === 'EXITED' ? (i.exitPrice || 0) : (i.currentPrice || i.buyPrice)) - i.buyPrice) / i.buyPrice) * 100 : 0,
+      actualRR: 0,
+      isExpiryDay: false,
+      optionType: 'None' as const,
+      tags: ['#investment', `#${i.type || 'HOLDING'}`] as string[]
+    }));
+    if (selectedFY === 'All') return purchaseItems;
+    return purchaseItems.filter(i => getFinancialYear(i.exitDate || i.date) === selectedFY);
+  }, [allInvestments, selectedFY]);
 
-  const isMatchAccount = (accId?: string, brokerName?: string) => {
-    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
-  };
+  const tradesFiltered = useMemo(() => activeAccountId === 'Combined'
+    ? fyTrades
+    : fyTrades.filter(t => isMatchAccountUtil(activeAccountId, brokerAccounts, t.brokerAccountId, t.broker)),
+    [activeAccountId, brokerAccounts, fyTrades]);
 
-  const tradesFiltered = activeAccountId === 'Combined' 
-    ? fyTrades 
-    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
-
-  const investmentsFiltered = activeAccountId === 'Combined'
+  const investmentsFiltered = useMemo(() => activeAccountId === 'Combined'
     ? fyInvestments
-    : fyInvestments.filter(i => isMatchAccount(i.brokerAccountId, i.broker));
+    : fyInvestments.filter(i => isMatchAccountUtil(activeAccountId, brokerAccounts, i.brokerAccountId, i.broker)),
+    [activeAccountId, brokerAccounts, fyInvestments]);
 
-  const trades = [...tradesFiltered, ...investmentsFiltered];
+  const trades = useMemo(() => [...tradesFiltered, ...investmentsFiltered], [tradesFiltered, investmentsFiltered]);
   
   const allAvailableStrategies = useMemo(() => {
     const names = new Set(setups.map(s => s.name));
@@ -177,7 +172,7 @@ export function TradeTable({
       const matchesSetupType = selectedSetupType === 'All' || trade.setupType === selectedSetupType;
       const matchesTag = !selectedTag.trim() || (trade.tags && trade.tags.some((tag: string) => tag.toLowerCase().includes(selectedTag.trim().toLowerCase())));
       const matchesBroker = selectedBroker === 'All' || trade.broker === selectedBroker;
-      const matchesDate = !initialDateFilter || trade.date === initialDateFilter;
+      const matchesDate = !initialDateFilter || (trade.exitDate || trade.date) === initialDateFilter;
 
       return matchesSearch && matchesOutcome && matchesSegment && matchesAction && matchesStrategy && matchesMistake && matchesSetupType && matchesTag && matchesBroker && matchesDate;
     });
@@ -190,15 +185,17 @@ export function TradeTable({
       let valueB = (b as any)[sortField];
 
       if (sortField === 'date' || sortField === 'entryTime') {
-        const dateTimeA = new Date(`${a.date}T${a.entryTime}`).getTime();
-        const dateTimeB = new Date(`${b.date}T${b.entryTime}`).getTime();
-        return sortDirection === 'asc' ? dateTimeA - dateTimeB : dateTimeB - dateTimeA;
+        const keyA = `${a.exitDate || a.date || ''} ${(a.entryTime || '').padStart(5, '0')}`;
+        const keyB = `${b.exitDate || b.date || ''} ${(b.entryTime || '').padStart(5, '0')}`;
+        return sortDirection === 'asc' ? keyA.localeCompare(keyB) : keyB.localeCompare(keyA);
       }
 
-      if (typeof valueA === 'string' && typeof valueB === 'string') {
+      if (typeof valueA === 'string' || typeof valueB === 'string') {
+        const strA = String(valueA || '');
+        const strB = String(valueB || '');
         return sortDirection === 'asc' 
-          ? valueA.localeCompare(valueB) 
-          : valueB.localeCompare(valueA);
+          ? strA.localeCompare(strB) 
+          : strB.localeCompare(strA);
       }
 
       if (typeof valueA === 'number' && typeof valueB === 'number') {
@@ -239,9 +236,10 @@ export function TradeTable({
     };
   }, [filteredTrades]);
 
-  // Pagination calculations
-  const totalPages = Math.ceil(sortedTrades.length / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
+  // Pagination calculations (clamped to valid range when filters/FY change)
+  const totalPages = Math.max(1, Math.ceil(sortedTrades.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const indexOfLastItem = safeCurrentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentTrades = sortedTrades.slice(indexOfFirstItem, indexOfLastItem);
 
@@ -478,7 +476,7 @@ export function TradeTable({
     }
 
     const monthTrades = (allTrades || []).filter(t => 
-      t.date.startsWith(targetMonthPrefix) && isMatchAccount(t.brokerAccountId, t.broker)
+      (t.exitDate || t.date).startsWith(targetMonthPrefix) && isMatchAccountUtil(activeAccountId, brokerAccounts, t.brokerAccountId, t.broker)
     );
 
     if (monthTrades.length === 0) {

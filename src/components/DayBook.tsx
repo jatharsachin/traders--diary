@@ -275,9 +275,9 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
 
   // Chronological sort
   const timelineItems = [...tradeItems, ...adjItems, ...invPurchaseItems, ...invExitItems].sort((a, b) => {
-    const dComp = a.date.localeCompare(b.date);
+    const dComp = (a.date || '').localeCompare(b.date || '');
     if (dComp !== 0) return dComp;
-    return a.time.localeCompare(b.time);
+    return (a.time || '').localeCompare(b.time || '');
   });
 
   // Calculate pre-running balances Chronologically
@@ -347,11 +347,13 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
 
   const totalDeposits = rangeAdjustments.filter(a => a.type === 'DEPOSIT').reduce((sum, a) => sum + a.amount, 0);
   const totalWithdrawals = rangeAdjustments.filter(a => a.type === 'WITHDRAWAL').reduce((sum, a) => sum + a.amount, 0);
+  const invPurchasesTotal = rangeInvPurchases.reduce((sum, i) => sum + (i.qty * i.buyPrice), 0);
+  const invExitsTotal = rangeInvExits.reduce((sum, i) => sum + (i.qty * (i.exitPrice || 0)), 0);
   
   const netFlow = totalDeposits - totalWithdrawals;
-  const endingBalance = openingBalance + netPnL + netFlow;
-  const totalCredits = totalDeposits + rangeTrades.filter(t => t.netPnL > 0).reduce((sum, t) => sum + t.netPnL, 0);
-  const totalDebits = totalWithdrawals + rangeTrades.filter(t => t.netPnL < 0).reduce((sum, t) => sum + Math.abs(t.netPnL), 0);
+  const endingBalance = openingBalance + netPnL + netFlow - invPurchasesTotal + invExitsTotal;
+  const totalCredits = totalDeposits + invExitsTotal + rangeTrades.filter(t => t.netPnL > 0).reduce((sum, t) => sum + t.netPnL, 0);
+  const totalDebits = totalWithdrawals + invPurchasesTotal + rangeTrades.filter(t => t.netPnL < 0).reduce((sum, t) => sum + Math.abs(t.netPnL), 0);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -817,7 +819,7 @@ export function DayBook({ activeAccountId = 'Combined', onOpenDailyNotes }: DayB
             {isPnlVisible ? `${netFlow >= 0 ? '+' : ''}${formatCurrency(netFlow)}` : '••••'}
           </h4>
           <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>
-            +{formatCurrency(totalDeposits)} / -{formatCurrency(totalWithdrawals)}
+            {isPnlVisible ? `+${formatCurrency(totalDeposits)} / -${formatCurrency(totalWithdrawals)}` : '•••• / ••••'}
           </span>
         </div>
 

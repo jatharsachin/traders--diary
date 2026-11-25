@@ -54,21 +54,38 @@ export function groupHedgedTrades(trades: Trade[]): GroupedTradePosition[] {
   const processedTradeIds = new Set<string>();
   const groups: GroupedTradePosition[] = [];
 
+  // Index trades by effective date for O(N) lookup instead of O(N^2) scan
+  const byDate = new Map<string, Trade[]>();
+  for (let i = 0; i < trades.length; i++) {
+    const t = trades[i];
+    const dKey = (t.exitDate || t.date || '').substring(0, 10);
+    const list = byDate.get(dKey);
+    if (list) list.push(t);
+    else byDate.set(dKey, [t]);
+  }
+
+  const containsExactSymbol = (notes: string | undefined, symbol: string | undefined): boolean => {
+    if (!notes || !symbol) return false;
+    const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|[^A-Z0-9])${escaped}(?:$|[^A-Z0-9])`, 'i').test(notes);
+  };
+
   for (let i = 0; i < trades.length; i++) {
     const t = trades[i];
     if (processedTradeIds.has(t.id)) continue;
 
     let leg1: Trade = t;
     let leg2: Trade | undefined = undefined;
+    const dKey = (t.exitDate || t.date || '').substring(0, 10);
+    const sameDayCandidates = byDate.get(dKey) || [];
 
     if (isHedgeLeg(t)) {
       // t is a hedge leg; look for its sibling leg1
-      const sibling = trades.find(other =>
+      const sibling = sameDayCandidates.find(other =>
         other.id !== t.id &&
         !processedTradeIds.has(other.id) &&
-        (other.date === t.date || other.exitDate === t.exitDate || other.date === t.exitDate || other.exitDate === t.date) &&
         (
-          (t.notes && other.symbol && t.notes.includes(other.symbol)) ||
+          containsExactSymbol(t.notes, other.symbol) ||
           (
             (other.entryTime === t.entryTime || !t.entryTime || !other.entryTime) &&
             (other.brokerAccountId === t.brokerAccountId || other.broker === t.broker) &&
@@ -90,12 +107,11 @@ export function groupHedgedTrades(trades: Trade[]): GroupedTradePosition[] {
       }
     } else {
       // t is potential leg1, search for leg2
-      const sibling = trades.find(other =>
+      const sibling = sameDayCandidates.find(other =>
         other.id !== t.id &&
         !processedTradeIds.has(other.id) &&
-        (other.date === t.date || other.exitDate === t.exitDate || other.date === t.exitDate || other.exitDate === t.date) &&
         (
-          (other.notes && t.symbol && other.notes.includes(t.symbol)) ||
+          containsExactSymbol(other.notes, t.symbol) ||
           (
             (other.entryTime === t.entryTime || !t.entryTime || !other.entryTime) &&
             (other.brokerAccountId === t.brokerAccountId || other.broker === t.broker) &&
@@ -121,9 +137,6 @@ export function groupHedgedTrades(trades: Trade[]): GroupedTradePosition[] {
         if (isHedgeLeg(sibling)) {
           leg1 = t;
           leg2 = sibling;
-        } else if (isHedgeLeg(t)) {
-          leg1 = sibling;
-          leg2 = t;
         } else if (t.action === 'SELL' && sibling.action === 'BUY') {
           leg1 = t;
           leg2 = sibling;

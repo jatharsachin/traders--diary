@@ -1,4 +1,18 @@
 
+export function formatLocalYYYYMMDD(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function parseLocalYYYYMMDD(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  const [y, m, d] = dateStr.substring(0, 10).split('-').map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date();
+  return new Date(y, m - 1, d);
+}
+
 export function getFinancialYear(dateStr: string): string {
   if (!dateStr || dateStr.length < 10) return 'Unknown';
   const parts = dateStr.split('-');
