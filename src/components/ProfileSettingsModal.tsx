@@ -219,26 +219,44 @@ export function ProfileSettingsModal({
     toast.success('Display profile saved successfully!');
   };
 
-  // Image to base64 converter
+  // Image to compressed WebP converter (prevents localStorage quota loss & syncs to cloud)
   const handleCustomPicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCustomPicError('');
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        setCustomPicError('Image size must be less than 2MB.');
+      if (file.size > 5 * 1024 * 1024) {
+        setCustomPicError('Image size must be less than 5MB.');
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setProfileAvatarInput(reader.result);
-        }
+        if (typeof reader.result !== 'string') return;
+        const img = new Image();
+        img.onload = () => {
+          const size = 192;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          const minDim = Math.min(img.width, img.height);
+          const sx = (img.width - minDim) / 2;
+          const sy = (img.height - minDim) / 2;
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+          const compressed = canvas.toDataURL('image/webp', 0.85);
+          setProfileAvatarInput(compressed);
+          setProfile(profileNameInput.trim() || userName, compressed);
+          toast.success('Profile photo compressed & synced to cloud!');
+        };
+        img.onerror = () => setCustomPicError('Failed to decode image file.');
+        img.src = reader.result;
       };
       reader.onerror = () => {
         setCustomPicError('Failed to read image file.');
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
   // CRUD Handlers

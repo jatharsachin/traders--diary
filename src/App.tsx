@@ -1015,7 +1015,7 @@ export default function App() {
                 }}
                 title="Profile Settings"
               >
-                {userAvatar && userAvatar.startsWith('data:image/') ? (
+                {userAvatar && (userAvatar.startsWith('data:image/') || userAvatar.startsWith('http')) ? (
                   <img 
                     src={userAvatar} 
                     alt="Avatar" 
@@ -1334,7 +1334,7 @@ export default function App() {
                   title="Account Menu"
                 >
                   <span style={{ display: 'flex', alignItems: 'center', width: '38px', height: '38px', justifyContent: 'center' }}>
-                    {userAvatar && userAvatar.startsWith('data:image/') ? (
+                    {userAvatar && (userAvatar.startsWith('data:image/') || userAvatar.startsWith('http')) ? (
                       <img 
                         src={userAvatar} 
                         alt="Avatar" 

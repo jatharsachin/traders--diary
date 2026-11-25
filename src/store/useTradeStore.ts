@@ -1291,6 +1291,14 @@ export const useTradeStore = create<TradeStore>((set, get) => {
           // No Trade Days
           await processMetaKey('notradedays', (val) => set({ noTradeDays: val }), `traders_diary_notradedays_${userId}`, []);
 
+          // Profile Name & Avatar (prevents profile pic reset across updates/reloads)
+          await processMetaKey('user_name', (val) => {
+            if (typeof val === 'string' && val.trim()) set({ userName: val });
+          }, `traders_diary_user_name_${userId}`, 'Sachin');
+          await processMetaKey('user_avatar', (val) => {
+            if (typeof val === 'string' && val.trim()) set({ userAvatar: val });
+          }, `traders_diary_user_avatar_${userId}`, 'bull');
+
           // Mark the sync initialization as completed
           try {
             localStorage.setItem(`traders_diary_cloud_synced_${userId}`, 'true');
@@ -1635,9 +1643,15 @@ export const useTradeStore = create<TradeStore>((set, get) => {
     }),
 
     setProfile: (name, avatar) => {
-      localStorage.setItem(getScopedKey('traders_diary_user_name'), name);
-      localStorage.setItem(getScopedKey('traders_diary_user_avatar'), avatar);
+      try {
+        localStorage.setItem(getScopedKey('traders_diary_user_name'), name);
+        localStorage.setItem(getScopedKey('traders_diary_user_avatar'), avatar);
+      } catch (e) {
+        console.error('Failed to save profile to localStorage:', e);
+      }
       set({ userName: name, userAvatar: avatar });
+      syncMetaToCloud('user_name', name);
+      syncMetaToCloud('user_avatar', avatar);
     },
 
     setActiveBrokers: (brokers) => {
