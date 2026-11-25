@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Wallet, TrendingUp, ArrowDownLeft, ShieldCheck, Calendar, Receipt, ExternalLink } from 'lucide-react';
+import { Wallet, TrendingUp, ArrowDownLeft, ShieldCheck, Calendar, Receipt, ExternalLink } from 'lucide-react';
 import type { BrokerAccount, CapitalAdjustment, BankAccount } from '../types';
+import { Modal } from './ui/Modal';
 
 interface CapitalBreakdownModalProps {
   isOpen: boolean;
@@ -81,76 +82,46 @@ export const CapitalBreakdownModal: React.FC<CapitalBreakdownModalProps> = ({
   });
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 99999 }} onClick={onClose}>
-      <div 
-        className="modal-content glass-card animate-scale-up"
-        style={{
-          maxWidth: '640px',
-          width: '94%',
-          padding: '0',
-          overflow: 'hidden',
-          borderRadius: '16px',
-          border: '1.5px solid var(--border-color)',
-          background: 'var(--bg-card)',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div 
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="640px"
+      closeOnBackdropClick={true}
+      icon={
+        <div
           style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--border-color)',
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: 'rgba(10, 132, 255, 0.15)',
+            color: 'var(--primary)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'rgba(255, 255, 255, 0.02)',
+            justifyContent: 'center',
+            border: '1px solid rgba(10, 132, 255, 0.3)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div 
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '10px',
-                background: 'rgba(10, 132, 255, 0.15)',
-                color: 'var(--primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1px solid rgba(10, 132, 255, 0.3)',
-              }}
-            >
-              <Wallet size={19} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                Pocket Money In & Capital Statement
-              </h3>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                {activeAccountName} • Bank to Broker Inflows with Date-wise Audit
-              </span>
-            </div>
-          </div>
+          <Wallet size={19} />
+        </div>
+      }
+      title="Pocket Money In & Capital Statement"
+      subtitle={`${activeAccountName} • Bank to Broker Inflows with Date-wise Audit`}
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            💡 To add more deposit entries, go to <strong>Ledger ➔ Log Pay-in/Out</strong>
+          </span>
           <button
-            onClick={onClose}
+            type="button"
             className="btn btn-secondary"
-            style={{
-              width: '32px',
-              height: '32px',
-              padding: 0,
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-            title="Close"
+            onClick={onClose}
+            style={{ padding: '6px 16px', fontSize: '0.78rem' }}
           >
-            <X size={16} />
+            Close
           </button>
         </div>
-
+      }
+    >
         {/* Modal Sub-Tab Navigator */}
         <div 
           style={{ 
@@ -648,31 +619,6 @@ export const CapitalBreakdownModal: React.FC<CapitalBreakdownModalProps> = ({
           </div>
 
         </div>
-
-        {/* Modal Footer */}
-        <div 
-          style={{
-            padding: '12px 20px',
-            borderTop: '1px solid var(--border-color)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.02)',
-          }}
-        >
-          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-            💡 To add more deposit entries, go to <strong>Ledger ➔ Log Pay-in/Out</strong>
-          </span>
-          <button 
-            type="button" 
-            className="btn btn-secondary" 
-            onClick={onClose}
-            style={{ padding: '6px 16px', fontSize: '0.78rem' }}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

@@ -150,10 +150,13 @@ body, input, select, textarea, button, table, td, th, h1, h2, h3, h4, h5, h6, .b
   font-family: var(--font-sans);
 }
 
-/* Enforce crisp tabular numbers for metrics, P&L, dates and tables */
-td, th, .day-pnl, .day-number, .metric-value, .font-mono, [style*="var(--font-mono)"], [style*="font-mono"] {
+/* Enforce crisp tabular numbers for metrics, P&L, dates and numeric cells while keeping prose in Plus Jakarta Sans */
+.day-pnl, .day-number, .metric-value, .font-mono, [style*="var(--font-mono)"], [style*="font-mono"] {
   font-family: var(--font-mono) !important;
   font-variant-numeric: tabular-nums lining-nums !important;
+}
+td, th {
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 body {
@@ -1905,6 +1908,23 @@ table, .custom-table, [style*="var(--font-mono)"], .day-pnl, .metric-value, .fon
   z-index: 10 !important;
   background: var(--bg-tooltip-opaque) !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Mobile Card View for Trade Logs */
+.trade-cards-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .trade-table-desktop {
+    display: none !important;
+  }
+  .trade-cards-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 0;
+  }
 }
 
 

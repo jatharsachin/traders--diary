@@ -17,10 +17,10 @@ import { AccountFilterDropdown } from './components/AccountFilterDropdown';
 import { 
   Plus, LayoutDashboard, Calendar, History, Compass, Receipt, Briefcase, Bell, LogOut, Percent, 
   BookOpen, BookOpenCheck, Menu, HelpCircle, FileSpreadsheet, NotebookPen,
-  CalendarRange, ScrollText, Target, Landmark, LifeBuoy, TrendingUp, TrendingDown, FileText
+  CalendarRange, ScrollText, Target, Landmark, LifeBuoy, TrendingUp, TrendingDown, FileText, Search
 } from 'lucide-react';
 import { getSupabaseClient } from './utils/supabaseClient';
-import logoImg from './assets/tradediary_logo.png';
+import logoImg from './assets/tradediary_logo.webp';
 import { FINANCIAL_YEARS } from './utils/fyHelper';
 import { ToastContainer } from './components/ToastContainer';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
@@ -93,6 +93,7 @@ const TradeLogger = safeLazy(() => import('./components/TradeLogger').then(m => 
 const Taxation = safeLazy(() => import('./components/Taxation').then(m => ({ default: m.Taxation })));
 const DayBook = safeLazy(() => import('./components/DayBook').then(m => ({ default: m.DayBook })));
 const ContractNotesManager = safeLazy(() => import('./components/ContractNotesManager').then(m => ({ default: m.ContractNotesManager })));
+const CommandPalette = safeLazy(() => import('./components/CommandPalette').then(m => ({ default: m.CommandPalette })));
 const Help = safeLazy(() => import('./components/Help').then(m => ({ default: m.Help })));
 const MistakesJournal = safeLazy(() => import('./components/MistakesJournal').then(m => ({ default: m.MistakesJournal })));
 const DailyNotesModal = safeLazy(() => import('./components/DailyNotesModal').then(m => ({ default: m.DailyNotesModal })));
@@ -133,6 +134,7 @@ export default function App() {
   const [isRecoveryActive, setIsRecoveryActive] = useState(false);
 
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'charges' | 'backup' | 'danger'>('profile');
   const [profileAutoOpenImport, setProfileAutoOpenImport] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -290,6 +292,7 @@ export default function App() {
     signOutUser,
     loadUserData,
     isPnlVisible,
+    togglePnlVisibility,
     userName,
     userAvatar,
     brokerAccounts,
@@ -638,11 +641,16 @@ export default function App() {
     };
   }, [setSessionUser, loadUserData]);
 
-  // Global 'N' shortcut to open Trade Logger when no input or modal is active
+  // Global 'Ctrl+K' Command Palette & 'N' Trade Logger shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
       if (e.key.toLowerCase() !== 'n' || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (isLoggerOpen || isDailyNotesOpen || isProfileSettingsOpen) return;
+      if (isLoggerOpen || isDailyNotesOpen || isProfileSettingsOpen || isCommandPaletteOpen) return;
       const target = e.target as HTMLElement | null;
       if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
       e.preventDefault();
@@ -650,7 +658,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isLoggerOpen, isDailyNotesOpen, isProfileSettingsOpen]);
+  }, [isLoggerOpen, isDailyNotesOpen, isProfileSettingsOpen, isCommandPaletteOpen]);
 
   // Centralized Investments Price Sync on Startup
   useEffect(() => {
@@ -2006,6 +2014,26 @@ export default function App() {
               </div>
 
 
+              {/* Command Palette Trigger (Ctrl+K) */}
+              <button
+                type="button"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="btn btn-secondary"
+                style={{
+                  height: '30px',
+                  padding: '0 10px',
+                  fontSize: '0.71rem',
+                  gap: '6px',
+                  color: 'var(--text-muted)',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+                title="Open Quick Command Palette (Ctrl+K)"
+              >
+                <Search size={12} color="var(--primary)" />
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.67rem', opacity: 0.85 }}>Ctrl+K</span>
+              </button>
+
               {/* Vertical Divider */}
               <div style={{ width: '1px', height: '18px', background: 'var(--border-color)', margin: '0 4px' }} />
 
@@ -2336,6 +2364,24 @@ export default function App() {
           bankAccounts={bankAccounts}
           onNavigateToLedger={() => setActiveTab('ledger')}
         />
+        )}
+
+        {/* Command Palette (Ctrl + K) */}
+        {isCommandPaletteOpen && (
+          <CommandPalette
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+            trades={filteredTrades}
+            isPnlVisible={isPnlVisible}
+            onNavigateTab={(tab: Tab) => setActiveTab(tab)}
+            onNewTrade={handleNewTrade}
+            onTogglePrivacy={togglePnlVisibility}
+            onOpenSettings={() => {
+              setProfileInitialTab('profile');
+              setIsProfileSettingsOpen(true);
+            }}
+            onEditTrade={handleEditTrade}
+          />
         )}
 
         {/* Global Toast Notifications */}

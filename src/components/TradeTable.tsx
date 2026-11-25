@@ -1204,10 +1204,11 @@ export function TradeTable({
         </div>
       )}
 
-      {/* Table Container */}
+      {/* Table Container (Desktop Table + Mobile Card View) */}
       <div className="table-container sticky-table-container">
         {currentTrades.length > 0 ? (
-          <table className="custom-table">
+          <>
+          <table className="custom-table trade-table-desktop">
             <thead className="sticky-table-header">
               <tr>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('date')}>
@@ -1424,6 +1425,54 @@ export function TradeTable({
               })}
             </tbody>
           </table>
+
+          <div className="trade-cards-mobile">
+            {currentTrades.map((trade) => {
+              const isSelected = selectedRowId === trade.id;
+              const isWin = trade.netPnL >= 0;
+              return (
+                <div
+                  key={`mob-${trade.id}`}
+                  onClick={() => setSelectedRowId(isSelected ? null : trade.id)}
+                  className="glass-card"
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '14px',
+                    border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                    background: isSelected ? 'rgba(10, 132, 255, 0.14)' : 'rgba(255, 255, 255, 0.025)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: '0.88rem', color: 'var(--text-main)' }}>{trade.symbol}</strong>
+                        <span className={`badge ${trade.action === 'BUY' ? 'badge-win' : 'badge-loss'}`} style={{ fontSize: '0.62rem', padding: '1px 6px' }}>
+                          {trade.action}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        <span className="font-mono">{trade.exitDate || trade.date}</span> • {trade.broker || 'Other'} • {trade.strategy || 'No Setup'}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div className="font-mono" style={{ fontSize: '0.92rem', fontWeight: 750, color: isWin ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                        {isPnlVisible ? `${isWin ? '+' : ''}${formatCurrency(trade.netPnL)}` : '••••'}
+                      </div>
+                      <div className="font-mono" style={{ fontSize: '0.66rem', color: 'var(--text-dim)' }}>
+                        Qty: {trade.qty}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
+                    <span className="font-mono">₹{trade.entryPrice.toFixed(2)} → ₹{trade.exitPrice.toFixed(2)}</span>
+                    <span>{trade.emotion} {trade.mistake && trade.mistake !== 'None' ? `• ${trade.mistake}` : ''}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         ) : (
           <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-dim)' }}>
             No trades match the current filter criteria.

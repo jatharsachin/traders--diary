@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTradeStore } from '../store/useTradeStore';
-import logoImg from '../assets/tradediary_logo.png';
+import logoImg from '../assets/tradediary_logo.webp';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, User, Phone, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { toast } from '../utils/toast';
 

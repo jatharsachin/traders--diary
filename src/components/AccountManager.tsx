@@ -5,7 +5,7 @@ import {
   Plus, Edit2, Trash, Briefcase, BarChart2, ArrowUpRight,
   RefreshCw, Save, Eye, EyeOff
 } from 'lucide-react';
-import logoImg from '../assets/tradediary_logo.png';
+import logoImg from '../assets/tradediary_logo.webp';
 import { BROKER_LOGOS } from '../utils/brandLogos';
 import { toast } from '../utils/toast';
 import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
