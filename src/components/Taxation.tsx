@@ -1,13 +1,34 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useTradeStore } from '../store/useTradeStore';
+import type { Trade } from '../types';
 import { filterTradesByFY } from '../utils/fyHelper';
 import { isMatchAccount as isMatchAccountUtil } from '../utils/accountScope';
-import { 
-  Coins, Percent, Briefcase, Scale, 
-  HelpCircle, Info, ShieldAlert, Sparkles, Receipt,
+import { Modal } from './ui/Modal';
+import {
+  Coins, Percent, Briefcase, Scale,
+  HelpCircle, Info, Sparkles, Receipt,
   Calendar, Printer, SlidersHorizontal,
-  Layers, Wallet, FileText
+  Layers, Wallet, FileText, Users, Building2
 } from 'lucide-react';
+
+type TaxCategory = 'STCG' | 'LTCG' | 'SPECULATIVE' | 'NON_SPECULATIVE';
+
+const getTradeTaxCategory = (t: Trade): TaxCategory => {
+  if (t.segment === 'Equity' && t.product === 'Delivery') {
+    if (t.holdingType === 'Long Term') return 'LTCG';
+    if (!t.holdingType && t.exitDate && t.date) {
+      const days =
+        (new Date(t.exitDate).getTime() - new Date(t.date).getTime()) / (1000 * 60 * 60 * 24);
+      if (days >= 365) return 'LTCG';
+    }
+    return 'STCG';
+  }
+  if (t.segment === 'Equity' && t.product === 'Intraday') {
+    return 'SPECULATIVE';
+  }
+  return 'NON_SPECULATIVE';
+};
 
 interface SlabTier {
   label: string;
@@ -16,7 +37,8 @@ interface SlabTier {
   tax: number;
 }
 
-interface TaxCalculationResult {
+interface ProgressiveTaxResult {
+  tiers: SlabTier[];
   baseTax: number;
   rebate87A: number;
   marginalRelief: number;
@@ -24,1692 +46,1645 @@ interface TaxCalculationResult {
   cess: number;
   totalTax: number;
   effectiveRate: number;
-  tiers: SlabTier[];
 }
 
-export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
-  const { trades: allTrades, selectedFY, brokerAccounts, sessionUser } = useTradeStore();
-  const fyTrades = filterTradesByFY(allTrades, selectedFY);
-  const isMatchAccount = (accId?: string, brokerName?: string) => {
-    return isMatchAccountUtil(activeAccountId, brokerAccounts, accId, brokerName);
-  };
-  const trades = activeAccountId === 'Combined'
-    ? fyTrades
-    : fyTrades.filter(t => isMatchAccount(t.brokerAccountId, t.broker));
+interface TaxComputation {
+  tradesCount: number;
+  stcgNet: number;
+  ltcgNet: number;
+  effectiveTaxableStcg: number;
+  effectiveTaxableLtcg: number;
+  ltcgExemptionUsed: number;
+  unabsorbedStcl: number;
+  unabsorbedLtcl: number;
+  stcgTax: number;
+  ltcgTax: number;
+  totalCapitalGainsBaseTax: number;
+  totalCapitalGainsTax: number;
+  speculativeNet: number;
+  nonSpeculativeNet: number;
+  grossTaxableBusiness: number;
+  netTaxableBusiness: number;
+  unabsorbedSpecLoss: number;
+  unabsorbedNonSpecLoss: number;
+  setOffAgainstStcg: number;
+  setOffAgainstLtcg: number;
+  totalTaxableIncome: number;
+  businessTaxCalc: ProgressiveTaxResult;
+  newRegimeTotalTax: number;
+  oldRegimeTotalTax: number;
+  totalEstimatedTax: number;
+  netTaxPayableOrRefund: number;
+  totalBrokerage: number;
+  totalGovtTaxes: number;
+  absolutePnlTurnover: number;
+  optionSalePremiumTurnover: number;
+  totalIcaiTurnover: number;
+  requiresAudit: boolean;
+  requiresBooksOfAccounts: boolean;
+  recommendedItr: string;
+  isBudget2025Plus: boolean;
+  rebateLimit: number;
+  isAdvanceTaxApplicable: boolean;
+}
 
-  const taxScopeKey = `${sessionUser?.id || 'guest'}_${selectedFY}_${activeAccountId}`;
+const formatCurrency = (val: number) => {
+  const abs = Math.abs(val);
+  const formatted = new Intl.NumberFormat('en-IN', {
+    maximumFractionDigits: 0,
+  }).format(Math.round(abs));
+  return val < 0 ? `-₹${formatted}` : `₹${formatted}`;
+};
 
-  // --- REGIME SELECTION STATE ---
-  const [taxRegime, setTaxRegime] = useState<'NEW' | 'OLD'>(() => {
-    try {
-      const saved = localStorage.getItem(`traders_diary_tax_regime_${taxScopeKey}`) || localStorage.getItem('traders_diary_tax_regime');
-      return (saved === 'OLD' || saved === 'NEW') ? saved : 'NEW';
-    } catch {
-      return 'NEW';
-    }
-  });
+const parseFyStartYear = (fy: string): number => {
+  const match = fy.match(/(\d{4})/);
+  return match ? parseInt(match[1], 10) : 2025;
+};
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(`traders_diary_tax_regime_${taxScopeKey}`, taxRegime);
-    } catch {}
-  }, [taxRegime, taxScopeKey]);
+function calculateSlabTaxForRegime(
+  businessIncome: number,
+  stcgTaxable: number,
+  ltcgTaxable: number,
+  regime: 'NEW' | 'OLD',
+  isBudget2025Plus: boolean
+): {
+  businessCalc: ProgressiveTaxResult;
+  cgBaseTax: number;
+  cgSurcharge: number;
+  cgCess: number;
+  cgTotalTax: number;
+  combinedTotalTax: number;
+} {
+  const safeBiz = Math.max(0, businessIncome);
+  const safeStcg = Math.max(0, stcgTaxable);
+  const safeLtcg = Math.max(0, ltcgTaxable);
+  const totalTaxableIncome = safeBiz + safeStcg + safeLtcg;
 
-  // --- SECTION 37 ALLOWABLE BUSINESS EXPENSES ---
-  const [allowableExpenses, setAllowableExpenses] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(`traders_diary_tax_expenses_${taxScopeKey}`) || localStorage.getItem('traders_diary_tax_expenses');
-      return saved ? Number(saved) || 0 : 0;
-    } catch {
-      return 0;
-    }
-  });
+  const stcgBaseTax = safeStcg * 0.20; // Sec 111A (20%)
+  const ltcgBaseTax = safeLtcg * 0.125; // Sec 112A (12.5%)
+  const cgBaseTax = stcgBaseTax + ltcgBaseTax;
 
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  let slabRanges: { limit: number; rate: number; label: string }[];
+  let rebateLimit: number;
+  let maxRebate: number;
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(`traders_diary_tax_expenses_${taxScopeKey}`, allowableExpenses.toString());
-    } catch {}
-  }, [allowableExpenses, taxScopeKey]);
-
-  // --- TAXES ALREADY PAID / ADVANCE TAX / TDS CREDITS ---
-  const [advanceTaxPaid, setAdvanceTaxPaid] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(`traders_diary_advance_tax_paid_${taxScopeKey}`) || localStorage.getItem('traders_diary_advance_tax_paid');
-      return saved ? Number(saved) || 0 : 0;
-    } catch {
-      return 0;
-    }
-  });
-
-  const [tdsCredits, setTdsCredits] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(`traders_diary_tds_credits_${taxScopeKey}`) || localStorage.getItem('traders_diary_tds_credits');
-      return saved ? Number(saved) || 0 : 0;
-    } catch {
-      return 0;
-    }
-  });
-
-  const [showTaxPaidModal, setShowTaxPaidModal] = useState(false);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(`traders_diary_advance_tax_paid_${taxScopeKey}`, advanceTaxPaid.toString());
-      localStorage.setItem(`traders_diary_tds_credits_${taxScopeKey}`, tdsCredits.toString());
-    } catch {}
-  }, [advanceTaxPaid, tdsCredits, taxScopeKey]);
-
-  useEffect(() => {
-    try {
-      const reg = localStorage.getItem(`traders_diary_tax_regime_${taxScopeKey}`);
-      setTaxRegime((reg === 'OLD' || reg === 'NEW') ? reg : 'NEW');
-      const exp = localStorage.getItem(`traders_diary_tax_expenses_${taxScopeKey}`);
-      setAllowableExpenses(exp ? Number(exp) || 0 : 0);
-      const adv = localStorage.getItem(`traders_diary_advance_tax_paid_${taxScopeKey}`);
-      setAdvanceTaxPaid(adv ? Number(adv) || 0 : 0);
-      const tds = localStorage.getItem(`traders_diary_tds_credits_${taxScopeKey}`);
-      setTdsCredits(tds ? Number(tds) || 0 : 0);
-    } catch {}
-  }, [taxScopeKey]);
-
-  // =========================================================================
-  // 1. CAPITAL GAINS (EQUITY DELIVERY TRADES)
-  // =========================================================================
-  const stcgTrades = trades.filter(t => t.segment === 'Equity' && t.product === 'Delivery' && t.holdingType !== 'Long Term');
-  const ltcgTrades = trades.filter(t => t.segment === 'Equity' && t.product === 'Delivery' && t.holdingType === 'Long Term');
-
-  const stcgNet = stcgTrades.reduce((acc, t) => acc + t.netPnL, 0);
-  const ltcgNet = ltcgTrades.reduce((acc, t) => acc + t.netPnL, 0);
-
-  // Capital Gains loss set-off logic (Sec 70(2) & 70(3))
-  let taxableStcg = 0;
-  let taxableLtcg = 0;
-  let unabsorbedStcl = 0;
-  let unabsorbedLtcl = 0;
-
-  if (stcgNet >= 0 && ltcgNet >= 0) {
-    taxableStcg = stcgNet;
-    taxableLtcg = Math.max(0, ltcgNet - 125000);
-  } else if (stcgNet < 0 && ltcgNet >= 0) {
-    const stcl = Math.abs(stcgNet);
-    if (ltcgNet >= stcl) {
-      taxableStcg = 0;
-      taxableLtcg = Math.max(0, (ltcgNet - stcl) - 125000);
-      unabsorbedStcl = 0;
+  if (regime === 'NEW') {
+    if (isBudget2025Plus) {
+      slabRanges = [
+        { limit: 400000, rate: 0, label: '₹0 - ₹4,00,000' },
+        { limit: 800000, rate: 0.05, label: '₹4,00,001 - ₹8,00,000' },
+        { limit: 1200000, rate: 0.10, label: '₹8,00,001 - ₹12,00,000' },
+        { limit: 1600000, rate: 0.15, label: '₹12,00,001 - ₹16,00,000' },
+        { limit: 2000000, rate: 0.20, label: '₹16,00,001 - ₹20,00,000' },
+        { limit: 2400000, rate: 0.25, label: '₹20,00,001 - ₹24,00,000' },
+        { limit: Infinity, rate: 0.30, label: 'Above ₹24,00,000' },
+      ];
+      rebateLimit = 1200000;
+      maxRebate = 60000;
     } else {
-      taxableStcg = 0;
-      taxableLtcg = 0;
-      unabsorbedStcl = stcl - ltcgNet;
-    }
-  } else if (stcgNet >= 0 && ltcgNet < 0) {
-    taxableStcg = stcgNet;
-    taxableLtcg = 0;
-    unabsorbedLtcl = Math.abs(ltcgNet);
-  } else {
-    taxableStcg = 0;
-    taxableLtcg = 0;
-    unabsorbedStcl = Math.abs(stcgNet);
-    unabsorbedLtcl = Math.abs(ltcgNet);
-  }
-
-  const ltcgExemptionThreshold = 125000;
-
-  // =========================================================================
-  // 2. BUSINESS INCOME & INTRA-HEAD SET-OFF (EQUITY INTRADAY + F&O + COMMODITY)
-  // =========================================================================
-  const speculativeTrades = trades.filter(t => t.segment === 'Equity' && t.product === 'Intraday');
-  const nonSpeculativeTrades = trades.filter(t => t.segment === 'F&O' || t.segment === 'Commodity' || t.segment === 'Currency');
-
-  const speculativeNet = speculativeTrades.reduce((acc, t) => acc + t.netPnL, 0);
-  const nonSpeculativeNet = nonSpeculativeTrades.reduce((acc, t) => acc + t.netPnL, 0);
-
-  // Statutory loss set-off under Section 70(1) & Section 73:
-  let taxableSpeculative = 0;
-  let taxableNonSpeculative = 0;
-  let unabsorbedSpeculativeLoss = 0;
-  let unabsorbedNonSpeculativeLoss = 0;
-
-  if (speculativeNet >= 0 && nonSpeculativeNet >= 0) {
-    taxableSpeculative = speculativeNet;
-    taxableNonSpeculative = nonSpeculativeNet;
-  } else if (speculativeNet < 0 && nonSpeculativeNet >= 0) {
-    taxableSpeculative = 0;
-    taxableNonSpeculative = nonSpeculativeNet;
-    unabsorbedSpeculativeLoss = Math.abs(speculativeNet);
-  } else if (speculativeNet >= 0 && nonSpeculativeNet < 0) {
-    const nonSpecLoss = Math.abs(nonSpeculativeNet);
-    if (speculativeNet >= nonSpecLoss) {
-      taxableSpeculative = speculativeNet - nonSpecLoss;
-      taxableNonSpeculative = 0;
-      unabsorbedNonSpeculativeLoss = 0;
-    } else {
-      taxableSpeculative = 0;
-      taxableNonSpeculative = 0;
-      unabsorbedNonSpeculativeLoss = nonSpecLoss - speculativeNet;
-    }
-  } else {
-    taxableSpeculative = 0;
-    taxableNonSpeculative = 0;
-    unabsorbedSpeculativeLoss = Math.abs(speculativeNet);
-    unabsorbedNonSpeculativeLoss = Math.abs(nonSpeculativeNet);
-  }
-
-  // Inter-head setoff of current year Non-Speculative loss against Capital Gains (Sec 71(2))
-  let lossSetoffAgainstCapitalGains = 0;
-  let effectiveTaxableStcg = taxableStcg;
-  let effectiveTaxableLtcg = taxableLtcg;
-
-  if (unabsorbedNonSpeculativeLoss > 0 && (effectiveTaxableStcg > 0 || effectiveTaxableLtcg > 0)) {
-    let remainingLoss = unabsorbedNonSpeculativeLoss;
-    if (effectiveTaxableStcg > 0) {
-      const offset = Math.min(remainingLoss, effectiveTaxableStcg);
-      effectiveTaxableStcg -= offset;
-      remainingLoss -= offset;
-      lossSetoffAgainstCapitalGains += offset;
-    }
-    if (remainingLoss > 0 && effectiveTaxableLtcg > 0) {
-      const offset = Math.min(remainingLoss, effectiveTaxableLtcg);
-      effectiveTaxableLtcg -= offset;
-      remainingLoss -= offset;
-      lossSetoffAgainstCapitalGains += offset;
-    }
-    unabsorbedNonSpeculativeLoss = remainingLoss;
-  }
-
-  const adjustedStcgTax = effectiveTaxableStcg > 0 ? effectiveTaxableStcg * 0.20 : 0;
-  const adjustedLtcgTax = effectiveTaxableLtcg > 0 ? effectiveTaxableLtcg * 0.125 : 0;
-
-  // Gross Business Profit before Section 37 expense deduction
-  const grossTaxableBusiness = taxableSpeculative + taxableNonSpeculative;
-
-  // Net Taxable Business Income after allowable business expenses (Sec 37)
-  const netTaxableBusiness = Math.max(0, grossTaxableBusiness - allowableExpenses);
-
-  // =========================================================================
-  // 3. PROGRESSIVE SLAB TAX CALCULATION (BUDGET 2024 SECTION 115BAC & OLD)
-  // =========================================================================
-  const calculateProgressiveSlabTax = (income: number, regime: 'NEW' | 'OLD'): TaxCalculationResult => {
-    if (income <= 0) {
-      return { baseTax: 0, rebate87A: 0, marginalRelief: 0, surcharge: 0, cess: 0, totalTax: 0, effectiveRate: 0, tiers: [] };
-    }
-
-    let rawTax = 0;
-    const tiers: SlabTier[] = [];
-
-    if (regime === 'NEW') {
-      const slabRanges = [
+      slabRanges = [
         { limit: 300000, rate: 0, label: '₹0 - ₹3,00,000' },
         { limit: 700000, rate: 0.05, label: '₹3,00,001 - ₹7,00,000' },
         { limit: 1000000, rate: 0.10, label: '₹7,00,001 - ₹10,00,000' },
         { limit: 1200000, rate: 0.15, label: '₹10,00,001 - ₹12,00,000' },
         { limit: 1500000, rate: 0.20, label: '₹12,00,001 - ₹15,00,000' },
-        { limit: Infinity, rate: 0.30, label: 'Above ₹15,00,000' }
+        { limit: Infinity, rate: 0.30, label: 'Above ₹15,00,000' },
       ];
-
-      let prevLimit = 0;
-      for (const s of slabRanges) {
-        if (income > prevLimit) {
-          const chunk = Math.min(income, s.limit) - prevLimit;
-          const chunkTax = chunk * s.rate;
-          rawTax += chunkTax;
-          if (chunk > 0) {
-            tiers.push({ label: s.label, chunk, ratePct: s.rate * 100, tax: chunkTax });
-          }
-          prevLimit = s.limit;
-        } else {
-          break;
-        }
-      }
-
-      let rebate87A = 0;
-      let marginalRelief = 0;
-      let taxAfterRebate = rawTax;
-
-      if (income <= 700000) {
-        rebate87A = rawTax;
-        taxAfterRebate = 0;
-      } else {
-        const excessIncome = income - 700000;
-        if (rawTax > excessIncome) {
-          marginalRelief = rawTax - excessIncome;
-          taxAfterRebate = excessIncome;
-        }
-      }
-
-      let surcharge = 0;
-      if (income > 20000000) {
-        surcharge = taxAfterRebate * 0.25;
-      } else if (income > 10000000) {
-        surcharge = taxAfterRebate * 0.15;
-      } else if (income > 5000000) {
-        surcharge = taxAfterRebate * 0.10;
-      }
-
-      const cess = Math.round((taxAfterRebate + surcharge) * 0.04);
-      const totalTax = Math.round(taxAfterRebate + surcharge + cess);
-      const effectiveRate = income > 0 ? (totalTax / income) * 100 : 0;
-
-      return { baseTax: rawTax, rebate87A, marginalRelief, surcharge, cess, totalTax, effectiveRate, tiers };
-    } else {
-      const slabRanges = [
-        { limit: 250000, rate: 0, label: '₹0 - ₹2,50,000' },
-        { limit: 500000, rate: 0.05, label: '₹2,50,001 - ₹5,00,000' },
-        { limit: 1000000, rate: 0.20, label: '₹5,00,001 - ₹10,00,000' },
-        { limit: Infinity, rate: 0.30, label: 'Above ₹10,00,000' }
-      ];
-
-      let prevLimit = 0;
-      for (const s of slabRanges) {
-        if (income > prevLimit) {
-          const chunk = Math.min(income, s.limit) - prevLimit;
-          const chunkTax = chunk * s.rate;
-          rawTax += chunkTax;
-          if (chunk > 0) {
-            tiers.push({ label: s.label, chunk, ratePct: s.rate * 100, tax: chunkTax });
-          }
-          prevLimit = s.limit;
-        } else {
-          break;
-        }
-      }
-
-      let rebate87A = 0;
-      let marginalRelief = 0;
-      let taxAfterRebate = rawTax;
-
-      if (income <= 500000) {
-        rebate87A = rawTax;
-        taxAfterRebate = 0;
-      }
-
-      let surcharge = 0;
-      if (income > 50000000) {
-        surcharge = taxAfterRebate * 0.37;
-      } else if (income > 20000000) {
-        surcharge = taxAfterRebate * 0.25;
-      } else if (income > 10000000) {
-        surcharge = taxAfterRebate * 0.15;
-      } else if (income > 5000000) {
-        surcharge = taxAfterRebate * 0.10;
-      }
-
-      const cess = Math.round((taxAfterRebate + surcharge) * 0.04);
-      const totalTax = Math.round(taxAfterRebate + surcharge + cess);
-      const effectiveRate = income > 0 ? (totalTax / income) * 100 : 0;
-
-      return { baseTax: rawTax, rebate87A, marginalRelief, surcharge, cess, totalTax, effectiveRate, tiers };
+      rebateLimit = 700000;
+      maxRebate = 25000;
     }
-  };
-
-  const businessTaxCalc = useMemo(() => {
-    return calculateProgressiveSlabTax(netTaxableBusiness, taxRegime);
-  }, [netTaxableBusiness, taxRegime]);
-
-  const newRegimeCalc = useMemo(() => calculateProgressiveSlabTax(netTaxableBusiness, 'NEW'), [netTaxableBusiness]);
-  const oldRegimeCalc = useMemo(() => calculateProgressiveSlabTax(netTaxableBusiness, 'OLD'), [netTaxableBusiness]);
-  const regimeDifference = oldRegimeCalc.totalTax - newRegimeCalc.totalTax;
-
-  const capitalGainsCess = Math.round((adjustedStcgTax + adjustedLtcgTax) * 0.04);
-  const totalCapitalGainsTax = Math.round(adjustedStcgTax + adjustedLtcgTax + capitalGainsCess);
-
-  // Grand Total Estimated Tax Liability
-  const totalEstimatedTax = Math.round(totalCapitalGainsTax + businessTaxCalc.totalTax);
-
-  // Net Tax Payable or Refund after Advance Tax & TDS/TCS Credits
-  const totalTaxPrepaid = advanceTaxPaid + tdsCredits;
-  const netTaxPayableOrRefund = totalEstimatedTax - totalTaxPrepaid;
-
-  // Charges Breakdown
-  const totalBrokerage = trades.reduce((acc, t) => acc + t.brokerage, 0);
-  const totalGovtTaxes = trades.reduce((acc, t) => acc + t.taxes, 0);
-  const totalCharges = totalBrokerage + totalGovtTaxes;
-
-  const formatCurrency = (val: number) => {
-    const formatter = new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    });
-    return formatter.format(val);
-  };
-
-  // =========================================================================
-  // 4. TURNOVER BREAKDOWN (ICAI GUIDANCE NOTE VS BROKER METHOD)
-  // =========================================================================
-  // Broker Method: Absolute Gross P&L sum
-  // ICAI Guidance Note Method: Absolute Gross P&L + Option Sale Premium
-  const { absolutePnlTurnover, optionSalePremiumTurnover, totalIcaiTurnover } = useMemo(() => {
-    const businessTrades = [...speculativeTrades, ...nonSpeculativeTrades];
-    let absPnl = 0;
-    let optPremium = 0;
-
-    businessTrades.forEach(t => {
-      absPnl += Math.abs(t.grossPnL);
-      const isOption = t.segment === 'F&O' && (
-        t.optionType === 'CE' ||
-        t.optionType === 'PE' ||
-        (t.optionType !== 'None' && /\b\d+(?:CE|PE)\b|\s(?:CE|PE)\b/i.test(t.symbol) && !/FUT/i.test(t.symbol))
-      );
-      if (isOption) {
-        // Premium received on sale: if action is SELL (shorting) => entryPrice * qty; if BUY => exitPrice * qty
-        const salePremium = t.action === 'SELL' ? (t.entryPrice * t.qty) : (t.exitPrice * t.qty);
-        optPremium += (salePremium || 0);
-      }
-    });
-
-    return {
-      absolutePnlTurnover: absPnl,
-      optionSalePremiumTurnover: optPremium,
-      totalIcaiTurnover: absPnl + optPremium
-    };
-  }, [speculativeTrades, nonSpeculativeTrades]);
-
-  const auditTurnover = absolutePnlTurnover; // Standard broker/discount broker metric
-  const digitalAuditLimit = 100000000; // ₹10 Crore
-  const requiresAudit = auditTurnover > digitalAuditLimit;
-  const isEligible44AD = auditTurnover > 0 && auditTurnover <= 20000000; // <= ₹2 Crore limit for Presumptive 44AD (6% deemed profit)
-
-  // =========================================================================
-  // 5. SMART ITR FORM RECOMMENDER & SECTION 44AA COMPLIANCE
-  // =========================================================================
-  const { recommendedItr, itrReason, itrDueDates } = useMemo(() => {
-    const hasBusinessTrades = speculativeTrades.length > 0 || nonSpeculativeTrades.length > 0;
-    const hasDeliveryTrades = stcgTrades.length > 0 || ltcgTrades.length > 0;
-
-    let form = 'ITR-1 / ITR-2';
-    let reason = 'No business trades executed in this period.';
-
-    if (hasBusinessTrades) {
-      if (isEligible44AD && grossTaxableBusiness >= (auditTurnover * 0.06)) {
-        form = 'ITR-3 or ITR-4 (Sugam)';
-        reason = 'You have F&O/Intraday trading business income. You can file standard ITR-3, or opt for presumptive taxation in ITR-4 (Sugam) if declared profit is >= 6% of digital turnover.';
-      } else {
-        form = 'ITR-3 (Business & Profession)';
-        reason = 'Mandatory for individuals trading in F&O derivatives or Equity Intraday. Allows full deduction of expenses and 8-year loss carry-forward.';
-      }
-    } else if (hasDeliveryTrades) {
-      form = 'ITR-2 (Capital Gains)';
-      reason = 'Applicable for delivery share trades (STCG/LTCG) without any intraday or derivative business operations.';
-    }
-
-    const fyMatch = selectedFY.match(/FY (\d{4})/);
-    const ayYear = fyMatch ? parseInt(fyMatch[1], 10) + 1 : new Date().getFullYear() + 1;
-
-    return {
-      recommendedItr: form,
-      itrReason: reason,
-      itrDueDates: {
-        nonAuditDueDate: `31 July ${ayYear}`,
-        auditReportDueDate: `30 September ${ayYear}`,
-        auditItrDueDate: `31 October ${ayYear}`,
-        belatedDueDate: `31 December ${ayYear}`
-      }
-    };
-  }, [speculativeTrades.length, nonSpeculativeTrades.length, stcgTrades.length, ltcgTrades.length, isEligible44AD, grossTaxableBusiness, auditTurnover, selectedFY]);
-
-  // Section 44AA Books of Accounts Check
-  // Individuals: Income > ₹2.5L or Turnover > ₹25L in any of 3 preceding years
-  const requiresBooksOfAccounts = grossTaxableBusiness > 250000 || auditTurnover > 2500000;
-
-  // Advance Tax Installment Schedule
-  const isAdvanceTaxApplicable = totalEstimatedTax > 10000;
-  const advanceTaxSchedule = useMemo(() => {
-    return [
-      { tranche: '1st Installment (15%)', dueDate: '15 June', pct: 15, cumulativeAmount: Math.round(totalEstimatedTax * 0.15) },
-      { tranche: '2nd Installment (45%)', dueDate: '15 September', pct: 45, cumulativeAmount: Math.round(totalEstimatedTax * 0.45) },
-      { tranche: '3rd Installment (75%)', dueDate: '15 December', pct: 75, cumulativeAmount: Math.round(totalEstimatedTax * 0.75) },
-      { tranche: '4th Installment (100%)', dueDate: '15 March', pct: 100, cumulativeAmount: totalEstimatedTax },
+  } else {
+    slabRanges = [
+      { limit: 250000, rate: 0, label: '₹0 - ₹2,50,000' },
+      { limit: 500000, rate: 0.05, label: '₹2,50,001 - ₹5,00,000' },
+      { limit: 1000000, rate: 0.20, label: '₹5,00,001 - ₹10,00,000' },
+      { limit: Infinity, rate: 0.30, label: 'Above ₹10,00,000' },
     ];
-  }, [totalEstimatedTax]);
+    rebateLimit = 500000;
+    maxRebate = 12500;
+  }
 
-  // Broker Summary
-  const brokerSummaryList = useMemo(() => {
-    const brokerMap: Record<string, { tradesCount: number; netPnL: number; brokerage: number; taxes: number }> = {};
-    trades.forEach((t) => {
-      const brokerName = t.broker || 'Other';
-      if (!brokerMap[brokerName]) {
-        brokerMap[brokerName] = { tradesCount: 0, netPnL: 0, brokerage: 0, taxes: 0 };
+  let prevLimit = 0;
+  let bizBaseTax = 0;
+  const tiers: SlabTier[] = [];
+
+  for (const slab of slabRanges) {
+    if (safeBiz > prevLimit) {
+      const chunk = Math.min(safeBiz, slab.limit) - prevLimit;
+      const tax = chunk * slab.rate;
+      bizBaseTax += tax;
+      tiers.push({ label: slab.label, chunk, ratePct: slab.rate * 100, tax });
+    }
+    prevLimit = slab.limit;
+  }
+
+  // Sec 87A Rebate: evaluated against COMBINED totalTaxableIncome, applies only to normal slab tax (not 111A/112A)
+  let rebate87A = 0;
+  let marginalRelief = 0;
+  let bizTaxAfterRebate = bizBaseTax;
+
+  if (totalTaxableIncome > 0 && totalTaxableIncome <= rebateLimit) {
+    rebate87A = Math.min(bizBaseTax, maxRebate);
+    bizTaxAfterRebate = Math.max(0, bizBaseTax - rebate87A);
+  } else if (regime === 'NEW' && safeBiz > 0 && totalTaxableIncome > rebateLimit) {
+    const excessIncome = totalTaxableIncome - rebateLimit;
+    const totalTaxBeforeRelief = bizBaseTax + cgBaseTax;
+    if (totalTaxBeforeRelief > excessIncome && cgBaseTax <= excessIncome) {
+      const targetBizTax = Math.max(0, excessIncome - cgBaseTax);
+      if (bizBaseTax > targetBizTax) {
+        marginalRelief = bizBaseTax - targetBizTax;
+        bizTaxAfterRebate = targetBizTax;
       }
-      brokerMap[brokerName].tradesCount += 1;
-      brokerMap[brokerName].netPnL += t.netPnL;
-      brokerMap[brokerName].brokerage += t.brokerage;
-      brokerMap[brokerName].taxes += t.taxes;
-    });
-    return Object.entries(brokerMap).map(([name, data]) => ({
-      name,
-      ...data,
-      totalCharges: data.brokerage + data.taxes
-    })).sort((a, b) => b.tradesCount - a.tradesCount);
-  }, [trades]);
+    }
+  }
 
-  const handlePrint = () => {
-    window.print();
+  // Surcharge evaluated on totalTaxableIncome (STCG/LTCG surcharge capped at 15%)
+  let bizSurchargeRate = 0;
+  if (totalTaxableIncome > 5000000 && totalTaxableIncome <= 10000000) bizSurchargeRate = 0.10;
+  else if (totalTaxableIncome > 10000000 && totalTaxableIncome <= 20000000) bizSurchargeRate = 0.15;
+  else if (totalTaxableIncome > 20000000) bizSurchargeRate = regime === 'NEW' ? 0.25 : 0.37;
+
+  const cgSurchargeRate = Math.min(bizSurchargeRate, 0.15);
+
+  const bizSurcharge = bizTaxAfterRebate * bizSurchargeRate;
+  const bizCess = (bizTaxAfterRebate + bizSurcharge) * 0.04;
+  const bizTotalTax = bizTaxAfterRebate + bizSurcharge + bizCess;
+
+  const cgSurcharge = cgBaseTax * cgSurchargeRate;
+  const cgCess = (cgBaseTax + cgSurcharge) * 0.04;
+  const cgTotalTax = cgBaseTax + cgSurcharge + cgCess;
+
+  return {
+    businessCalc: {
+      tiers,
+      baseTax: bizBaseTax,
+      rebate87A,
+      marginalRelief,
+      surcharge: bizSurcharge,
+      cess: bizCess,
+      totalTax: bizTotalTax,
+      effectiveRate: safeBiz > 0 ? (bizTotalTax / safeBiz) * 100 : 0,
+    },
+    cgBaseTax,
+    cgSurcharge,
+    cgCess,
+    cgTotalTax,
+    combinedTotalTax: bizTotalTax + cgTotalTax,
   };
+}
+
+function computeTaxSummary(
+  scopedTrades: Trade[],
+  selectedFY: string,
+  taxRegime: 'NEW' | 'OLD',
+  allowableExpenses: number,
+  advanceTaxPaid: number,
+  tdsCredits: number
+): TaxComputation {
+  const fyStartYear = parseFyStartYear(selectedFY);
+  const isBudget2025Plus = fyStartYear >= 2025;
+  const rebateLimit = taxRegime === 'NEW' ? (isBudget2025Plus ? 1200000 : 700000) : 500000;
+
+  // 1. Capital Gains (Sec 70(2) & 70(3) intra-head first, NO ₹1.25L exemption yet!)
+  const stcgTrades = scopedTrades.filter((t) => getTradeTaxCategory(t) === 'STCG');
+  const ltcgTrades = scopedTrades.filter((t) => getTradeTaxCategory(t) === 'LTCG');
+
+  const stcgNet = stcgTrades.reduce((acc, t) => acc + t.netPnL, 0);
+  const ltcgNet = ltcgTrades.reduce((acc, t) => acc + t.netPnL, 0);
+
+  let preExemptionStcg = 0;
+  let preExemptionLtcg = 0;
+  let unabsorbedStcl = 0;
+  let unabsorbedLtcl = 0;
+
+  if (stcgNet >= 0 && ltcgNet >= 0) {
+    preExemptionStcg = stcgNet;
+    preExemptionLtcg = ltcgNet;
+  } else if (stcgNet < 0 && ltcgNet >= 0) {
+    const stcl = Math.abs(stcgNet);
+    if (ltcgNet >= stcl) {
+      preExemptionLtcg = ltcgNet - stcl;
+    } else {
+      unabsorbedStcl = stcl - ltcgNet;
+    }
+  } else if (stcgNet >= 0 && ltcgNet < 0) {
+    // LTCL can NEVER offset STCG under Sec 70(3)
+    preExemptionStcg = stcgNet;
+    unabsorbedLtcl = Math.abs(ltcgNet);
+  } else {
+    unabsorbedStcl = Math.abs(stcgNet);
+    unabsorbedLtcl = Math.abs(ltcgNet);
+  }
+
+  // 2. Business Income (Speculative vs Non-Speculative)
+  const speculativeTrades = scopedTrades.filter((t) => getTradeTaxCategory(t) === 'SPECULATIVE');
+  const nonSpeculativeTrades = scopedTrades.filter(
+    (t) => getTradeTaxCategory(t) === 'NON_SPECULATIVE'
+  );
+
+  const speculativeNet = speculativeTrades.reduce((acc, t) => acc + t.netPnL, 0);
+  const nonSpeculativeNet = nonSpeculativeTrades.reduce((acc, t) => acc + t.netPnL, 0);
+
+  let grossTaxableBusiness = 0;
+  let unabsorbedSpecLoss = 0;
+  let remainingNonSpecLoss = 0;
+
+  if (speculativeNet >= 0 && nonSpeculativeNet >= 0) {
+    grossTaxableBusiness = speculativeNet + nonSpeculativeNet;
+  } else if (speculativeNet < 0 && nonSpeculativeNet >= 0) {
+    // Speculative loss CANNOT offset F&O profit (Sec 73)
+    grossTaxableBusiness = nonSpeculativeNet;
+    unabsorbedSpecLoss = Math.abs(speculativeNet);
+  } else if (speculativeNet >= 0 && nonSpeculativeNet < 0) {
+    const fnoLoss = Math.abs(nonSpeculativeNet);
+    if (speculativeNet >= fnoLoss) {
+      grossTaxableBusiness = speculativeNet - fnoLoss;
+    } else {
+      remainingNonSpecLoss = fnoLoss - speculativeNet;
+    }
+  } else {
+    unabsorbedSpecLoss = Math.abs(speculativeNet);
+    remainingNonSpecLoss = Math.abs(nonSpeculativeNet);
+  }
+
+  const netTaxableBusiness = Math.max(0, grossTaxableBusiness - allowableExpenses);
+
+  // 3. Sec 71(2) Inter-head set-off: Non-speculative business loss offsets STCG/LTCG BEFORE ₹1.25L exemption
+  let setOffAgainstStcg = 0;
+  let setOffAgainstLtcg = 0;
+  let unabsorbedNonSpecLoss = remainingNonSpecLoss;
+
+  if (unabsorbedNonSpecLoss > 0 && preExemptionStcg > 0) {
+    setOffAgainstStcg = Math.min(unabsorbedNonSpecLoss, preExemptionStcg);
+    preExemptionStcg -= setOffAgainstStcg;
+    unabsorbedNonSpecLoss -= setOffAgainstStcg;
+  }
+  if (unabsorbedNonSpecLoss > 0 && preExemptionLtcg > 0) {
+    setOffAgainstLtcg = Math.min(unabsorbedNonSpecLoss, preExemptionLtcg);
+    preExemptionLtcg -= setOffAgainstLtcg;
+    unabsorbedNonSpecLoss -= setOffAgainstLtcg;
+  }
+
+  // 4. Sec 112A ₹1,25,000 LTCG Exemption applied AFTER Sec 71(2) set-off
+  const effectiveTaxableStcg = preExemptionStcg;
+  const ltcgExemptionUsed = Math.min(preExemptionLtcg, 125000);
+  const effectiveTaxableLtcg = Math.max(0, preExemptionLtcg - 125000);
+
+  const stcgTax = effectiveTaxableStcg * 0.20;
+  const ltcgTax = effectiveTaxableLtcg * 0.125;
+
+  const newRes = calculateSlabTaxForRegime(
+    netTaxableBusiness,
+    effectiveTaxableStcg,
+    effectiveTaxableLtcg,
+    'NEW',
+    isBudget2025Plus
+  );
+  const oldRes = calculateSlabTaxForRegime(
+    netTaxableBusiness,
+    effectiveTaxableStcg,
+    effectiveTaxableLtcg,
+    'OLD',
+    isBudget2025Plus
+  );
+
+  const activeRes = taxRegime === 'NEW' ? newRes : oldRes;
+  const totalEstimatedTax = activeRes.combinedTotalTax;
+  const netTaxPayableOrRefund = totalEstimatedTax - advanceTaxPaid - tdsCredits;
+
+  // 5. Charges & ICAI Sec 44AB Turnover
+  const totalBrokerage = scopedTrades.reduce((acc, t) => acc + (t.brokerage || 0), 0);
+  const totalGovtTaxes = scopedTrades.reduce((acc, t) => acc + (t.taxes || 0), 0);
+
+  const fnoTrades = scopedTrades.filter((t) => getTradeTaxCategory(t) === 'NON_SPECULATIVE');
+  const absolutePnlTurnover = fnoTrades.reduce((acc, t) => acc + Math.abs(t.netPnL), 0);
+  const optionSalePremiumTurnover = fnoTrades.reduce((acc, t) => {
+    const isOption =
+      (t.optionType && t.optionType !== 'None') ||
+      /CE|PE|CALL|PUT/i.test(t.symbol);
+    if (!isOption) return acc;
+    if (t.action === 'SELL') return acc + t.entryPrice * t.qty;
+    if (t.action === 'BUY') return acc + t.exitPrice * t.qty;
+    return acc;
+  }, 0);
+
+  const totalIcaiTurnover = absolutePnlTurnover + optionSalePremiumTurnover;
+  const digitalAuditLimit = 100000000; // ₹10 Crore
+  const requiresAudit = absolutePnlTurnover > digitalAuditLimit || totalIcaiTurnover > digitalAuditLimit;
+  const requiresBooksOfAccounts =
+    Math.abs(grossTaxableBusiness) > 250000 || absolutePnlTurnover > 2500000;
+
+  let recommendedItr = 'ITR-1 (Sahaj)';
+  if (
+    speculativeTrades.length > 0 ||
+    nonSpeculativeTrades.length > 0 ||
+    grossTaxableBusiness !== 0 ||
+    unabsorbedSpecLoss > 0 ||
+    unabsorbedNonSpecLoss > 0
+  ) {
+    recommendedItr = 'ITR-3 (Business + Trading)';
+  } else if (stcgTrades.length > 0 || ltcgTrades.length > 0) {
+    recommendedItr = 'ITR-2 (Capital Gains)';
+  }
+
+  return {
+    tradesCount: scopedTrades.length,
+    stcgNet,
+    ltcgNet,
+    effectiveTaxableStcg,
+    effectiveTaxableLtcg,
+    ltcgExemptionUsed,
+    unabsorbedStcl,
+    unabsorbedLtcl,
+    stcgTax,
+    ltcgTax,
+    totalCapitalGainsBaseTax: activeRes.cgBaseTax,
+    totalCapitalGainsTax: activeRes.cgTotalTax,
+    speculativeNet,
+    nonSpeculativeNet,
+    grossTaxableBusiness,
+    netTaxableBusiness,
+    unabsorbedSpecLoss,
+    unabsorbedNonSpecLoss,
+    setOffAgainstStcg,
+    setOffAgainstLtcg,
+    totalTaxableIncome: netTaxableBusiness + effectiveTaxableStcg + effectiveTaxableLtcg,
+    businessTaxCalc: activeRes.businessCalc,
+    newRegimeTotalTax: newRes.combinedTotalTax,
+    oldRegimeTotalTax: oldRes.combinedTotalTax,
+    totalEstimatedTax,
+    netTaxPayableOrRefund,
+    totalBrokerage,
+    totalGovtTaxes,
+    absolutePnlTurnover,
+    optionSalePremiumTurnover,
+    totalIcaiTurnover,
+    requiresAudit,
+    requiresBooksOfAccounts,
+    recommendedItr,
+    isBudget2025Plus,
+    rebateLimit,
+    isAdvanceTaxApplicable: totalEstimatedTax > 10000,
+  };
+}
+
+export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: string }) {
+  const { allTrades, selectedFY, brokerAccounts, sessionUser } = useTradeStore(
+    useShallow((s) => ({
+      allTrades: s.trades,
+      selectedFY: s.selectedFY,
+      brokerAccounts: s.brokerAccounts,
+      sessionUser: s.sessionUser,
+    }))
+  );
+
+  const fyTrades = useMemo(() => filterTradesByFY(allTrades, selectedFY), [allTrades, selectedFY]);
+
+  const activeAccountTrades = useMemo(() => {
+    if (activeAccountId === 'Combined') return fyTrades;
+    return fyTrades.filter((t) =>
+      isMatchAccountUtil(activeAccountId, brokerAccounts, t.brokerAccountId, t.broker)
+    );
+  }, [activeAccountId, brokerAccounts, fyTrades]);
+
+  // Map each trade to a Person/PAN name (accountName on brokerAccount, so Sachin's Dhan + Kotak merge, while Rupali's Dhan stays separate!)
+  const getTradePerson = useMemo(() => {
+    const accMap = new Map(brokerAccounts.map((a) => [a.id, a]));
+    const activeByBroker = new Map<string, string[]>();
+    brokerAccounts
+      .filter((a) => a.active !== false)
+      .forEach((a) => {
+        const list = activeByBroker.get(a.broker) || [];
+        list.push(a.accountName?.trim() || a.broker);
+        activeByBroker.set(a.broker, list);
+      });
+
+    return (t: Trade): string => {
+      if (t.brokerAccountId) {
+        const acc = accMap.get(t.brokerAccountId);
+        if (acc?.accountName?.trim()) return acc.accountName.trim();
+        if (acc?.broker) return acc.broker;
+      }
+      const candidates = t.broker ? activeByBroker.get(t.broker) : undefined;
+      if (candidates && candidates.length === 1) return candidates[0];
+      return t.broker || 'Primary';
+    };
+  }, [brokerAccounts]);
+
+  // Distinct Person/PAN names present in active accounts or trades
+  const taxpayerPersons = useMemo(() => {
+    const set = new Set<string>();
+    brokerAccounts
+      .filter((a) => a.active !== false)
+      .forEach((a) => {
+        if (a.accountName?.trim()) set.add(a.accountName.trim());
+      });
+    activeAccountTrades.forEach((t) => set.add(getTradePerson(t)));
+    return Array.from(set);
+  }, [brokerAccounts, activeAccountTrades, getTradePerson]);
+
+  const [selectedTaxpayer, setSelectedTaxpayer] = useState<string>('ALL');
+  const [subTab, setSubTab] = useState<'overview' | 'slabs' | 'accounts'>('overview');
+
+  // If selectedTaxpayer disappears (e.g. account switched), reset to ALL
+  useEffect(() => {
+    if (selectedTaxpayer !== 'ALL' && !taxpayerPersons.includes(selectedTaxpayer)) {
+      setSelectedTaxpayer('ALL');
+    }
+  }, [taxpayerPersons, selectedTaxpayer]);
+
+  const effectiveScopeKey =
+    activeAccountId !== 'Combined'
+      ? `acc_${activeAccountId}`
+      : selectedTaxpayer !== 'ALL'
+      ? `person_${selectedTaxpayer}`
+      : 'ALL';
+
+  const taxScopeKey = `${sessionUser?.id || 'guest'}_${selectedFY}_${effectiveScopeKey}`;
+
+  const [taxRegime, setTaxRegime] = useState<'NEW' | 'OLD'>(() => {
+    const saved = localStorage.getItem(`traders_diary_tax_regime_${taxScopeKey}`);
+    return saved === 'OLD' ? 'OLD' : 'NEW';
+  });
+  const [allowableExpenses, setAllowableExpenses] = useState<number>(() => {
+    const saved = localStorage.getItem(`traders_diary_tax_expenses_${taxScopeKey}`);
+    return saved ? parseFloat(saved) || 0 : 0;
+  });
+  const [advanceTaxPaid, setAdvanceTaxPaid] = useState<number>(() => {
+    const saved = localStorage.getItem(`traders_diary_advance_tax_${taxScopeKey}`);
+    return saved ? parseFloat(saved) || 0 : 0;
+  });
+  const [tdsCredits, setTdsCredits] = useState<number>(() => {
+    const saved = localStorage.getItem(`traders_diary_tds_credits_${taxScopeKey}`);
+    return saved ? parseFloat(saved) || 0 : 0;
+  });
+
+  useEffect(() => {
+    const savedRegime = localStorage.getItem(`traders_diary_tax_regime_${taxScopeKey}`);
+    setTaxRegime(savedRegime === 'OLD' ? 'OLD' : 'NEW');
+    const savedExp = localStorage.getItem(`traders_diary_tax_expenses_${taxScopeKey}`);
+    setAllowableExpenses(savedExp ? parseFloat(savedExp) || 0 : 0);
+    const savedAdv = localStorage.getItem(`traders_diary_advance_tax_${taxScopeKey}`);
+    setAdvanceTaxPaid(savedAdv ? parseFloat(savedAdv) || 0 : 0);
+    const savedTds = localStorage.getItem(`traders_diary_tds_credits_${taxScopeKey}`);
+    setTdsCredits(savedTds ? parseFloat(savedTds) || 0 : 0);
+  }, [taxScopeKey]);
+
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showTaxPaidModal, setShowTaxPaidModal] = useState(false);
+
+  const [tempExpenseInput, setTempExpenseInput] = useState(allowableExpenses.toString());
+  const [tempAdvanceInput, setTempAdvanceInput] = useState(advanceTaxPaid.toString());
+  const [tempTdsInput, setTempTdsInput] = useState(tdsCredits.toString());
+
+  useEffect(() => {
+    localStorage.setItem(`traders_diary_tax_regime_${taxScopeKey}`, taxRegime);
+  }, [taxRegime, taxScopeKey]);
+
+  useEffect(() => {
+    localStorage.setItem(`traders_diary_tax_expenses_${taxScopeKey}`, allowableExpenses.toString());
+    setTempExpenseInput(allowableExpenses.toString());
+  }, [allowableExpenses, taxScopeKey]);
+
+  useEffect(() => {
+    localStorage.setItem(`traders_diary_advance_tax_${taxScopeKey}`, advanceTaxPaid.toString());
+    setTempAdvanceInput(advanceTaxPaid.toString());
+  }, [advanceTaxPaid, taxScopeKey]);
+
+  useEffect(() => {
+    localStorage.setItem(`traders_diary_tds_credits_${taxScopeKey}`, tdsCredits.toString());
+    setTempTdsInput(tdsCredits.toString());
+  }, [tdsCredits, taxScopeKey]);
+
+  // Trades matching active person filter
+  const scopedTrades = useMemo(() => {
+    if (activeAccountId !== 'Combined' || selectedTaxpayer === 'ALL') {
+      return activeAccountTrades;
+    }
+    return activeAccountTrades.filter((t) => getTradePerson(t) === selectedTaxpayer);
+  }, [activeAccountId, activeAccountTrades, selectedTaxpayer, getTradePerson]);
+
+  // Current view tax computation
+  const calc = useMemo(
+    () =>
+      computeTaxSummary(
+        scopedTrades,
+        selectedFY,
+        taxRegime,
+        allowableExpenses,
+        advanceTaxPaid,
+        tdsCredits
+      ),
+    [scopedTrades, selectedFY, taxRegime, allowableExpenses, advanceTaxPaid, tdsCredits]
+  );
+
+  // Person / PAN-wise independent tax calculations (crucial when >1 person shares a broker!)
+  const personSummaries = useMemo(() => {
+    const grouped = new Map<string, Trade[]>();
+    activeAccountTrades.forEach((t) => {
+      const person = getTradePerson(t);
+      const list = grouped.get(person) || [];
+      list.push(t);
+      grouped.set(person, list);
+    });
+
+    return Array.from(grouped.entries()).map(([person, personTrades]) => {
+      const personKey = `${sessionUser?.id || 'guest'}_${selectedFY}_person_${person}`;
+      const pRegime = localStorage.getItem(`traders_diary_tax_regime_${personKey}`) === 'OLD' ? 'OLD' : 'NEW';
+      const pExp = parseFloat(localStorage.getItem(`traders_diary_tax_expenses_${personKey}`) || '0') || 0;
+      const pAdv = parseFloat(localStorage.getItem(`traders_diary_advance_tax_${personKey}`) || '0') || 0;
+      const pTds = parseFloat(localStorage.getItem(`traders_diary_tds_credits_${personKey}`) || '0') || 0;
+
+      const summary = computeTaxSummary(personTrades, selectedFY, pRegime, pExp, pAdv, pTds);
+      const brokers = Array.from(new Set(personTrades.map((t) => t.broker || 'Other')));
+      const netPnL = personTrades.reduce((s, t) => s + t.netPnL, 0);
+
+      return {
+        person,
+        brokers,
+        netPnL,
+        regime: pRegime,
+        summary,
+      };
+    });
+  }, [activeAccountTrades, getTradePerson, sessionUser?.id, selectedFY, taxRegime, allowableExpenses, advanceTaxPaid, tdsCredits]);
+
+  // If viewing ALL taxpayers and there are multiple distinct persons, sum each person's PAN tax!
+  const isMultiPersonCombined =
+    activeAccountId === 'Combined' && selectedTaxpayer === 'ALL' && personSummaries.length > 1;
+
+  const displayTotalTax = isMultiPersonCombined
+    ? personSummaries.reduce((s, p) => s + p.summary.totalEstimatedTax, 0)
+    : calc.totalEstimatedTax;
+
+  const displayNetTaxDue = isMultiPersonCombined
+    ? personSummaries.reduce((s, p) => s + p.summary.netTaxPayableOrRefund, 0)
+    : calc.netTaxPayableOrRefund;
+
+  // Account-wise Breakdown (Broker + Person separated, NEVER merging Sachin & Rupali on Dhan!)
+  const accountSummaryList = useMemo(() => {
+    const accMap = new Map(brokerAccounts.map((a) => [a.id, a]));
+    const rows: Record<
+      string,
+      {
+        label: string;
+        person: string;
+        broker: string;
+        tradesCount: number;
+        netPnL: number;
+        brokerage: number;
+        taxes: number;
+      }
+    > = {};
+
+    scopedTrades.forEach((t) => {
+      const person = getTradePerson(t);
+      const acc = t.brokerAccountId ? accMap.get(t.brokerAccountId) : undefined;
+      const broker = acc?.broker || t.broker || 'Other';
+      const key = t.brokerAccountId || `${broker}::${person}`;
+
+      if (!rows[key]) {
+        rows[key] = {
+          label: `${broker} (${person})`,
+          person,
+          broker,
+          tradesCount: 0,
+          netPnL: 0,
+          brokerage: 0,
+          taxes: 0,
+        };
+      }
+      rows[key].tradesCount += 1;
+      rows[key].netPnL += t.netPnL;
+      rows[key].brokerage += t.brokerage || 0;
+      rows[key].taxes += t.taxes || 0;
+    });
+
+    return Object.values(rows).sort((a, b) => b.netPnL - a.netPnL);
+  }, [scopedTrades, brokerAccounts, getTradePerson]);
+
+  const itrDueDates = useMemo(() => {
+    const startYear = parseFyStartYear(selectedFY);
+    const ayStart = startYear + 1;
+    const ayShort = (ayStart + 1).toString().slice(-2);
+    const assessmentYear = `AY ${ayStart}-${ayShort}`;
+
+    return {
+      assessmentYear,
+      nonAuditDate: `31 July ${ayStart}`,
+      auditReportDate: `30 September ${ayStart}`,
+      auditReturnDate: `31 October ${ayStart}`,
+      belatedDate: `31 December ${ayStart}`,
+      advQ1: `15 June ${startYear}`,
+      advQ2: `15 Sept ${startYear}`,
+      advQ3: `15 Dec ${startYear}`,
+      advQ4: `15 March ${startYear + 1}`,
+    };
+  }, [selectedFY]);
+
+  const advanceTaxSchedule = [
+    { dueDate: itrDueDates.advQ1, pct: 15, label: '1st Installment (15%)' },
+    { dueDate: itrDueDates.advQ2, pct: 45, label: '2nd Installment (45% Cumulative)' },
+    { dueDate: itrDueDates.advQ3, pct: 75, label: '3rd Installment (75% Cumulative)' },
+    { dueDate: itrDueDates.advQ4, pct: 100, label: '4th Installment (100% Cumulative)' },
+  ];
+
+  const handleSaveExpenses = () => {
+    const val = parseFloat(tempExpenseInput);
+    setAllowableExpenses(isNaN(val) || val < 0 ? 0 : val);
+    setShowExpenseModal(false);
+  };
+
+  const handleSaveTaxPaid = () => {
+    const adv = parseFloat(tempAdvanceInput);
+    const tds = parseFloat(tempTdsInput);
+    setAdvanceTaxPaid(isNaN(adv) || adv < 0 ? 0 : adv);
+    setTdsCredits(isNaN(tds) || tds < 0 ? 0 : tds);
+    setShowTaxPaidModal(false);
+  };
+
+  const savingsDiff = calc.oldRegimeTotalTax - calc.newRegimeTotalTax;
 
   return (
-    <div className="animate-tab-panel taxation-root-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      
-      {/* Print-specific CSS styles */}
+    <div id="taxation-printable-area" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
+          body * { visibility: hidden; }
+          #taxation-printable-area, #taxation-printable-area * { visibility: visible; }
+          #taxation-printable-area {
+            position: absolute; left: 0; top: 0; width: 100%;
+            background: #ffffff !important; color: #000000 !important; padding: 20px;
           }
-          .taxation-root-container, .taxation-root-container * {
-            visibility: visible;
-          }
-          .taxation-root-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            background: #ffffff !important;
-            color: #000000 !important;
-            padding: 20px !important;
-          }
-          .no-print {
-            display: none !important;
-          }
+          .no-print { display: none !important; }
           .glass-card {
-            background: #ffffff !important;
-            border: 1px solid #cbd5e1 !important;
-            box-shadow: none !important;
-            color: #000000 !important;
+            background: #f9fafb !important; border: 1px solid #d1d5db !important;
+            box-shadow: none !important; color: #111827 !important; break-inside: avoid;
           }
         }
       `}</style>
 
-      {/* Top Header & Controls Bar */}
-      <div 
-        className="glass-card no-print" 
-        style={{ 
-          padding: '16px 20px', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
+      {/* HEADER BAR */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '16px 20px',
+          display: 'flex',
           flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           gap: '14px',
-          background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%)',
-          border: '1px solid var(--border-color-active)'
         }}
       >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-              <Coins size={20} color="var(--primary)" />
-              Indian Stock Market Taxation &amp; ITR Auditor
-            </h2>
-            <span style={{ fontSize: '0.62rem', fontWeight: 700, padding: '2px 8px', borderRadius: '8px', background: 'rgba(249, 115, 22, 0.12)', color: '#f97316', border: '1px solid rgba(249, 115, 22, 0.25)' }}>
-              Budget 2024 Revised
-            </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: 'rgba(139, 92, 246, 0.14)', padding: '10px', borderRadius: '10px' }}>
+            <Scale size={20} color="#a78bfa" />
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-            CA-grade tax computation, Section 37 expense deductions, Advance Tax settlement, and Section 44AB/44AD compliance
-          </p>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h2 style={{ fontSize: '1.12rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                Tax &amp; ITR Compliance
+              </h2>
+              <span
+                style={{
+                  fontSize: '0.66rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  background: 'rgba(16, 185, 129, 0.14)',
+                  color: '#10b981',
+                }}
+              >
+                {selectedFY} ({calc.isBudget2025Plus ? 'Budget 2025 Slabs' : 'Budget 2024 Slabs'})
+              </span>
+            </div>
+            <p style={{ fontSize: '0.73rem', color: 'var(--text-dim)', margin: '2px 0 0 0' }}>
+              PAN-wise Indian Income Tax (Sec 111A, 112A, 70/71/73, 115BAC &amp; 44AB)
+            </p>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Tax Paid / Settlement Button */}
+        <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Regime Switcher */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(0,0,0,0.35)',
+              padding: '3px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            {(['NEW', 'OLD'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setTaxRegime(r)}
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: taxRegime === r ? 'var(--primary)' : 'transparent',
+                  color: taxRegime === r ? '#fff' : 'var(--text-muted)',
+                }}
+              >
+                {r === 'NEW' ? 'New Regime' : 'Old Regime'}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowExpenseModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '7px 11px',
+              borderRadius: '8px',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-main)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            <SlidersHorizontal size={13} />
+            <span>Sec 37</span>
+          </button>
+
           <button
             onClick={() => setShowTaxPaidModal(true)}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              gap: '5px',
+              padding: '7px 11px',
               borderRadius: '8px',
+              background: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              color: '#10b981',
               fontSize: '0.72rem',
               fontWeight: 700,
-              color: 'var(--color-win)',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
-            title="Record Advance Tax & TDS paid to compute net payable/refund"
           >
             <Wallet size={13} />
-            <span>Taxes Paid &amp; Refund</span>
+            <span>Taxes Paid</span>
           </button>
 
-          {/* Print/Export Button */}
           <button
-            onClick={handlePrint}
+            onClick={() => window.print()}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
+              gap: '5px',
+              padding: '7px 11px',
+              borderRadius: '8px',
               background: 'rgba(255,255,255,0.04)',
               border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              fontSize: '0.72rem',
-              fontWeight: 600,
               color: 'var(--text-main)',
-              cursor: 'pointer'
-            }}
-            title="Print or export tax audit report"
-          >
-            <Printer size={13} />
-            <span>Print Tax Statement</span>
-          </button>
-
-          {/* Regime Switcher */}
-          <div 
-            style={{ 
-              display: 'flex', 
-              background: 'rgba(0,0,0,0.3)', 
-              borderRadius: '8px', 
-              padding: '3px', 
-              border: '1px solid var(--border-color)' 
-            }}
-          >
-            <button
-              onClick={() => setTaxRegime('NEW')}
-              style={{
-                border: 'none',
-                borderRadius: '6px',
-                padding: '5px 12px',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                background: taxRegime === 'NEW' ? 'var(--primary)' : 'transparent',
-                color: taxRegime === 'NEW' ? '#fff' : 'var(--text-dim)',
-                transition: 'all 0.15s ease'
-              }}
-              title="Default regime under Section 115BAC (Budget 2024 slabs, Nil tax up to ₹7 Lakh with Sec 87A rebate & marginal relief)"
-            >
-              New Regime (Sec 115BAC)
-            </button>
-            <button
-              onClick={() => setTaxRegime('OLD')}
-              style={{
-                border: 'none',
-                borderRadius: '6px',
-                padding: '5px 12px',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                background: taxRegime === 'OLD' ? 'var(--primary)' : 'transparent',
-                color: taxRegime === 'OLD' ? '#fff' : 'var(--text-dim)',
-                transition: 'all 0.15s ease'
-              }}
-              title="Traditional slab regime (0% up to ₹2.5L, full 87A rebate up to ₹5L)"
-            >
-              Old Regime
-            </button>
-          </div>
-
-          {/* Active FY Badge */}
-          <div 
-            style={{ 
-              padding: '6px 12px', 
-              background: 'rgba(255,255,255,0.03)', 
-              border: '1px solid var(--border-color)', 
-              borderRadius: '8px',
               fontSize: '0.72rem',
               fontWeight: 700,
-              color: 'var(--primary)',
-              fontFamily: 'var(--font-mono)'
+              cursor: 'pointer',
             }}
           >
-            FY {selectedFY}
-          </div>
+            <Printer size={13} />
+            <span>Print</span>
+          </button>
         </div>
       </div>
 
-      {/* Regime Comparison Callout Banner */}
-      {netTaxableBusiness > 0 && (
-        <div 
-          className="glass-card" 
-          style={{ 
-            padding: '12px 16px', 
-            background: regimeDifference > 0 ? 'rgba(52, 211, 153, 0.05)' : 'rgba(59, 130, 246, 0.05)', 
-            border: `1px solid ${regimeDifference > 0 ? 'rgba(52, 211, 153, 0.25)' : 'rgba(59, 130, 246, 0.25)'}`,
-            borderRadius: '10px',
+      {/* TAXPAYER (PAN) SELECTOR BAR - Separates different people on the same broker */}
+      {activeAccountId === 'Combined' && taxpayerPersons.length > 0 && (
+        <div
+          className="no-print"
+          style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
+            justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '10px'
+            gap: '10px',
+            padding: '10px 14px',
+            borderRadius: '10px',
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Sparkles size={18} color={regimeDifference > 0 ? 'var(--color-win)' : 'var(--primary)'} />
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-main)', lineHeight: 1.4 }}>
-              <strong>Tax Optimizer Comparison:</strong>{' '}
-              {regimeDifference > 0 ? (
-                <span>
-                  The <strong>New Regime (115BAC)</strong> saves you <strong>{formatCurrency(regimeDifference)}</strong> compared to the Old Regime on current business income!
-                </span>
-              ) : regimeDifference < 0 ? (
-                <span>
-                  The <strong>Old Regime</strong> saves you <strong>{formatCurrency(Math.abs(regimeDifference))}</strong> compared to the New Regime!
-                </span>
-              ) : (
-                <span>Both tax regimes result in identical tax liability for this income bracket.</span>
-              )}
-            </div>
-          </div>
-          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-dim)', background: 'rgba(0,0,0,0.2)', padding: '3px 8px', borderRadius: '4px' }}>
-            New: {formatCurrency(newRegimeCalc.totalTax)} vs Old: {formatCurrency(oldRegimeCalc.totalTax)}
-          </span>
-        </div>
-      )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+              <Users size={14} color="var(--primary)" />
+              Taxpayer (PAN):
+            </span>
 
-      {/* Primary KPI Grid: Tax Estimates */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '16px' }}>
-        
-        {/* Total Estimated Tax Card */}
-        <div 
-          className="glass-card" 
-          style={{ 
-            padding: '22px', 
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            boxShadow: 'var(--shadow-card)',
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-        >
-          <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.03 }}>
-            <Percent size={130} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Total Est. Tax Liability
-              </span>
-              <h3 
-                style={{ 
-                  fontSize: '1.9rem', 
-                  fontWeight: 800, 
-                  fontFamily: 'var(--font-mono)', 
-                  color: totalEstimatedTax > 0 ? 'var(--color-loss)' : 'var(--color-win)',
-                  margin: '8px 0 4px 0',
-                  lineHeight: 1
-                }}
-              >
-                {formatCurrency(totalEstimatedTax)}
-              </h3>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: 0 }}>
-                Capital Gains + Business Income + 4% Cess ({taxRegime === 'NEW' ? 'New Slabs' : 'Old Slabs'})
-              </p>
-            </div>
-            <div style={{ background: 'var(--color-loss-bg)', padding: '8px', borderRadius: '8px' }}>
-              <Scale size={20} color="var(--color-loss)" />
-            </div>
-          </div>
+            <button
+              onClick={() => setSelectedTaxpayer('ALL')}
+              style={{
+                padding: '5px 11px',
+                borderRadius: '999px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                border: selectedTaxpayer === 'ALL' ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                background: selectedTaxpayer === 'ALL' ? 'rgba(99, 102, 241, 0.16)' : 'transparent',
+                color: selectedTaxpayer === 'ALL' ? 'var(--primary)' : 'var(--text-dim)',
+                cursor: 'pointer',
+              }}
+            >
+              All Taxpayers ({personSummaries.length})
+            </button>
 
-          <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Business Slab Tax:</span>
-            <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>{formatCurrency(businessTaxCalc.totalTax)}</strong>
-          </div>
-          <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Capital Gains Tax (STCG/LTCG):</span>
-            <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>{formatCurrency(totalCapitalGainsTax)}</strong>
-          </div>
-        </div>
-
-        {/* Business/Slab Progressive Card */}
-        <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Business Tax ({taxRegime === 'NEW' ? 'New Regime 115BAC' : 'Old Regime'})
-              </span>
+            {taxpayerPersons.map((person) => (
               <button
-                onClick={() => setShowExpenseModal(true)}
+                key={person}
+                onClick={() => setSelectedTaxpayer(person)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  padding: '3px 8px',
-                  fontSize: '0.65rem',
-                  color: 'var(--primary)',
+                  padding: '5px 11px',
+                  borderRadius: '999px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  border: selectedTaxpayer === person ? '1px solid #10b981' : '1px solid var(--border-color)',
+                  background: selectedTaxpayer === person ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                  color: selectedTaxpayer === person ? '#10b981' : 'var(--text-dim)',
                   cursor: 'pointer',
-                  fontWeight: 600
                 }}
-                title="Add Section 37 trading deductions (software, internet, equipment)"
               >
-                <SlidersHorizontal size={11} />
-                <span>Sec 37 Deductions</span>
+                {person}
               </button>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '12px' }}>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>Gross Business P&amp;L:</span>
-              <strong style={{ fontSize: '0.92rem', fontFamily: 'var(--font-mono)', color: grossTaxableBusiness > 0 ? 'var(--color-win)' : 'var(--text-dim)' }}>
-                {formatCurrency(grossTaxableBusiness)}
-              </strong>
-            </div>
-
-            {allowableExpenses > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
-                <span style={{ fontSize: '0.72rem', color: '#10b981' }}>Less: Sec 37 Expenses:</span>
-                <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', color: '#10b981', fontWeight: 600 }}>
-                  -{formatCurrency(allowableExpenses)}
-                </span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-main)', fontWeight: 600 }}>Net Taxable Business:</span>
-              <strong style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)', color: netTaxableBusiness > 0 ? 'var(--primary)' : 'var(--text-dim)' }}>
-                {formatCurrency(netTaxableBusiness)}
-              </strong>
-            </div>
-
-            {businessTaxCalc.rebate87A > 0 && (
-              <p style={{ fontSize: '0.68rem', color: 'var(--color-win)', marginTop: '8px', fontWeight: 600 }}>
-                ✓ Sec 87A Full Rebate: -{formatCurrency(businessTaxCalc.rebate87A)} (Taxable income under {taxRegime === 'NEW' ? '₹7 Lakh' : '₹5 Lakh'})
-              </p>
-            )}
-
-            {businessTaxCalc.marginalRelief > 0 && (
-              <p style={{ fontSize: '0.68rem', color: '#38bdf8', marginTop: '4px', fontWeight: 600 }}>
-                ✓ Sec 87A Marginal Relief: -{formatCurrency(businessTaxCalc.marginalRelief)} (Tax capped to excess over ₹7L)
-              </p>
-            )}
-          </div>
-
-          <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Effective Business Tax Rate:</span>
-            <span style={{ fontSize: '0.88rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>
-              {businessTaxCalc.effectiveRate.toFixed(1)}%
-            </span>
-          </div>
-        </div>
-
-        {/* Net Tax Due / Refund Card */}
-        <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Net Tax Due / Refund Status
-              </span>
-              <div style={{ background: netTaxPayableOrRefund <= 0 ? 'var(--color-win-bg)' : 'var(--color-loss-bg)', padding: '6px', borderRadius: '6px' }}>
-                <Wallet size={16} color={netTaxPayableOrRefund <= 0 ? 'var(--color-win)' : 'var(--color-loss)'} />
-              </div>
-            </div>
-
-            <div style={{ marginTop: '10px' }}>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                {netTaxPayableOrRefund > 0 ? 'Balance Tax Payable to Govt:' : netTaxPayableOrRefund < 0 ? 'Income Tax Refund Due:' : 'All Taxes Settled:'}
-              </div>
-              <h3 
-                style={{ 
-                  fontSize: '1.65rem', 
-                  fontWeight: 800, 
-                  fontFamily: 'var(--font-mono)', 
-                  color: netTaxPayableOrRefund > 0 ? 'var(--color-loss)' : 'var(--color-win)',
-                  margin: '4px 0 0 0'
-                }}
-              >
-                {formatCurrency(Math.abs(netTaxPayableOrRefund))}
-              </h3>
-            </div>
-
-            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.7rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Advance Tax Paid:</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(advanceTaxPaid)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>TDS / TCS Credit:</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(tdsCredits)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>Status:</span>
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: netTaxPayableOrRefund > 0 ? '#f97316' : 'var(--color-win)' }}>
-              {netTaxPayableOrRefund > 0 ? 'Pay via Challan 280 / e-Pay' : netTaxPayableOrRefund < 0 ? 'Refund will be credited to bank' : 'Fully Settled'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* SMART ITR FORM RECOMMENDER & AUDIT COMPLIANCE BANNER */}
-      {/* ========================================================================= */}
-      <div 
-        className="glass-card" 
-        style={{ 
-          padding: '18px 20px', 
-          background: 'rgba(255,255,255,0.015)',
-          border: '1px solid var(--border-color)',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '16px'
-        }}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <FileText size={16} color="var(--primary)" />
-            <span style={{ fontSize: '0.76rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Recommended ITR Form for FY {selectedFY}:
-            </span>
-          </div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
-            {recommendedItr}
-          </div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: '6px 0 0 0', lineHeight: 1.4 }}>
-            {itrReason}
-          </p>
-        </div>
-
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <Calendar size={16} color="#f59e0b" />
-            <span style={{ fontSize: '0.76rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Statutory ITR Filing Due Dates:
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Non-Audit Individual ITR Due Date:</span>
-              <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>{itrDueDates.nonAuditDueDate}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Tax Audit Report (Form 3CA/3CD):</span>
-              <strong style={{ color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>{itrDueDates.auditReportDueDate}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Audit Cases ITR Due Date:</span>
-              <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>{itrDueDates.auditItrDueDate}</strong>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <ShieldAlert size={16} color={requiresBooksOfAccounts ? 'var(--color-win)' : 'var(--text-muted)'} />
-            <span style={{ fontSize: '0.76rem', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Section 44AA Books of Accounts:
-            </span>
-          </div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', margin: 0, lineHeight: 1.4 }}>
-            {requiresBooksOfAccounts ? (
-              <span style={{ color: 'var(--color-win)' }}>
-                ✓ Turnover &gt; ₹25 Lakh or Profit &gt; ₹2.5 Lakh. Maintenance of books of accounts is mandatory under Section 44AA. TradeDiary Pro provides complete digital journals.
-              </span>
-            ) : (
-              <span>Turnover within ₹25L limit. Basic records sufficient under Section 44AA.</span>
-            )}
-          </p>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* SECTION 37 EXPENSES MODAL / POPUP */}
-      {/* ========================================================================= */}
-      {showExpenseModal && (
-        <div 
-          style={{ 
-            position: 'fixed', 
-            inset: 0, 
-            background: 'rgba(0,0,0,0.7)', 
-            backdropFilter: 'blur(6px)', 
-            zIndex: 9999, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-        >
-          <div 
-            className="glass-card animate-tab-panel" 
-            style={{ 
-              maxWidth: '480px', 
-              width: '100%', 
-              padding: '24px', 
-              borderRadius: '14px', 
-              border: '1px solid var(--border-color-active)',
-              background: 'var(--bg-card)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <SlidersHorizontal size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-                  Section 37 Allowable Trading Expenses
-                </h3>
-              </div>
-              <button 
-                onClick={() => setShowExpenseModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1rem', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-              Under Indian Income Tax Act Section 37, legitimate expenses incurred wholly and exclusively for trading business are deductible against F&amp;O/intraday profits.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-              <label style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                Total Annual Business Deductions (₹):
-              </label>
-              <input 
-                type="number"
-                min="0"
-                step="1000"
-                value={allowableExpenses}
-                onChange={(e) => setAllowableExpenses(Math.max(0, Number(e.target.value) || 0))}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  background: 'rgba(0,0,0,0.3)',
-                  color: 'var(--text-main)',
-                  fontSize: '0.95rem',
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 700,
-                  outline: 'none'
-                }}
-              />
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Common Presets:</span>
-                {[15000, 30000, 60000, 100000].map(amt => (
-                  <button
-                    key={amt}
-                    onClick={() => setAllowableExpenses(amt)}
-                    style={{
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '4px',
-                      padding: '2px 8px',
-                      fontSize: '0.65rem',
-                      color: 'var(--primary)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ₹{(amt / 1000)}k
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', fontSize: '0.7rem', color: 'var(--text-dim)', lineHeight: 1.4, marginBottom: '16px' }}>
-              <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Eligible Expense Items:</strong>
-              • TradingView / Charting Software subscriptions<br />
-              • High-speed fiber broadband &amp; internet bills<br />
-              • Depreciation on trading laptop, desktop &amp; multi-monitor setups<br />
-              • Advisory, books, research tools, and educational subscriptions
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button
-                onClick={() => setShowExpenseModal(false)}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '6px',
-                  background: 'var(--primary)',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                Apply Deductions
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAX PAID & REFUND SETTLEMENT MODAL */}
-      {/* ========================================================================= */}
-      {showTaxPaidModal && (
-        <div 
-          style={{ 
-            position: 'fixed', 
-            inset: 0, 
-            background: 'rgba(0,0,0,0.7)', 
-            backdropFilter: 'blur(6px)', 
-            zIndex: 9999, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-        >
-          <div 
-            className="glass-card animate-tab-panel" 
-            style={{ 
-              maxWidth: '480px', 
-              width: '100%', 
-              padding: '24px', 
-              borderRadius: '14px', 
-              border: '1px solid var(--border-color-active)',
-              background: 'var(--bg-card)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Wallet size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-                  Record Prepaid Taxes &amp; Compute Refund
-                </h3>
-              </div>
-              <button 
-                onClick={() => setShowTaxPaidModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1rem', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-              Enter Advance Tax already paid via Challan 280 and any TDS/TCS credits appearing in your Form 26AS / AIS to calculate net tax payable or refund due.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-              <div>
-                <label style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Advance Tax Paid via Challan 280 (₹):
-                </label>
-                <input 
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={advanceTaxPaid}
-                  onChange={(e) => setAdvanceTaxPaid(Math.max(0, Number(e.target.value) || 0))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    background: 'rgba(0,0,0,0.3)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.9rem',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    outline: 'none'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  TDS / TCS Credit in Form 26AS / AIS (₹):
-                </label>
-                <input 
-                  type="number"
-                  min="0"
-                  step="500"
-                  value={tdsCredits}
-                  onChange={(e) => setTdsCredits(Math.max(0, Number(e.target.value) || 0))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    background: 'rgba(0,0,0,0.3)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.9rem',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    outline: 'none'
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', fontSize: '0.72rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Net Balance Calculated:</span>
-              <strong style={{ fontFamily: 'var(--font-mono)', color: (totalEstimatedTax - advanceTaxPaid - tdsCredits) > 0 ? 'var(--color-loss)' : 'var(--color-win)', fontSize: '0.95rem' }}>
-                {(totalEstimatedTax - advanceTaxPaid - tdsCredits) > 0 
-                  ? `Payable: ${formatCurrency(totalEstimatedTax - advanceTaxPaid - tdsCredits)}`
-                  : `Refund: ${formatCurrency(Math.abs(totalEstimatedTax - advanceTaxPaid - tdsCredits))}`}
-              </strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-              <button
-                onClick={() => setShowTaxPaidModal(false)}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '6px',
-                  background: 'var(--primary)',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                Save Settlement
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SLAB-BY-SLAB DETAILED BREAKDOWN TABLE */}
-      {/* ========================================================================= */}
-      <div className="glass-card" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Layers size={18} color="var(--primary)" />
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-              Slab-by-Slab Tax Calculation ({taxRegime === 'NEW' ? 'Budget 2024 Section 115BAC' : 'Old Slab Regime'})
-            </h3>
-          </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-            Net Taxable Business: {formatCurrency(netTaxableBusiness)}
-          </span>
-        </div>
-
-        {businessTaxCalc.tiers.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-color)' }}>
-                  <th style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>Income Slab Tier</th>
-                  <th style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>Taxable Chunk</th>
-                  <th style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>Tax Rate</th>
-                  <th style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>Computed Tax</th>
-                </tr>
-              </thead>
-              <tbody>
-                {businessTaxCalc.tiers.map((t, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                    <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--text-main)' }}>{t.label}</td>
-                    <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatCurrency(t.chunk)}</td>
-                    <td style={{ padding: '9px 12px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, color: t.ratePct === 0 ? 'var(--color-win)' : 'var(--text-main)' }}>
-                      {t.ratePct}%
-                    </td>
-                    <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: t.tax > 0 ? 'var(--color-loss)' : 'var(--text-dim)' }}>
-                      {formatCurrency(t.tax)}
-                    </td>
-                  </tr>
-                ))}
-                
-                {/* Summary Rows */}
-                <tr style={{ borderTop: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.015)' }}>
-                  <td colSpan={3} style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-dim)' }}>
-                    Base Tax before Rebate:
-                  </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                    {formatCurrency(businessTaxCalc.baseTax)}
-                  </td>
-                </tr>
-
-                {businessTaxCalc.rebate87A > 0 && (
-                  <tr style={{ background: 'rgba(52, 211, 153, 0.04)' }}>
-                    <td colSpan={3} style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--color-win)' }}>
-                      Less: Section 87A Full Tax Rebate:
-                    </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-win)' }}>
-                      -{formatCurrency(businessTaxCalc.rebate87A)}
-                    </td>
-                  </tr>
-                )}
-
-                {businessTaxCalc.marginalRelief > 0 && (
-                  <tr style={{ background: 'rgba(56, 189, 248, 0.04)' }}>
-                    <td colSpan={3} style={{ padding: '8px 12px', fontWeight: 600, color: '#38bdf8' }}>
-                      Less: Section 87A Marginal Relief:
-                    </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#38bdf8' }}>
-                      -{formatCurrency(businessTaxCalc.marginalRelief)}
-                    </td>
-                  </tr>
-                )}
-
-                {businessTaxCalc.surcharge > 0 && (
-                  <tr>
-                    <td colSpan={3} style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--color-loss)' }}>
-                      Add: Surcharge (Income &gt; ₹50L):
-                    </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-loss)' }}>
-                      +{formatCurrency(businessTaxCalc.surcharge)}
-                    </td>
-                  </tr>
-                )}
-
-                <tr>
-                  <td colSpan={3} style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-dim)' }}>
-                    Add: 4% Health &amp; Education Cess:
-                  </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-muted)' }}>
-                    +{formatCurrency(businessTaxCalc.cess)}
-                  </td>
-                </tr>
-
-                <tr style={{ borderTop: '1.5px solid var(--border-color-active)', background: 'rgba(0,0,0,0.25)' }}>
-                  <td colSpan={3} style={{ padding: '10px 12px', fontWeight: 800, color: 'var(--text-main)' }}>
-                    Net Business Tax Payable:
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.88rem', color: businessTaxCalc.totalTax > 0 ? 'var(--color-loss)' : 'var(--color-win)' }}>
-                    {formatCurrency(businessTaxCalc.totalTax)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-dim)', fontSize: '0.78rem' }}>
-            No taxable business income for the selected timeframe. Net tax liability is ₹0.
-          </div>
-        )}
-      </div>
-
-      {/* ========================================================================= */}
-      {/* SECTION 44AB TURNOVER AUDIT: BROKER VS ICAI METHOD */}
-      {/* ========================================================================= */}
-      <div className="glass-card" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Scale size={18} color="var(--primary)" />
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-              Section 44AB Tax Audit Turnover Analysis (ICAI Guidelines)
-            </h3>
-          </div>
-          <span style={{ fontSize: '0.7rem', color: requiresAudit ? 'var(--color-loss)' : 'var(--color-win)', fontWeight: 700 }}>
-            {requiresAudit ? '⚠️ Audit Mandatory' : '✓ Audit Not Required (Under ₹10 Cr)'}
-          </span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
-          <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Method 1: Broker Standard Turnover
-            </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', margin: '4px 0' }}>
-              {formatCurrency(absolutePnlTurnover)}
-            </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', margin: 0, lineHeight: 1.4 }}>
-              Calculated as <strong>Sum of Absolute P&amp;L</strong> (|Profit| + |Loss|) across all Futures &amp; Options. Used by Zerodha, Dhan, and most discount broker Tax P&amp;L reports.
-            </p>
-          </div>
-
-          <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Option Premium on Sale
-            </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--primary)', margin: '4px 0' }}>
-              {formatCurrency(optionSalePremiumTurnover)}
-            </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', margin: 0, lineHeight: 1.4 }}>
-              Total turnover from sale of options (entry premium on sell orders + exit value on squared-off long options).
-            </p>
-          </div>
-
-          <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Method 2: ICAI Comprehensive Turnover
-            </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: totalIcaiTurnover > digitalAuditLimit ? 'var(--color-loss)' : 'var(--text-main)', margin: '4px 0' }}>
-              {formatCurrency(totalIcaiTurnover)}
-            </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', margin: 0, lineHeight: 1.4 }}>
-              ICAI Guidance Note formula: <strong>Absolute P&amp;L + Premium on Sale of Options</strong>. Some conservative CAs refer to this metric for Section 44AB threshold checks.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* SECTION 4: ADVANCE TAX STATUTORY CALENDAR (SECTION 208) */}
-      {/* ========================================================================= */}
-      {isAdvanceTaxApplicable && (
-        <div className="glass-card" style={{ padding: '20px', border: '1px solid rgba(245, 158, 11, 0.25)', background: 'rgba(245, 158, 11, 0.02)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <Calendar size={18} color="#f59e0b" />
-            <h3 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-              Section 208 Advance Tax Installment Schedule
-            </h3>
-            <span style={{ fontSize: '0.65rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
-              Mandatory if Tax &gt; ₹10,000
-            </span>
-          </div>
-          <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', margin: '0 0 14px 0', lineHeight: 1.5 }}>
-            To avoid penal interest under Sections 234B and 234C (1% per month), pay the cumulative percentage of your estimated total tax by the following statutory dates:
-          </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-            {advanceTaxSchedule.map((sc, idx) => (
-              <div 
-                key={idx}
-                style={{ 
-                  background: 'rgba(0,0,0,0.25)', 
-                  border: '1px solid var(--border-color)', 
-                  borderRadius: '8px', 
-                  padding: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>{sc.tranche}</span>
-                  <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', fontWeight: 700 }}>
-                    Due: {sc.dueDate}
-                  </span>
-                </div>
-                <div style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-main)', marginTop: '4px' }}>
-                  {formatCurrency(sc.cumulativeAmount)}
-                </div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
-                  Cumulative {sc.pct}% of total tax
-                </span>
-              </div>
             ))}
           </div>
+
+          {isMultiPersonCombined && (
+            <span style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
+              Each person&apos;s PAN slab &amp; ₹1.25L LTCG exemption is computed separately and summed
+            </span>
+          )}
         </div>
       )}
 
-      {/* Main breakdown grids: Capital Gains & Broker-wise Breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: '16px' }}>
-        
-        {/* Left Column: Capital Gains & Loss Set-offs */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          {/* Card 1: Capital Gains (Equity CNC Delivery) */}
-          <div className="glass-card" style={{ padding: '18px 20px' }}>
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-              <Briefcase size={16} color="var(--primary)" />
-              1. Capital Gains Tax Summary (Equity Delivery)
-            </h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              
-              {/* STCG */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>Short-Term Capital Gains (STCG)</div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Held &lt; 1 Year (Section 111A @ 20%)</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: stcgNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                    {formatCurrency(stcgNet)}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Tax: {formatCurrency(adjustedStcgTax)}
-                  </div>
-                </div>
-              </div>
-
-              {/* LTCG */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>Long-Term Capital Gains (LTCG)</div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Held &gt; 1 Year (Section 112A @ 12.5% above ₹1.25L)</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: ltcgNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                    {formatCurrency(ltcgNet)}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Tax: {formatCurrency(adjustedLtcgTax)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Inter-head Loss Set-off Indicator */}
-              {lossSetoffAgainstCapitalGains > 0 && (
-                <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', fontSize: '0.7rem', color: 'var(--color-win)', fontWeight: 600 }}>
-                  ✓ Section 71(2) Benefit: {formatCurrency(lossSetoffAgainstCapitalGains)} current-year F&amp;O loss set off against Capital Gains!
-                </div>
-              )}
-
-              {/* Loss Set-off & Carry Forward Badges */}
-              {stcgNet < 0 && ltcgNet > 0 && (
-                <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)', fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
-                  ⚡ Auto Set-off: {formatCurrency(Math.min(Math.abs(stcgNet), ltcgNet))} STCL adjusted against LTCG gains!
-                </div>
-              )}
-              {unabsorbedStcl > 0 && (
-                <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.7rem', color: 'var(--color-loss)' }}>
-                  📌 Unabsorbed STCL: <strong>{formatCurrency(unabsorbedStcl)}</strong> (Eligible to carry forward for 8 years in ITR-2/3)
-                </div>
-              )}
-              {unabsorbedLtcl > 0 && (
-                <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.7rem', color: 'var(--color-loss)' }}>
-                  📌 Unabsorbed LTCL: <strong>{formatCurrency(unabsorbedLtcl)}</strong> (Can only offset future LTCG, 8 years carry-forward)
-                </div>
-              )}
-
-              {/* Exemption Notice */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px', background: 'rgba(10, 132, 255, 0.03)', border: '1px solid rgba(10, 132, 255, 0.08)', borderRadius: '8px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                <Info size={14} color="#0a84ff" style={{ marginTop: '2px', flexShrink: 0 }} />
-                <div>
-                  LTCG gains under ₹1,25,000 are fully exempt per financial year.
-                  {ltcgNet > 0 && ltcgNet <= ltcgExemptionThreshold && (
-                    <span style={{ color: 'var(--color-win)', display: 'block', marginTop: '2px', fontWeight: 600 }}>
-                      ✓ Your LTCG is ₹{ltcgNet.toLocaleString('en-IN')}, which is under the threshold. Nil Tax applies!
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+      {/* 4 CRISP KPI CARDS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 230px), 1fr))', gap: '14px' }}>
+        <div
+          className="glass-card"
+          style={{
+            padding: '18px',
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              {isMultiPersonCombined ? 'Combined Family Tax' : 'Est. Total Tax'}
+            </span>
+            <Percent size={15} color="var(--color-loss)" />
           </div>
-
-          {/* Card 2: Business & Speculative Income Breakdown */}
-          <div className="glass-card" style={{ padding: '18px 20px' }}>
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-              <Scale size={16} color="var(--primary)" />
-              2. Business Income Set-off Summary (Sec 70 &amp; 73)
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              
-              {/* Speculative */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>Speculative Business (Equity Intraday)</div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Section 73: Losses can only offset intraday profit</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: speculativeNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                    {formatCurrency(speculativeNet)}
-                  </div>
-                  {unabsorbedSpeculativeLoss > 0 && (
-                    <div style={{ fontSize: '0.65rem', color: 'var(--color-loss)', marginTop: '2px' }}>
-                      4-yr carry-forward
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Non-Speculative */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>Non-Speculative (F&amp;O / Commodities)</div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Section 43(5): Normal business income (8-yr carry-forward)</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: nonSpeculativeNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
-                    {formatCurrency(nonSpeculativeNet)}
-                  </div>
-                  {unabsorbedNonSpeculativeLoss > 0 && (
-                    <div style={{ fontSize: '0.65rem', color: 'var(--color-loss)', marginTop: '2px' }}>
-                      8-yr carry-forward
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Intra-head adjustment note if applicable */}
-              {speculativeNet >= 0 && nonSpeculativeNet < 0 && (
-                <div style={{ padding: '8px 10px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
-                  ⚡ Section 70(1) Intra-head Set-off: F&amp;O loss absorbed speculative intraday profits!
-                </div>
-              )}
-
-              {/* Total Business */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255, 255, 255, 0.03)', border: '1.5px solid var(--border-color-active)', borderRadius: '8px' }}>
-                <strong style={{ fontSize: '0.8rem', color: 'var(--text-main)' }}>Total Net Taxable Business:</strong>
-                <div style={{ textAlign: 'right' }}>
-                  <strong style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)', color: netTaxableBusiness > 0 ? 'var(--color-win)' : 'var(--text-dim)' }}>
-                    {formatCurrency(netTaxableBusiness)}
-                  </strong>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
-                    Est. Slab Tax: {formatCurrency(businessTaxCalc.totalTax)}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div
+            style={{
+              fontSize: '1.6rem',
+              fontWeight: 800,
+              fontFamily: 'var(--font-mono)',
+              color: displayTotalTax > 0 ? 'var(--color-loss)' : 'var(--color-win)',
+              margin: '6px 0 4px 0',
+            }}
+          >
+            {formatCurrency(displayTotalTax)}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+            {isMultiPersonCombined
+              ? `Sum of ${personSummaries.length} separate PAN returns`
+              : `Slab: ${formatCurrency(calc.businessTaxCalc.totalTax)} + CG: ${formatCurrency(calc.totalCapitalGainsTax)}`}
           </div>
         </div>
 
-        {/* Right Column: Expenses, Broker Summary & ITR Filing Coach */}
+        <div className="glass-card" style={{ padding: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              Net Taxable Income
+            </span>
+            <Briefcase size={15} color="var(--primary)" />
+          </div>
+          <div
+            style={{
+              fontSize: '1.6rem',
+              fontWeight: 800,
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-main)',
+              margin: '6px 0 4px 0',
+            }}
+          >
+            {formatCurrency(calc.totalTaxableIncome)}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+            Biz: {formatCurrency(calc.netTaxableBusiness)} | CG: {formatCurrency(calc.effectiveTaxableStcg + calc.effectiveTaxableLtcg)}
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ padding: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              {displayNetTaxDue > 0 ? 'Balance Tax Due' : displayNetTaxDue < 0 ? 'Refund Due' : 'Tax Status'}
+            </span>
+            <Wallet size={15} color={displayNetTaxDue <= 0 ? 'var(--color-win)' : 'var(--color-loss)'} />
+          </div>
+          <div
+            style={{
+              fontSize: '1.6rem',
+              fontWeight: 800,
+              fontFamily: 'var(--font-mono)',
+              color: displayNetTaxDue > 0 ? 'var(--color-loss)' : 'var(--color-win)',
+              margin: '6px 0 4px 0',
+            }}
+          >
+            {formatCurrency(Math.abs(displayNetTaxDue))}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+            Adv Tax: {formatCurrency(advanceTaxPaid)} | TDS: {formatCurrency(tdsCredits)}
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ padding: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              ITR &amp; Sec 44AB Audit
+            </span>
+            <FileText size={15} color={calc.requiresAudit ? 'var(--color-loss)' : '#10b981'} />
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: '8px 0 4px 0' }}>
+            {calc.recommendedItr}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: calc.requiresAudit ? 'var(--color-loss)' : '#10b981', fontWeight: 600 }}>
+            {calc.requiresAudit
+              ? 'Audit Mandatory (> ₹10 Cr)'
+              : `No Audit (Turnover: ${formatCurrency(calc.absolutePnlTurnover)})`}
+          </div>
+        </div>
+      </div>
+
+      {/* SIMPLIFIED 3-TAB NAVIGATION */}
+      <div
+        className="no-print"
+        style={{
+          display: 'flex',
+          gap: '8px',
+          borderBottom: '1px solid var(--border-color)',
+          paddingBottom: '10px',
+          flexWrap: 'wrap',
+        }}
+      >
+        {[
+          { id: 'overview', label: '1. Overview & ITR', icon: Sparkles },
+          { id: 'slabs', label: '2. Slab & Turnover Audit', icon: Layers },
+          { id: 'accounts', label: `3. Person & Account Audit (${personSummaries.length})`, icon: Building2 },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const active = subTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSubTab(tab.id as typeof subTab)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: active ? '1px solid var(--primary)' : '1px solid transparent',
+                background: active ? 'rgba(99, 102, 241, 0.14)' : 'rgba(255,255,255,0.03)',
+                color: active ? 'var(--primary)' : 'var(--text-muted)',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <Icon size={14} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* TAB 1: OVERVIEW & ITR */}
+      {/* ========================================================================= */}
+      {subTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          {/* Card 3: Brokerage & Govt Levies Audit */}
-          <div className="glass-card" style={{ padding: '18px 20px' }}>
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-              <Receipt size={16} color="var(--primary)" />
-              3. Expenses &amp; Government Levies Audit
-            </h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Broker Commissions / Brokerage:</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(totalBrokerage)}</span>
+          {/* Smart Regime Comparison Banner */}
+          {!isMultiPersonCombined && calc.totalTaxableIncome > 0 && (
+            <div
+              className="glass-card"
+              style={{
+                padding: '12px 16px',
+                background:
+                  savingsDiff > 0
+                    ? 'rgba(16, 185, 129, 0.08)'
+                    : savingsDiff < 0
+                    ? 'rgba(56, 189, 248, 0.08)'
+                    : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${savingsDiff > 0 ? 'rgba(16,185,129,0.28)' : 'rgba(56,189,248,0.28)'}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: 700 }}>
+                <Sparkles size={16} color={savingsDiff >= 0 ? '#10b981' : '#38bdf8'} />
+                <span>
+                  {savingsDiff > 0
+                    ? `New Regime saves ${formatCurrency(savingsDiff)} vs Old Regime (Sec 87A limit: ${formatCurrency(calc.isBudget2025Plus ? 1200000 : 700000)})`
+                    : savingsDiff < 0
+                    ? `Old Regime saves ${formatCurrency(Math.abs(savingsDiff))} vs New Regime`
+                    : 'Both regimes give identical tax for this income'}
+                </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Govt Levies (STT, Stamp Duty, GST, Exchange Tx):</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(totalGovtTaxes)}</span>
-              </div>
-              {allowableExpenses > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                  <span style={{ color: '#10b981' }}>Section 37 Business Deductions Claimed:</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#10b981' }}>{formatCurrency(allowableExpenses)}</span>
+              <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
+                New: {formatCurrency(calc.newRegimeTotalTax)} | Old: {formatCurrency(calc.oldRegimeTotalTax)}
+              </span>
+            </div>
+          )}
+
+          {/* Side-by-side Capital Gains & Business Income Set-off */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '16px' }}>
+            {/* Capital Gains Card */}
+            <div className="glass-card" style={{ padding: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <Coins size={16} color="var(--primary)" />
+                  <h3 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0 }}>Capital Gains (Sec 111A / 112A)</h3>
                 </div>
-              )}
-              
-              <div 
-                style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  fontSize: '0.85rem', 
-                  fontWeight: 700, 
-                  borderTop: '1px solid var(--border-color)', 
-                  paddingTop: '10px',
-                  marginTop: '4px' 
-                }}
-              >
-                <span>Total Deductible Trading Expenses:</span>
-                <span style={{ color: 'var(--color-loss)', fontFamily: 'var(--font-mono)' }}>{formatCurrency(totalCharges + allowableExpenses)}</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                  Tax: {formatCurrency(calc.totalCapitalGainsTax)}
+                </span>
               </div>
 
-              <div style={{ padding: '10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                💡 <strong>Tax Tip:</strong> All brokerage and transactional taxes (STT, GST, Exchange charges) on F&amp;O and intraday trades are legitimate deductible business expenses in ITR-3!
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.76rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>STCG Net P&amp;L (20% u/s 111A):</span>
+                  <strong style={{ fontFamily: 'var(--font-mono)', color: calc.stcgNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                    {formatCurrency(calc.stcgNet)}
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>LTCG Net P&amp;L (12.5% u/s 112A):</span>
+                  <strong style={{ fontFamily: 'var(--font-mono)', color: calc.ltcgNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                    {formatCurrency(calc.ltcgNet)}
+                  </strong>
+                </div>
+                {(calc.setOffAgainstStcg > 0 || calc.setOffAgainstLtcg > 0) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
+                    <span>Less: Sec 71(2) F&amp;O Loss Set-off:</span>
+                    <strong style={{ fontFamily: 'var(--font-mono)' }}>
+                      -{formatCurrency(calc.setOffAgainstStcg + calc.setOffAgainstLtcg)}
+                    </strong>
+                  </div>
+                )}
+                {calc.ltcgExemptionUsed > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
+                    <span>Less: Sec 112A LTCG Exemption (₹1.25L):</span>
+                    <strong style={{ fontFamily: 'var(--font-mono)' }}>-{formatCurrency(calc.ltcgExemptionUsed)}</strong>
+                  </div>
+                )}
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                  <span>Taxable STCG + LTCG:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>
+                    {formatCurrency(calc.effectiveTaxableStcg)} + {formatCurrency(calc.effectiveTaxableLtcg)}
+                  </span>
+                </div>
+                {(calc.unabsorbedStcl > 0 || calc.unabsorbedLtcl > 0) && (
+                  <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '4px' }}>
+                    Carry Forward (8 Yrs): STCL {formatCurrency(calc.unabsorbedStcl)} | LTCL {formatCurrency(calc.unabsorbedLtcl)}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Business Income Card */}
+            <div className="glass-card" style={{ padding: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <Briefcase size={16} color="#f59e0b" />
+                  <h3 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0 }}>Business Income (Intraday &amp; F&amp;O)</h3>
+                </div>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                  Tax: {formatCurrency(calc.businessTaxCalc.totalTax)}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.76rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Speculative (Intraday Equity):</span>
+                  <strong style={{ fontFamily: 'var(--font-mono)', color: calc.speculativeNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                    {formatCurrency(calc.speculativeNet)}
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Non-Speculative (F&amp;O / Commodity):</span>
+                  <strong style={{ fontFamily: 'var(--font-mono)', color: calc.nonSpeculativeNet >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                    {formatCurrency(calc.nonSpeculativeNet)}
+                  </strong>
+                </div>
+                {allowableExpenses > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
+                    <span>Less: Sec 37 Trading Expenses:</span>
+                    <strong style={{ fontFamily: 'var(--font-mono)' }}>-{formatCurrency(allowableExpenses)}</strong>
+                  </div>
+                )}
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                  <span>Net Taxable Business Income:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>
+                    {formatCurrency(calc.netTaxableBusiness)}
+                  </span>
+                </div>
+                {(calc.unabsorbedSpecLoss > 0 || calc.unabsorbedNonSpecLoss > 0) && (
+                  <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '4px' }}>
+                    Carry Forward: Speculative {formatCurrency(calc.unabsorbedSpecLoss)} (4 Yrs) | F&amp;O {formatCurrency(calc.unabsorbedNonSpecLoss)} (8 Yrs)
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Card: Broker-wise Breakdown */}
-          <div className="glass-card" style={{ padding: '18px 20px' }}>
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-              <Coins size={16} color="var(--primary)" />
-              Broker-Wise Charges &amp; Performance Summary
-            </h3>
+          {/* Advance Tax Calendar (if applicable) */}
+          {calc.isAdvanceTaxApplicable && !isMultiPersonCombined && (
+            <div className="glass-card" style={{ padding: '18px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Calendar size={16} color="#f59e0b" />
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0 }}>
+                  Sec 208 Advance Tax Schedule (Tax &gt; ₹10,000)
+                </h3>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                {advanceTaxSchedule.map((sc) => (
+                  <div key={sc.dueDate} style={{ background: 'rgba(0,0,0,0.22)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>{sc.label}</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
+                      {formatCurrency((calc.totalEstimatedTax * sc.pct) / 100)}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: '#f59e0b' }}>Due: {sc.dueDate}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-            {brokerSummaryList.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                        <th style={{ padding: '8px' }}>Broker Name</th>
-                        <th style={{ padding: '8px', textAlign: 'center' }}>Trades</th>
-                        <th style={{ padding: '8px', textAlign: 'right' }}>Net P&amp;L</th>
-                        <th style={{ padding: '8px', textAlign: 'right' }}>Brokerage</th>
-                        <th style={{ padding: '8px', textAlign: 'right' }}>Govt Taxes</th>
+          {/* ITR Filing Coach */}
+          <div className="glass-card" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <HelpCircle size={16} color="var(--primary)" />
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0 }}>
+                  ITR Filing Coach ({itrDueDates.assessmentYear})
+                </h3>
+              </div>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#10b981' }}>
+                Due Date: {calc.requiresAudit ? itrDueDates.auditReturnDate : itrDueDates.nonAuditDate}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.73rem', color: 'var(--text-dim)' }}>
+              <span>• Recommended Form: <strong style={{ color: 'var(--text-main)' }}>{calc.recommendedItr}</strong></span>
+              <span>• Sec 44AA Books: <strong style={{ color: 'var(--text-main)' }}>{calc.requiresBooksOfAccounts ? 'Required (Profit > ₹2.5L or Turnover > ₹25L)' : 'Not Mandatory'}</strong></span>
+              <span>• Belated Return: <strong style={{ color: 'var(--text-main)' }}>{itrDueDates.belatedDate}</strong></span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: SLAB & TURNOVER AUDIT */}
+      {/* ========================================================================= */}
+      {subTab === 'slabs' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Slab-by-Slab Table */}
+          <div className="glass-card" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={16} color="var(--primary)" />
+                <h3 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0 }}>
+                  Slab Breakdown ({taxRegime === 'NEW' ? (calc.isBudget2025Plus ? 'Budget 2025 Sec 115BAC' : 'Budget 2024 Sec 115BAC') : 'Old Slab Regime'})
+                </h3>
+              </div>
+              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
+                Taxable Business: {formatCurrency(calc.netTaxableBusiness)}
+              </span>
+            </div>
+
+            {calc.businessTaxCalc.tiers.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-muted)' }}>Slab</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-muted)' }}>Taxable Chunk</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-muted)' }}>Rate</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-muted)' }}>Tax</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {calc.businessTaxCalc.tiers.map((t, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>{t.label}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatCurrency(t.chunk)}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>{t.ratePct}%</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatCurrency(t.tax)}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {brokerSummaryList.map((b) => (
-                        <tr key={b.name} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                          <td style={{ padding: '9px 8px', fontWeight: 600 }}>{b.name}</td>
-                          <td style={{ padding: '9px 8px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>{b.tradesCount}</td>
-                          <td 
-                            style={{ 
-                              padding: '9px 8px', 
-                              textAlign: 'right', 
-                              fontWeight: 700, 
-                              fontFamily: 'var(--font-mono)',
-                              color: b.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)'
-                            }}
-                          >
-                            {formatCurrency(b.netPnL)}
-                          </td>
-                          <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatCurrency(b.brokerage)}</td>
-                          <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatCurrency(b.taxes)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                    {calc.businessTaxCalc.rebate87A > 0 && (
+                      <tr style={{ color: '#10b981' }}>
+                        <td colSpan={3} style={{ padding: '8px 10px', fontWeight: 600 }}>
+                          Less: Sec 87A Rebate (Total Income ≤ {formatCurrency(calc.rebateLimit)})
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                          -{formatCurrency(calc.businessTaxCalc.rebate87A)}
+                        </td>
+                      </tr>
+                    )}
+                    {calc.businessTaxCalc.marginalRelief > 0 && (
+                      <tr style={{ color: '#38bdf8' }}>
+                        <td colSpan={3} style={{ padding: '8px 10px', fontWeight: 600 }}>Less: Sec 87A Marginal Relief</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                          -{formatCurrency(calc.businessTaxCalc.marginalRelief)}
+                        </td>
+                      </tr>
+                    )}
+                    {calc.businessTaxCalc.surcharge > 0 && (
+                      <tr>
+                        <td colSpan={3} style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--color-loss)' }}>Add: Surcharge</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-loss)' }}>
+                          +{formatCurrency(calc.businessTaxCalc.surcharge)}
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td colSpan={3} style={{ padding: '8px 10px', color: 'var(--text-dim)' }}>Add: 4% Health &amp; Education Cess</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>+{formatCurrency(calc.businessTaxCalc.cess)}</td>
+                    </tr>
+                    <tr style={{ borderTop: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)' }}>
+                      <td colSpan={3} style={{ padding: '9px 10px', fontWeight: 800 }}>Net Business Tax Payable</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>
+                        {formatCurrency(calc.businessTaxCalc.totalTax)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-dim)', fontSize: '0.78rem' }}>
-                No executions recorded for the selected timeframe.
+              <div style={{ padding: '16px 0', textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-dim)' }}>
+                No taxable business income in this scope. Business slab tax is ₹0.
               </div>
             )}
           </div>
 
-          {/* Card 4: ITR Filing Coach */}
-          <div className="glass-card" style={{ padding: '18px 20px' }}>
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-              <HelpCircle size={16} color="var(--primary)" />
-              ITR Filing Coach &amp; Loss Carry-Forward Rules
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              
-              {/* Business Loss Carriage */}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <div style={{ background: 'var(--primary-glow)', width: '4px', borderRadius: '4px', flexShrink: 0 }}></div>
-                <div>
-                  <h4 style={{ fontSize: '0.78rem', fontWeight: 700, margin: 0 }}>Carry Forward F&amp;O Loss (8 Years)</h4>
-                  <p style={{ fontSize: '0.71rem', color: 'var(--text-muted)', margin: '4px 0 0 0', lineHeight: '1.4' }}>
-                    Non-speculative F&amp;O losses can be carried forward for up to <strong>8 consecutive assessment years</strong> to offset future business profits, provided you file ITR-3 on or before the due date (usually July 31st).
-                  </p>
-                </div>
+          {/* Sec 44AB Turnover & Expenses Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '14px' }}>
+            <div className="glass-card" style={{ padding: '16px' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+                Broker Turnover (|Profit| + |Loss|)
               </div>
-
-              {/* Speculative Loss Carriage */}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <div style={{ background: 'rgba(251, 146, 60, 0.4)', width: '4px', borderRadius: '4px', flexShrink: 0 }}></div>
-                <div>
-                  <h4 style={{ fontSize: '0.78rem', fontWeight: 700, margin: 0 }}>Carry Forward Speculative Loss (4 Years)</h4>
-                  <p style={{ fontSize: '0.71rem', color: 'var(--text-muted)', margin: '4px 0 0 0', lineHeight: '1.4' }}>
-                    Equity intraday losses can only be set off against intraday profits. They cannot offset F&amp;O profits, and can only be carried forward for <strong>4 years</strong>.
-                  </p>
-                </div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', margin: '6px 0' }}>
+                {formatCurrency(calc.absolutePnlTurnover)}
               </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                Used by Dhan, Zerodha &amp; most discount brokers for F&amp;O Tax P&amp;L.
+              </div>
+            </div>
 
-              {/* Capital Gains Loss Carriage */}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <div style={{ background: 'rgba(16, 185, 129, 0.4)', width: '4px', borderRadius: '4px', flexShrink: 0 }}></div>
-                <div>
-                  <h4 style={{ fontSize: '0.78rem', fontWeight: 700, margin: 0 }}>Capital Losses Set-off (8 Years)</h4>
-                  <p style={{ fontSize: '0.71rem', color: 'var(--text-muted)', margin: '4px 0 0 0', lineHeight: '1.4' }}>
-                    Short-Term Capital Losses (STCL) can offset both STCG and LTCG. Long-Term Capital Losses (LTCL) can only offset LTCG. Both carry forward for <strong>8 years</strong>.
-                  </p>
-                </div>
+            <div className="glass-card" style={{ padding: '16px' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+                ICAI Comprehensive Turnover
+              </div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', margin: '6px 0', color: calc.requiresAudit ? 'var(--color-loss)' : 'var(--text-main)' }}>
+                {formatCurrency(calc.totalIcaiTurnover)}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                Absolute P&amp;L + Option Sale Premium ({formatCurrency(calc.optionSalePremiumTurnover)}). Audit limit: ₹10 Cr.
+              </div>
+            </div>
+
+            <div className="glass-card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+                  Brokerage &amp; Statutory Charges
+                </span>
+                <Receipt size={14} color="var(--primary)" />
+              </div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', margin: '6px 0' }}>
+                {formatCurrency(calc.totalBrokerage + calc.totalGovtTaxes)}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                Brokerage: {formatCurrency(calc.totalBrokerage)} | STT/GST/Stamp: {formatCurrency(calc.totalGovtTaxes)}
               </div>
             </div>
           </div>
-
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: PERSON (PAN) & BROKER ACCOUNT AUDIT */}
+      {/* ========================================================================= */}
+      {subTab === 'accounts' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Person / PAN-wise Independent Tax Table */}
+          <div className="glass-card" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={16} color="#10b981" />
+                <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0 }}>
+                  Person / PAN-Wise Independent Tax Summary
+                </h3>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                Same-person brokers merge under 1 PAN; different persons stay isolated
+              </span>
+            </div>
+
+            {personSummaries.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-muted)' }}>Taxpayer (PAN)</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-muted)' }}>Brokers</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-muted)' }}>Net P&amp;L</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-muted)' }}>Taxable Income</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-muted)' }}>Est. Tax</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-muted)' }}>ITR / Audit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {personSummaries.map((p) => (
+                      <tr
+                        key={p.person}
+                        onClick={() => {
+                          setSelectedTaxpayer(p.person);
+                          setSubTab('overview');
+                        }}
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer' }}
+                        title={`Click to inspect ${p.person}'s full tax breakdown`}
+                      >
+                        <td style={{ padding: '9px 10px', fontWeight: 700, color: 'var(--primary)' }}>
+                          {p.person} <span style={{ fontSize: '0.64rem', color: 'var(--text-dim)' }}>({p.regime})</span>
+                        </td>
+                        <td style={{ padding: '9px 10px', color: 'var(--text-dim)' }}>{p.brokers.join(', ')}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: p.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                          {formatCurrency(p.netPnL)}
+                        </td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                          {formatCurrency(p.summary.totalTaxableIncome)}
+                        </td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 800, color: p.summary.totalEstimatedTax > 0 ? 'var(--color-loss)' : 'var(--color-win)' }}>
+                          {formatCurrency(p.summary.totalEstimatedTax)}
+                        </td>
+                        <td style={{ padding: '9px 10px', textAlign: 'center', fontSize: '0.7rem' }}>
+                          {p.summary.recommendedItr.split(' ')[0]} • {p.summary.requiresAudit ? 'Audit' : 'No Audit'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ padding: '16px 0', textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-dim)' }}>
+                No trades recorded for {selectedFY}.
+              </div>
+            )}
+          </div>
+
+          {/* Broker + Person Account Breakdown */}
+          <div className="glass-card" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <Building2 size={16} color="var(--primary)" />
+              <h3 style={{ fontSize: '0.94rem', fontWeight: 800, margin: 0 }}>
+                Broker Account Breakdown (Separated by Person)
+              </h3>
+            </div>
+
+            {accountSummaryList.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-muted)' }}>Broker Account</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-muted)' }}>Trades</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-muted)' }}>Net P&amp;L</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-muted)' }}>Brokerage</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-muted)' }}>Govt Taxes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accountSummaryList.map((row) => (
+                      <tr key={row.label} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                        <td style={{ padding: '9px 10px', fontWeight: 700 }}>{row.label}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>{row.tradesCount}</td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: row.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                          {formatCurrency(row.netPnL)}
+                        </td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
+                          {formatCurrency(row.brokerage)}
+                        </td>
+                        <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
+                          {formatCurrency(row.taxes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ padding: '16px 0', textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-dim)' }}>
+                No broker account trades found for {selectedFY}.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Disclaimer */}
+      <div
+        style={{
+          padding: '12px 14px',
+          borderRadius: '10px',
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid var(--border-color)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '0.7rem',
+          color: 'var(--text-dim)',
+        }}
+      >
+        <Info size={14} color="var(--text-muted)" />
+        <span>
+          Estimates assume trading is the primary income source under Indian Income Tax Act rules for {selectedFY}. Consult a Chartered Accountant before filing your final ITR.
+        </span>
       </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL: SECTION 37 TRADING EXPENSES */}
+      {/* ========================================================================= */}
+      <Modal
+        isOpen={showExpenseModal}
+        onClose={() => setShowExpenseModal(false)}
+        title="Sec 37 Business Deductions"
+        subtitle={`Scoped to ${selectedTaxpayer === 'ALL' ? 'current view' : selectedTaxpayer} (${selectedFY})`}
+        icon={<SlidersHorizontal size={16} color="var(--primary)" />}
+        maxWidth="420px"
+        footer={
+          <>
+            <button
+              onClick={() => setShowExpenseModal(false)}
+              style={{
+                padding: '7px 14px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveExpenses}
+              style={{
+                padding: '7px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'var(--primary)',
+                color: '#fff',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Save Deductions
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 }}>
+            TradingView subscriptions, internet, advisory fees, or laptop depreciation claimed against F&amp;O / Intraday business profits.
+          </p>
+          <div>
+            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+              Total Allowable Expenses (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={tempExpenseInput}
+              onChange={(e) => setTempExpenseInput(e.target.value)}
+              placeholder="e.g. 25000"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'rgba(0,0,0,0.35)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADVANCE TAX & TDS CREDITS */}
+      {/* ========================================================================= */}
+      <Modal
+        isOpen={showTaxPaidModal}
+        onClose={() => setShowTaxPaidModal(false)}
+        title="Advance Tax & TDS Credits"
+        subtitle={`Scoped to ${selectedTaxpayer === 'ALL' ? 'current view' : selectedTaxpayer} (${selectedFY})`}
+        icon={<Wallet size={16} color="#10b981" />}
+        maxWidth="420px"
+        footer={
+          <>
+            <button
+              onClick={() => setShowTaxPaidModal(false)}
+              style={{
+                padding: '7px 14px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveTaxPaid}
+              style={{
+                padding: '7px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#10b981',
+                color: '#000',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Save Payments
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+              Advance Tax Paid via Challan 280 (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={tempAdvanceInput}
+              onChange={(e) => setTempAdvanceInput(e.target.value)}
+              placeholder="e.g. 15000"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'rgba(0,0,0,0.35)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+              TDS / TCS Credits in Form 26AS / AIS (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={tempTdsInput}
+              onChange={(e) => setTempTdsInput(e.target.value)}
+              placeholder="e.g. 5000"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'rgba(0,0,0,0.35)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
