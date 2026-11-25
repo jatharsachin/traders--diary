@@ -55,6 +55,20 @@ const DEFAULT_LOT_SIZES: Record<string, number> = {
   NIFTY: 65,
   SENSEX: 20, // Updated current BSE Sensex lot size (editable & remembered)
   BANKEX: 15,
+  CRUDEOIL: 100,
+  CRUDEOILM: 10,
+  NATURALGAS: 1250,
+  NATGASMINI: 250,
+  GOLD: 100,
+  GOLDM: 10,
+  SILVER: 30,
+  SILVERM: 5,
+  COPPER: 2500,
+  ZINC: 5000,
+  USDINR: 1000,
+  EURINR: 1000,
+  GBPINR: 1000,
+  JPYINR: 1000,
 };
 
 export const getPersistedLotSizes = (): Record<string, number> => {
@@ -83,12 +97,15 @@ export const saveCustomLotSize = (key: string, lotSize: number): void => {
 const guessLotSize = (symbol: string): number => {
   const sym = symbol.toUpperCase();
   const custom = getPersistedLotSizes();
-  if (sym.includes('BANKNIFTY')) return custom.BANKNIFTY || 15;
-  if (sym.includes('FINNIFTY')) return custom.FINNIFTY || 25;
-  if (sym.includes('MIDCPNIFTY')) return custom.MIDCPNIFTY || 50;
-  if (sym.includes('NIFTY')) return custom.NIFTY || 65;
-  if (sym.includes('SENSEX')) return custom.SENSEX || 20;
-  if (sym.includes('BANKEX')) return custom.BANKEX || 15;
+  const orderedKeys = [
+    'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'NIFTY', 'SENSEX', 'BANKEX',
+    'CRUDEOILM', 'CRUDEOIL', 'NATGASMINI', 'NATURALGAS',
+    'GOLDM', 'GOLD', 'SILVERM', 'SILVER', 'COPPER', 'ZINC',
+    'USDINR', 'EURINR', 'GBPINR', 'JPYINR',
+  ];
+  for (const k of orderedKeys) {
+    if (sym.includes(k)) return custom[k] || DEFAULT_LOT_SIZES[k] || 1;
+  }
   return 1;
 };
 
@@ -529,13 +546,30 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
       const initialAccId = matchedAcc ? matchedAcc.id : '';
       const initialDate = getDefaultDateForFY(selectedFY);
 
+      const savedLastSegment = localStorage.getItem('traders_diary_last_logged_segment') as Segment | null;
+      const validSegments: Segment[] = ['Equity', 'F&O', 'Commodity', 'Currency'];
+      const initialSegment: Segment =
+        savedLastSegment && validSegments.includes(savedLastSegment)
+          ? savedLastSegment
+          : lastTrade
+          ? lastTrade.segment
+          : 'F&O';
+
+      const savedLastProduct = localStorage.getItem('traders_diary_last_logged_product') as Product | null;
+      const initialProduct: Product =
+        savedLastProduct === 'Intraday' || savedLastProduct === 'Delivery'
+          ? savedLastProduct
+          : lastTrade
+          ? lastTrade.product
+          : 'Intraday';
+
       setSelectedMistakes([]);
       setFormData({
         ...DEFAULT_FORM_STATE,
         broker: initialBroker,
         brokerAccountId: initialAccId,
-        segment: lastTrade ? lastTrade.segment : 'F&O',
-        product: lastTrade ? lastTrade.product : 'Intraday',
+        segment: initialSegment,
+        product: initialProduct,
         strategy: lastTrade ? (lastTrade.strategy || '') : (setups.length > 0 ? setups[0].name : ''),
         date: initialDate,
         entryTime: new Date().toTimeString().slice(0, 5),
@@ -635,22 +669,30 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
     const sym = formData.symbol.toUpperCase().trim();
     if (!sym) return;
 
-    // Detect F&O index & stock option format like: NIFTY 22400 CE, SENSEX 73300 PE, RELIANCE 2800 CE, etc.
-    const optionMatch = sym.match(/(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX|[A-Z]{3,12})?\s*(\d{4,6})\s*(CE|PE)/i);
-    
+    // Detect index, stock, commodity & currency option format like: NIFTY 22400 CE, CRUDEOIL 6200 PE, USDINR 84.50 CE
+    const optionMatch = sym.match(/(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX|[A-Z]{3,12})?\s*(\d+(?:\.\d+)?)\s*(CE|PE)/i);
+
     if (optionMatch) {
-      const detectedStrike = parseInt(optionMatch[2], 10);
+      const detectedStrike = parseFloat(optionMatch[2]);
       const detectedType = optionMatch[3].toUpperCase() as 'CE' | 'PE';
+      const isCommoditySym = /(CRUDEOIL|GOLD|SILVER|NATURALGAS|NATGAS|COPPER|ZINC)/i.test(sym);
+      const isCurrencySym = /(USDINR|EURINR|GBPINR|JPYINR)/i.test(sym);
 
       setFormData((prev) => {
+        const targetSegment: Segment =
+          prev.segment === 'Commodity' || isCommoditySym
+            ? 'Commodity'
+            : prev.segment === 'Currency' || isCurrencySym
+            ? 'Currency'
+            : 'F&O';
         if (
-          prev.segment !== 'F&O' ||
+          prev.segment !== targetSegment ||
           prev.strikePrice !== detectedStrike ||
           prev.optionType !== detectedType
         ) {
           return {
             ...prev,
-            segment: 'F&O',
+            segment: targetSegment,
             strikePrice: detectedStrike,
             optionType: detectedType,
           };
@@ -658,22 +700,30 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         return prev;
       });
     } else if (sym.includes('FUT') || sym.includes('FUTURES')) {
-      // Future contracts
+      // Future contracts (keep Commodity/Currency if already selected or matched)
+      const isCommoditySym = /(CRUDEOIL|GOLD|SILVER|NATURALGAS|NATGAS|COPPER|ZINC)/i.test(sym);
+      const isCurrencySym = /(USDINR|EURINR|GBPINR|JPYINR)/i.test(sym);
       setFormData((prev) => {
-        if (prev.segment !== 'F&O' || prev.optionType !== 'None' || prev.strikePrice !== 0) {
+        const targetSegment: Segment =
+          prev.segment === 'Commodity' || isCommoditySym
+            ? 'Commodity'
+            : prev.segment === 'Currency' || isCurrencySym
+            ? 'Currency'
+            : 'F&O';
+        if (prev.segment !== targetSegment || prev.optionType !== 'None' || prev.strikePrice !== 0) {
           return {
             ...prev,
-            segment: 'F&O',
+            segment: targetSegment,
             optionType: 'None',
-            strikePrice: 0
+            strikePrice: 0,
           };
         }
         return prev;
       });
     }
 
-    // Auto-detect lot sizes if segment is F&O (only for new entries to prevent overwriting manual inputs)
-    if (formData.segment === 'F&O' && formData.symbol && isOpen && !editTradeId) {
+    // Auto-detect lot sizes if segment supports lots (only for new entries to prevent overwriting manual inputs)
+    if (formData.segment !== 'Equity' && formData.symbol && isOpen && !editTradeId) {
       const prefix = formData.symbol.trim().split(' ')[0].toUpperCase();
       if (prefix !== prevSymbolPrefixRef.current) {
         prevSymbolPrefixRef.current = prefix;
@@ -766,21 +816,31 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
         setIsMultiLeg(false);
       }
       setFormData((prev) => {
-        const isOldIndexOption = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX|BANKEX)\s+\d+\s+(CE|PE)$/i.test(
-          prev.symbol.trim()
+        const isDerivativeSym = /\b(\d+(?:\.\d+)?\s*(CE|PE)|FUT|FUTURES)\b/i.test(prev.symbol.trim());
+        const isEquityQuickSym = ['RELIANCE', 'HDFCBANK', 'TCS', 'INFY', 'SBIN', 'ICICIBANK'].includes(
+          prev.symbol.trim().toUpperCase()
         );
         return {
           ...prev,
           segment: nextSegment,
-          ...(nextSegment !== 'F&O'
+          ...(nextSegment === 'Equity'
             ? {
                 optionType: 'None',
                 strikePrice: 0,
-                symbol: isOldIndexOption ? '' : prev.symbol,
+                symbol: isDerivativeSym ? '' : prev.symbol,
               }
-            : {}),
+            : {
+                symbol: isEquityQuickSym || isDerivativeSym ? '' : prev.symbol,
+              }),
         };
       });
+      if (nextSegment === 'Commodity') {
+        setLotSizeInput(guessLotSize('CRUDEOIL').toString());
+      } else if (nextSegment === 'Currency') {
+        setLotSizeInput(guessLotSize('USDINR').toString());
+      } else if (nextSegment === 'F&O') {
+        setLotSizeInput(guessLotSize(underlyingIndex || 'NIFTY').toString());
+      }
       return;
     }
 
@@ -824,29 +884,35 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
     }));
   };
 
-  const handleQuickIndexOption = (index: 'NIFTY' | 'SENSEX', type: 'CE' | 'PE') => {
-    const strike = index === 'NIFTY' ? 23000 : 80000;
-    const lotSz = guessLotSize(index);
-    const sym = `${index} ${strike} ${type}`;
-    
-    setUnderlyingIndex(index);
-    setFormData((prev) => ({
-      ...prev,
-      segment: 'F&O',
-      optionType: type,
-      strikePrice: strike,
-      symbol: sym,
-    }));
-    
-    setLotSizeInput(lotSz.toString());
+  const handleQuickDerivative = (
+    targetSegment: Segment,
+    base: string,
+    kind: 'CE' | 'PE' | 'FUT',
+    defaultStrike = 0
+  ) => {
+    const lotSz = guessLotSize(base);
+    const sym = kind === 'FUT' ? `${base} FUT` : `${base} ${defaultStrike} ${kind}`;
     const currentLots = parseFloat(lotsInput) || 1;
     if (isNaN(parseFloat(lotsInput))) {
       setLotsInput('1');
     }
+    setLotSizeInput(lotSz.toString());
+    if (targetSegment === 'F&O') {
+      setUnderlyingIndex(base);
+    }
     setFormData((prev) => ({
       ...prev,
-      qty: Math.round(currentLots * lotSz)
+      segment: targetSegment,
+      optionType: kind === 'FUT' ? 'None' : kind,
+      strikePrice: kind === 'FUT' ? 0 : defaultStrike,
+      symbol: sym,
+      qty: Math.round(currentLots * lotSz),
     }));
+  };
+
+  const handleQuickIndexOption = (index: 'NIFTY' | 'SENSEX', type: 'CE' | 'PE') => {
+    const strike = index === 'NIFTY' ? 23000 : 80000;
+    handleQuickDerivative('F&O', index, type, strike);
   };
 
   const handleSave = (shouldKeepOpen: boolean = keepOpenAfterSave) => {
@@ -991,6 +1057,14 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
       }
     }
     
+    // Remember last logged segment & product for next trade entry
+    try {
+      localStorage.setItem('traders_diary_last_logged_segment', formData.segment);
+      localStorage.setItem('traders_diary_last_logged_product', formData.product);
+    } catch (e) {
+      console.error('Error saving last logged segment', e);
+    }
+
     // Persist the current lot size for this underlying index or symbol
     try {
       const activeLotSz = parseFloat(lotSizeInput);
@@ -1032,6 +1106,14 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
   };
 
   const handleClose = () => {
+    // Remember last logged segment & product for next trade entry
+    try {
+      localStorage.setItem('traders_diary_last_logged_segment', formData.segment);
+      localStorage.setItem('traders_diary_last_logged_product', formData.product);
+    } catch (e) {
+      console.error('Error saving last logged segment', e);
+    }
+
     // Persist the current lot size for this underlying index or symbol
     try {
       const activeLotSz = parseFloat(lotSizeInput);
@@ -1633,10 +1715,10 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                   </div>
                 )}
 
-                {/* Segment-Aware Quick Auto-Fill Tags */}
+                {/* Segment-Aware Quick Auto-Fill Tags (Futures & Options) */}
                 {formData.segment === 'F&O' && (
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Option:</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick F&amp;O:</span>
                     <button
                       type="button"
                       onClick={() => handleQuickIndexOption('NIFTY', 'CE')}
@@ -1669,6 +1751,22 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                     >
                       + SENSEX PE
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickDerivative('F&O', 'NIFTY', 'FUT')}
+                      className="btn"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.25)', color: '#c084fc', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                    >
+                      + NIFTY FUT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickDerivative('F&O', 'BANKNIFTY', 'FUT')}
+                      className="btn"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.25)', color: '#c084fc', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                    >
+                      + BANKNIFTY FUT
+                    </button>
                   </div>
                 )}
 
@@ -1690,36 +1788,91 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                 )}
 
                 {formData.segment === 'Commodity' && !isMultiLeg && (
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Commodity:</span>
-                    {['GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS'].map((comm) => (
-                      <button
-                        key={comm}
-                        type="button"
-                        onClick={() => handleQuickSymbol(comm)}
-                        className="btn"
-                        style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.22)', color: '#f59e0b', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
-                      >
-                        + {comm}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Commodity:</span>
+                      <button type="button" onClick={() => handleQuickDerivative('Commodity', 'CRUDEOIL', 'CE', 6200)} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.22)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                        + CRUDEOIL CE
                       </button>
-                    ))}
+                      <button type="button" onClick={() => handleQuickDerivative('Commodity', 'CRUDEOIL', 'PE', 6200)} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.22)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                        + CRUDEOIL PE
+                      </button>
+                      <button type="button" onClick={() => handleQuickDerivative('Commodity', 'GOLD', 'CE', 75000)} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.22)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                        + GOLD CE
+                      </button>
+                      <button type="button" onClick={() => handleQuickDerivative('Commodity', 'GOLD', 'PE', 75000)} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.22)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                        + GOLD PE
+                      </button>
+                      <button type="button" onClick={() => handleQuickDerivative('Commodity', 'SILVER', 'FUT')} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.22)', color: '#f59e0b', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                        + SILVER FUT
+                      </button>
+                      <button type="button" onClick={() => handleQuickDerivative('Commodity', 'NATURALGAS', 'FUT')} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.22)', color: '#f59e0b', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                        + NATURALGAS FUT
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {formData.segment === 'Currency' && !isMultiLeg && (
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 650 }}>Quick Currency:</span>
-                    {['USDINR', 'EURINR', 'GBPINR', 'JPYINR'].map((curr) => (
-                      <button
-                        key={curr}
-                        type="button"
-                        onClick={() => handleQuickSymbol(curr)}
-                        className="btn"
-                        style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.22)', color: '#38bdf8', height: '28px', cursor: 'pointer', borderRadius: '6px' }}
+                    <button type="button" onClick={() => handleQuickDerivative('Currency', 'USDINR', 'CE', 84.5)} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.22)', color: 'var(--primary)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                      + USDINR CE
+                    </button>
+                    <button type="button" onClick={() => handleQuickDerivative('Currency', 'USDINR', 'PE', 84.5)} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.22)', color: 'var(--color-loss)', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                      + USDINR PE
+                    </button>
+                    <button type="button" onClick={() => handleQuickDerivative('Currency', 'USDINR', 'FUT')} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.22)', color: '#38bdf8', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                      + USDINR FUT
+                    </button>
+                    <button type="button" onClick={() => handleQuickDerivative('Currency', 'EURINR', 'FUT')} className="btn" style={{ padding: '4px 10px', fontSize: '0.74rem', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.22)', color: '#38bdf8', height: '28px', cursor: 'pointer', borderRadius: '6px' }}>
+                      + EURINR FUT
+                    </button>
+                  </div>
+                )}
+
+                {/* Commodity / Currency Contract Type & Strike Price */}
+                {(formData.segment === 'Commodity' || formData.segment === 'Currency') && !isMultiLeg && (
+                  <div
+                    style={{
+                      marginBottom: '16px',
+                      background: 'rgba(245, 158, 11, 0.04)',
+                      border: '1px solid rgba(245, 158, 11, 0.14)',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '16px',
+                    }}
+                  >
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ color: '#f59e0b', fontWeight: 600 }}>Contract Type</label>
+                      <select
+                        name="optionType"
+                        value={formData.optionType}
+                        onChange={handleChange}
+                        className="form-select"
+                        style={{ borderColor: 'rgba(245, 158, 11, 0.25)' }}
                       >
-                        + {curr}
-                      </button>
-                    ))}
+                        <option value="None">Futures / None</option>
+                        <option value="CE">CE (Call Option)</option>
+                        <option value="PE">PE (Put Option)</option>
+                      </select>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ color: '#f59e0b', fontWeight: 600 }}>Strike Price (if Option)</label>
+                      <input
+                        type="number"
+                        step="any"
+                        name="strikePrice"
+                        value={formData.strikePrice || ''}
+                        onChange={handleChange}
+                        placeholder={formData.optionType === 'None' ? 'N/A for Futures' : 'e.g. 6200'}
+                        disabled={formData.optionType === 'None'}
+                        className="form-input"
+                        style={{ borderColor: 'rgba(245, 158, 11, 0.25)' }}
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1756,8 +1909,8 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                   </div>
                 )}
 
-            {/* Conditionally Render F&O Lot Calculator */}
-            {formData.segment === 'F&O' && !isMultiLeg && (
+            {/* Conditionally Render Derivative Lot Calculator (F&O, Commodity, Currency) */}
+            {formData.segment !== 'Equity' && !isMultiLeg && (
               <div 
                 className="grid-logger-fo" 
                 style={{ 
@@ -1815,12 +1968,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
               <div 
                 style={{ 
                   display: 'grid', 
-                  gridTemplateColumns: formData.segment === 'F&O' ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)', 
+                  gridTemplateColumns: formData.segment !== 'Equity' ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)', 
                   gap: '16px', 
                   marginBottom: '16px' 
                 }}
               >
-                {formData.segment !== 'F&O' && (
+                {formData.segment === 'Equity' && (
                   <div className="form-group">
                     <label className="form-label">Qty</label>
                     <input
