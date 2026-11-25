@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom';
 import { useTradeStore } from '../store/useTradeStore';
 import type { Segment, Product, Broker, TradeAction, Emotion, Mistake } from '../types';
 import { getTradeMistakes } from '../types';
-import { X, Save, ShieldAlert, Check, AlertTriangle, Copy, Zap, CheckCircle2, Image as ImageIcon, ExternalLink, Trash2 } from 'lucide-react';
+import { X, Save, ShieldAlert, Check, AlertTriangle, Copy, Zap, CheckCircle2, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { getFinancialYear } from '../utils/fyHelper';
+import { savePastedChartImage, deleteChartImage } from '../utils/chartStorage';
+import { ChartPreview } from './ui/ChartPreview';
 
 interface TradeLoggerProps {
   isOpen: boolean;
@@ -2123,7 +2125,10 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                 {formData.chartUrl && (
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, chartUrl: '' }))}
+                    onClick={() => {
+                      if (formData.chartUrl) deleteChartImage(formData.chartUrl);
+                      setFormData(prev => ({ ...prev, chartUrl: '' }));
+                    }}
                     style={{ background: 'none', border: 'none', color: 'var(--color-loss)', fontSize: '0.7rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: 0 }}
                   >
                     <Trash2 size={11} /> Remove Chart
@@ -2133,10 +2138,10 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
               <input
                 type="text"
                 name="chartUrl"
-                value={formData.chartUrl?.startsWith('data:image') ? '[Pasted Chart Screenshot Attached]' : (formData.chartUrl || '')}
-                readOnly={Boolean(formData.chartUrl?.startsWith('data:image'))}
+                value={formData.chartUrl?.startsWith('idb://') || formData.chartUrl?.startsWith('data:image') ? '[Chart Screenshot Stored in IndexedDB — Zero LocalStorage Load]' : (formData.chartUrl || '')}
+                readOnly={Boolean(formData.chartUrl?.startsWith('idb://') || formData.chartUrl?.startsWith('data:image'))}
                 onChange={(e) => setFormData(prev => ({ ...prev, chartUrl: e.target.value }))}
-                onPaste={(e) => {
+                onPaste={async (e) => {
                   const items = e.clipboardData?.items;
                   if (!items) return;
                   for (let i = 0; i < items.length; i++) {
@@ -2144,25 +2149,12 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                       e.preventDefault();
                       const file = items[i].getAsFile();
                       if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        const img = new Image();
-                        img.onload = () => {
-                          const maxW = 960;
-                          const scale = img.width > maxW ? maxW / img.width : 1;
-                          const canvas = document.createElement('canvas');
-                          canvas.width = Math.round(img.width * scale);
-                          canvas.height = Math.round(img.height * scale);
-                          const ctx = canvas.getContext('2d');
-                          if (ctx) {
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            const compressed = canvas.toDataURL('image/webp', 0.78);
-                            setFormData(prev => ({ ...prev, chartUrl: compressed }));
-                          }
-                        };
-                        if (typeof ev.target?.result === 'string') img.src = ev.target.result;
-                      };
-                      reader.readAsDataURL(file);
+                      try {
+                        const chartRef = await savePastedChartImage(file);
+                        setFormData(prev => ({ ...prev, chartUrl: chartRef }));
+                      } catch (err) {
+                        console.error('Failed to store chart image:', err);
+                      }
                       break;
                     }
                   }
@@ -2170,26 +2162,7 @@ export function TradeLogger({ isOpen, onClose, editTradeId, duplicateTradeId, ac
                 placeholder="Paste image with Ctrl+V here OR paste TradingView snapshot URL..."
                 className="form-input"
               />
-              {formData.chartUrl && (
-                <div style={{ marginTop: '8px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.3)', padding: '6px' }}>
-                  {formData.chartUrl.startsWith('data:image') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(formData.chartUrl) || formData.chartUrl.includes('tradingview.com/x/') ? (
-                    <img
-                      src={formData.chartUrl}
-                      alt="Trade Chart Preview"
-                      style={{ width: '100%', maxHeight: '190px', objectFit: 'contain', borderRadius: '6px', display: 'block' }}
-                    />
-                  ) : (
-                    <a
-                      href={formData.chartUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: 'var(--primary)', padding: '4px 6px' }}
-                    >
-                      <ExternalLink size={13} /> Open Chart Link
-                    </a>
-                  )}
-                </div>
-              )}
+              {formData.chartUrl && <ChartPreview chartUrl={formData.chartUrl} alt="Trade Chart Preview" maxHeight="190px" />}
             </div>
 
             {/* Collapsible Custom Tags */}

@@ -8,6 +8,7 @@ import { useTradeStore } from '../store/useTradeStore';
 import { filterTradesByFY, formatTimeToAMPM } from '../utils/fyHelper';
 import { groupHedgedTrades } from '../utils/tradeGrouping';
 import { BrokerBadge } from './BrokerBadge';
+import { ChartPreview } from './ui/ChartPreview';
 
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('en-IN', {
@@ -776,25 +777,9 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                             )}
                           </div>
 
-                          {(pos.leg1.chartUrl || pos.leg2?.chartUrl) && (() => {
-                            const url = pos.leg1.chartUrl || pos.leg2?.chartUrl || '';
-                            const isImg = url.startsWith('data:image') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url) || url.includes('tradingview.com/x/');
-                            return isImg ? (
-                              <div style={{ marginTop: '4px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.28)', padding: '4px' }}>
-                                <img
-                                  src={url}
-                                  alt={`${pos.leg1.symbol} chart`}
-                                  style={{ width: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '6px', display: 'block', cursor: 'pointer' }}
-                                  onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
-                                  title="Click to view full chart"
-                                />
-                              </div>
-                            ) : (
-                              <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.74rem', color: 'var(--primary)', marginTop: '2px' }}>
-                                <ExternalLink size={12} /> View TradingView Chart
-                              </a>
-                            );
-                          })()}
+                          {(pos.leg1.chartUrl || pos.leg2?.chartUrl) && (
+                            <ChartPreview chartUrl={pos.leg1.chartUrl || pos.leg2?.chartUrl} alt={`${pos.leg1.symbol} chart`} maxHeight="160px" />
+                          )}
                         </div>
                       );
                     }
@@ -975,24 +960,9 @@ export function WeeklyJournalModal({ isOpen, onClose, initialWeekId, onEditTrade
                           )}
                         </div>
 
-                        {t.chartUrl && (() => {
-                          const isImg = t.chartUrl.startsWith('data:image') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(t.chartUrl) || t.chartUrl.includes('tradingview.com/x/');
-                          return isImg ? (
-                            <div style={{ marginTop: '4px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.28)', padding: '4px' }}>
-                              <img
-                                src={t.chartUrl}
-                                alt={`${t.symbol} chart`}
-                                style={{ width: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '6px', display: 'block', cursor: 'pointer' }}
-                                onClick={() => window.open(t.chartUrl, '_blank', 'noopener,noreferrer')}
-                                title="Click to view full chart"
-                              />
-                            </div>
-                          ) : (
-                            <a href={t.chartUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.74rem', color: 'var(--primary)', marginTop: '2px' }}>
-                              <ExternalLink size={12} /> View TradingView Chart
-                            </a>
-                          );
-                        })()}
+                        {t.chartUrl && (
+                          <ChartPreview chartUrl={t.chartUrl} alt={`${t.symbol} chart`} maxHeight="160px" />
+                        )}
                       </div>
                     );
                   })}
