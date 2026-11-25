@@ -71,8 +71,6 @@ interface TaxComputation {
   setOffAgainstLtcg: number;
   totalTaxableIncome: number;
   businessTaxCalc: ProgressiveTaxResult;
-  newRegimeTotalTax: number;
-  oldRegimeTotalTax: number;
   totalEstimatedTax: number;
   netTaxPayableOrRefund: number;
   totalBrokerage: number;
@@ -101,11 +99,10 @@ const parseFyStartYear = (fy: string): number => {
   return match ? parseInt(match[1], 10) : 2025;
 };
 
-function calculateSlabTaxForRegime(
+function calculateNewRegimeTax(
   businessIncome: number,
   stcgTaxable: number,
   ltcgTaxable: number,
-  regime: 'NEW' | 'OLD',
   isBudget2025Plus: boolean
 ): {
   businessCalc: ProgressiveTaxResult;
@@ -124,13 +121,8 @@ function calculateSlabTaxForRegime(
   const ltcgBaseTax = safeLtcg * 0.125; // Sec 112A (12.5%)
   const cgBaseTax = stcgBaseTax + ltcgBaseTax;
 
-  let slabRanges: { limit: number; rate: number; label: string }[];
-  let rebateLimit: number;
-  let maxRebate: number;
-
-  if (regime === 'NEW') {
-    if (isBudget2025Plus) {
-      slabRanges = [
+  const slabRanges = isBudget2025Plus
+    ? [
         { limit: 400000, rate: 0, label: '₹0 - ₹4,00,000' },
         { limit: 800000, rate: 0.05, label: '₹4,00,001 - ₹8,00,000' },
         { limit: 1200000, rate: 0.10, label: '₹8,00,001 - ₹12,00,000' },
@@ -138,11 +130,8 @@ function calculateSlabTaxForRegime(
         { limit: 2000000, rate: 0.20, label: '₹16,00,001 - ₹20,00,000' },
         { limit: 2400000, rate: 0.25, label: '₹20,00,001 - ₹24,00,000' },
         { limit: Infinity, rate: 0.30, label: 'Above ₹24,00,000' },
-      ];
-      rebateLimit = 1200000;
-      maxRebate = 60000;
-    } else {
-      slabRanges = [
+      ]
+    : [
         { limit: 300000, rate: 0, label: '₹0 - ₹3,00,000' },
         { limit: 700000, rate: 0.05, label: '₹3,00,001 - ₹7,00,000' },
         { limit: 1000000, rate: 0.10, label: '₹7,00,001 - ₹10,00,000' },
@@ -150,19 +139,9 @@ function calculateSlabTaxForRegime(
         { limit: 1500000, rate: 0.20, label: '₹12,00,001 - ₹15,00,000' },
         { limit: Infinity, rate: 0.30, label: 'Above ₹15,00,000' },
       ];
-      rebateLimit = 700000;
-      maxRebate = 25000;
-    }
-  } else {
-    slabRanges = [
-      { limit: 250000, rate: 0, label: '₹0 - ₹2,50,000' },
-      { limit: 500000, rate: 0.05, label: '₹2,50,001 - ₹5,00,000' },
-      { limit: 1000000, rate: 0.20, label: '₹5,00,001 - ₹10,00,000' },
-      { limit: Infinity, rate: 0.30, label: 'Above ₹10,00,000' },
-    ];
-    rebateLimit = 500000;
-    maxRebate = 12500;
-  }
+
+  const rebateLimit = isBudget2025Plus ? 1200000 : 700000;
+  const maxRebate = isBudget2025Plus ? 60000 : 25000;
 
   let prevLimit = 0;
   let bizBaseTax = 0;
@@ -186,7 +165,7 @@ function calculateSlabTaxForRegime(
   if (totalTaxableIncome > 0 && totalTaxableIncome <= rebateLimit) {
     rebate87A = Math.min(bizBaseTax, maxRebate);
     bizTaxAfterRebate = Math.max(0, bizBaseTax - rebate87A);
-  } else if (regime === 'NEW' && safeBiz > 0 && totalTaxableIncome > rebateLimit) {
+  } else if (safeBiz > 0 && totalTaxableIncome > rebateLimit) {
     const excessIncome = totalTaxableIncome - rebateLimit;
     const totalTaxBeforeRelief = bizBaseTax + cgBaseTax;
     if (totalTaxBeforeRelief > excessIncome && cgBaseTax <= excessIncome) {
@@ -198,11 +177,11 @@ function calculateSlabTaxForRegime(
     }
   }
 
-  // Surcharge evaluated on totalTaxableIncome (STCG/LTCG surcharge capped at 15%)
+  // Surcharge evaluated on totalTaxableIncome (STCG/LTCG surcharge capped at 15%, New Regime max 25%)
   let bizSurchargeRate = 0;
   if (totalTaxableIncome > 5000000 && totalTaxableIncome <= 10000000) bizSurchargeRate = 0.10;
   else if (totalTaxableIncome > 10000000 && totalTaxableIncome <= 20000000) bizSurchargeRate = 0.15;
-  else if (totalTaxableIncome > 20000000) bizSurchargeRate = regime === 'NEW' ? 0.25 : 0.37;
+  else if (totalTaxableIncome > 20000000) bizSurchargeRate = 0.25;
 
   const cgSurchargeRate = Math.min(bizSurchargeRate, 0.15);
 
@@ -236,14 +215,13 @@ function calculateSlabTaxForRegime(
 function computeTaxSummary(
   scopedTrades: Trade[],
   selectedFY: string,
-  taxRegime: 'NEW' | 'OLD',
   allowableExpenses: number,
   advanceTaxPaid: number,
   tdsCredits: number
 ): TaxComputation {
   const fyStartYear = parseFyStartYear(selectedFY);
   const isBudget2025Plus = fyStartYear >= 2025;
-  const rebateLimit = taxRegime === 'NEW' ? (isBudget2025Plus ? 1200000 : 700000) : 500000;
+  const rebateLimit = isBudget2025Plus ? 1200000 : 700000;
 
   // 1. Capital Gains (Sec 70(2) & 70(3) intra-head first, NO ₹1.25L exemption yet!)
   const stcgTrades = scopedTrades.filter((t) => getTradeTaxCategory(t) === 'STCG');
@@ -333,22 +311,13 @@ function computeTaxSummary(
   const stcgTax = effectiveTaxableStcg * 0.20;
   const ltcgTax = effectiveTaxableLtcg * 0.125;
 
-  const newRes = calculateSlabTaxForRegime(
+  const activeRes = calculateNewRegimeTax(
     netTaxableBusiness,
     effectiveTaxableStcg,
     effectiveTaxableLtcg,
-    'NEW',
-    isBudget2025Plus
-  );
-  const oldRes = calculateSlabTaxForRegime(
-    netTaxableBusiness,
-    effectiveTaxableStcg,
-    effectiveTaxableLtcg,
-    'OLD',
     isBudget2025Plus
   );
 
-  const activeRes = taxRegime === 'NEW' ? newRes : oldRes;
   const totalEstimatedTax = activeRes.combinedTotalTax;
   const netTaxPayableOrRefund = totalEstimatedTax - advanceTaxPaid - tdsCredits;
 
@@ -410,8 +379,6 @@ function computeTaxSummary(
     setOffAgainstLtcg,
     totalTaxableIncome: netTaxableBusiness + effectiveTaxableStcg + effectiveTaxableLtcg,
     businessTaxCalc: activeRes.businessCalc,
-    newRegimeTotalTax: newRes.combinedTotalTax,
-    oldRegimeTotalTax: oldRes.combinedTotalTax,
     totalEstimatedTax,
     netTaxPayableOrRefund,
     totalBrokerage,
@@ -502,10 +469,6 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
 
   const taxScopeKey = `${sessionUser?.id || 'guest'}_${selectedFY}_${effectiveScopeKey}`;
 
-  const [taxRegime, setTaxRegime] = useState<'NEW' | 'OLD'>(() => {
-    const saved = localStorage.getItem(`traders_diary_tax_regime_${taxScopeKey}`);
-    return saved === 'OLD' ? 'OLD' : 'NEW';
-  });
   const [allowableExpenses, setAllowableExpenses] = useState<number>(() => {
     const saved = localStorage.getItem(`traders_diary_tax_expenses_${taxScopeKey}`);
     return saved ? parseFloat(saved) || 0 : 0;
@@ -520,8 +483,6 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
   });
 
   useEffect(() => {
-    const savedRegime = localStorage.getItem(`traders_diary_tax_regime_${taxScopeKey}`);
-    setTaxRegime(savedRegime === 'OLD' ? 'OLD' : 'NEW');
     const savedExp = localStorage.getItem(`traders_diary_tax_expenses_${taxScopeKey}`);
     setAllowableExpenses(savedExp ? parseFloat(savedExp) || 0 : 0);
     const savedAdv = localStorage.getItem(`traders_diary_advance_tax_${taxScopeKey}`);
@@ -536,10 +497,6 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
   const [tempExpenseInput, setTempExpenseInput] = useState(allowableExpenses.toString());
   const [tempAdvanceInput, setTempAdvanceInput] = useState(advanceTaxPaid.toString());
   const [tempTdsInput, setTempTdsInput] = useState(tdsCredits.toString());
-
-  useEffect(() => {
-    localStorage.setItem(`traders_diary_tax_regime_${taxScopeKey}`, taxRegime);
-  }, [taxRegime, taxScopeKey]);
 
   useEffect(() => {
     localStorage.setItem(`traders_diary_tax_expenses_${taxScopeKey}`, allowableExpenses.toString());
@@ -570,12 +527,11 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
       computeTaxSummary(
         scopedTrades,
         selectedFY,
-        taxRegime,
         allowableExpenses,
         advanceTaxPaid,
         tdsCredits
       ),
-    [scopedTrades, selectedFY, taxRegime, allowableExpenses, advanceTaxPaid, tdsCredits]
+    [scopedTrades, selectedFY, allowableExpenses, advanceTaxPaid, tdsCredits]
   );
 
   // Person / PAN-wise independent tax calculations (crucial when >1 person shares a broker!)
@@ -590,12 +546,11 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
 
     return Array.from(grouped.entries()).map(([person, personTrades]) => {
       const personKey = `${sessionUser?.id || 'guest'}_${selectedFY}_person_${person}`;
-      const pRegime = localStorage.getItem(`traders_diary_tax_regime_${personKey}`) === 'OLD' ? 'OLD' : 'NEW';
       const pExp = parseFloat(localStorage.getItem(`traders_diary_tax_expenses_${personKey}`) || '0') || 0;
       const pAdv = parseFloat(localStorage.getItem(`traders_diary_advance_tax_${personKey}`) || '0') || 0;
       const pTds = parseFloat(localStorage.getItem(`traders_diary_tds_credits_${personKey}`) || '0') || 0;
 
-      const summary = computeTaxSummary(personTrades, selectedFY, pRegime, pExp, pAdv, pTds);
+      const summary = computeTaxSummary(personTrades, selectedFY, pExp, pAdv, pTds);
       const brokers = Array.from(new Set(personTrades.map((t) => t.broker || 'Other')));
       const netPnL = personTrades.reduce((s, t) => s + t.netPnL, 0);
 
@@ -603,11 +558,10 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
         person,
         brokers,
         netPnL,
-        regime: pRegime,
         summary,
       };
     });
-  }, [activeAccountTrades, getTradePerson, sessionUser?.id, selectedFY, taxRegime, allowableExpenses, advanceTaxPaid, tdsCredits]);
+  }, [activeAccountTrades, getTradePerson, sessionUser?.id, selectedFY, allowableExpenses, advanceTaxPaid, tdsCredits]);
 
   // If viewing ALL taxpayers and there are multiple distinct persons, sum each person's PAN tax!
   const isMultiPersonCombined =
@@ -703,8 +657,6 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
     setShowTaxPaidModal(false);
   };
 
-  const savingsDiff = calc.oldRegimeTotalTax - calc.newRegimeTotalTax;
-
   return (
     <div id="taxation-printable-area" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <style>{`
@@ -758,42 +710,12 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
               </span>
             </div>
             <p style={{ fontSize: '0.73rem', color: 'var(--text-dim)', margin: '2px 0 0 0' }}>
-              PAN-wise Indian Income Tax (Sec 111A, 112A, 70/71/73, 115BAC &amp; 44AB)
+              New Tax Regime (Sec 115BAC Default) • PAN-wise Indian Income Tax
             </p>
           </div>
         </div>
 
         <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Regime Switcher */}
-          <div
-            style={{
-              display: 'flex',
-              background: 'rgba(0,0,0,0.35)',
-              padding: '3px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-            }}
-          >
-            {(['NEW', 'OLD'] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setTaxRegime(r)}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  borderRadius: '6px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: taxRegime === r ? 'var(--primary)' : 'transparent',
-                  color: taxRegime === r ? '#fff' : 'var(--text-muted)',
-                }}
-              >
-                {r === 'NEW' ? 'New Regime' : 'Old Regime'}
-              </button>
-            ))}
-          </div>
-
           <button
             onClick={() => setShowExpenseModal(true)}
             style={{
@@ -1068,42 +990,6 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
       {/* ========================================================================= */}
       {subTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Smart Regime Comparison Banner */}
-          {!isMultiPersonCombined && calc.totalTaxableIncome > 0 && (
-            <div
-              className="glass-card"
-              style={{
-                padding: '12px 16px',
-                background:
-                  savingsDiff > 0
-                    ? 'rgba(16, 185, 129, 0.08)'
-                    : savingsDiff < 0
-                    ? 'rgba(56, 189, 248, 0.08)'
-                    : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${savingsDiff > 0 ? 'rgba(16,185,129,0.28)' : 'rgba(56,189,248,0.28)'}`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '10px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: 700 }}>
-                <Sparkles size={16} color={savingsDiff >= 0 ? '#10b981' : '#38bdf8'} />
-                <span>
-                  {savingsDiff > 0
-                    ? `New Regime saves ${formatCurrency(savingsDiff)} vs Old Regime (Sec 87A limit: ${formatCurrency(calc.isBudget2025Plus ? 1200000 : 700000)})`
-                    : savingsDiff < 0
-                    ? `Old Regime saves ${formatCurrency(Math.abs(savingsDiff))} vs New Regime`
-                    : 'Both regimes give identical tax for this income'}
-                </span>
-              </div>
-              <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
-                New: {formatCurrency(calc.newRegimeTotalTax)} | Old: {formatCurrency(calc.oldRegimeTotalTax)}
-              </span>
-            </div>
-          )}
-
           {/* Side-by-side Capital Gains & Business Income Set-off */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '16px' }}>
             {/* Capital Gains Card */}
@@ -1261,7 +1147,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Layers size={16} color="var(--primary)" />
                 <h3 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0 }}>
-                  Slab Breakdown ({taxRegime === 'NEW' ? (calc.isBudget2025Plus ? 'Budget 2025 Sec 115BAC' : 'Budget 2024 Sec 115BAC') : 'Old Slab Regime'})
+                  Slab Breakdown ({calc.isBudget2025Plus ? 'Budget 2025 Sec 115BAC' : 'Budget 2024 Sec 115BAC'})
                 </h3>
               </div>
               <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
@@ -1423,7 +1309,7 @@ export function Taxation({ activeAccountId = 'Combined' }: { activeAccountId?: s
                         title={`Click to inspect ${p.person}'s full tax breakdown`}
                       >
                         <td style={{ padding: '9px 10px', fontWeight: 700, color: 'var(--primary)' }}>
-                          {p.person} <span style={{ fontSize: '0.64rem', color: 'var(--text-dim)' }}>({p.regime})</span>
+                          {p.person}
                         </td>
                         <td style={{ padding: '9px 10px', color: 'var(--text-dim)' }}>{p.brokers.join(', ')}</td>
                         <td style={{ padding: '9px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: p.netPnL >= 0 ? 'var(--color-win)' : 'var(--color-loss)' }}>
